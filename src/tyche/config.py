@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Literal
 
@@ -19,6 +20,7 @@ class Asset(BaseModel):
 
 class UniverseConfig(BaseModel):
     cash_symbol: str = "CASH"
+    min_market_cap_usd: float = 500_000_000.0
     assets: list[Asset]
 
     @model_validator(mode="after")
@@ -97,10 +99,11 @@ class StrategyConfig(BaseModel):
 
 
 class RiskPolicy(BaseModel):
-    account_pattern: str = "^SIM"
+    account_allowlist: list[str] = Field(default_factory=lambda: ["SIM-DEMO-US", "SIM-TEST"])
     allowed_markets: list[str] = ["US"]
     max_gross_exposure: float = 0.95
-    max_position_weight: float = 0.30
+    max_position_weight: float = 0.40
+    max_positions: int = 100
     cap_tolerance_pct: float = 0.0025
     min_cash_weight: float = 0.05
     max_order_notional_pct: float = 0.20
@@ -108,7 +111,7 @@ class RiskPolicy(BaseModel):
     max_orders_per_day: int = 6
     max_limit_deviation_pct: float = 0.03
     min_order_notional: float = 500.0
-    min_price: float = 0.50
+    min_price: float = 1.00
     soft_drawdown_pct: float = 0.04
     hard_drawdown_pct: float = 0.06
     daily_loss_limit_pct: float = 0.025
@@ -120,6 +123,10 @@ class RiskPolicy(BaseModel):
             raise ValueError("soft_drawdown_pct must be below hard_drawdown_pct")
         if not 0.0 < self.max_gross_exposure <= 1.0:
             raise ValueError("max_gross_exposure must be in (0, 1]")
+        if self.max_positions < 1:
+            raise ValueError("max_positions must be at least 1")
+        if self.min_price <= 0.0:
+            raise ValueError("min_price must be positive")
         if self.allow_short:
             raise ValueError("shorting is out of scope for this agent")
         return self
@@ -144,9 +151,16 @@ def _read_yaml(path: Path) -> dict:
 def load_config(root: Path) -> AppConfig:
     root = Path(root).resolve()
     config_dir = root / "config"
+    risk = RiskPolicy.model_validate(_read_yaml(config_dir / "risk.yaml"))
+    extra = os.environ.get("TYCHE_ALLOWED_ACCOUNT_IDS", "")
+    injected = [item.strip() for item in extra.split(",") if item.strip()]
+    if injected:
+        risk = risk.model_copy(
+            update={"account_allowlist": [*risk.account_allowlist, *injected]}
+        )
     return AppConfig(
         universe=UniverseConfig.model_validate(_read_yaml(config_dir / "universe.yaml")),
         strategy=StrategyConfig.model_validate(_read_yaml(config_dir / "strategy.yaml")),
-        risk=RiskPolicy.model_validate(_read_yaml(config_dir / "risk.yaml")),
+        risk=risk,
         root=root,
     )

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import re
 from datetime import UTC, date, datetime
 from pathlib import Path
 
@@ -394,9 +393,9 @@ def execute(
         raise typer.BadParameter(
             f"account {account_id} does not match the plan account {plan.account_id}"
         )
-    if not re.search(config.risk.account_pattern, account_id):
+    if account_id not in config.risk.account_allowlist:
         console.print(
-            f"Refusing {account_id}: paper accounts must match {config.risk.account_pattern}."
+            f"Refusing {account_id}: not in the paper account allowlist."
         )
         raise typer.Exit(2)
 

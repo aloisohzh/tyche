@@ -23,8 +23,20 @@ def test_load_repo_config() -> None:
     config = load_config(ROOT)
     assert len(config.universe.assets) == 11
     assert config.universe.cash_symbol == "CASH"
+    assert config.universe.min_market_cap_usd == 500_000_000.0
     assert config.risk.allow_short is False
+    assert config.risk.min_price == 1.00
+    assert config.risk.max_positions == 100
+    assert "SIM-DEMO-US" in config.risk.account_allowlist
     assert config.strategy.top_n == 4
+
+
+def test_account_allowlist_merges_env_ids(monkeypatch) -> None:
+    monkeypatch.setenv("TYCHE_ALLOWED_ACCOUNT_IDS", "9000001, 9000002")
+    config = load_config(ROOT)
+    assert "9000001" in config.risk.account_allowlist
+    assert "9000002" in config.risk.account_allowlist
+    assert "SIM-DEMO-US" in config.risk.account_allowlist
 
 
 def test_lookback_weights_must_match() -> None:

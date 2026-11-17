@@ -102,10 +102,12 @@ docs/            competition contract, scoring map, reviews, ADRs, playbooks,
 
 ## Safety model
 
-- Only simulated accounts are accepted. v0.1 uses a `^SIM` pattern; the competition account is numeric
-  (`account_type 2`), so this moves to an **allowlist** (review G2) before any competition order.
+- Only paper accounts are accepted. The guard is an **allowlist** conjunction: `env == paper`,
+  id in `account_allowlist` (real ids injected from vault/env, never committed), and for non-demo
+  sources `account_type == 2` ∧ `market_id == 100` verified against the sim account list.
 - Shorting is disabled and oversells are rejected.
-- Hard caps: 95% gross, 30% per position, 5% minimum cash, 20% per order.
+- Hard caps: 95% gross, 40% per position (target ≤38%), 100 positions, 5% minimum cash, 20% per order,
+  $1.00 minimum price. Internal order budget is 6/day (competition ceiling 200).
 - Drawdown control: 4% soft (buy quantities halved), 6% hard (buys blocked).
 - Daily loss limit 2.5%; daily turnover 50% of NAV on the buy side.
 - Every verdict, plan, and execution is appended to the audit journal.

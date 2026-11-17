@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import re
-
 from pydantic import BaseModel
 
 from tyche.config import RiskPolicy, Sleeve
@@ -53,8 +51,15 @@ def evaluate_intent(
     def breach(rule: str, detail: str) -> None:
         breaches.append(RiskBreach(rule=rule, detail=detail))
 
-    if not re.search(policy.account_pattern, snapshot.account_id):
-        breach("account.paper_only", f"{snapshot.account_id} does not match paper pattern")
+    if snapshot.env != "paper":
+        breach("account.paper_only", f"env '{snapshot.env}' is not paper")
+    elif snapshot.account_id not in policy.account_allowlist:
+        breach("account.paper_only", f"{snapshot.account_id} is not in the account allowlist")
+    if snapshot.source != "demo" and (snapshot.account_type != 2 or snapshot.market_id != 100):
+        breach(
+            "account.sim_verified",
+            f"account_type={snapshot.account_type} market_id={snapshot.market_id}; require 2/100",
+        )
     market = intent.symbol.split(".")[0]
     if market not in policy.allowed_markets:
         breach("market.allowed", f"market {market} is not allowed")
@@ -82,6 +87,8 @@ def evaluate_intent(
 
     held = snapshot.position(intent.symbol)
     held_qty = held.quantity if held else 0
+    if intent.side == Side.BUY and held is None and len(snapshot.positions) >= policy.max_positions:
+        breach("position.count", f"already holding {policy.max_positions} positions")
     closes_position = intent.side == Side.SELL and intent.quantity == held_qty
     if intent.side == Side.SELL and intent.quantity > held_qty:
         breach("position.no_short", f"sell {intent.quantity} exceeds held {held_qty}")

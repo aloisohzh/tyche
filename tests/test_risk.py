@@ -43,13 +43,14 @@ def evaluate(
     state: RiskState | None = None,
     last_price: float = 600.0,
     sleeve_caps: dict[str, float] | None = None,
+    policy: RiskPolicy | None = None,
 ):
     snapshot = snapshot or make_snapshot()
     state = state or RiskState(nav=snapshot.nav, prior_close_nav=snapshot.nav)
     return evaluate_intent(
         intent=intent,
         snapshot=snapshot,
-        policy=POLICY,
+        policy=policy or POLICY,
         state=state,
         last_price=last_price,
         universe_symbols=UNIVERSE,
@@ -193,3 +194,89 @@ def test_projected_sell_frees_capacity_for_later_buy() -> None:
     projected = apply_fill(snapshot, sell, sell.quantity)
     verdict = evaluate(buy, projected, state, last_price=100.0, sleeve_caps=caps)
     assert verdict.allowed, verdict.breaches
+
+
+def test_live_env_is_blocked_even_for_allowlisted_id() -> None:
+    snapshot = AccountSnapshot(account_id="SIM-DEMO-US", cash=100_000.0, env="live")
+    verdict = evaluate(make_intent(), snapshot=snapshot)
+    assert not verdict.allowed
+    assert any(b.rule == "account.paper_only" for b in verdict.breaches)
+
+
+def test_numeric_account_outside_allowlist_is_blocked() -> None:
+    snapshot = AccountSnapshot(
+        account_id="9000002", cash=100_000.0, source="sim_list", account_type=2, market_id=100
+    )
+    verdict = evaluate(make_intent(), snapshot=snapshot)
+    assert not verdict.allowed
+    assert any(b.rule == "account.paper_only" for b in verdict.breaches)
+
+
+def test_allowlisted_competition_account_is_allowed() -> None:
+    policy = RiskPolicy(account_allowlist=["9000001"])
+    snapshot = AccountSnapshot(
+        account_id="9000001", cash=100_000.0, source="sim_list", account_type=2, market_id=100
+    )
+    verdict = evaluate(make_intent(), snapshot=snapshot, policy=policy)
+    assert verdict.allowed, verdict.breaches
+
+
+def test_sim_source_requires_paper_type_and_market() -> None:
+    policy = RiskPolicy(account_allowlist=["9000001"])
+    snapshot = AccountSnapshot(
+        account_id="9000001", cash=100_000.0, source="sim_list", account_type=1, market_id=100
+    )
+    verdict = evaluate(make_intent(), snapshot=snapshot, policy=policy)
+    assert not verdict.allowed
+    assert any(b.rule == "account.sim_verified" for b in verdict.breaches)
+
+
+def test_competition_min_price_is_one_dollar() -> None:
+    verdict = evaluate(make_intent(quantity=10, price=0.75), last_price=0.75)
+    assert not verdict.allowed
+    assert any(b.rule == "price.minimum" for b in verdict.breaches)
+
+
+def test_max_positions_blocks_new_symbol() -> None:
+    policy = RiskPolicy(max_positions=1)
+    snapshot = make_snapshot(
+        cash=94_000.0,
+        positions=[Position(symbol="US.TLT", quantity=10, avg_cost=500, last_price=500)],
+    )
+    verdict = evaluate(make_intent(symbol="US.SPY"), snapshot=snapshot, policy=policy)
+    assert not verdict.allowed
+    assert any(b.rule == "position.count" for b in verdict.breaches)
+
+
+def test_disallowed_market_is_blocked() -> None:
+    verdict = evaluate(make_intent(symbol="HK.0700"))
+    assert not verdict.allowed
+    assert any(b.rule == "market.allowed" for b in verdict.breaches)
+
+
+def test_outside_universe_is_blocked() -> None:
+    verdict = evaluate(make_intent(symbol="US.AAPL"))
+    assert not verdict.allowed
+    assert any(b.rule == "universe.membership" for b in verdict.breaches)
+
+
+def test_missing_price_is_blocked() -> None:
+    verdict = evaluate(make_intent(), last_price=0.0)
+    assert not verdict.allowed
+    assert any(b.rule == "price.available" for b in verdict.breaches)
+
+
+def test_below_min_notional_is_blocked() -> None:
+    verdict = evaluate(make_intent(quantity=1, price=100.0), last_price=100.0)
+    assert not verdict.allowed
+    assert any(b.rule == "order.min_notional" for b in verdict.breaches)
+
+
+def test_single_asset_weight_cap() -> None:
+    snapshot = make_snapshot(
+        cash=64_000.0,
+        positions=[Position(symbol="US.SPY", quantity=60, avg_cost=600, last_price=600)],
+    )
+    verdict = evaluate(make_intent(quantity=10, price=600.0), snapshot=snapshot)
+    assert not verdict.allowed
+    assert any(b.rule == "position.max_weight" for b in verdict.breaches)

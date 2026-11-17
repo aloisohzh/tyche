@@ -64,7 +64,8 @@ On every run:
 
 Hard rules:
 
-- Paper accounts only. Refuse any account ID that does not match `^SIM`.
+- Paper accounts only. Refuse any account not in the allowlist (`env == paper`, id in
+  `account_allowlist`/vault, and `account_type == 2` ∧ `market_id == 100` for non-demo sources).
 - Never modify `config/`, `plans/`, or `journal/` by hand.
 - Never retry a submission blindly. Inspect order state first.
 - Never expose credentials, tokens, or full account identifiers in reports.

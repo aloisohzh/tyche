@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 from enum import StrEnum
+from typing import Literal
 
 from pydantic import BaseModel, Field, computed_field
 
@@ -37,6 +38,10 @@ class AccountSnapshot(BaseModel):
     account_id: str
     cash: float = Field(ge=0.0)
     positions: list[Position] = Field(default_factory=list)
+    env: Literal["paper", "live"] = "paper"
+    account_type: int | None = None
+    market_id: int | None = None
+    source: Literal["demo", "sim_list", "manual"] = "demo"
 
     def position(self, symbol: str) -> Position | None:
         return next((p for p in self.positions if p.symbol == symbol), None)
