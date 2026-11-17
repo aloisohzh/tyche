@@ -16,7 +16,7 @@ Numbers below are quoted from the handbook unless marked `(briefing)`.
 ## Eligible instruments and account
 
 - Only **US-listed stocks, ETFs, and options**. Everything else excluded.
-- Start **USD 100,000** virtual. Competition account is a paper account (`account_type` 2, `market_id` 100) — **not** a `SIM-` prefixed id. The full account id is held in vault/env (`TYCHE_ALLOWED_ACCOUNT_IDS`), never committed.
+- Start **USD 100,000** virtual. Competition account is a paper account (`account_type` 2, `market_id` 100) — **not** a `SIM-` prefixed id. The personal US paper account is `account_type` 1, also `market_id` 100. Full account ids are held in vault/env (`TYCHE_ALLOWED_ACCOUNT_IDS`), never committed.
 - Auth: select **Market Data** permission only; do **not** grant live trading execution / account-order permissions.
 - The competition account **cannot be reset**. Test on a separate personal paper account first (id likewise in vault/env).
 - Reset Card / revival / any fund-restore mechanism = **automatic disqualification**.

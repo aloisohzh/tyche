@@ -55,10 +55,14 @@ def evaluate_intent(
         breach("account.paper_only", f"env '{snapshot.env}' is not paper")
     elif snapshot.account_id not in policy.account_allowlist:
         breach("account.paper_only", f"{snapshot.account_id} is not in the account allowlist")
-    if snapshot.source != "demo" and (snapshot.account_type != 2 or snapshot.market_id != 100):
+    if snapshot.source != "demo" and (
+        snapshot.account_type not in policy.sim_account_types
+        or snapshot.market_id != policy.sim_market_id
+    ):
         breach(
             "account.sim_verified",
-            f"account_type={snapshot.account_type} market_id={snapshot.market_id}; require 2/100",
+            f"account_type={snapshot.account_type} market_id={snapshot.market_id}; "
+            f"require type in {policy.sim_account_types} and market {policy.sim_market_id}",
         )
     market = intent.symbol.split(".")[0]
     if market not in policy.allowed_markets:

@@ -1,6 +1,8 @@
 # Demo ids only. Real paper account ids are injected at load from the
 # TYCHE_ALLOWED_ACCOUNT_IDS env/vault var and are never committed.
 account_allowlist: ["SIM-DEMO-US", "SIM-TEST"]
+sim_account_types: [1, 2]
+sim_market_id: 100
 allowed_markets: [US]
 max_gross_exposure: 0.95
 max_position_weight: 0.40

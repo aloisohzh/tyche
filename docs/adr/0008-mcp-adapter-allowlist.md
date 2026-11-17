@@ -30,8 +30,15 @@ Replace the regex guard with an allowlist conjunction:
 - `account_id` is in `RiskPolicy.account_allowlist`. Demo ids are committed;
   real ids are injected at load from `TYCHE_ALLOWED_ACCOUNT_IDS` (vault/env) and
   never written to the repo;
-- when the snapshot `source` is not `demo`, require `account_type == 2` and
-  `market_id == 100`, verified against the sim account list.
+- when the snapshot `source` is not `demo`, require `account_type` in `{1, 2}` and
+  `market_id == 100`, verified against the sim account list. (Verified live: the
+  competition account is type 2, the personal US paper account is type 1; both are
+  paper at market 100. Requiring type 2 alone would wrongly block the drill account.)
+
+The read side is `tyche.broker.mcp_json`: the executor writes `accounts.json`,
+`cash.json`, `positions.json` from the MCP sim tools and `snapshot_from_dir` builds
+the snapshot, carrying `account_type`/`market_id` for the kernel. Shapes are
+grounded in live responses (`data.accounts[]`, `data.balance`, `data.positions[]`).
 
 MCP submit is non-idempotent. On timeout or unknown outcome, query today's orders
 before any further write; never retry a submission blindly.

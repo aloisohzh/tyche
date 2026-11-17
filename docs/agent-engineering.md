@@ -25,6 +25,27 @@ without the auditor's approval."* Auditor runs in a separate thread so it cannot
   caps snapshot, output path. Children do not inherit context.
 - Selecting agents does not force delegation — the prompt does.
 
+## Snapshot file contract (executor → deterministic core)
+
+The core cannot call MCP directly. The executor fetches read JSON and writes three
+files into the run directory; `tyche.broker.mcp_json.snapshot_from_dir` consumes them:
+
+| File | MCP tool | Shape used |
+|---|---|---|
+| `accounts.json` | `sim_trade_account_list` | `data.accounts[]` → `account_id`, `account_type`, `market_id` |
+| `cash.json` | `sim_trade_cash_info` | `data.balance` = cash; `data.total_asset` = NAV |
+| `positions.json` | `sim_trade_position_list` | `data.positions[]` → bare `symbol` (prefix `US.`), `qty`, `cost_price`, `cur_price` |
+
+`build_snapshot` sets `source="sim_list"`, `env="paper"`, and carries `account_type`/`market_id`
+from the matching account entry so the kernel can verify them. A missing account entry yields
+`None` types and fails closed. Quotes/klines reuse the payload-agnostic `extract_last_price` /
+`extract_daily_bars` walkers.
+
+Execution flow: plan → auditor approval → human arm → executor submits each approved order
+**verbatim** via `sim_trade_submit_order` (limit/market only) → executor writes order/receipt JSON →
+core reconciles fills and fees (`tyche.fees.reconcile_cash`). Submit is non-idempotent: on timeout,
+query today's orders before any further write; never retry blindly.
+
 ## Version pins
 
 - Pin **numeric** child agent + skill versions for the whole window; no `latest`.

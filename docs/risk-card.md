@@ -12,11 +12,13 @@ and [0010](adr/0010-fees-and-caps.md).
 |---|---|---|---|
 | `env == "paper"` | `account.paper_only` | snapshot `env` | `test_live_env_is_blocked_even_for_allowlisted_id` |
 | id in allowlist | `account.paper_only` | `account_allowlist` + `TYCHE_ALLOWED_ACCOUNT_IDS` env | `test_live_account_is_blocked`, `test_numeric_account_outside_allowlist_is_blocked` |
-| non-demo source ⇒ `account_type==2` ∧ `market_id==100` | `account.sim_verified` | sim account list | `test_sim_source_requires_paper_type_and_market`, `test_allowlisted_competition_account_is_allowed` |
+| non-demo source ⇒ `account_type ∈ {1,2}` ∧ `market_id==100` | `account.sim_verified` | `sim_account_types`, `sim_market_id`; sim account list | `test_sim_source_requires_us_paper_market`, `test_sim_source_rejects_unknown_account_type`, `test_personal_paper_type_one_is_allowed`, `test_allowlisted_competition_account_is_allowed` |
 
 Real account ids are injected at load from vault/env and never committed; only
-demo ids (`SIM-DEMO-US`, `SIM-TEST`) appear in config. The execute command also
-re-checks allowlist membership and sim-account-list presence before any submit.
+demo ids (`SIM-DEMO-US`, `SIM-TEST`) appear in config. The competition account is
+`account_type` 2; the personal US paper account is `account_type` 1 — both are paper
+(`market_id` 100), so both pass. The execute command also re-checks allowlist
+membership and sim-account-list presence before any submit.
 
 ## Order and price guards
 

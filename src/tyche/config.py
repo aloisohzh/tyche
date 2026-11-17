@@ -100,6 +100,8 @@ class StrategyConfig(BaseModel):
 
 class RiskPolicy(BaseModel):
     account_allowlist: list[str] = Field(default_factory=lambda: ["SIM-DEMO-US", "SIM-TEST"])
+    sim_account_types: list[int] = Field(default_factory=lambda: [1, 2])
+    sim_market_id: int = 100
     allowed_markets: list[str] = ["US"]
     max_gross_exposure: float = 0.95
     max_position_weight: float = 0.40

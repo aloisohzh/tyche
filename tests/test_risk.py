@@ -221,14 +221,33 @@ def test_allowlisted_competition_account_is_allowed() -> None:
     assert verdict.allowed, verdict.breaches
 
 
-def test_sim_source_requires_paper_type_and_market() -> None:
+def test_sim_source_requires_us_paper_market() -> None:
+    policy = RiskPolicy(account_allowlist=["9000001"])
+    snapshot = AccountSnapshot(
+        account_id="9000001", cash=100_000.0, source="sim_list", account_type=1, market_id=1
+    )
+    verdict = evaluate(make_intent(), snapshot=snapshot, policy=policy)
+    assert not verdict.allowed
+    assert any(b.rule == "account.sim_verified" for b in verdict.breaches)
+
+
+def test_sim_source_rejects_unknown_account_type() -> None:
+    policy = RiskPolicy(account_allowlist=["9000001"])
+    snapshot = AccountSnapshot(
+        account_id="9000001", cash=100_000.0, source="sim_list", account_type=9, market_id=100
+    )
+    verdict = evaluate(make_intent(), snapshot=snapshot, policy=policy)
+    assert not verdict.allowed
+    assert any(b.rule == "account.sim_verified" for b in verdict.breaches)
+
+
+def test_personal_paper_type_one_is_allowed() -> None:
     policy = RiskPolicy(account_allowlist=["9000001"])
     snapshot = AccountSnapshot(
         account_id="9000001", cash=100_000.0, source="sim_list", account_type=1, market_id=100
     )
     verdict = evaluate(make_intent(), snapshot=snapshot, policy=policy)
-    assert not verdict.allowed
-    assert any(b.rule == "account.sim_verified" for b in verdict.breaches)
+    assert verdict.allowed, verdict.breaches
 
 
 def test_competition_min_price_is_one_dollar() -> None:
