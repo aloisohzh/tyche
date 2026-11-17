@@ -1,0 +1,77 @@
+# Dashboard framework — the research-to-execution pipeline as the spine
+
+The dashboard's information architecture is the professional pipeline (kickoff briefing diagram):
+**Thesis → Multi-factor inputs → Outlook → Vehicle & Edge → Edge/Expectancy**, with an
+**Execution & Trade Management** band underneath. Every idea/trade is a card that moves through the
+stages; the dashboard shows where each one is and the evidence at each stage. This makes the process
+visible to judges and to the operator, and it is exactly the "strategy & risk design" story.
+
+## Stage mapping — current plan vs the pipeline
+
+| Stage | Diagram | tyche today | Status / gap |
+|---|---|---|---|
+| 1 Thesis | market hypothesis & theme | playbook thesis + edge + invalidation | concept yes; **not yet a per-trade field** in plan/journal → add |
+| 2 Multi-factor | macro, fundamental filter, technical, sentiment & flow, seasonality & earnings | v0.1 core = **technicals only** (momentum/regime/vol). Researcher child + MCP news/capital-flow/event-calendar add macro/sentiment/seasonality; "fundamental" = eligibility filter (cap ≥$500M, price ≥$1, liquidity) | designed, not built |
+| 3 Outlook | bullish / bearish / neutral-range | v0.1 = **market regime only** (risk_on/neutral/risk_off) | add **per-setup outlook + conviction** and an act/wait gate |
+| 4 Vehicle & Edge | ETFs, Stocks (L/S), Options | v0.1 ETFs only; window = ETFs (ballast) + stocks long + **defined-risk options** | vehicle choice by edge/cost/liquidity lives in playbook; **deliberate divergence: no direct short** (defined-risk puts instead) |
+| 5 Edge/Expectancy | (Win%×AvgWin) − (Loss%×AvgLoss) | per-sleeve fee-net scorecard (expectancy R and %) | matches the formula; **small-n (~7 sessions) → label provisional, show n**; compare expected vs realized |
+| Execution | sizing, bracket/trailing, rolling | sizing = risk kernel + vol target + caps; **bracket/trailing impossible on sim** (Limit/Market only) → synthetic protection monitor + defined-risk structures; rolling = options leg-group (P2) | sizing yes; bracket/trailing replaced honestly; rolling planned |
+
+Two honest divergences to state in the report, not hide: the sim path has **no broker-native
+stops/trailing**, so protection is a monitor + defined-risk structures; and we **avoid direct shorting**
+(margin 60/50 + 6.0% financing + forced-liq risk) in favor of defined-risk puts.
+
+## Per-trade pipeline contract (fields the plan + journal must carry)
+
+So the dashboard can render every stage from data, not prose:
+
+```
+thesis_ref        playbook id (PB-xxx) + rules hash
+inputs_ref        research brief path + inputs snapshot hash
+outlook           bullish | bearish | range   + conviction tier
+vehicle           etf | stock_long | option_vertical   + vehicle_rationale
+expected_edge     R and % (pre-trade)
+invalidation      explicit price/level/time/event condition
+protection_type   synthetic_stop | defined_risk | time_exit
+roll_plan         for option leg groups (or none)
+sizing            risk unit, qty, notional, single-asset headroom, sleeve cap
+realized          fills, fees, exit kind, realized R and %   (post-trade)
+```
+
+## Panels
+
+1. **Pipeline board** — cards per active idea/trade across stages 1→5, current stage highlighted,
+   stage artifacts linked (playbook, research brief, outlook, vehicle rationale, expectancy).
+2. **Trade detail** — the contract fields above; expected vs realized edge; invalidation and protection
+   state; roll plan.
+3. **Expectancy** — per sleeve: (Win%×AvgWin) − (Loss%×AvgLoss), fee-net, with n and a provisional label;
+   conviction calibration if tiers are used.
+4. **Execution & risk** — positions, exposure vs caps (40% single-asset headroom), drawdown ladder,
+   daily-loss block, **kill-switch state**, protection-monitor heartbeat, open orders, **rejection log**.
+5. **Equity curve** — fee-net NAV, daily returns, max DD, weekly Friday marks.
+6. **Automation / orchestration** — scheduled runs, thread status, delegation + auditor approvals,
+   version pins; proves unattended operation.
+
+## Data sources
+
+- **Journal** (`journal/events.jsonl`, hash-chained) = truth for trades, decisions, rejections, risk events.
+- **Performance artifacts** (`docs/performance/`) = generated metrics.
+- **QCA API** for sessions/threads/events/schedules (automation panel), read **server-side** with a PAT.
+
+## API plumbing (from the conventions overview)
+
+- Gateway: Managed `https://api.qoder.com/api/v1/cloud`; **Forward `https://api.qoder.com/api/v1/forward`**
+  (our sessions/threads/schedules live under Forward).
+- Auth: `Authorization: Bearer <PAT>`; PAT created at qoder.com/cloud/pat-keys, kept in a gitignored
+  `.env`, **server-side only**, never in client code or the repo.
+- Cursor pagination (`first_id`/`last_id`/`has_more`); 4 MB body limit; exponential backoff on 429/5xx
+  (1s→2s→4s, max 3); beta features need `x-qoder-beta` (e.g. `oss-bucket-2026-09-23` for the persistence mount).
+- This page is the reference for reading cloud data; it is **not** a dashboard framework. The dashboard
+  is a web app we build (local first per handbook §7, optionally Qoder Sites), with a short screen
+  capture for submission.
+
+## Build order
+
+P1: pipeline board + trade detail + expectancy + equity + rejection log from the journal (local).
+P1: automation panel from the Forward API (PAT server-side). P2: protection heartbeat + roll state.
+Keep it one page; do not build a platform.

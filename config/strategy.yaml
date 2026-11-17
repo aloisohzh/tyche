@@ -1,0 +1,36 @@
+lookbacks: [63, 126, 252]
+lookback_weights: [0.5, 0.3, 0.2]
+skip_days: 5
+min_momentum: 0.0
+top_n: 4
+target_vol: 0.10
+max_weight: 0.30
+min_cash_weight: 0.05
+min_trade_notional: 500.0
+drift_band: 0.20
+
+regime:
+  trend_sma: 200
+  cross_fast: 50
+  cross_slow: 200
+  vol_short: 20
+  vol_long: 252
+  vol_ratio_limit: 1.25
+  credit_fast: 63
+
+sleeve_caps:
+  risk_on:
+    equity: 0.80
+    defensive: 0.40
+    real_asset: 0.25
+    credit: 0.15
+  neutral:
+    equity: 0.50
+    defensive: 0.50
+    real_asset: 0.20
+    credit: 0.10
+  risk_off:
+    equity: 0.20
+    defensive: 0.60
+    real_asset: 0.30
+    credit: 0.00

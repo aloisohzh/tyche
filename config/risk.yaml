@@ -1,0 +1,16 @@
+account_pattern: "^SIM"
+allowed_markets: [US]
+max_gross_exposure: 0.95
+max_position_weight: 0.30
+cap_tolerance_pct: 0.0025
+min_cash_weight: 0.05
+max_order_notional_pct: 0.20
+max_daily_turnover_pct: 0.50
+max_orders_per_day: 6
+max_limit_deviation_pct: 0.03
+min_order_notional: 500.0
+min_price: 0.50
+soft_drawdown_pct: 0.04
+hard_drawdown_pct: 0.06
+daily_loss_limit_pct: 0.025
+allow_short: false

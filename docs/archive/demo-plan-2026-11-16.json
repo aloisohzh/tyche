@@ -1,0 +1,167 @@
+{
+  "as_of": "2026-11-16",
+  "account_id": "SIM-DEMO-US",
+  "nav": 100000.0,
+  "cash": 100000.0,
+  "regime": "risk_on",
+  "targets": {
+    "US.EFA": 0.2,
+    "US.QQQ": 0.3,
+    "US.HYG": 0.15,
+    "US.SPY": 0.3,
+    "CASH": 0.05
+  },
+  "signals": {
+    "US.SPY": {
+      "momentum": 0.17669092517053986,
+      "volatility": 0.16196497107310506,
+      "score": 1.0909206107954543,
+      "selected": true
+    },
+    "US.QQQ": {
+      "momentum": 0.2539264193004458,
+      "volatility": 0.1797078919414555,
+      "score": 1.4129953701931404,
+      "selected": true
+    },
+    "US.IWM": {
+      "momentum": 0.16867172840865152,
+      "volatility": 0.1860790034575921,
+      "score": 0.9064522341291035,
+      "selected": false
+    },
+    "US.EFA": {
+      "momentum": 0.21748615230844032,
+      "volatility": 0.1470884282051416,
+      "score": 1.4786081744317525,
+      "selected": true
+    },
+    "US.EEM": {
+      "momentum": 0.1397225788049708,
+      "volatility": 0.17025423938182,
+      "score": 0.8206701889614773,
+      "selected": false
+    },
+    "US.TLT": {
+      "momentum": -0.05903825393485622,
+      "volatility": 0.11096667429426423,
+      "score": -0.5320358955545256,
+      "selected": false
+    },
+    "US.IEF": {
+      "momentum": -0.01628638266136909,
+      "volatility": 0.05748845028076822,
+      "score": -0.2832983422205316,
+      "selected": false
+    },
+    "US.GLD": {
+      "momentum": 0.03314559802180088,
+      "volatility": 0.08813072661455963,
+      "score": 0.3760958214580868,
+      "selected": false
+    },
+    "US.DBC": {
+      "momentum": 0.04160379868126811,
+      "volatility": 0.11781931020742903,
+      "score": 0.35311527972810014,
+      "selected": false
+    },
+    "US.VNQ": {
+      "momentum": 0.17164328405796764,
+      "volatility": 0.15863450725391945,
+      "score": 1.0820047102565498,
+      "selected": false
+    },
+    "US.HYG": {
+      "momentum": 0.08130488886768135,
+      "volatility": 0.07329101857298291,
+      "score": 1.109343142594181,
+      "selected": true
+    }
+  },
+  "regime_checks": {
+    "equity_trend": true,
+    "golden_cross": true,
+    "vol_calm": true,
+    "credit_trend": true
+  },
+  "portfolio_vol": 0.10519531204472408,
+  "vol_scale": 0.9506127037057005,
+  "orders": [
+    {
+      "intent": {
+        "symbol": "US.QQQ",
+        "side": "buy",
+        "quantity": 53,
+        "order_type": "limit",
+        "limit_price": 292.7,
+        "reason": "rebalance 0.0% -> 30.0% under risk_on regime",
+        "notional": 15513.099999999999
+      },
+      "verdict": {
+        "allowed": true,
+        "breaches": [],
+        "adjusted_quantity": 53,
+        "notes": []
+      },
+      "effective_quantity": 53
+    },
+    {
+      "intent": {
+        "symbol": "US.SPY",
+        "side": "buy",
+        "quantity": 39,
+        "order_type": "limit",
+        "limit_price": 402.45,
+        "reason": "rebalance 0.0% -> 30.0% under risk_on regime",
+        "notional": 15695.55
+      },
+      "verdict": {
+        "allowed": true,
+        "breaches": [],
+        "adjusted_quantity": 39,
+        "notes": []
+      },
+      "effective_quantity": 39
+    },
+    {
+      "intent": {
+        "symbol": "US.EFA",
+        "side": "buy",
+        "quantity": 136,
+        "order_type": "limit",
+        "limit_price": 77.28,
+        "reason": "rebalance 0.0% -> 20.0% under risk_on regime",
+        "notional": 10510.08
+      },
+      "verdict": {
+        "allowed": true,
+        "breaches": [],
+        "adjusted_quantity": 136,
+        "notes": []
+      },
+      "effective_quantity": 136
+    },
+    {
+      "intent": {
+        "symbol": "US.HYG",
+        "side": "buy",
+        "quantity": 95,
+        "order_type": "limit",
+        "limit_price": 83.04,
+        "reason": "rebalance 0.0% -> 15.0% under risk_on regime",
+        "notional": 7888.8
+      },
+      "verdict": {
+        "allowed": true,
+        "breaches": [],
+        "adjusted_quantity": 95,
+        "notes": []
+      },
+      "effective_quantity": 95
+    }
+  ],
+  "notes": [
+    "regime=risk_on checks=4/4 portfolio_vol=10.5% vol_scale=0.95"
+  ]
+}

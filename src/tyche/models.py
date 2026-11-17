@@ -1,0 +1,167 @@
+from __future__ import annotations
+
+from datetime import date
+from enum import StrEnum
+
+from pydantic import BaseModel, Field, computed_field
+
+
+class Side(StrEnum):
+    BUY = "buy"
+    SELL = "sell"
+
+
+class OrderType(StrEnum):
+    LIMIT = "limit"
+
+
+class Regime(StrEnum):
+    RISK_ON = "risk_on"
+    NEUTRAL = "neutral"
+    RISK_OFF = "risk_off"
+
+
+class Position(BaseModel):
+    symbol: str
+    quantity: int = Field(ge=0)
+    avg_cost: float = Field(ge=0.0)
+    last_price: float = Field(ge=0.0)
+
+    @computed_field
+    @property
+    def market_value(self) -> float:
+        return self.quantity * self.last_price
+
+
+class AccountSnapshot(BaseModel):
+    account_id: str
+    cash: float = Field(ge=0.0)
+    positions: list[Position] = Field(default_factory=list)
+
+    def position(self, symbol: str) -> Position | None:
+        return next((p for p in self.positions if p.symbol == symbol), None)
+
+    @computed_field
+    @property
+    def gross_exposure(self) -> float:
+        return sum(p.market_value for p in self.positions)
+
+    @computed_field
+    @property
+    def nav(self) -> float:
+        return self.cash + self.gross_exposure
+
+
+class OrderIntent(BaseModel):
+    symbol: str
+    side: Side
+    quantity: int = Field(gt=0)
+    order_type: OrderType = OrderType.LIMIT
+    limit_price: float = Field(gt=0.0)
+    reason: str
+
+    @computed_field
+    @property
+    def notional(self) -> float:
+        return self.quantity * self.limit_price
+
+
+def apply_fill(
+    snapshot: AccountSnapshot,
+    intent: OrderIntent,
+    quantity: int,
+    fill_price: float | None = None,
+) -> AccountSnapshot:
+    """Project a fill into the snapshot so later orders see the post-trade book."""
+    price = fill_price if fill_price is not None else intent.limit_price
+    signed = quantity if intent.side == Side.BUY else -quantity
+    positions = {position.symbol: position.model_copy() for position in snapshot.positions}
+    held = positions.get(intent.symbol)
+    if held is None and signed > 0:
+        positions[intent.symbol] = Position(
+            symbol=intent.symbol,
+            quantity=signed,
+            avg_cost=price,
+            last_price=price,
+        )
+    elif held is not None:
+        new_quantity = held.quantity + signed
+        if new_quantity <= 0:
+            positions.pop(intent.symbol)
+        else:
+            average = (
+                (held.quantity * held.avg_cost + signed * price) / new_quantity
+                if signed > 0
+                else held.avg_cost
+            )
+            positions[intent.symbol] = held.model_copy(
+                update={"quantity": new_quantity, "avg_cost": average}
+            )
+    return snapshot.model_copy(
+        update={
+            "cash": snapshot.cash - signed * price,
+            "positions": list(positions.values()),
+        }
+    )
+
+
+class RiskBreach(BaseModel):
+    rule: str
+    detail: str
+
+
+class RiskVerdict(BaseModel):
+    allowed: bool
+    breaches: list[RiskBreach] = Field(default_factory=list)
+    adjusted_quantity: int = Field(ge=0)
+    notes: list[str] = Field(default_factory=list)
+
+
+class PlannedOrder(BaseModel):
+    intent: OrderIntent
+    verdict: RiskVerdict
+
+    @computed_field
+    @property
+    def effective_quantity(self) -> int:
+        if not self.verdict.allowed:
+            return 0
+        return min(self.intent.quantity, self.verdict.adjusted_quantity)
+
+
+class SignalRow(BaseModel):
+    momentum: float
+    volatility: float
+    score: float
+    selected: bool = False
+
+
+class RotationResult(BaseModel):
+    regime: Regime
+    targets: dict[str, float]
+    signals: dict[str, SignalRow]
+    regime_checks: dict[str, bool]
+    portfolio_vol: float
+    vol_scale: float
+    notes: list[str] = Field(default_factory=list)
+
+
+class TradePlan(BaseModel):
+    as_of: date
+    account_id: str
+    nav: float
+    cash: float
+    regime: Regime
+    targets: dict[str, float]
+    signals: dict[str, SignalRow]
+    regime_checks: dict[str, bool]
+    portfolio_vol: float
+    vol_scale: float
+    orders: list[PlannedOrder]
+    notes: list[str] = Field(default_factory=list)
+
+
+class OrderAck(BaseModel):
+    order_id: str
+    status: str
+    raw: dict = Field(default_factory=dict)

@@ -1,0 +1,46 @@
+cash_symbol: CASH
+assets:
+  - symbol: US.SPY
+    name: S&P 500
+    sleeve: equity
+    max_weight: 0.30
+  - symbol: US.QQQ
+    name: Nasdaq 100
+    sleeve: equity
+    max_weight: 0.30
+  - symbol: US.IWM
+    name: Russell 2000
+    sleeve: equity
+    max_weight: 0.15
+  - symbol: US.EFA
+    name: Developed ex-US
+    sleeve: equity
+    max_weight: 0.20
+  - symbol: US.EEM
+    name: Emerging markets
+    sleeve: equity
+    max_weight: 0.15
+  - symbol: US.TLT
+    name: 20Y+ Treasuries
+    sleeve: defensive
+    max_weight: 0.25
+  - symbol: US.IEF
+    name: 7-10Y Treasuries
+    sleeve: defensive
+    max_weight: 0.25
+  - symbol: US.GLD
+    name: Gold
+    sleeve: real_asset
+    max_weight: 0.20
+  - symbol: US.DBC
+    name: Broad commodities
+    sleeve: real_asset
+    max_weight: 0.15
+  - symbol: US.VNQ
+    name: US REITs
+    sleeve: real_asset
+    max_weight: 0.15
+  - symbol: US.HYG
+    name: US high yield credit
+    sleeve: credit
+    max_weight: 0.20
