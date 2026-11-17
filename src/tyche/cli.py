@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from datetime import UTC, date, datetime
 from pathlib import Path
 
@@ -18,8 +19,10 @@ from tyche.broker import (
     extract_order_id,
 )
 from tyche.config import load_config
+from tyche.halt import is_halted, set_halt
 from tyche.journal import append_event, verify_chain
 from tyche.models import AccountSnapshot, PlannedOrder, Side, TradePlan, apply_fill
+from tyche.persist import persist_run
 from tyche.risk import RiskState, evaluate_intent
 from tyche.strategy import build_intents, fit_turnover_budget, rotation_targets
 
@@ -209,6 +212,7 @@ def plan(
         nav=snapshot.nav,
         prior_close_nav=prior_close if prior_close is not None else snapshot.nav,
         high_water_nav=high_water if high_water is not None else snapshot.nav,
+        halted=is_halted(journal_path.parent),
     )
     sleeve_caps = config.strategy.sleeve_caps[result.regime.value].as_dict()
     projected = snapshot.model_copy(deep=True)
@@ -406,6 +410,19 @@ def execute(
         console.print("No approved orders in this plan.")
         return
 
+    if is_halted(journal_path.parent):
+        withheld = [order for order in approved if order.intent.side == Side.BUY]
+        approved = [order for order in approved if order.intent.side == Side.SELL]
+        for order in withheld:
+            append_event(
+                journal_path,
+                "halt.skip",
+                {"symbol": order.intent.symbol, "side": "buy", "reason": "halt active"},
+            )
+        console.print(f"Halt active: withheld {len(withheld)} buy(s); de-risking sells only.")
+        if not approved:
+            return
+
     cli = MoomooCli(moomoo_binary)
     if not cli.available():
         console.print("moomoo CLI not found. See docs/runbooks/operations.md for setup.")
@@ -591,6 +608,44 @@ def journal_verify(
     else:
         console.print(f"Journal INVALID after {count} events: {error}")
         raise typer.Exit(1)
+
+
+@app.command()
+def halt(
+    reason: str = typer.Option(..., "--reason", help="Why the agent is being halted."),
+    journal_path: Path = typer.Option(Path("journal/events.jsonl"), "--journal"),
+) -> None:
+    """Engage the kill-switch: block buys, allow de-risking sells."""
+    state = set_halt(journal_path.parent, True, reason)
+    append_event(journal_path, "halt.engaged", state)
+    console.print(f"Halted: {reason}")
+
+
+@app.command()
+def resume(
+    journal_path: Path = typer.Option(Path("journal/events.jsonl"), "--journal"),
+) -> None:
+    """Release the kill-switch after operator review."""
+    state = set_halt(journal_path.parent, False, "operator resume")
+    append_event(journal_path, "halt.released", state)
+    console.print("Resumed: buys permitted again.")
+
+
+@app.command()
+def persist(
+    raw_dir: Path = typer.Option(..., "--raw", help="Directory of raw run artifacts."),
+    git_dir: Path = typer.Option(..., "--git", help="Destination for sanitized, git-tracked copies."),
+    bucket_dir: Path | None = typer.Option(None, "--bucket", help="OSS bucket mount for raw copies."),
+    config_root: Path = typer.Option(Path.cwd(), "--config-root"),
+) -> None:
+    """Copy raw artifacts to the bucket and sanitized copies to git."""
+    config = load_config(config_root)
+    extra = os.environ.get("TYCHE_ALLOWED_ACCOUNT_IDS", "")
+    account_ids = [*config.risk.account_allowlist, *(x.strip() for x in extra.split(",") if x.strip())]
+    manifest = persist_run(raw_dir, git_dir, account_ids, bucket_dir)
+    console.print(
+        f"Persisted {len(manifest['raw'])} raw and {len(manifest['sanitized'])} sanitized file(s)."
+    )
 
 
 def main() -> None:

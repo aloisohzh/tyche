@@ -274,3 +274,45 @@ def test_fetch_writes_price_csv(tmp_path: Path, monkeypatch) -> None:
     event = json.loads(journal_path.read_text(encoding="utf-8").splitlines()[0])
     assert event["type"] == "prices.fetched"
     assert event["payload"]["symbols"] == ["US.SPY"]
+
+
+def test_execute_halted_withholds_buys(tmp_path: Path, monkeypatch) -> None:
+    from tyche.halt import set_halt
+
+    FakeCli.submitted = []
+    monkeypatch.setattr("tyche.cli.MoomooCli", FakeCli)
+    journal_path = tmp_path / "events.jsonl"
+    set_halt(tmp_path, True, "drill")
+
+    plan = make_plan()
+    plan.orders.append(
+        PlannedOrder(
+            intent=OrderIntent(
+                symbol="US.SPY", side=Side.SELL, quantity=3, limit_price=100.0, reason="test"
+            ),
+            verdict=RiskVerdict(allowed=True, adjusted_quantity=3),
+        )
+    )
+    plan_path = tmp_path / "plan.json"
+    plan_path.write_text(plan.model_dump_json(indent=2), encoding="utf-8")
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "execute",
+            "--plan",
+            str(plan_path),
+            "--account-id",
+            "SIM-TEST",
+            "--yes",
+            "--config-root",
+            str(ROOT),
+            "--journal",
+            str(journal_path),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert len(FakeCli.submitted) == 1
+    assert FakeCli.submitted[0]["quantity"] == 3
+    types = [json.loads(line)["type"] for line in journal_path.read_text(encoding="utf-8").splitlines()]
+    assert "halt.skip" in types
