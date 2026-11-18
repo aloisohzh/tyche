@@ -146,7 +146,7 @@ def test_record_order_journals_mcp_events(tmp_path: Path) -> None:
     assert json.loads(lines[1])["type"] == "order.submitted"
     bad = runner.invoke(
         app,
-        ["record-order", "order.filled", "--data", "{}", "--journal", str(journal_path)],
+        ["record-order", "order.unknown", "--data", "{}", "--journal", str(journal_path)],
     )
     assert bad.exit_code != 0
     bad_json = runner.invoke(
@@ -154,3 +154,32 @@ def test_record_order_journals_mcp_events(tmp_path: Path) -> None:
         ["record-order", "order.submitted", "--data", "not-json", "--journal", str(journal_path)],
     )
     assert bad_json.exit_code != 0
+
+
+def test_record_order_filled_requires_canonical_payload(tmp_path: Path) -> None:
+    runner = CliRunner()
+    journal_path = tmp_path / "events.jsonl"
+    good = runner.invoke(
+        app,
+        [
+            "record-order",
+            "order.filled",
+            "--data",
+            json.dumps({"symbol": "US.SPY", "side": "buy", "quantity": 10, "price": 100.0}),
+            "--journal",
+            str(journal_path),
+        ],
+    )
+    assert good.exit_code == 0, good.output
+    bad = runner.invoke(
+        app,
+        [
+            "record-order",
+            "order.filled",
+            "--data",
+            json.dumps({"symbol": "US.SPY", "quantity": 10, "price": 100.0}),
+            "--journal",
+            str(journal_path),
+        ],
+    )
+    assert bad.exit_code != 0

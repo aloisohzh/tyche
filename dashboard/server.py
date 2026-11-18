@@ -45,6 +45,7 @@ from tyche.market_calendar import (
     strategy_for,
 )
 from tyche.pipeline import rules_hash  # noqa: E402
+from tyche.trade_risk import compute_expectancy  # noqa: E402
 from tyche.watchlist import Watchlist  # noqa: E402
 
 
@@ -72,7 +73,7 @@ RULES_HASH = rules_hash(ROOT, PLAYBOOK)
 OUTLOOK_MAP = {"risk_on": "bullish", "neutral": "range", "risk_off": "bearish"}
 CONTRACT_FIELDS = [
     "thesis_ref", "inputs_ref", "outlook", "vehicle", "expected_edge",
-    "invalidation", "protection_type", "roll_plan", "sizing", "realized",
+    "invalidation", "protection_type", "roll_plan", "sizing", "initial_risk", "realized",
 ]
 
 
@@ -170,7 +171,7 @@ def derive_contract(card: dict, plan: dict | None, order_pipeline: dict | None =
         }
         f["expected_edge"] = {
             "value": None, "provenance": "gap",
-            "note": "Pre-trade R and % need an expectancy model. Not instrumented (P1) - never fabricated.",
+            "note": "Pre-trade win-probability edge still absent; initial R per trade is carried in initial_risk (ADR 0016).",
         }
         f["invalidation"] = {
             "value": f"regime flip {regime}→risk_off if checks<2; de-risk if equity_trend fails (SPY<200-SMA)",
@@ -184,6 +185,21 @@ def derive_contract(card: dict, plan: dict | None, order_pipeline: dict | None =
         f["roll_plan"] = {
             "value": "none - ETF/stock leg, no option expiry", "provenance": "derived",
             "note": "No option legs in v0.1. Option leg groups + roll plans are P2.",
+        }
+    stop = card.get("stop_price")
+    nav = plan.get("nav")
+    if stop and card.get("side") == "buy":
+        risk_usd = card["quantity"] * (card["limit_price"] - stop)
+        pct = f" · {risk_usd / nav:.2%} NAV" if nav else ""
+        f["initial_risk"] = {
+            "value": f"${risk_usd:,.0f}{pct} · stop ${stop:,.2f}",
+            "provenance": "journaled",
+            "note": "Initial R = entry − stop (ADR 0016): the max loss this trade is sized to take, not an edge estimate.",
+        }
+    else:
+        f["initial_risk"] = {
+            "value": None, "provenance": "gap",
+            "note": "No plan stop on this order (legacy plan or sell); initial R undefined — never fabricated.",
         }
     headroom = f" · sleeve cap {maxw:.0%}" if maxw else ""
     f["sizing"] = {
@@ -536,6 +552,7 @@ def build_cards(plans: dict[str, dict], orders: list[dict], validation: dict) ->
                 "quantity": intent["quantity"],
                 "effective_quantity": order["effective_quantity"],
                 "limit_price": intent["limit_price"],
+                "stop_price": intent.get("stop_price"),
                 "notional": intent["notional"],
                 "account": acct,
                 "as_of": plan["as_of"],
@@ -592,6 +609,7 @@ def build_cards(plans: dict[str, dict], orders: list[dict], validation: dict) ->
                 "quantity": intent["quantity"],
                 "effective_quantity": order["effective_quantity"],
                 "limit_price": intent["limit_price"],
+                "stop_price": intent.get("stop_price"),
                 "notional": intent["notional"],
                 "account": acct,
                 "as_of": plan["as_of"],
@@ -923,6 +941,7 @@ def build_approvals() -> dict:
 def build_state() -> dict:
     global EVENTS
     EVENTS = read_events(JOURNAL)
+    exp_report = compute_expectancy(EVENTS, SLEEVE_BY_SYMBOL)
     ok, count, error = verify_chain(JOURNAL)
     halt = json.loads(HALT.read_text(encoding="utf-8")) if HALT.is_file() else {"halted": False}
     risk = yaml.safe_load((ROOT / "config" / "risk.yaml").read_text(encoding="utf-8"))
@@ -993,22 +1012,46 @@ def build_state() -> dict:
             "instrumentation": build_instrumentation(cards),
             "drill": validation,
             "expectancy": {
-                "formula": "(Win% × AvgWin) − (Loss% × AvgLoss)",
-                "closed_n": 0,
+                "formula": exp_report.formula,
+                "closed_n": exp_report.closed_n,
+                "r_n": exp_report.r_n,
+                "win_rate": exp_report.win_rate,
+                "avg_win_r": exp_report.avg_win_r,
+                "avg_loss_r": exp_report.avg_loss_r,
+                "expectancy_r": exp_report.expectancy_r,
+                "expectancy_pct": exp_report.expectancy_pct,
+                "pnl_net": exp_report.pnl_net,
+                "fees_total": exp_report.fees_total,
+                "unattributed_fills": exp_report.unattributed_fills,
+                "open_lots": [lot.model_dump(mode="json") for lot in exp_report.open_lots],
                 "sleeves": [
-                    {"name": "Ballast - ETF rotation", "closed_n": 0},
+                    {
+                        "name": s.sleeve.replace("_", " ").title(),
+                        "closed_n": s.closed_n,
+                        "win_rate": s.win_rate,
+                        "avg_win_r": s.avg_win_r,
+                        "avg_loss_r": s.avg_loss_r,
+                        "expectancy_r": s.expectancy_r,
+                        "expectancy_pct": s.expectancy_pct,
+                        "pnl_net": s.pnl_net,
+                    }
+                    for s in exp_report.sleeves
+                ] + [
                     {"name": "Event sleeves (stocks)", "closed_n": 0},
                     {"name": "Defined-risk options", "closed_n": 0},
                 ],
                 "realized_gross": validation["realized_gross"],
-                "fees_note": "~$1/leg per drill validation doc; fee-net reconciliation pending EOD generator",
-                "provisional": True,
+                "fees_note": (
+                    f"Fee-net R accounting (ADR 0016): {exp_report.closed_n} closed round trips, "
+                    f"modeled fees ${exp_report.fees_total:,.2f}; drill gross shown separately."
+                ),
+                "provisional": exp_report.provisional,
             },
             "divergences": divergences,
             "gaps": [
                 {"field": "thesis_ref / inputs_ref", "state": "gap", "note": "per-trade playbook + research-brief refs not in plan/journal yet"},
                 {"field": "outlook + conviction", "state": "partial", "note": "market regime only; per-setup outlook and act/wait gate pending"},
-                {"field": "expected_edge", "state": "gap", "note": "pre-trade R and % not instrumented"},
+                {"field": "expected_edge", "state": "partial", "note": "initial R per trade from plan stop (ADR 0016); pre-trade win-probability model still absent"},
                 {"field": "protection heartbeat", "state": "gap", "note": "P2 - synthetic stop monitor"},
                 {"field": "roll_plan", "state": "gap", "note": "P2 - option leg groups"},
                 {"field": "macro / sentiment / seasonality", "state": "partial", "note": "researcher child designed, not yet in plan artifacts"},

@@ -39,6 +39,7 @@ from tyche.pipeline import build_order_pipeline, build_plan_pipeline
 from tyche.risk import RiskState, evaluate_intent
 from tyche.strategies import build_intents, fit_turnover_budget, rotation_targets
 from tyche.tactical_cli import app as tactical_app
+from tyche.trade_risk import compute_expectancy
 from tyche.watchlist import Watchlist
 
 app = typer.Typer(add_completion=False, help="Regime-aware ETF rotation agent.")
@@ -132,17 +133,26 @@ def _plan_markdown(plan: TradePlan) -> str:
     if not plan.orders:
         lines.append("_No trades required; portfolio is within rebalancing bands._")
     else:
-        lines.append("| Status | Action | Side | Symbol | Qty | Limit | Notional | Risk notes |")
-        lines.append("| --- | --- | --- | --- | ---: | ---: | ---: | --- |")
+        lines.append("| Status | Action | Side | Symbol | Qty | Limit | Stop | Initial R | Notional | Risk notes |")
+        lines.append("| --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | --- |")
         for order in plan.orders:
             status = "APPROVED" if order.verdict.allowed else "BLOCKED"
             action = order.pipeline.action if order.pipeline else "act"
             notes = "; ".join(
                 [breach.rule for breach in order.verdict.breaches] + order.verdict.notes
             )
+            stop = order.intent.stop_price
+            if order.intent.side == Side.BUY and stop:
+                risk_usd = order.effective_quantity * (order.intent.limit_price - stop)
+                stop_cell = f"{stop:.2f}"
+                risk_cell = f"${risk_usd:,.0f} ({risk_usd / plan.nav:.1%})"
+            else:
+                stop_cell = "—"
+                risk_cell = "—"
             lines.append(
                 f"| {status} | {action} | {order.intent.side.value} | {order.intent.symbol} | "
                 f"{order.effective_quantity} | {order.intent.limit_price:.2f} | "
+                f"{stop_cell} | {risk_cell} | "
                 f"{order.effective_quantity * order.intent.limit_price:,.2f} | {notes} |"
             )
         for order in plan.orders:
@@ -167,6 +177,13 @@ def _plan_markdown(plan: TradePlan) -> str:
                         f" · sleeve cap {sizing.sleeve_cap_pct:.0%}"
                         if sizing.sleeve_cap_pct is not None
                         else ""
+                    ),
+                    (
+                        f"- Initial risk: stop {order.intent.stop_price:.2f} · "
+                        f"R ${sizing.effective_quantity * (order.intent.limit_price - order.intent.stop_price):,.0f} "
+                        f"({sizing.effective_quantity * (order.intent.limit_price - order.intent.stop_price) / plan.nav:.2%} NAV)"
+                        if order.intent.stop_price
+                        else "- Initial risk: n/a (sell or legacy plan without stop)"
                     ),
                 ]
             )
@@ -377,6 +394,10 @@ def plan(
     for order in planned:
         status = "APPROVED" if order.verdict.allowed else "BLOCKED"
         notes = "; ".join([breach.rule for breach in order.verdict.breaches] + order.verdict.notes)
+        risk = ""
+        if order.intent.side == Side.BUY and order.intent.stop_price:
+            risk_usd = order.effective_quantity * (order.intent.limit_price - order.intent.stop_price)
+            risk = f"R ${risk_usd:,.0f} ({risk_usd / snapshot.nav:.1%})"
         table.add_row(
             status,
             order.intent.side.value,
@@ -384,7 +405,7 @@ def plan(
             str(order.effective_quantity),
             f"{order.intent.limit_price:.2f}",
             f"{order.effective_quantity * order.intent.limit_price:,.0f}",
-            notes,
+            "; ".join(part for part in (risk, notes) if part),
         )
     console.print(table)
     console.print(f"Wrote {json_path} and {md_path}")
@@ -698,6 +719,49 @@ def execute(
 
 
 @app.command()
+def expectancy(
+    config_root: Path = typer.Option(Path.cwd(), "--config-root"),
+    journal_path: Path = typer.Option(Path("journal/events.jsonl"), "--journal"),
+    as_json: bool = typer.Option(False, "--json"),
+) -> None:
+    """Fee-net R-multiple expectancy from closed round trips in the journal (ADR 0016)."""
+    config = load_config(config_root)
+    report = compute_expectancy(read_events(journal_path), config.universe.sleeve_by_symbol())
+    if as_json:
+        console.print_json(data=report.model_dump(mode="json"))
+        return
+    table = Table(title=f"Expectancy - {report.closed_n} closed, R on {report.r_n}")
+    table.add_column("Sleeve")
+    table.add_column("n", justify="right")
+    table.add_column("Win%", justify="right")
+    table.add_column("AvgWin R", justify="right")
+    table.add_column("AvgLoss R", justify="right")
+    table.add_column("E[R]", justify="right")
+    table.add_column("Net $", justify="right")
+    for sleeve in sorted(report.sleeves, key=lambda s: s.sleeve):
+        table.add_row(
+            sleeve.sleeve,
+            str(sleeve.closed_n),
+            f"{sleeve.win_rate:.0%}" if sleeve.win_rate is not None else "-",
+            f"{sleeve.avg_win_r:.2f}" if sleeve.avg_win_r is not None else "-",
+            f"{sleeve.avg_loss_r:.2f}" if sleeve.avg_loss_r is not None else "-",
+            f"{sleeve.expectancy_r:.2f}" if sleeve.expectancy_r is not None else "-",
+            f"{sleeve.pnl_net:,.2f}",
+        )
+    console.print(table)
+    console.print(
+        f"Overall E[R]: {report.expectancy_r if report.expectancy_r is not None else '-'} "
+        f"| net ${report.pnl_net:,.2f} | fees ${report.fees_total:,.2f} "
+        f"| unattributed fills: {report.unattributed_fills}"
+    )
+    for lot in report.open_lots:
+        risk = f"{lot.risk_pct_nav:.2%} NAV" if lot.risk_pct_nav is not None else "no plan stop"
+        console.print(f"Open {lot.symbol} {lot.qty} @ {lot.entry_price:.2f} stop {lot.stop_price} risk {risk}")
+    if report.provisional:
+        console.print("Provisional: fewer than 30 closed trades; do not size on this estimate.")
+
+
+@app.command()
 def accounts(moomoo_binary: str = typer.Option("moomoo", "--moomoo-binary")) -> None:
     """List simulated accounts through the moomoo CLI."""
     cli = MoomooCli(moomoo_binary)
@@ -783,12 +847,22 @@ def resume(
 
 @app.command("record-order")
 def record_order(
-    event: str = typer.Argument(..., help="order.requested, order.submitted, order.rejected, halt.skip or gate.wait."),
+    event: str = typer.Argument(
+        ...,
+        help="order.requested, order.submitted, order.filled, order.rejected, halt.skip or gate.wait.",
+    ),
     data: str = typer.Option(..., "--data", help="JSON object with the event payload."),
     journal_path: Path = typer.Option(Path("journal/events.jsonl"), "--journal"),
 ) -> None:
     """Journal an order event from the MCP submission path (executor is the single writer)."""
-    allowed = {"order.requested", "order.submitted", "order.rejected", "halt.skip", "gate.wait"}
+    allowed = {
+        "order.requested",
+        "order.submitted",
+        "order.filled",
+        "order.rejected",
+        "halt.skip",
+        "gate.wait",
+    }
     if event not in allowed:
         raise typer.BadParameter(f"event must be one of {sorted(allowed)}")
     try:
@@ -797,6 +871,17 @@ def record_order(
         raise typer.BadParameter(f"--data must be valid JSON: {exc}") from exc
     if not isinstance(payload, dict):
         raise typer.BadParameter("--data must be a JSON object")
+    if event == "order.filled":
+        missing = [
+            key
+            for key in ("symbol", "side", "quantity", "price")
+            if payload.get(key) in (None, "")
+        ]
+        if missing or payload.get("side") not in ("buy", "sell"):
+            raise typer.BadParameter(
+                "order.filled requires symbol, side (buy|sell), quantity, price "
+                f"(missing/invalid: {missing or ['side']})"
+            )
     append_event(journal_path, event, payload)
     console.print(f"Journaled {event}.")
 

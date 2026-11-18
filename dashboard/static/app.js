@@ -5,8 +5,17 @@ const $ = (sel) => document.querySelector(sel);
 const esc = (s) => String(s ?? "").replace(/[—–]/g, "-").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const hy = (s) => String(s ?? "").replace(/[—–]/g, "-");
 
-const VERSION = "0.2.0";
+const VERSION = "0.2.1";
 const CHANGELOG = [
+  {
+    version: "0.2.1", date: "2026-11-19", title: "Per-trade risk budget + fee-net expectancy (ADR 0016)",
+    items: [
+      "Expectancy scorecard computes from journaled fills: per-sleeve n, win%, average win/loss in R, E[R] and E[%NAV], net of modeled fees.",
+      "New contract field 'Initial risk': planned stop distance and R budget (1% NAV) per order, journaled at plan time.",
+      "Open initial risk across lots shown under the sleeve table; the provisional chip carries the closed-trade count until n>=30.",
+      "Honesty rules: unattributed fills are counted, never guessed; E[R] stays blank until both wins and losses exist.",
+    ],
+  },
   {
     version: "0.2.0", date: "2026-11-19", title: "Desk polish + operator controls",
     items: [
@@ -72,11 +81,11 @@ function showView(name) {
 }
 const setText = (sel, v) => { const el = $(sel); if (el) el.textContent = v; };
 
-const CONTRACT_FIELDS = ["thesis_ref", "inputs_ref", "outlook", "vehicle", "expected_edge", "invalidation", "protection_type", "roll_plan", "sizing", "realized"];
+const CONTRACT_FIELDS = ["thesis_ref", "inputs_ref", "outlook", "vehicle", "expected_edge", "invalidation", "protection_type", "roll_plan", "sizing", "initial_risk", "realized"];
 const FIELD_LABELS = {
   thesis_ref: "Playbook", inputs_ref: "Price inputs", outlook: "Market outlook", vehicle: "Instrument type",
   expected_edge: "Expected edge", invalidation: "Exit trigger", protection_type: "Downside protection",
-  roll_plan: "Roll plan", sizing: "Position sizing", realized: "Realized P&L",
+  roll_plan: "Roll plan", sizing: "Position sizing", initial_risk: "Initial risk", realized: "Realized P&L",
   "outlook + conviction": "Outlook + conviction", "macro / sentiment / seasonality": "Macro / sentiment / seasonality",
   "protection heartbeat": "Protection heartbeat", "thesis_ref / inputs_ref": "Playbook + price inputs",
 };
@@ -419,8 +428,17 @@ function closeDrawer() {
 /* ---------------- expectancy ---------------- */
 function renderExpectancy() {
   const e = STATE.expectancy;
-  $("#sleeve-rows").innerHTML = e.sleeves.map((s) =>
-    `<tr><td>${esc(s.name)}</td><td class="num">${s.closed_n}</td><td class="num dim">-</td><td class="num dim">-</td><td class="num dim">-</td><td class="num dim">-</td><td class="num dim">-</td></tr>`).join("");
+  const r2 = (v) => (v == null ? "-" : v.toFixed(2));
+  const pc = (v) => (v == null ? "-" : (100 * v).toFixed(0) + "%");
+  const rows = e.sleeves.length ? e.sleeves : [{ name: "no closed trades yet", closed_n: 0 }];
+  $("#sleeve-rows").innerHTML = rows.map((s) =>
+    `<tr><td>${esc(s.name)}</td><td class="num">${s.closed_n}</td><td class="num">${pc(s.win_rate)}</td><td class="num">${r2(s.avg_win_r)}</td><td class="num">${r2(s.avg_loss_r)}</td><td class="num">${r2(s.expectancy_r)}</td><td class="num">${s.expectancy_pct == null ? "-" : (100 * s.expectancy_pct).toFixed(2) + "%"}</td></tr>`).join("");
+  const openRisk = (e.open_lots || []).reduce((a, l) => a + (l.risk_pct_nav || 0), 0);
+  $("#sleeve-note").textContent = e.closed_n
+    ? `Overall E[R] ${r2(e.expectancy_r)} on ${e.r_n} closed with R · net ${signedMoney(e.pnl_net)} · open initial risk ${(100 * openRisk).toFixed(2)}% NAV across ${(e.open_lots || []).length} lot(s).`
+    : `No strategy trades closed yet - the drill round-trip below is a kill-switch validation, not strategy edge. Open initial risk ${(100 * openRisk).toFixed(2)}% NAV across ${(e.open_lots || []).length} lot(s).`;
+  const chip = $("#exp-chip");
+  if (chip) chip.textContent = e.provisional ? `provisional · n=${e.closed_n} (<30)` : `n=${e.closed_n} closed`;
   const fills = STATE.drill.fills || {};
   const seed = fills["3115432"], sell = fills["3115472"];
   $("#realized-big").textContent = e.realized_gross != null ? signedMoney(e.realized_gross) : "-";
