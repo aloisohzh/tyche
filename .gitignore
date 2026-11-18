@@ -12,6 +12,10 @@ dist/
 # docs/performance/<date>/{reports,plans,journal,data} are NOT shadowed)
 /data/*.csv
 /data/*.json
+# Operator input, not runtime artifacts: the pre-approved order envelope must
+# reach the cloud mount via git (cloud push-back is 403).
+!/data/approvals.json
+!/data/approvals.example.json
 /journal/
 /plans/
 /reports/

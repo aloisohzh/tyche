@@ -708,10 +708,11 @@ function renderCalendar() {
       <td><span class="cal-phase-tag" style="--seg-hue:${meta.hue}">${meta.name}</span></td>
       <td><span class="cal-activity ${s.activity}">${ACTIVITY_LABEL[s.activity] || s.activity}</span></td>
       <td class="mono" style="font-size:11px">${esc(s.et_time)}</td>
+      <td class="mono" style="font-size:11px">${esc(s.sgt_time || "—")}</td>
       <td class="num">${s.days}</td>
     </tr>`;
   }).join("");
-  $("#cal-cron-note").textContent = "One hourly cron (08:05–17:05 ET at :05) fires only on computed NYSE trading days — weekends and holidays excluded by construction. The evaluate() gate routes every run by live session phase (plan / active / monitor / reconcile), half-day aware and DST-safe; a misfired cron still skips.";
+  $("#cal-cron-note").textContent = "One hourly cron (08:05–17:05 ET at :05 = 21:05–06:05 SGT) fires only on computed NYSE trading days — weekends and holidays excluded by construction. The evaluate() gate routes every run by live session phase (plan / active / monitor / reconcile), half-day aware and DST-safe; a misfired cron still skips. SGT (+1d) means the run lands after midnight in Singapore.";
 
   const wl = cal.watchlist;
   const wlWrap = $("#cal-watchlist-wrap");

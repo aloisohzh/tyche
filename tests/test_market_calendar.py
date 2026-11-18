@@ -172,6 +172,7 @@ def test_generate_hourly_match_calendar():
     assert s.cron == "5 13-22 18-20,23-25,27 11 *"
     assert s.days == 7 and s.phase is None and s.activity == "gate-routed"
     assert s.timezone == "UTC"
+    assert s.et_time == "08:05-17:05" and s.sgt_time == "21:05-06:05 (+1d)"
     # Thanksgiving (26) and the weekend (21, 22) appear in no day list.
     days = s.cron.split()[2]
     assert "26" not in days and "21" not in days and "22" not in days
@@ -183,6 +184,8 @@ def test_generate_hourly_dst_split():
     by_cron = {s.cron: s for s in schedules}
     assert by_cron["5 12-21 30 10 *"].days == 1  # Fri Oct 30 (EDT)
     assert by_cron["5 13-22 2-3 11 *"].days == 2  # Mon/Tue Nov 2-3 (EST)
+    assert by_cron["5 12-21 30 10 *"].sgt_time == "20:05-05:05 (+1d)"
+    assert by_cron["5 13-22 2-3 11 *"].sgt_time == "21:05-06:05 (+1d)"
 
 
 def test_generate_hourly_rejects_bad_range():

@@ -1,0 +1,11 @@
+{
+  "as_of": "2026-11-18",
+  "approved_at": "2026-11-18T13:30:00Z",
+  "approved_by": "operator",
+  "max_orders": 2,
+  "orders": [
+    {"symbol": "DBC", "side": "buy", "max_qty": 100, "limit_max": 29.5},
+    {"symbol": "GLD", "side": "sell", "max_qty": 50, "limit_min": 300.0}
+  ],
+  "note": "EXAMPLE ONLY — dated in the past so it can never authorize. Copy to data/approvals.json with today's ET date to arm a real batch."
+}

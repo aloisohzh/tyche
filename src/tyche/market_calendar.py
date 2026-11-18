@@ -18,6 +18,7 @@ from zoneinfo import ZoneInfo
 from pydantic import BaseModel, Field
 
 ET = ZoneInfo("America/New_York")
+SGT = ZoneInfo("Asia/Singapore")  # operator's home clock; display-only, cron stays UTC
 
 # Hourly desk cadence: one cron, gate-routed by live session phase. :05 aligns
 # 09:05 pre-market plan (after 08:30 macro data), 10:05 opening drive, 12:05
@@ -290,10 +291,19 @@ class ScheduleDef(BaseModel):
     timezone: str = "UTC"
     phase: SessionPhase | None = None
     et_time: str
+    sgt_time: str
     scope: Literal["all", "regular", "half"]
     activity: str
     days: int
     note: str
+
+
+def _sgt_span(first_utc: datetime, last_utc: datetime) -> str:
+    a, b = first_utc.astimezone(SGT), last_utc.astimezone(SGT)
+    span = f"{a:%H:%M}" if a == b else f"{a:%H:%M}-{b:%H:%M}"
+    if b.date() > a.date():
+        span += " (+1d)"
+    return span
 
 
 def _cron_days(days: list[int]) -> str:
@@ -320,7 +330,7 @@ def generate_schedules(start: date, end: date) -> list[ScheduleDef]:
     if end < start:
         raise ValueError("end must be on or after start")
     grouped: dict[tuple[str, int, int, int], list[int]] = {}
-    meta: dict[str, tuple[time, SessionPhase, str]] = {}
+    meta: dict[tuple[str, int, int, int], tuple[time, SessionPhase, str, str]] = {}
     day = start
     while day <= end:
         for name, et_time, phase, scope in _SCHEDULE_TEMPLATES:
@@ -330,16 +340,16 @@ def generate_schedules(start: date, end: date) -> list[ScheduleDef]:
             fire_utc = fire_et.astimezone(UTC)
             key = (name, fire_utc.month, fire_utc.hour, fire_utc.minute)
             grouped.setdefault(key, []).append(fire_utc.day)
-            meta[name] = (et_time, phase, scope)
+            meta[key] = (et_time, phase, scope, _sgt_span(fire_utc, fire_utc))
         day += timedelta(days=1)
     schedules: list[ScheduleDef] = []
     for (name, month, hour, minute), days in sorted(grouped.items()):
-        et_time, phase, scope = meta[name]
+        et_time, phase, scope, sgt = meta[(name, month, hour, minute)]
         directive = strategy_for(phase)
         cron = f"{minute} {hour} {_cron_days(sorted(days))} {month} *"
         schedules.append(ScheduleDef(
             name=name, cron=cron, phase=phase, et_time=et_time.strftime("%H:%M"),
-            scope=scope, activity=directive.activity, days=len(days),
+            sgt_time=sgt, scope=scope, activity=directive.activity, days=len(days),
             note=directive.risk_note,
         ))
     return schedules
@@ -355,6 +365,7 @@ def generate_hourly_schedules(start: date, end: date) -> list[ScheduleDef]:
     if end < start:
         raise ValueError("end must be on or after start")
     grouped: dict[tuple[int, tuple[int, ...]], list[int]] = {}
+    spans: dict[tuple[int, tuple[int, ...]], tuple[datetime, datetime]] = {}
     day = start
     while day <= end:
         if is_trading_day(day):
@@ -364,6 +375,7 @@ def generate_hourly_schedules(start: date, end: date) -> list[ScheduleDef]:
             ]
             key = (fires[0].month, tuple(sorted(f.hour for f in fires)))
             grouped.setdefault(key, []).append(day.day)
+            spans[key] = (fires[0], fires[-1])
         day += timedelta(days=1)
     schedules: list[ScheduleDef] = []
     for (month, hours), days in sorted(grouped.items()):
@@ -371,6 +383,7 @@ def generate_hourly_schedules(start: date, end: date) -> list[ScheduleDef]:
         schedules.append(ScheduleDef(
             name="tyche-hourly", cron=cron, phase=None,
             et_time=f"{HOURLY_FIRST:%H:%M}-{HOURLY_LAST:%H:%M}",
+            sgt_time=_sgt_span(*spans[(month, hours)]),
             scope="all", activity="gate-routed", days=len(days),
             note="hourly gate-routed: plan pre-market, active drives, monitor midday, reconcile after close",
         ))

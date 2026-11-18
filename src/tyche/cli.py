@@ -11,6 +11,7 @@ from pydantic import ValidationError
 from rich.console import Console
 from rich.table import Table
 
+from tyche.approvals import ApprovalBatch, authorize_order, envelope_usage
 from tyche.broker import (
     MoomooCli,
     MoomooCliError,
@@ -862,12 +863,13 @@ def schedules(
     table.add_column("Phase")
     table.add_column("Activity")
     table.add_column("ET")
+    table.add_column("SGT")
     table.add_column("Days", justify="right")
     for definition in defs:
         table.add_row(
             definition.name, definition.cron,
             definition.phase.value if definition.phase else "gate-routed",
-            definition.activity, definition.et_time, str(definition.days),
+            definition.activity, definition.et_time, definition.sgt_time, str(definition.days),
         )
     console.print(table)
     console.print(
@@ -919,6 +921,86 @@ def watchlist(
             entry.expiry.isoformat(), entry.status,
         )
     console.print(table)
+
+
+@app.command()
+def approvals(
+    path: Path = typer.Option(
+        Path("data/approvals.json"), "--path", help="Operator envelope JSON (git-tracked, cloud-synced)."
+    ),
+    as_json: bool = typer.Option(False, "--json", help="Emit envelope + validity as JSON."),
+) -> None:
+    """Validate the operator's pre-approved order envelope; exit 0 valid, 1 missing/invalid."""
+    if not path.is_file():
+        console.print(f"[bold red]MISSING[/] {path} — no pre-approved envelope; orders stay always_ask")
+        raise typer.Exit(1)
+    try:
+        batch = ApprovalBatch.model_validate_json(path.read_text(encoding="utf-8"))
+    except ValidationError as exc:
+        console.print(f"[bold red]INVALID[/] {path}")
+        console.print(str(exc))
+        raise typer.Exit(1) from exc
+    today = datetime.now(ET).date()
+    valid = batch.valid_on(today)
+    if as_json:
+        payload = batch.model_dump(mode="json")
+        payload.update(valid_today=valid, today=today.isoformat())
+        console.print_json(json.dumps(payload))
+        return
+    verdict = "[bold green]VALID TODAY[/]" if valid else "[bold yellow]NOT VALID TODAY[/]"
+    console.print(f"{verdict}  as of {batch.as_of} · {len(batch.orders)} line(s) · budget {batch.max_orders}")
+    table = Table(title=f"Approval envelope · {path}")
+    table.add_column("Symbol")
+    table.add_column("Side")
+    table.add_column("Max qty", justify="right")
+    table.add_column("Limit bound", justify="right")
+    for line in batch.orders:
+        bound = f"<= {line.limit_max:.2f}" if line.side == "buy" else f">= {line.limit_min:.2f}"
+        table.add_row(line.symbol, line.side, str(line.max_qty), bound)
+    console.print(table)
+
+
+@app.command()
+def authorize(
+    symbol: str = typer.Option(..., "--symbol"),
+    side: str = typer.Option(..., "--side", help="buy or sell."),
+    qty: int = typer.Option(..., "--qty"),
+    limit: float | None = typer.Option(None, "--limit", help="Limit price; market orders are never envelope-authorized."),
+    path: Path = typer.Option(Path("data/approvals.json"), "--path"),
+    journal_path: Path = typer.Option(Path("journal/events.jsonl"), "--journal"),
+    at: str = typer.Option("", "--at", help="ISO timestamp for 'today' (default: now UTC)."),
+) -> None:
+    """Envelope gate for one order: exit 0 authorized, 1 denied (stay always_ask)."""
+    if side not in {"buy", "sell"}:
+        raise typer.BadParameter("--side must be buy or sell")
+    try:
+        now = datetime.fromisoformat(at) if at else datetime.now(UTC)
+    except ValueError as exc:
+        raise typer.BadParameter(f"--at must be an ISO timestamp: {exc}") from exc
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=UTC)
+    today = now.astimezone(ET).date()
+
+    def deny(reason: str) -> None:
+        console.print_json(json.dumps({"authorized": False, "reason": reason, "today": today.isoformat()}))
+        raise typer.Exit(1)
+
+    if not path.is_file():
+        deny(f"no envelope at {path}; operator has not pre-approved any batch")
+    try:
+        batch = ApprovalBatch.model_validate_json(path.read_text(encoding="utf-8"))
+    except ValidationError as exc:
+        deny(f"envelope invalid: {exc.errors()[0]['msg']}")
+    used = envelope_usage(journal_path, today)
+    authorized, reason = authorize_order(
+        batch, symbol=symbol, side=side, qty=qty, limit=limit, today=today, used=used
+    )
+    console.print_json(json.dumps({
+        "authorized": authorized, "reason": reason, "used": used,
+        "max_orders": batch.max_orders, "as_of": batch.as_of.isoformat(),
+        "today": today.isoformat(),
+    }))
+    raise typer.Exit(0 if authorized else 1)
 
 
 def main() -> None:
