@@ -1,0 +1,28 @@
+{
+  "account_id": "[REDACTED]",
+  "cash": 57360.28,
+  "positions": [
+    {
+      "symbol": "US.SPY",
+      "quantity": 28,
+      "avg_cost": 731.54,
+      "last_price": 730.58,
+      "market_value": 20456.24
+    },
+    {
+      "symbol": "US.EFA",
+      "quantity": 142,
+      "avg_cost": 100.495,
+      "last_price": 100.215,
+      "market_value": 14230.53
+    }
+  ],
+  "env": "paper",
+  "account_type": 2,
+  "market_id": 100,
+  "source": "sim_list",
+  "gross_exposure": 34686.770000000004,
+  "nav": 92047.05,
+  "prior_close_nav": 100000.0,
+  "high_water_nav": 100000.0
+}
