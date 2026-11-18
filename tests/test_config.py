@@ -6,6 +6,7 @@ import pytest
 from pydantic import ValidationError
 
 from tyche.config import (
+    AppConfig,
     RiskPolicy,
     SleeveCaps,
     StrategyConfig,
@@ -28,7 +29,11 @@ def test_load_repo_config() -> None:
     assert config.risk.min_price == 1.00
     assert config.risk.max_positions == 100
     assert "SIM-DEMO-US" in config.risk.account_allowlist
-    assert config.strategy.top_n == 4
+    assert config.strategy_by_id("PB-001").top_n == 4
+    assert config.strategy_by_id("PB-001").enabled is True
+    assert config.enabled_strategies() == config.strategies
+    with pytest.raises(KeyError):
+        config.strategy_by_id("PB-999")
 
 
 def test_account_allowlist_merges_env_ids(monkeypatch) -> None:
@@ -42,6 +47,8 @@ def test_account_allowlist_merges_env_ids(monkeypatch) -> None:
 def test_lookback_weights_must_match() -> None:
     with pytest.raises(ValidationError):
         StrategyConfig(
+            id="PB-001",
+            playbook="docs/playbooks/PB-001-etf-rotation-ballast.md",
             lookbacks=[63, 126],
             lookback_weights=[1.0],
             sleeve_caps=CAPS,
@@ -51,10 +58,36 @@ def test_lookback_weights_must_match() -> None:
 def test_lookback_weights_must_sum_to_one() -> None:
     with pytest.raises(ValidationError):
         StrategyConfig(
+            id="PB-001",
+            playbook="docs/playbooks/PB-001-etf-rotation-ballast.md",
             lookbacks=[63, 126],
             lookback_weights=[0.5, 0.2],
             sleeve_caps=CAPS,
         )
+
+
+def test_duplicate_strategy_ids_rejected() -> None:
+    config = load_config(ROOT)
+    payload = config.model_dump()
+    payload["strategies"].append(payload["strategies"][0])
+    with pytest.raises(ValidationError, match="duplicate strategy ids"):
+        AppConfig.model_validate({**payload, "root": ROOT})
+
+
+def test_strategy_filename_must_match_id(tmp_path: Path) -> None:
+    config_dir = tmp_path / "config" / "strategies"
+    config_dir.mkdir(parents=True)
+    (config_dir / "pb-002.yaml").write_bytes(
+        (ROOT / "config" / "strategies" / "pb-001.yaml").read_bytes()
+    )
+    (tmp_path / "config" / "risk.yaml").write_bytes(
+        (ROOT / "config" / "risk.yaml").read_bytes()
+    )
+    (tmp_path / "config" / "universe.yaml").write_bytes(
+        (ROOT / "config" / "universe.yaml").read_bytes()
+    )
+    with pytest.raises(ValueError, match="does not match id"):
+        load_config(tmp_path)
 
 
 def test_shorting_is_rejected() -> None:

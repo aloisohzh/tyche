@@ -40,7 +40,7 @@ from tyche.market_calendar import (
     session_timeline,
     strategy_for,
 )
-from tyche.pipeline import PLAYBOOK, rules_hash  # noqa: E402
+from tyche.pipeline import rules_hash  # noqa: E402
 from tyche.watchlist import Watchlist  # noqa: E402
 
 
@@ -58,12 +58,13 @@ def _hash12(obj) -> str:
     return hashlib.sha256(_canonical(obj).encode()).hexdigest()[:12]
 
 
-STRATEGY_CFG = yaml.safe_load((ROOT / "config" / "strategy.yaml").read_text())
+STRATEGY_CFG = yaml.safe_load((ROOT / "config" / "strategies" / "pb-001.yaml").read_text())
 UNIVERSE_CFG = yaml.safe_load((ROOT / "config" / "universe.yaml").read_text())
 SLEEVE_BY_SYMBOL = {a["symbol"]: a["sleeve"] for a in UNIVERSE_CFG["assets"]}
 MAXW_BY_SYMBOL = {a["symbol"]: a["max_weight"] for a in UNIVERSE_CFG["assets"]}
 ETF_SYMBOLS = set(SLEEVE_BY_SYMBOL)  # v0.1 universe is all ETFs
-RULES_HASH = rules_hash(ROOT)
+PLAYBOOK = STRATEGY_CFG["id"]
+RULES_HASH = rules_hash(ROOT, PLAYBOOK)
 OUTLOOK_MAP = {"risk_on": "bullish", "neutral": "range", "risk_off": "bearish"}
 CONTRACT_FIELDS = [
     "thesis_ref", "inputs_ref", "outlook", "vehicle", "expected_edge",

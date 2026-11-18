@@ -34,7 +34,7 @@ from tyche.models import AccountSnapshot, PlannedOrder, Side, TradePlan, apply_f
 from tyche.persist import persist_run
 from tyche.pipeline import build_order_pipeline, build_plan_pipeline
 from tyche.risk import RiskState, evaluate_intent
-from tyche.strategy import build_intents, fit_turnover_budget, rotation_targets
+from tyche.strategies import build_intents, fit_turnover_budget, rotation_targets
 from tyche.watchlist import Watchlist
 
 app = typer.Typer(add_completion=False, help="Regime-aware ETF rotation agent.")
@@ -185,11 +185,15 @@ def doctor(
 
     try:
         config = load_config(config_root)
+        strategy_summary = ", ".join(
+            f"{s.id} top_n={s.top_n} target_vol={s.target_vol:.0%}"
+            + ("" if s.enabled else " (disabled)")
+            for s in config.strategies
+        )
         table.add_row(
             "config",
             "ok",
-            f"{len(config.universe.assets)} assets, top_n={config.strategy.top_n}, "
-            f"target_vol={config.strategy.target_vol:.0%}",
+            f"{len(config.universe.assets)} assets; {strategy_summary}",
         )
     except (ValidationError, FileNotFoundError, TypeError, ValueError) as exc:
         table.add_row("config", "FAIL", str(exc))
@@ -231,11 +235,29 @@ def plan(
         None, "--brief", help="Research brief path to pin in the plan's inputs_ref."
     ),
     config_root: Path = typer.Option(Path.cwd(), "--config-root"),
+    strategy_id: str = typer.Option(
+        "", "--strategy", help="Playbook id (e.g. PB-001); required when several are enabled."
+    ),
     out_dir: Path = typer.Option(Path("plans"), "--out"),
     journal_path: Path = typer.Option(Path("journal/events.jsonl"), "--journal"),
 ) -> None:
     """Compute target weights, generate limit orders, and run the risk kernel."""
     config = load_config(config_root)
+    if strategy_id:
+        try:
+            strategy = config.strategy_by_id(strategy_id)
+        except KeyError as exc:
+            raise typer.BadParameter(str(exc)) from exc
+        if not strategy.enabled:
+            raise typer.BadParameter(f"strategy {strategy_id} is disabled")
+    else:
+        enabled = config.enabled_strategies()
+        if len(enabled) != 1:
+            ids = ", ".join(s.id for s in enabled) or "none"
+            raise typer.BadParameter(
+                f"--strategy is required when enabled strategies != 1 (enabled: {ids})"
+            )
+        strategy = enabled[0]
     histories = _load_prices(prices)
 
     if as_of:
@@ -261,8 +283,8 @@ def plan(
         if position.symbol in last_prices:
             position.last_price = last_prices[position.symbol]
 
-    result = rotation_targets(histories, config)
-    intents = build_intents(result, snapshot, last_prices, config)
+    result = rotation_targets(histories, config, strategy)
+    intents = build_intents(result, snapshot, last_prices, config, strategy)
     intents = fit_turnover_budget(intents, snapshot.nav, config.risk.max_daily_turnover_pct)
 
     state = RiskState(
@@ -271,10 +293,10 @@ def plan(
         high_water_nav=high_water if high_water is not None else snapshot.nav,
         halted=is_halted(journal_path.parent),
     )
-    sleeve_caps = config.strategy.sleeve_caps[result.regime.value].as_dict()
+    sleeve_caps = strategy.sleeve_caps[result.regime.value].as_dict()
     plan_pipeline = build_plan_pipeline(
         config_root,
-        config,
+        strategy,
         result.regime,
         result.regime_checks,
         prices,
@@ -294,7 +316,7 @@ def plan(
             sleeve_caps=sleeve_caps,
         )
         order_pipeline = build_order_pipeline(
-            intent, verdict, projected, config, result.regime, plan_pipeline.conviction
+            intent, verdict, projected, config, strategy, result.regime, plan_pipeline.conviction
         )
         if verdict.allowed:
             quantity = min(intent.quantity, verdict.adjusted_quantity)

@@ -208,7 +208,13 @@ def test_execute_withholds_gate_wait_orders(tmp_path: Path, monkeypatch) -> None
         )
         verdict = RiskVerdict(allowed=True, adjusted_quantity=10)
         pipeline = build_order_pipeline(
-            intent, verdict, snapshot, config, Regime.RISK_OFF, "low"
+            intent,
+            verdict,
+            snapshot,
+            config,
+            config.strategy_by_id("PB-001"),
+            Regime.RISK_OFF,
+            "low",
         )
         return PlannedOrder(intent=intent, verdict=verdict, pipeline=pipeline)
 

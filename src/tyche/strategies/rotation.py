@@ -208,8 +208,9 @@ def _apply_asset_caps(
     return weights
 
 
-def rotation_targets(histories: dict[str, pd.Series], config: AppConfig) -> RotationResult:
-    strategy = config.strategy
+def rotation_targets(
+    histories: dict[str, pd.Series], config: AppConfig, strategy: StrategyConfig
+) -> RotationResult:
     regime, checks = detect_regime(histories, strategy.regime)
     notes: list[str] = []
 
@@ -308,11 +309,11 @@ def build_intents(
     snapshot: AccountSnapshot,
     last_prices: dict[str, float],
     config: AppConfig,
+    strategy: StrategyConfig,
 ) -> list[OrderIntent]:
     nav = snapshot.nav
     if nav <= 0:
         return []
-    strategy: StrategyConfig = config.strategy
     cash_symbol = config.universe.cash_symbol
     positions = {position.symbol: position for position in snapshot.positions}
     symbols = set(result.targets) | set(positions)

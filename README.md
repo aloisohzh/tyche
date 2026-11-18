@@ -46,11 +46,13 @@ and order intents; everything downstream is shared.
 
 - **Reference strategy (v0.1)**: regime-aware, volatility-targeted rotation
   across a configurable ETF universe. Parameters live in
-  `config/strategy.yaml` and `config/universe.yaml`.
-- **Adding a strategy**: replace the signal and target-weight logic while
-  keeping `OrderIntent` as the output, so the risk kernel, turnover budget,
-  order construction, broker adapter, journal, and LLM perimeter apply
-  unchanged. Generalizing the strategy contract is tracked in
+  `config/strategies/pb-001.yaml` and `config/universe.yaml`.
+- **Adding a strategy**: one playbook md, one `config/strategies/pb-xxx.yaml`
+  (id, enabled, playbook ref, parameters), and one module registered in
+  `src/tyche/strategies/` keeping `OrderIntent` as the output, so the risk
+  kernel, turnover budget, order construction, broker adapter, journal, and
+  LLM perimeter apply unchanged (ADR 0014). Each strategy's rules hash is
+  frozen independently. Generalizing the strategy contract is tracked in
   [DESIGN.md §12](DESIGN.md#12-open-work).
 
 ## Quick start (no Moomoo account needed)
@@ -85,11 +87,11 @@ blocked orders, and appends a hash-chained event to `journal/events.jsonl`.
 ## Layout
 
 ```text
-config/          universe, strategy, and risk policy (YAML)
+config/          universe and risk policy (YAML); strategies/ one yaml per playbook
 src/tyche/
   config.py      typed, validated configuration
   models.py      domain models and enums
-  strategy.py    reference rotation strategy: signals, regime, sizing, intents
+  strategies/    registry + one module per algorithm (rotation.py is the reference)
   risk.py        deterministic pre-trade risk kernel
   journal.py     SHA-256 hash-chained JSONL audit log
   broker/        broker protocol, in-memory paper broker, Moomoo CLI adapter

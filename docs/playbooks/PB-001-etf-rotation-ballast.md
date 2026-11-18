@@ -1,7 +1,8 @@
 # PB-001 — Regime-aware ETF rotation (ballast)
 
 - **Status:** trading (ballast)
-- **Rules hash:** `946b3ef31a3d` (sha256 of config/strategy.yaml + config/universe.yaml bytes, first 12; frozen 2026-11-18)
+- **Rules hash:** `569eb2c341e0` (sha256 of config/strategies/pb-001.yaml + config/universe.yaml bytes, first 12; re-frozen 2026-11-19)
+- **Freeze history:** `946b3ef31a3d` frozen 2026-11-18 against config/strategy.yaml. ADR 0014 migration (2026-11-19) moved the file to config/strategies/pb-001.yaml and added id/enabled/playbook metadata; every trading parameter is byte-identical. New hash, same rules — not a re-tune.
 - **Validation:** unvalidated — beta exposure, not an edge claim; Fortuna's gauntlet rejected every setup it tested
 - **Sleeve:** ballast
 - **Env:** paper (competition)
@@ -57,6 +58,6 @@ defensive entries always act. Carried per order as `pipeline.action`; enforced b
 `tyche execute` and journaled as `gate.wait` on the MCP path.
 
 ## Evidence links
-- Kernel: src/tyche/strategy.py, src/tyche/risk.py, src/tyche/pipeline.py
-- ADRs: 0003 (risk kernel), 0004 (regime rotation), 0012 (options/protection context)
+- Kernel: src/tyche/strategies/rotation.py, src/tyche/risk.py, src/tyche/pipeline.py
+- ADRs: 0003 (risk kernel), 0004 (regime rotation), 0012 (options/protection context), 0014 (per-strategy isolation)
 - Validation: docs/validation/README.md (re-tuned rule = new hypothesis, new hash)

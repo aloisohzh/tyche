@@ -8,7 +8,7 @@ import pytest
 
 from tyche.config import load_config
 from tyche.models import OrderIntent, Side
-from tyche.strategy import (
+from tyche.strategies.rotation import (
     _cap_sleeves,
     detect_regime,
     fit_turnover_budget,
@@ -53,7 +53,7 @@ def test_momentum_uses_skip_window() -> None:
 def test_risk_on_regime_from_trending_market() -> None:
     config = load_config(ROOT)
     histories = base_histories()
-    regime, checks = detect_regime(histories, config.strategy.regime)
+    regime, checks = detect_regime(histories, config.strategy_by_id("PB-001").regime)
     assert regime.value == "risk_on"
     assert checks["equity_trend"]
     assert checks["golden_cross"]
@@ -62,12 +62,12 @@ def test_risk_on_regime_from_trending_market() -> None:
 def test_target_weights_respect_constraints() -> None:
     config = load_config(ROOT)
     histories = base_histories()
-    result = rotation_targets(histories, config)
+    result = rotation_targets(histories, config, config.strategy_by_id("PB-001"))
 
     invested = sum(weight for symbol, weight in result.targets.items() if symbol != "CASH")
-    assert invested <= 1.0 - config.strategy.min_cash_weight + 1e-6
+    assert invested <= 1.0 - config.strategy_by_id("PB-001").min_cash_weight + 1e-6
     assert invested >= 0.75
-    assert result.targets["CASH"] >= config.strategy.min_cash_weight - 1e-6
+    assert result.targets["CASH"] >= config.strategy_by_id("PB-001").min_cash_weight - 1e-6
     assert result.targets["CASH"] <= 0.25 + 1e-6
     caps = {asset.symbol: asset.max_weight for asset in config.universe.assets}
     assert all(
@@ -75,11 +75,11 @@ def test_target_weights_respect_constraints() -> None:
         for symbol, weight in result.targets.items()
         if symbol != "CASH"
     )
-    assert len([row for row in result.signals.values() if row.selected]) <= config.strategy.top_n
+    assert len([row for row in result.signals.values() if row.selected]) <= config.strategy_by_id("PB-001").top_n
     assert result.vol_scale <= 1.0
 
     sleeves = config.universe.sleeve_by_symbol()
-    for sleeve, cap in config.strategy.sleeve_caps[result.regime.value].as_dict().items():
+    for sleeve, cap in config.strategy_by_id("PB-001").sleeve_caps[result.regime.value].as_dict().items():
         sleeve_weight = sum(
             weight
             for symbol, weight in result.targets.items()
@@ -112,7 +112,7 @@ def test_risk_off_regime_caps_equity() -> None:
         "US.VNQ": trend_series(100, 65, 30),
         "US.HYG": trend_series(100, 80, 31, noise=0.0003),
     }
-    result = rotation_targets(histories, config)
+    result = rotation_targets(histories, config, config.strategy_by_id("PB-001"))
     assert result.regime.value == "risk_off"
     sleeves = config.universe.sleeve_by_symbol()
     equity_weight = sum(
@@ -120,7 +120,7 @@ def test_risk_off_regime_caps_equity() -> None:
         for symbol, weight in result.targets.items()
         if symbol != "CASH" and sleeves.get(symbol) == "equity"
     )
-    assert equity_weight <= config.strategy.sleeve_caps["risk_off"].equity + 1e-6
+    assert equity_weight <= config.strategy_by_id("PB-001").sleeve_caps["risk_off"].equity + 1e-6
 
 
 def test_sleeve_cap_releases_capital_to_open_sleeves() -> None:
@@ -129,7 +129,7 @@ def test_sleeve_cap_releases_capital_to_open_sleeves() -> None:
     capped = _cap_sleeves(
         weights,
         config.universe,
-        config.strategy.sleeve_caps["risk_on"].as_dict(),
+        config.strategy_by_id("PB-001").sleeve_caps["risk_on"].as_dict(),
     )
     sleeves = config.universe.sleeve_by_symbol()
     credit = sum(weight for symbol, weight in capped.items() if sleeves[symbol] == "credit")
@@ -143,7 +143,7 @@ def test_sleeve_redistribution_preserves_vol_scaled_total() -> None:
     capped = _cap_sleeves(
         weights,
         config.universe,
-        config.strategy.sleeve_caps["risk_on"].as_dict(),
+        config.strategy_by_id("PB-001").sleeve_caps["risk_on"].as_dict(),
     )
     assert sum(capped.values()) == pytest.approx(sum(weights.values()), abs=1e-6)
 
@@ -154,7 +154,7 @@ def test_insufficient_history_falls_back_to_cash() -> None:
         asset.symbol: pd.Series([100.0] * 20, index=pd.bdate_range("2026-01-01", periods=20))
         for asset in config.universe.assets
     }
-    result = rotation_targets(histories, config)
+    result = rotation_targets(histories, config, config.strategy_by_id("PB-001"))
     assert result.targets == {"CASH": 1.0}
     assert result.notes
 
@@ -162,7 +162,7 @@ def test_insufficient_history_falls_back_to_cash() -> None:
 @pytest.mark.parametrize("symbol", ["US.SPY", "US.HYG"])
 def test_signal_present_for_full_history(symbol: str) -> None:
     config = load_config(ROOT)
-    result = rotation_targets(base_histories(), config)
+    result = rotation_targets(base_histories(), config, config.strategy_by_id("PB-001"))
     assert symbol in result.signals
 
 

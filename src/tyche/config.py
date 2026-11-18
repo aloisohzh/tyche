@@ -65,6 +65,9 @@ class SleeveCaps(BaseModel):
 
 
 class StrategyConfig(BaseModel):
+    id: str = Field(pattern=r"^PB-\d{3}$")
+    enabled: bool = True
+    playbook: str
     lookbacks: list[int] = [63, 126, 252]
     lookback_weights: list[float] = [0.5, 0.3, 0.2]
     skip_days: int = 5
@@ -136,9 +139,27 @@ class RiskPolicy(BaseModel):
 
 class AppConfig(BaseModel):
     universe: UniverseConfig
-    strategy: StrategyConfig
+    strategies: list[StrategyConfig]
     risk: RiskPolicy
     root: Path = Field(exclude=True)
+
+    @model_validator(mode="after")
+    def _unique_strategy_ids(self) -> AppConfig:
+        if not self.strategies:
+            raise ValueError("at least one strategy config is required")
+        ids = [strategy.id for strategy in self.strategies]
+        if len(ids) != len(set(ids)):
+            raise ValueError("duplicate strategy ids in config/strategies")
+        return self
+
+    def strategy_by_id(self, strategy_id: str) -> StrategyConfig:
+        for strategy in self.strategies:
+            if strategy.id == strategy_id:
+                return strategy
+        raise KeyError(f"unknown strategy id: {strategy_id}")
+
+    def enabled_strategies(self) -> list[StrategyConfig]:
+        return [strategy for strategy in self.strategies if strategy.enabled]
 
 
 def _read_yaml(path: Path) -> dict:
@@ -160,9 +181,21 @@ def load_config(root: Path) -> AppConfig:
         risk = risk.model_copy(
             update={"account_allowlist": [*risk.account_allowlist, *injected]}
         )
+    strategy_paths = sorted((config_dir / "strategies").glob("*.yaml"))
+    if not strategy_paths:
+        raise FileNotFoundError(f"no strategy configs in {config_dir / 'strategies'}")
+    strategies = []
+    for path in strategy_paths:
+        strategy = StrategyConfig.model_validate(_read_yaml(path))
+        if path.stem != strategy.id.lower():
+            raise ValueError(
+                f"strategy file {path.name} does not match id {strategy.id} "
+                f"(expected {strategy.id.lower()}.yaml)"
+            )
+        strategies.append(strategy)
     return AppConfig(
         universe=UniverseConfig.model_validate(_read_yaml(config_dir / "universe.yaml")),
-        strategy=StrategyConfig.model_validate(_read_yaml(config_dir / "strategy.yaml")),
+        strategies=strategies,
         risk=risk,
         root=root,
     )

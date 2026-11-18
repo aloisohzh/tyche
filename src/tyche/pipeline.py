@@ -9,7 +9,7 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 
-from tyche.config import AppConfig, Sleeve
+from tyche.config import AppConfig, Sleeve, StrategyConfig
 from tyche.models import (
     AccountSnapshot,
     EdgeEstimate,
@@ -24,8 +24,6 @@ from tyche.models import (
     Sizing,
 )
 
-PLAYBOOK = "PB-001"
-
 OUTLOOK_BY_REGIME = {
     Regime.RISK_ON: Outlook.BULLISH,
     Regime.NEUTRAL: Outlook.RANGE,
@@ -38,11 +36,19 @@ ACT_WAIT_RULE = (
 )
 
 
-def rules_hash(config_root: Path) -> str:
-    """Freeze identifier for the strategy+universe rules (playbook pre-registration)."""
+def rules_hash(config_root: Path, strategy_id: str) -> str:
+    """Per-strategy freeze identifier (ADR 0014): that strategy's yaml + universe.
+
+    Editing another strategy's file can never invalidate this hash; a universe
+    edit re-freezes every strategy and must be journaled.
+    """
     digest = hashlib.sha256()
-    for name in ("strategy.yaml", "universe.yaml"):
-        digest.update((config_root / "config" / name).read_bytes())
+    paths = (
+        config_root / "config" / "strategies" / f"{strategy_id.lower()}.yaml",
+        config_root / "config" / "universe.yaml",
+    )
+    for path in paths:
+        digest.update(path.read_bytes())
     return digest.hexdigest()[:12]
 
 
@@ -66,7 +72,7 @@ def act_wait(
 
 def build_plan_pipeline(
     config_root: Path,
-    config: AppConfig,
+    strategy: StrategyConfig,
     regime: Regime,
     regime_checks: dict[str, bool],
     prices_path: Path,
@@ -74,9 +80,9 @@ def build_plan_pipeline(
 ) -> PlanPipeline:
     score = sum(1 for passed in regime_checks.values() if passed)
     total = len(regime_checks)
-    rh = rules_hash(config_root)
+    rh = rules_hash(config_root, strategy.id)
     return PlanPipeline(
-        thesis_ref=f"{PLAYBOOK} · rules {rh}",
+        thesis_ref=f"{strategy.id} · rules {rh}",
         rules_hash=rh,
         inputs_ref=InputsRef(
             prices_path=str(prices_path),
@@ -96,6 +102,7 @@ def build_order_pipeline(
     verdict: RiskVerdict,
     snapshot: AccountSnapshot,
     config: AppConfig,
+    strategy: StrategyConfig,
     regime: Regime,
     conviction: str,
 ) -> OrderPipeline:
@@ -106,11 +113,11 @@ def build_order_pipeline(
     effective = min(intent.quantity, verdict.adjusted_quantity) if verdict.allowed else 0
     notional = effective * intent.limit_price
     sleeve_cap = (
-        config.strategy.sleeve_caps[regime.value].as_dict().get(sleeve)
+        strategy.sleeve_caps[regime.value].as_dict().get(sleeve)
         if sleeve is not None
         else None
     )
-    min_momentum = config.strategy.min_momentum
+    min_momentum = strategy.min_momentum
     return OrderPipeline(
         vehicle="etf",
         vehicle_rationale=(

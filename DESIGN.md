@@ -24,9 +24,10 @@ history and configuration and emits target weights plus order intents. Risk,
 order construction, execution, reconciliation, and the audit journal are
 strategy-agnostic and shared by every strategy. Version 0.1 ships one
 strategy as the reference implementation: a regime-aware, volatility-targeted
-rotation across US-listed ETFs. Its logic is isolated in `strategy.py` and
-its parameters in `config/strategy.yaml`, so another strategy can replace it
-without touching the shared pipeline.
+rotation across US-listed ETFs. Its logic is isolated in `strategies/rotation.py`
+and its parameters in `config/strategies/pb-001.yaml` (one file per playbook,
+ADR 0014), so another strategy can be added or retired without touching the
+shared pipeline or invalidating another strategy's frozen rules hash.
 
 ## 2. Goals and non-goals
 
@@ -76,7 +77,7 @@ Components:
 | Module | Responsibility |
 | --- | --- |
 | `config.py` | Typed YAML configuration with cross-field validation |
-| `strategy.py` | Reference rotation strategy: momentum, regime, sizing, sleeve allocation, order intents |
+| `strategies/` | Registry (playbook id → target function) plus one module per algorithm; `rotation.py` is the reference: momentum, regime, sizing, sleeve allocation, order intents |
 | `risk.py` | Pre-trade invariant checks and quantity adjustments |
 | `journal.py` | SHA-256 hash-chained JSONL audit log |
 | `broker/base.py` | Broker protocol and in-memory paper broker |

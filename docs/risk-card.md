@@ -41,7 +41,7 @@ membership and sim-account-list presence before any submit.
 | Position count ≤ 100 | `position.count` | `max_positions` | `test_max_positions_blocks_new_symbol` |
 | Gross exposure ≤ 95% (+tol) | `portfolio.gross` | `max_gross_exposure` | `test_projected_sell_frees_capacity_for_later_buy` |
 | Cash floor ≥ 5% (no tolerance) | `portfolio.min_cash` | `min_cash_weight` | `test_minimum_cash_floor` |
-| Sleeve cap per regime (+tol) | `sleeve.max_weight` | strategy.yaml `sleeve_caps` | `test_sleeve_cap_is_enforced` |
+| Sleeve cap per regime (+tol) | `sleeve.max_weight` | strategies/pb-001.yaml `sleeve_caps` | `test_sleeve_cap_is_enforced` |
 
 ## Stateful guards (accumulate within the batch)
 

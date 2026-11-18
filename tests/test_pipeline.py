@@ -5,7 +5,6 @@ from pathlib import Path
 from tyche.config import load_config
 from tyche.models import AccountSnapshot, OrderIntent, Regime, RiskVerdict, Side
 from tyche.pipeline import (
-    PLAYBOOK,
     act_wait,
     build_order_pipeline,
     build_plan_pipeline,
@@ -33,24 +32,39 @@ def test_act_wait_gate_never_blocks_de_risking() -> None:
 
 
 def test_rules_hash_is_stable_and_config_sensitive(tmp_path: Path) -> None:
-    first = rules_hash(ROOT)
-    assert first == rules_hash(ROOT)
+    first = rules_hash(ROOT, "PB-001")
+    assert first == rules_hash(ROOT, "PB-001")
     assert len(first) == 12
     fake = tmp_path / "config"
-    fake.mkdir()
-    (fake / "strategy.yaml").write_bytes(b"lookbacks: [63]\n")
+    (fake / "strategies").mkdir(parents=True)
+    (fake / "strategies" / "pb-001.yaml").write_bytes(b"lookbacks: [63]\n")
     (fake / "universe.yaml").write_bytes(b"assets: []\n")
-    assert rules_hash(tmp_path) != first
+    assert rules_hash(tmp_path, "PB-001") != first
+
+
+def test_rules_hash_isolated_per_strategy(tmp_path: Path) -> None:
+    fake = tmp_path / "config"
+    (fake / "strategies").mkdir(parents=True)
+    (fake / "strategies" / "pb-001.yaml").write_bytes(b"id: PB-001\n")
+    (fake / "universe.yaml").write_bytes(b"assets: []\n")
+    frozen = rules_hash(tmp_path, "PB-001")
+    (fake / "strategies" / "pb-002.yaml").write_bytes(b"id: PB-002\n")
+    assert rules_hash(tmp_path, "PB-001") == frozen
+    (fake / "strategies" / "pb-002.yaml").write_bytes(b"id: PB-002\nenabled: false\n")
+    assert rules_hash(tmp_path, "PB-001") == frozen
+    (fake / "universe.yaml").write_bytes(b"assets: [US.SPY]\n")
+    assert rules_hash(tmp_path, "PB-001") != frozen
 
 
 def test_plan_pipeline_pins_inputs(tmp_path: Path) -> None:
     prices = tmp_path / "prices.csv"
     prices.write_text("date,symbol,close\n2026-11-17,US.SPY,100\n", encoding="utf-8")
     config = load_config(ROOT)
+    strategy = config.strategy_by_id("PB-001")
     checks = {"equity_trend": True, "golden_cross": True, "vol_calm": False, "credit_trend": False}
-    pipe = build_plan_pipeline(ROOT, config, Regime.NEUTRAL, checks, prices, "reports/brief.md")
-    assert pipe.thesis_ref.startswith(PLAYBOOK)
-    assert pipe.rules_hash == rules_hash(ROOT)
+    pipe = build_plan_pipeline(ROOT, strategy, Regime.NEUTRAL, checks, prices, "reports/brief.md")
+    assert pipe.thesis_ref.startswith("PB-001")
+    assert pipe.rules_hash == rules_hash(ROOT, "PB-001")
     assert pipe.outlook.value == "range"
     assert pipe.conviction == "medium"
     assert (pipe.checks_score, pipe.checks_total) == (2, 4)
@@ -65,7 +79,15 @@ def test_order_pipeline_fields_are_derived_not_fabricated() -> None:
         symbol="US.SPY", side=Side.BUY, quantity=10, limit_price=100.0, reason="rebalance"
     )
     verdict = RiskVerdict(allowed=True, adjusted_quantity=10)
-    pipe = build_order_pipeline(intent, verdict, snapshot, config, Regime.NEUTRAL, "medium")
+    pipe = build_order_pipeline(
+        intent,
+        verdict,
+        snapshot,
+        config,
+        config.strategy_by_id("PB-001"),
+        Regime.NEUTRAL,
+        "medium",
+    )
     assert pipe.vehicle == "etf"
     assert "equity" in pipe.vehicle_rationale
     assert pipe.expected_edge is not None
@@ -77,5 +99,5 @@ def test_order_pipeline_fields_are_derived_not_fabricated() -> None:
     assert pipe.sizing.notional == 1000.0
     assert pipe.sizing.nav_pct == 0.01
     assert pipe.sizing.single_asset_cap_pct == config.risk.max_position_weight
-    assert pipe.sizing.sleeve_cap_pct == config.strategy.sleeve_caps["neutral"].equity
+    assert pipe.sizing.sleeve_cap_pct == config.strategy_by_id("PB-001").sleeve_caps["neutral"].equity
     assert pipe.action == "act"

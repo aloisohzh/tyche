@@ -17,7 +17,7 @@ Thesis · Edge (why it should work, and why it might not) · Universe/liquidity 
 
 | id | Setup | Note |
 |---|---|---|
-| PB-001 | ETF rotation ballast | pre-registered (rules 946b3ef31a3d); v0.1 reference; low-vol, regime-aware; beta not alpha |
+| PB-001 | ETF rotation ballast | pre-registered (rules 569eb2c341e0; was 946b3ef31a3d before the ADR 0014 file migration, parameters unchanged); v0.1 reference; low-vol, regime-aware; beta not alpha |
 | PB-002 | Event drift (FOMC minutes / PCE) | defined-risk, small, time exit; pre-register |
 | PB-003 | First/last-hour liquidity | intraday, limit orders, flat by close |
 | PB-004 | Sector rotation heat | relative-strength sleeve |

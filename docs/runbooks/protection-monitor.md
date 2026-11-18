@@ -33,7 +33,7 @@ open position or option leg group:
       "qty": 28,
       "entry_price": 733.17,
       "playbook": "PB-001",
-      "rules_hash": "946b3ef31a3d",
+      "rules_hash": "569eb2c341e0",
       "protection_type": "rebalance",
       "invalidation": {
         "kind": "rule",
