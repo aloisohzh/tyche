@@ -104,3 +104,36 @@ def test_find_pending_by_number() -> None:
     assert found is not None and found[0] == "evt_1"
     assert bridge.find_pending(state, "9") is None
     assert bridge.find_pending(state, "abc") is None
+
+
+def test_markdown_bold_becomes_html_bold() -> None:
+    out = bridge.to_telegram_html("**Pre-market complete.** mood *cautious*")
+    assert "<b>Pre-market complete.</b>" in out
+    assert "<i>cautious</i>" in out
+    assert "**" not in out
+
+
+def test_markdown_pipe_table_becomes_pre() -> None:
+    md = "| Order | Qty |\n| --- | --- |\n| BUY SPY | 28 |\n| BUY EFA | 142 |"
+    out = bridge.to_telegram_html(md)
+    assert out.startswith("<pre>") and out.endswith("</pre>")
+    assert "|" not in out
+    assert "BUY SPY" in out and "142" in out
+
+
+def test_compliant_html_passes_through_unchanged() -> None:
+    html_in = "<b>TYCHE</b>\n<pre>BUY SPY 28 &amp; hold\nrow2</pre>\nNAV &lt; 100k &amp; cash"
+    assert bridge.to_telegram_html(html_in) == html_in
+
+
+def test_free_text_specials_escaped_once() -> None:
+    out = bridge.to_telegram_html("risk < cap & ok")
+    assert "&lt;" in out and "&amp;" in out
+    assert "&amp;amp;" not in out and "&amp;lt;" not in out
+
+
+def test_mixed_html_header_and_markdown_table() -> None:
+    md = "<b>Orders</b>\n| A | B |\n| - | - |\n| 1 | 2 |"
+    out = bridge.to_telegram_html(md)
+    assert "<b>Orders</b>" in out
+    assert "<pre>" in out and "|" not in out

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import html
 import json
+import os
 import re
 import sys
 import time
@@ -33,11 +34,17 @@ MAX_MESSAGE = 3900
 
 
 def env() -> dict:
+    # Session env vars win (cloud desk has no .env); local .env is the fallback.
     values = {}
-    for line in (ROOT / ".env").read_text().splitlines():
-        if line and not line.startswith("#") and "=" in line:
-            key, value = line.split("=", 1)
-            values[key.strip()] = value.strip()
+    path = ROOT / ".env"
+    if path.exists():
+        for line in path.read_text().splitlines():
+            if line and not line.startswith("#") and "=" in line:
+                key, value = line.split("=", 1)
+                values[key.strip()] = value.strip()
+    for key in ("TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"):
+        if os.environ.get(key):
+            values[key] = os.environ[key]
     return values
 
 
@@ -64,6 +71,88 @@ def mask_ids(text: str) -> str:
 
 def esc(text: str) -> str:
     return html.escape(str(text), quote=False)
+
+
+_HTML_TAG = re.compile(r"</?(?:b|i|u|s|code|pre|br|a)(?:\s[^>]*)?>")
+
+
+def _inline(line: str) -> str:
+    """Escape free text and turn Markdown inline marks into Telegram HTML.
+
+    Existing Telegram HTML tags are stashed so compliant input is not
+    double-escaped or stripped.
+    """
+    tags: list[str] = []
+
+    def stash(match: re.Match) -> str:
+        tags.append(match.group(0))
+        return f"\x00{len(tags) - 1}\x00"
+
+    s = _HTML_TAG.sub(stash, line)
+    s = re.sub(r"&(?:amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);", stash, s)
+    s = esc(s)
+    s = re.sub(r"`([^`]+)`", lambda m: f"<code>{m.group(1)}</code>", s)
+    s = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", s)
+    s = re.sub(r"__(.+?)__", r"<b>\1</b>", s)
+    s = re.sub(r"(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)", r"<i>\1</i>", s)
+    s = re.sub(r"(?<!_)_(?!_)(.+?)(?<!_)_(?!_)", r"<i>\1</i>", s)
+    s = re.sub(r"^#{1,6}\s+(.*)$", r"<b>\1</b>", s)
+    return re.sub(r"\x00(\d+)\x00", lambda m: tags[int(m.group(1))], s)
+
+
+def _table(block: list[str]) -> str:
+    """Render a Markdown pipe table as an aligned monospace <pre> block."""
+    rows = []
+    for line in block:
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if cells and all(re.fullmatch(r":?-+:?", c) for c in cells if c):
+            continue
+        rows.append([re.sub(r"\*\*|`", "", c) for c in cells])
+    if not rows:
+        return ""
+    ncols = max(len(r) for r in rows)
+    rows = [r + [""] * (ncols - len(r)) for r in rows]
+    widths = [max(len(r[i]) for r in rows) for i in range(ncols)]
+    aligned = [
+        "  ".join(c.ljust(widths[i]) for i, c in enumerate(r)).rstrip() for r in rows
+    ]
+    return "<pre>" + esc("\n".join(aligned)) + "</pre>"
+
+
+def to_telegram_html(text: str) -> str:
+    """Normalize a digest (Markdown or HTML) to Telegram-safe HTML.
+
+    Telegram never renders Markdown pipe tables or **bold**; left as-is they
+    show literally. Markdown is converted; existing HTML (incl. multi-line
+    <pre> blocks) passes through unchanged so compliant digests are untouched.
+    """
+    out: list[str] = []
+    in_pre = False
+    lines = text.split("\n")
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        if in_pre:
+            out.append(line)
+            if "</pre>" in line:
+                in_pre = False
+            i += 1
+            continue
+        if "<pre>" in line:
+            out.append(line)
+            in_pre = "</pre>" not in line
+            i += 1
+            continue
+        if line.strip().startswith("|") and line.count("|") >= 2:
+            block = []
+            while i < len(lines) and lines[i].strip().startswith("|"):
+                block.append(lines[i])
+                i += 1
+            out.append(_table(block))
+            continue
+        out.append(_inline(line))
+        i += 1
+    return "\n".join(out)
 
 
 def load_state() -> dict:
@@ -249,7 +338,7 @@ class Bridge:
                         if block.get("type") == "text"
                     ).strip()
                     if text:
-                        self.say(esc(mask_ids(text)))
+                        self.say(to_telegram_html(mask_ids(text)))
                 elif event.get("type") == "session.error":
                     self.say(f"<b>Session error</b>: {esc(mask_ids(json.dumps(event.get('error'))))}")
 
@@ -428,7 +517,13 @@ def main() -> None:
         chat_id = env().get("TELEGRAM_CHAT_ID")
         if not chat_id:
             raise SystemExit("TELEGRAM_CHAT_ID missing from .env; run chat-id first")
-        result = api("sendMessage", {"chat_id": chat_id, "text": sys.argv[2]})["result"]
+        text = to_telegram_html(mask_ids(sys.argv[2]))
+        if len(text) > MAX_MESSAGE:
+            text = text[:MAX_MESSAGE] + "\n... (truncated)"
+        result = api(
+            "sendMessage",
+            {"chat_id": chat_id, "text": text, "parse_mode": "HTML"},
+        )["result"]
         print("sent message_id", result["message_id"])
     elif command == "listen":
         listen()
