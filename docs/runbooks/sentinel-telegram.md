@@ -23,14 +23,21 @@ bound IM channel); delivery lives in the run instructions instead.
 - Bot: `@tyche_sentinel_bot` (BotFather). Token + chat id live **server-side** in the
   desk template's `environment_variables` (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`),
   merged with existing keys. Local copy in gitignored `.env` for local tests only.
-- Each schedule's `initial_events` (version 3) ends with a TELEGRAM DELIVERY contract:
-  plain-language HTML digest < 3500 chars — bold header (phase, date, UTC clock),
-  one-sentence market mood + stance, an **Orders** `<pre>` monospace table
-  (ACTION SYMBOL QTY VALUE STATUS REASON, plain words first, rule id in parentheses),
-  **Account** lines (NAV, cash, positions, kill-switch), **Problems** (or none);
-  immediate alert on kill-switch engagement or risk rejection; one retry after 5 s;
-  delivery failure is recorded but never blocks risk work; no tokens/credentials/full
-  account ids in messages or logs.
+- Each schedule's `initial_events` (version 5) ends with a TELEGRAM DELIVERY contract:
+  send via the repo helper `python scripts/telegram.py send "<digest>"` (reads
+  `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID` from session env). The helper normalizes
+  Markdown **or** HTML to Telegram HTML — `**bold**`→bold, pipe tables→aligned `<pre>`
+  monospace — so a digest composed in either syntax renders correctly (fix 2026-11-18:
+  the desk had drifted to Markdown while sending `parse_mode=HTML`, showing literal
+  `**` and pipes). Compliant HTML passes through unchanged. Plain-language digest
+  < 3500 chars — bold header (phase, date, UTC clock), one-sentence market mood +
+  stance, an **Orders** monospace table (ACTION SYMBOL QTY VALUE STATUS REASON, plain
+  words first, rule id in parentheses), **Account** lines (NAV, cash, positions,
+  kill-switch), **Problems** (or none); immediate alert on kill-switch engagement or
+  risk rejection; one retry after 5 s; delivery failure is recorded but never blocks
+  risk work; no tokens/credentials/full account ids in messages or logs. Fallback if
+  the helper is unavailable: strict Telegram HTML (`<b>`, `<pre>`) via curl
+  `parse_mode=HTML` — never raw Markdown.
 - Schedules: `tyche-premarket` (13:45 UTC), `tyche-eod` (22:15 UTC),
   `tyche-eod-halfday` (27 Nov 18:15 UTC).
 
@@ -51,7 +58,9 @@ bound IM channel); delivery lives in the run instructions instead.
 ## Local commands
 
 - `scripts/telegram.py chat-id` — derive chat id from `getUpdates`.
-- `scripts/telegram.py send "<text>"` — connection check / manual alert.
+- `scripts/telegram.py send "<text>"` — connection check / manual alert / digest.
+  Normalizes Markdown or HTML to Telegram HTML (`parse_mode=HTML`), masks account
+  ids, caps length. Works locally (`.env`) and in the cloud desk (session env vars).
 - `scripts/forward.py get|post|delete|env-set|qr|poll` — Forward API client (PAT from
   `.env`; `MSYS_NO_PATHCONV=1` in Git Bash).
 
