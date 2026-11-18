@@ -17,6 +17,7 @@ dist/
 /reports/
 .env
 .telegram-bridge.json
+*.qoder.site
 
 # OS / editor
 .DS_Store

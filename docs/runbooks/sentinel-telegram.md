@@ -91,10 +91,75 @@ listener). The approval relay (`user.tool_confirmation`) is API-verified but
 has NOT yet been exercised against a real pending order ask — do a controlled
 drill on the PERSONAL paper account before relying on it for challenge orders.
 
+## Cloud bridge (no PC) — Sites function, 2026-11-18
+
+The local listener above requires the operator's PC to be on. The cloud bridge
+replaces it with a Qoder Sites Edge Function (`bridge-site/`) that receives
+webhooks directly, so questions and approvals work from Telegram alone.
+
+**Path**: Telegram → Sites Function (`POST /functions/v1/app/telegram`) and
+Forward events → Sites Function (`POST /functions/v1/app/forward`) → desk
+session via the Forward API. Durable state (bound session, cursors, pending
+approvals, decisions, webhook dedup) lives in the site's private
+function-backend database (`app.bridge_state`, `app.pending_asks`,
+`app.decisions`, `app.webhook_events`); no browser or local process is involved.
+
+**Credentials** (four tiers, none in the repo or browser):
+- `QODER_PAT` — platform-provisioned server-side when the site's `qoder`
+  backend capability was enabled (operator-confirmed). Read only inside the
+  Function via `Deno.env.get`; never an application Secret, never in chat.
+- `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `TELEGRAM_WEBHOOK_SECRET`,
+  `FORWARD_SIGNING_SECRET` — application Secrets entered by the operator in
+  Site Settings (values copied by hand from gitignored `.env`; never chat/args).
+
+**Inbound auth**:
+- Telegram: shared-secret header `X-Telegram-Bot-Api-Secret-Token`
+  (timing-safe compare) + chat-id allowlist + `update_id` dedup.
+- Forward: HMAC-SHA256 over `Webhook-ID.Webhook-Timestamp.raw_body` with the
+  endpoint signing secret (`whsec_` prefix stripped, base64-decoded key),
+  300 s timestamp tolerance, multi-signature header support; `Webhook-ID`
+  dedup row is rolled back on processing error so Forward retries reprocess.
+- Same command set as the local listener (`/session`, `/status`, `/pending`,
+  `/approve N`, `/deny N [reason]`, `/interrupt`, free-text relay). Never
+  auto-approves; account ids masked to last 3 digits in previews.
+- Auto-binding: `session.status_run_started` / thread events from the three
+  desk schedules bind the newest matching desk session (identity + template
+  check), so mid-run approvals route without manual `/session`.
+
+**Setup / wiring** (`scripts/cloud_bridge.py`, PAT from `.env`,
+`MSYS_NO_PATHCONV=1` in Git Bash):
+- `gen-secret` — create `TELEGRAM_WEBHOOK_SECRET` in `.env`.
+- `create-endpoint <site-url>` — register the Forward webhook endpoint
+  (6 session/thread/schedule events); captures `FORWARD_SIGNING_SECRET` +
+  endpoint id to `.env` (secret returned once, never printed).
+- `set-webhook <site-url>` — point Telegram at the function with the secret
+  token; `webhook-info` / `test-endpoint` / `delete-webhook` /
+  `delete-endpoint` for inspection and rollback.
+
+**Rollback**: `delete-webhook` restores `getUpdates` mode; run the local
+listener (`scripts/telegram.py listen`) as fallback. The Forward endpoint can
+stay registered (harmless) or be removed with `delete-endpoint`.
+
+**Status page**: the site root shows bound session, pending approvals and last
+webhook only — read-only, no order actions. Site access is public solely so
+Telegram/Forward can deliver webhooks anonymously; every route is gated by the
+secret checks above.
+
+Verification status: local fixture suite (13 route checks incl. signature
+rejection, dedup, approve/deny, 409 handling) passes; live publication and
+end-to-end webhook round trip pending at time of writing — update this section
+after the first real `webhook.test` delivery and operator `/status` round trip.
+
 ## Rotation and revocation
 
 - BotFather `/revoke` issues a new token; update `.env`, re-run `env-set` (operator
-  authorization required again), re-verify with a rehearsal run.
+  authorization required again), re-verify with a rehearsal run. For the cloud
+  bridge, also update `TELEGRAM_BOT_TOKEN` in Site Settings and re-run
+  `set-webhook` if the webhook secret changed.
+- `FORWARD_SIGNING_SECRET` rotates by deleting and re-creating the Forward
+  endpoint (`delete-endpoint` → `create-endpoint`), then updating the Site
+  Settings value. `TELEGRAM_WEBHOOK_SECRET` rotates via `gen-secret` +
+  `set-webhook` + Site Settings.
 - Chat id changes only if the operator chats from a different account; re-run chat-id.
 
 ## Failure modes
