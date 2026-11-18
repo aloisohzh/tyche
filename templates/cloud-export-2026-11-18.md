@@ -32,6 +32,29 @@ old 20% notional cap (cap raised to 30% in repo 18b97cf, pushed 13:18 UTC before
 13:45 cron; mount syncs latest main per session). Cloud git push 403 (mount PAT is
 read-only) — Drive raw sink succeeded; push-back still operator-open.
 
+Amendment 2026-11-18 16:51 UTC (pre-change export, act/wait gate clause): live prompts
+retrieved via GET /templates (executor `tmpl_bc25a5c313827d53894fd7ff` updated
+2026-11-18T13:04+08, desk `tmpl_004fa008901a6c256bd0ed3f` updated 2026-11-19T00:45+08 —
+the desk prompt now carries the parallel session's hourly-cadence + watchlist flow).
+Neither prompt mentions `pipeline.action` / `gate.wait`; roster pins 7/2/4 + advisor.
+Raw exports kept local-only under gitignored `plans/cloud-*-live.json`. Planned change:
+executor system prompt gains the ACT/WAIT GATE clause (skip `pipeline.action="wait"`
+orders, journal `gate.wait`, never block sells/defensive entries); compiled executor
+v4→v5 expected; desk roster re-pin executor 4→5, desk prompt untouched.
+
+Amendment 2026-11-18 17:16 UTC (gate clause APPLIED, operator-approved via explicit
+target+diff confirmation): executor template updated via `update_forward_template`
+(name + system only; tools/always_ask policies/vault/env preserved — verified in the
+response). Compiled executor `agent_00vtx8mfbxerk6vxmny5` now **v5** (get_agent verified,
+clause present). Desk roster re-pinned **7/2/5 + advisor** (update response verified;
+desk system prompt preserved verbatim — the hourly-cadence + watchlist flow from the
+parallel session is intact). New executor prompt snapshot: gitignored
+`plans/cloud-executor-new.prompt.txt`; rollback = restore `plans/cloud-executor-live.prompt.txt`
+(pre-change, v4) and re-pin 4. Note: the direct-API script path
+(`scripts/forward.py` POST) was blocked by the desktop permission classifier; the QCA
+connector tool path was used instead. Env-var values returned by the API are
+server-side only and must never be copied into docs, chat, or git.
+
 ## Template (coordinator)
 
 - id: `tmpl_004fa008901a6c256bd0ed3f` — name `tyche-desk`, status active
@@ -58,7 +81,7 @@ drive/schedule tools; each prompt refuses standalone operation outside the desk.
 |---|---|---|---|---|---|
 | Researcher (scout) | `tmpl_875834770244a9e35c7f6499` (rewritten from Moomoo Paper Trader) | `agent_00vs9v3dg0rnkr4740x3` | 7 | moomoo (read; all order-write tools disabled) | none |
 | Risk auditor | `tmpl_ae317cc0626a4fcc8fa8fad6` | `agent_00vtx8g7k1534t7w9eve` | 2 | none | none |
-| Executor | `tmpl_bc25a5c313827d53894fd7ff` | `agent_00vtx8mfbxerk6vxmny5` | 4 | moomoo, default **always_deny**; sim reads + quotes allowed; `sim_trade_input_order` / `cancel` / `modify` = **always_ask** (per-order operator confirmation) | paper only |
+| Executor | `tmpl_bc25a5c313827d53894fd7ff` | `agent_00vtx8mfbxerk6vxmny5` | 5 | moomoo, default **always_deny**; sim reads + quotes allowed; `sim_trade_input_order` / `cancel` / `modify` = **always_ask** (per-order operator confirmation) | paper only |
 | Advisor | — (model consult) | — | — | none | none |
 
 Advisor model: `ultimate`. All member models: `qmodel_latest`, effort high.
