@@ -21,11 +21,14 @@ bound IM channel); delivery lives in the run instructions instead.
 - Bot: `@tyche_sentinel_bot` (BotFather). Token + chat id live **server-side** in the
   desk template's `environment_variables` (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`),
   merged with existing keys. Local copy in gitignored `.env` for local tests only.
-- Each schedule's `initial_events` (version 2) ends with a TELEGRAM DELIVERY contract:
-  digest < 1500 chars (phase, UTC time, regime, approved/blocked orders + rule ids,
-  NAV/cash, kill-switch state, errors); immediate alert on kill-switch engagement or
-  risk rejection; one retry after 5 s; delivery failure is recorded but never blocks
-  risk work; no tokens/credentials/full account ids in messages or logs.
+- Each schedule's `initial_events` (version 3) ends with a TELEGRAM DELIVERY contract:
+  plain-language HTML digest < 3500 chars — bold header (phase, date, UTC clock),
+  one-sentence market mood + stance, an **Orders** `<pre>` monospace table
+  (ACTION SYMBOL QTY VALUE STATUS REASON, plain words first, rule id in parentheses),
+  **Account** lines (NAV, cash, positions, kill-switch), **Problems** (or none);
+  immediate alert on kill-switch engagement or risk rejection; one retry after 5 s;
+  delivery failure is recorded but never blocks risk work; no tokens/credentials/full
+  account ids in messages or logs.
 - Schedules: `tyche-premarket` (13:45 UTC), `tyche-eod` (22:15 UTC),
   `tyche-eod-halfday` (27 Nov 18:15 UTC).
 
@@ -49,6 +52,22 @@ bound IM channel); delivery lives in the run instructions instead.
 - `scripts/telegram.py send "<text>"` — connection check / manual alert.
 - `scripts/forward.py get|post|delete|env-set|qr|poll` — Forward API client (PAT from
   `.env`; `MSYS_NO_PATHCONV=1` in Git Bash).
+
+## Inbound (questions / commands) — not wired yet
+
+Today the sentinel is **outbound-only**: nothing polls `getUpdates`, so messages sent
+to the bot are not read. Inbound is feasible without a Forward channel:
+
+- A local bridge (`scripts/telegram.py listen`, to build) polls `getUpdates`, accepts
+  only the operator chat id, and relays to a desk session via
+  `POST /api/v1/forward/sessions/{id}/events`.
+- Verified API support: `user.message` (ask questions / task the desk) and
+  `user.tool_confirmation` with `tool_use_id` + `result: allow|deny` — this is exactly
+  the executor's `always_ask` per-order gate, so **order approvals can be relayed from
+  Telegram** while keeping per-order preview + explicit confirmation.
+- Constraints: the operator's machine must run the bridge; PAT stays in local `.env`;
+  chat-id allowlist is the only inbound auth, so order commands must still surface a
+  preview and wait for an explicit approve reply. Never auto-approve.
 
 ## Rotation and revocation
 

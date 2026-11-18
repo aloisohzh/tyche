@@ -14,6 +14,13 @@ roster re-pinned to v5 (verified via get_agent). `execution.timeout_ms` 1800000�
 on tyche-premarket / tyche-eod / tyche-eod-halfday (env/execution edits do not bump member
 pins). Auditor v2 and executor v4 unchanged.
 
+Amendment 2026-11-18 13:07 UTC (operator-approved follow-ups): researcher v5→**v7**
+(v6: no-shell handoff — researcher lists persisted kline files, Desk Head runs the
+parser; v7: OUTPUT wording aligned to one-file + handoff), roster re-pinned to v7
+(verified). Schedule `initial_events` v2→**v3**: plain-language HTML digest with
+`<pre>` orders table, < 3500 chars, parse_mode=HTML. Rehearsal 2
+`srun_84820bb31f5900a61a3429d1` ran on v5/events-v2; risk alert delivered 12:59 UTC.
+
 ## Template (coordinator)
 
 - id: `tmpl_004fa008901a6c256bd0ed3f` — name `tyche-desk`, status active
@@ -38,7 +45,7 @@ drive/schedule tools; each prompt refuses standalone operation outside the desk.
 
 | Role | Member template | Compiled agent (roster entry) | Pin | MCP | Trade tools |
 |---|---|---|---|---|---|
-| Researcher (scout) | `tmpl_875834770244a9e35c7f6499` (rewritten from Moomoo Paper Trader) | `agent_00vs9v3dg0rnkr4740x3` | 5 | moomoo (read; all order-write tools disabled) | none |
+| Researcher (scout) | `tmpl_875834770244a9e35c7f6499` (rewritten from Moomoo Paper Trader) | `agent_00vs9v3dg0rnkr4740x3` | 7 | moomoo (read; all order-write tools disabled) | none |
 | Risk auditor | `tmpl_ae317cc0626a4fcc8fa8fad6` | `agent_00vtx8g7k1534t7w9eve` | 2 | none | none |
 | Executor | `tmpl_bc25a5c313827d53894fd7ff` | `agent_00vtx8mfbxerk6vxmny5` | 4 | moomoo, default **always_deny**; sim reads + quotes allowed; `sim_trade_input_order` / `cancel` / `modify` = **always_ask** (per-order operator confirmation) | paper only |
 | Advisor | — (model consult) | — | — | none | none |
