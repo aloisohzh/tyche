@@ -63,7 +63,7 @@ query today's orders before any further write; never retry blindly.
 
 ## Persistence (every run)
 
-Raw journal/plans/reports → OSS bucket (`/mnt/buckets/<name>`). Sanitized summaries → git push with a
+Raw journal/plans/reports → Drive locker (`/data/drive/tyche-raw`; OSS deferred post-competition). Sanitized summaries → git push with a
 least-privilege PAT (server-side only, `.env` gitignored). The sandbox is ephemeral; without this the
 evidence is lost.
 

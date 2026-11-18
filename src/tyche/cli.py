@@ -17,6 +17,7 @@ from tyche.broker import (
     extract_daily_bars,
     extract_last_price,
     extract_order_id,
+    snapshot_from_dir,
 )
 from tyche.config import load_config
 from tyche.halt import is_halted, set_halt
@@ -595,6 +596,25 @@ def quote(
     except MoomooCliError as exc:
         console.print(str(exc))
         raise typer.Exit(1) from exc
+
+
+@app.command()
+def snapshot(
+    directory: Path = typer.Option(..., "--dir", help="Run dir with accounts/cash/positions JSON."),
+    account_id: str = typer.Option(..., "--account-id", help="Paper account the snapshots were fetched for."),
+) -> None:
+    """Write snapshot.json: env, account type/market and account linkage, file-visible for audit."""
+    snap = snapshot_from_dir(directory, account_id)
+    if snap.account_type is None or snap.market_id is None:
+        raise typer.BadParameter(
+            f"account ***{account_id[-3:]} not found in {directory}/accounts.json"
+        )
+    out_path = directory / "snapshot.json"
+    out_path.write_text(snap.model_dump_json(indent=2), encoding="utf-8")
+    console.print(
+        f"Wrote {out_path}: env={snap.env}, account_type={snap.account_type}, "
+        f"market_id={snap.market_id}, account=***{account_id[-3:]}"
+    )
 
 
 @app.command("journal-verify")

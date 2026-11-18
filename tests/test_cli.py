@@ -62,3 +62,43 @@ def test_plan_cli_end_to_end(tmp_path: Path) -> None:
     assert payload["regime"] in {"risk_on", "neutral", "risk_off"}
     assert payload["targets"]
     assert journal_path.read_text(encoding="utf-8").strip()
+
+
+def _write_run_dir(tmp_path: Path) -> Path:
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    (run_dir / "accounts.json").write_text(
+        json.dumps(
+            {"data": {"accounts": [{"account_id": "9999598", "account_type": 2, "market_id": 100}]}}
+        ),
+        encoding="utf-8",
+    )
+    (run_dir / "cash.json").write_text(
+        json.dumps({"data": {"balance": 100000.0, "total_asset": 100000.0}}), encoding="utf-8"
+    )
+    (run_dir / "positions.json").write_text(json.dumps({"data": {"positions": []}}), encoding="utf-8")
+    return run_dir
+
+
+def test_snapshot_cli_writes_audit_metadata(tmp_path: Path) -> None:
+    run_dir = _write_run_dir(tmp_path)
+    result = CliRunner().invoke(
+        app, ["snapshot", "--dir", str(run_dir), "--account-id", "9999598"]
+    )
+    assert result.exit_code == 0, result.output
+    payload = json.loads((run_dir / "snapshot.json").read_text(encoding="utf-8"))
+    assert payload["account_id"] == "9999598"
+    assert payload["env"] == "paper"
+    assert payload["account_type"] == 2
+    assert payload["market_id"] == 100
+    assert payload["cash"] == 100000.0
+    assert "9999598" not in result.output
+
+
+def test_snapshot_cli_rejects_unknown_account(tmp_path: Path) -> None:
+    run_dir = _write_run_dir(tmp_path)
+    result = CliRunner().invoke(
+        app, ["snapshot", "--dir", str(run_dir), "--account-id", "1111111"]
+    )
+    assert result.exit_code != 0
+    assert not (run_dir / "snapshot.json").exists()

@@ -37,3 +37,13 @@ held server-side in a gitignored `.env` / vault, never in the repo or chat.
 - Git only: rejected — raw payloads and ids would either leak or be lost.
 - Bucket only: rejected — forfeits the public, version-controlled reproducibility
   the documentation criterion rewards.
+
+## Amendment (18 November 2026, operator decision)
+
+Raw sink switched from the OSS beta mount to the Qoder Drive locker
+`/data/drive/tyche-raw`: identity-private, persistent across sessions, zero
+provisioning during the competition window. `tyche persist --bucket` accepts any
+mounted path, so the sanitize gate and the two-sink contract are unchanged; an OSS
+bucket can replace Drive later without code changes. EOD additionally delivers the
+raw bundle and the EOD report via DeliverArtifacts so the operator can download
+them from console Files (the Files tab is not a Drive browser).

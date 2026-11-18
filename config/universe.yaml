@@ -1,4 +1,5 @@
 cash_symbol: CASH
+min_market_cap_usd: 500000000
 assets:
   - symbol: US.SPY
     name: S&P 500
