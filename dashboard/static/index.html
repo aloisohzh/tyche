@@ -423,7 +423,7 @@
         <div class="page-heading">
           <div>
             <h1>Controls &amp; administration</h1>
-            <p>Operator-only settings, grouped away from the read-only desk. Order-approval mode (manual per-order confirmation, or a bounded overnight envelope), live-refresh behavior, the Telegram sentinel status, and the honest data-source / divergence record.</p>
+            <p>Operator-only settings, grouped away from the read-only desk. Order-approval mode (manual per-order confirmation, or a bounded overnight envelope), refresh behavior, the outbound Telegram sentinel, and the honest data-source / divergence record.</p>
           </div>
         </div>
 
@@ -452,13 +452,13 @@
           </div>
 
           <div class="card control-card">
-            <h3>Telegram sentinel</h3>
-            <p class="control-sub">Outbound alerts are live. Inbound approval is operator-gated.</p>
-            <div class="telegram-status">
+            <h3>Telegram sentinel · outbound only</h3>
+            <p class="control-sub">Push alerts from the cloud desk. Order approval is not routed through Telegram.</p>
+            <div class="telegram-status info">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4L3 11l6 2.5L18 6l-6.5 9.5L21 4z"/><path d="M9 13.5V19l3-2.5"/></svg>
               <div class="tg-text">
-                <b>Outbound: working.</b> Schedule runs push risk alerts + digests via the Bot API (<span class="mono">@tyche_sentinel_bot</span>).<br>
-                <b>Inbound approval: not active by default.</b> The cloud webhook bridge is infeasible on Sites (same-origin gateway). To approve from Telegram, run <span class="mono">scripts/telegram.py listen</span> on your PC — it relays <span class="mono">/approve N</span> / <span class="mono">/deny N</span> to the desk. The approval relay needs a controlled drill on the personal paper account before relying on it for challenge orders.
+                <b>Outbound: working.</b> Schedule runs push risk alerts + digests via the Bot API (<span class="mono">@tyche_sentinel_bot</span>) — no PC required, the cloud desk sends them.<br>
+                <b>Inbound approval: skipped by operator decision (2026-11-19).</b> The desk PC is not always on, so a local approval listener cannot be relied on. Orders are approved at the desk only: per-order confirmation, or a bounded pre-approved envelope for unattended runs.
               </div>
             </div>
           </div>

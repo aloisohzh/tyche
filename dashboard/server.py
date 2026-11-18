@@ -881,7 +881,7 @@ def build_approvals() -> dict:
         "envelope": None,
         "mode": "manual",
         "auto_active": False,
-        "reason": "No pre-approved envelope — every order needs per-order operator confirmation (console or Telegram).",
+        "reason": "No pre-approved envelope — every order needs per-order operator confirmation at the desk console.",
     }
     if not APPROVALS.is_file():
         return scrub(out)

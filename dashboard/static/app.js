@@ -409,7 +409,7 @@ function renderApproval() {
         <div class="budget-track"><div class="budget-fill" style="width:${pctUsed}%"></div></div>
       </div>`;
   } else {
-    envelopeHtml = '<p class="table-note">No pre-approved batch. Every order waits for your explicit confirmation — in the console or via Telegram.</p>';
+    envelopeHtml = '<p class="table-note">No pre-approved batch. Every order waits for your explicit confirmation at the desk console.</p>';
   }
 
   const validTag = env
@@ -422,9 +422,9 @@ function renderApproval() {
   if (armed) {
     control = canControl
       ? '<button class="btn disarm-btn" id="disarm-btn">Disarm auto → manual</button>'
-      : '<span class="table-note">Disarm via Telegram <code>/mode manual</code> or the operator console.</span>';
+      : '<span class="table-note">Read-only feed — disarm auto from the local desk console.</span>';
   } else {
-    control = '<span class="table-note">Arm overnight auto: commit today\'s bounded batch to <code>data/approvals.json</code> (<code>tyche approvals</code> validates), or <code>/arm</code> via Telegram.</span>';
+    control = '<span class="table-note">Arm overnight auto: commit today\'s bounded batch to <code>data/approvals.json</code> (<code>tyche authorize</code> writes it, <code>tyche approvals</code> validates). Telegram is outbound-only — no chat commands.</span>';
   }
 
   body.innerHTML = `
