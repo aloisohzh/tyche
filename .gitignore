@@ -16,6 +16,7 @@ dist/
 /plans/
 /reports/
 .env
+.telegram-bridge.json
 
 # OS / editor
 .DS_Store

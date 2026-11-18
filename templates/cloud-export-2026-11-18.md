@@ -21,6 +21,17 @@ parser; v7: OUTPUT wording aligned to one-file + handoff), roster re-pinned to v
 `<pre>` orders table, < 3500 chars, parse_mode=HTML. Rehearsal 2
 `srun_84820bb31f5900a61a3429d1` ran on v5/events-v2; risk alert delivered 12:59 UTC.
 
+Amendment 2026-11-18 13:20 UTC: desk template delegation contract updated — the
+researcher line now mandates the kline handoff explicitly (researcher sends the
+persisted /tmp/tool-outputs file map; Desk Head runs `python scripts/mcp_prices.py
+/tmp/tool-outputs --out data/prices.csv`; researcher has no shell tool). Desk prompt
+edits bump the coordinator compile, but roster pins are member-only and unchanged
+(researcher 7 / auditor 2 / executor 4 + advisor). Rehearsal 2 final: COMPLETED
+13:10:41Z, digest delivered ok; plan = BUY EFA/VNQ/DBC approved, SPY blocked at the
+old 20% notional cap (cap raised to 30% in repo 18b97cf, pushed 13:18 UTC before the
+13:45 cron; mount syncs latest main per session). Cloud git push 403 (mount PAT is
+read-only) — Drive raw sink succeeded; push-back still operator-open.
+
 ## Template (coordinator)
 
 - id: `tmpl_004fa008901a6c256bd0ed3f` — name `tyche-desk`, status active

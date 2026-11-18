@@ -2,9 +2,11 @@
 
 Status: wired 2026-11-18. First rehearsal `srun_843b2035dbc452e2b7848c06` FAILED at the
 30-min attempt timeout (researcher hand-transcribing kline CSVs); no digest was sent.
-Remediated 2026-11-18: researcher v5 fast data path (`scripts/mcp_prices.py`, one
+Remediated 2026-11-18: researcher v5+ fast data path (`scripts/mcp_prices.py`, one
 `num=370` kline call per symbol) + `timeout_ms` raised to 3600000 on all three schedules.
-Delivery verification = the next successful rehearsal/cron run. Operator: alois.
+Rehearsal 2 `srun_84820bb31f5900a61a3429d1` COMPLETED (27.5 min): risk alert 12:59 UTC
+and digest 13:10 UTC both delivered ok. Inbound bridge (`listen`) wired same day — see
+below. Operator: alois.
 
 ## Why not a Forward channel
 
@@ -53,21 +55,41 @@ bound IM channel); delivery lives in the run instructions instead.
 - `scripts/forward.py get|post|delete|env-set|qr|poll` — Forward API client (PAT from
   `.env`; `MSYS_NO_PATHCONV=1` in Git Bash).
 
-## Inbound (questions / commands) — not wired yet
+## Inbound (questions / commands) — wired 2026-11-18
 
-Today the sentinel is **outbound-only**: nothing polls `getUpdates`, so messages sent
-to the bot are not read. Inbound is feasible without a Forward channel:
+`scripts/telegram.py listen` runs on the operator's PC and bridges Telegram to a
+desk session via `POST /api/v1/forward/sessions/{id}/events`:
 
-- A local bridge (`scripts/telegram.py listen`, to build) polls `getUpdates`, accepts
-  only the operator chat id, and relays to a desk session via
-  `POST /api/v1/forward/sessions/{id}/events`.
-- Verified API support: `user.message` (ask questions / task the desk) and
-  `user.tool_confirmation` with `tool_use_id` + `result: allow|deny` — this is exactly
-  the executor's `always_ask` per-order gate, so **order approvals can be relayed from
-  Telegram** while keeping per-order preview + explicit confirmation.
-- Constraints: the operator's machine must run the bridge; PAT stays in local `.env`;
-  chat-id allowlist is the only inbound auth, so order commands must still surface a
-  preview and wait for an explicit approve reply. Never auto-approve.
+- **Auth**: only `TELEGRAM_CHAT_ID` from `.env` is accepted; every other chat is
+  ignored. PAT stays in local `.env`; nothing secret is committed.
+- **State**: `.telegram-bridge.json` (gitignored) holds the getUpdates offset,
+  bound session, event cursor, pending approvals and a decision log. First run
+  drains stale updates so old messages are never replayed into the desk.
+- **Commands**: `/session latest` (bind newest schedule-run session) or
+  `/session <sess_id>`; `/status`; `/pending`; `/approve N`; `/deny N [reason]`;
+  `/interrupt`; `/help`. Any other text is relayed as `user.message`; the desk
+  coordinator's replies are relayed back (account ids masked to last 3 digits).
+- **Approvals**: the bridge polls each member thread's event stream for
+  `agent.tool_use` / `agent.mcp_tool_use` with `evaluated_permission: ask` (the
+  executor's `always_ask` order gate — MCP calls only surface in thread streams,
+  not the session stream), sends the full tool input as a preview, and waits.
+  `/approve N` posts `user.tool_confirmation {tool_use_id, result: allow}`;
+  `/deny N` posts `deny` with an optional reason. **Never auto-approves** — an
+  explicit numbered reply from the allowlisted chat is the only path. A submit
+  is still not a fill; fills come from broker order state.
+- **Busy desk**: a relay while the session is mid-turn returns 409; the bridge
+  tells the operator the message was NOT sent (no silent queueing).
+- Binding scans session history once to surface any already-pending approval.
+
+Run it: `MSYS_NO_PATHCONV=1 .venv/Scripts/python scripts/telegram.py listen`
+(Git Bash). Stop with Ctrl+C; state persists across restarts.
+
+Verification status 2026-11-18: bind + history scan + `/status` + question
+relay smoke-tested against rehearsal session `sess_00vvadnsde5fkxq15t9z`;
+round trip confirmed (desk reply `RELAY-OK` delivered to Telegram via the
+listener). The approval relay (`user.tool_confirmation`) is API-verified but
+has NOT yet been exercised against a real pending order ask — do a controlled
+drill on the PERSONAL paper account before relying on it for challenge orders.
 
 ## Rotation and revocation
 

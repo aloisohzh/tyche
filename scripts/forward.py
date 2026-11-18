@@ -25,7 +25,7 @@ def pat() -> str:
     raise SystemExit("QODER_PAT missing from .env")
 
 
-def req(method: str, path: str, body: dict | None = None) -> dict:
+def req(method: str, path: str, body: dict | None = None, check: bool = True) -> dict:
     data = json.dumps(body).encode() if body is not None else None
     for attempt in range(4):
         request = urllib.request.Request(
@@ -45,7 +45,10 @@ def req(method: str, path: str, body: dict | None = None) -> dict:
             if error.code in (429, 500, 502, 503, 504) and attempt < 3:
                 time.sleep(2**attempt)
                 continue
-            raise SystemExit(f"HTTP {error.code}: {error.read().decode()[:500]}")
+            detail = error.read().decode()[:500]
+            if not check:
+                return {"http_error": error.code, "body": detail}
+            raise SystemExit(f"HTTP {error.code}: {detail}")
     raise SystemExit("retries exhausted")
 
 
