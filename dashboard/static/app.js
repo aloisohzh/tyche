@@ -701,7 +701,7 @@ function renderCalendar() {
 
   $("#cal-window").textContent = `${cal.window.start} → ${cal.window.end}`;
   $("#cal-cron-rows").innerHTML = (cal.schedules || []).map((s) => {
-    const meta = PHASE_META[s.phase];
+    const meta = PHASE_META[s.phase] || { name: "gate-routed", hue: "var(--cyan)" };
     return `<tr>
       <td><strong style="font-size:12px">${esc(s.name)}</strong></td>
       <td><span class="cal-cron mono">${esc(s.cron)}</span></td>
@@ -711,7 +711,26 @@ function renderCalendar() {
       <td class="num">${s.days}</td>
     </tr>`;
   }).join("");
-  $("#cal-cron-note").textContent = "Day-of-month lists computed from the NYSE calendar — weekends and holidays excluded by construction; half-day sessions route to the 13:00 ET close and an 18:15 UTC EOD. DST-safe: ET fire times convert to UTC per day. The evaluate() gate re-checks every run, so a misfired cron still skips.";
+  $("#cal-cron-note").textContent = "One hourly cron (08:05–17:05 ET at :05) fires only on computed NYSE trading days — weekends and holidays excluded by construction. The evaluate() gate routes every run by live session phase (plan / active / monitor / reconcile), half-day aware and DST-safe; a misfired cron still skips.";
+
+  const wl = cal.watchlist;
+  const wlWrap = $("#cal-watchlist-wrap");
+  if (wlWrap) {
+    wlWrap.hidden = !wl;
+    if (wl) {
+      $("#cal-watchlist-state").textContent = `${wl.stale ? "STALE" : "FRESH"} · as of ${wl.as_of} · ${wl.active_count} active`;
+      $("#cal-watchlist-rows").innerHTML = (wl.entries || []).map((e) => `<tr>
+        <td><strong style="font-size:12px">${esc(e.symbol)}</strong></td>
+        <td>${esc(e.sleeve)}</td>
+        <td style="font-size:11px">${esc(e.strategy)}</td>
+        <td class="mono num">${e.entry_low.toFixed(2)}–${e.entry_high.toFixed(2)}</td>
+        <td class="mono num">${e.stop.toFixed(2)}</td>
+        <td class="mono num">${e.target.toFixed(2)}</td>
+        <td class="mono">${esc(e.expiry)}</td>
+        <td>${esc(e.status)}</td>
+      </tr>`).join("") || '<tr><td colspan="8" style="color:var(--faint)">No entries.</td></tr>';
+    }
+  }
 }
 
 function renderAutomation() {

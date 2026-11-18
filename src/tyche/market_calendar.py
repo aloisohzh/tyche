@@ -19,6 +19,12 @@ from pydantic import BaseModel, Field
 
 ET = ZoneInfo("America/New_York")
 
+# Hourly desk cadence: one cron, gate-routed by live session phase. :05 aligns
+# 09:05 pre-market plan (after 08:30 macro data), 10:05 opening drive, 12:05
+# midday, 15:05 closing drive, 17:05 EOD reconcile.
+HOURLY_FIRST = time(8, 5)
+HOURLY_LAST = time(17, 5)
+
 PRE_OPEN = time(4, 0)
 REGULAR_OPEN = time(9, 30)
 REGULAR_CLOSE = time(16, 0)
@@ -254,6 +260,8 @@ class GateResult(BaseModel):
     next_run: NextRun | None = None
 
 
+# Phase-anchored alternative (one schedule per session phase). The live desk
+# runs the hourly cadence below; these templates remain for rollback/hybrid.
 # name, ET fire time, intended phase, day applicability
 _SCHEDULE_TEMPLATES: list[tuple[str, time, SessionPhase, Literal["all", "regular", "half"]]] = [
     ("tyche-premarket", time(8, 45), SessionPhase.PRE_MARKET, "all"),
@@ -280,7 +288,7 @@ class ScheduleDef(BaseModel):
     name: str
     cron: str
     timezone: str = "UTC"
-    phase: SessionPhase
+    phase: SessionPhase | None = None
     et_time: str
     scope: Literal["all", "regular", "half"]
     activity: str
@@ -337,19 +345,51 @@ def generate_schedules(start: date, end: date) -> list[ScheduleDef]:
     return schedules
 
 
+def generate_hourly_schedules(start: date, end: date) -> list[ScheduleDef]:
+    """Emit the hourly desk cron (UTC) firing only on trading days.
+
+    One schedule, 08:05-17:05 ET at :05; the evaluate() gate routes each run by
+    live phase (plan / active / monitor / reconcile), half days included. Days
+    sharing the same UTC hour set are grouped, so DST transitions split cleanly.
+    """
+    if end < start:
+        raise ValueError("end must be on or after start")
+    grouped: dict[tuple[int, tuple[int, ...]], list[int]] = {}
+    day = start
+    while day <= end:
+        if is_trading_day(day):
+            fires = [
+                datetime.combine(day, time(h, HOURLY_FIRST.minute), tzinfo=ET).astimezone(UTC)
+                for h in range(HOURLY_FIRST.hour, HOURLY_LAST.hour + 1)
+            ]
+            key = (fires[0].month, tuple(sorted(f.hour for f in fires)))
+            grouped.setdefault(key, []).append(day.day)
+        day += timedelta(days=1)
+    schedules: list[ScheduleDef] = []
+    for (month, hours), days in sorted(grouped.items()):
+        cron = f"{HOURLY_FIRST.minute} {_cron_days(list(hours))} {_cron_days(sorted(days))} {month} *"
+        schedules.append(ScheduleDef(
+            name="tyche-hourly", cron=cron, phase=None,
+            et_time=f"{HOURLY_FIRST:%H:%M}-{HOURLY_LAST:%H:%M}",
+            scope="all", activity="gate-routed", days=len(days),
+            note="hourly gate-routed: plan pre-market, active drives, monitor midday, reconcile after close",
+        ))
+    return schedules
+
+
 def next_run(now: datetime) -> NextRun | None:
     local = _et(now)
     for offset in range(12):
         d = local.date() + timedelta(days=offset)
-        for name, et_time, phase, scope in _SCHEDULE_TEMPLATES:
-            if not _applies(d, scope):
-                continue
-            fire_et = datetime.combine(d, et_time, tzinfo=ET)
-            if fire_et.astimezone(UTC) <= _et(now).astimezone(UTC):
-                continue
+        if not is_trading_day(d):
+            continue
+        for h in range(HOURLY_FIRST.hour, HOURLY_LAST.hour + 1):
+            fire_et = datetime.combine(d, time(h, HOURLY_FIRST.minute), tzinfo=ET)
             fire_utc = fire_et.astimezone(UTC)
+            if fire_utc <= now.astimezone(UTC):
+                continue
             return NextRun(
-                name=name, phase=phase, utc=fire_utc, et=fire_et,
+                name="tyche-hourly", phase=phase_at(fire_utc), utc=fire_utc, et=fire_et,
                 in_seconds=int((fire_utc - now.astimezone(UTC)).total_seconds()),
             )
     return None

@@ -22,12 +22,19 @@ from tyche.broker import (
 from tyche.config import load_config
 from tyche.halt import is_halted, set_halt
 from tyche.journal import append_event, verify_chain
-from tyche.market_calendar import SessionPhase, evaluate, generate_schedules
+from tyche.market_calendar import (
+    ET,
+    SessionPhase,
+    evaluate,
+    generate_hourly_schedules,
+    generate_schedules,
+)
 from tyche.models import AccountSnapshot, PlannedOrder, Side, TradePlan, apply_fill
 from tyche.persist import persist_run
 from tyche.pipeline import build_order_pipeline, build_plan_pipeline
 from tyche.risk import RiskState, evaluate_intent
 from tyche.strategy import build_intents, fit_turnover_budget, rotation_targets
+from tyche.watchlist import Watchlist
 
 app = typer.Typer(add_completion=False, help="Regime-aware ETF rotation agent.")
 console = Console()
@@ -837,12 +844,13 @@ def schedules(
     start: date | None = typer.Option(None, "--start", help="Range start YYYY-MM-DD (default: today)."),
     end: date | None = typer.Option(None, "--end", help="Range end YYYY-MM-DD (default: start + 13 days)."),
     as_json: bool = typer.Option(False, "--json", help="Emit schedule defs as JSON for Qoder Forward."),
+    hourly: bool = typer.Option(False, "--hourly", help="Emit the single gate-routed hourly cron (live desk cadence)."),
 ) -> None:
     """Emit calendar-gated Qoder Forward cron schedules (UTC) for a date range."""
     start = start or datetime.now(UTC).date()
     end = end or start + timedelta(days=13)
     try:
-        defs = generate_schedules(start, end)
+        defs = generate_hourly_schedules(start, end) if hourly else generate_schedules(start, end)
     except ValueError as exc:
         raise typer.BadParameter(str(exc)) from exc
     if as_json:
@@ -857,13 +865,60 @@ def schedules(
     table.add_column("Days", justify="right")
     for definition in defs:
         table.add_row(
-            definition.name, definition.cron, definition.phase.value,
+            definition.name, definition.cron,
+            definition.phase.value if definition.phase else "gate-routed",
             definition.activity, definition.et_time, str(definition.days),
         )
     console.print(table)
     console.print(
         f"{len(defs)} schedule(s); holidays and weekends excluded by computed day lists."
     )
+
+
+@app.command()
+def watchlist(
+    path: Path = typer.Option(
+        Path("data/watchlist.json"), "--path", help="Watchlist JSON (Drive working copy in cloud)."
+    ),
+    as_json: bool = typer.Option(False, "--json", help="Emit watchlist + freshness as JSON."),
+) -> None:
+    """Validate the scout watchlist; exit 0 valid, 1 missing/invalid (scout must refresh)."""
+    if not path.is_file():
+        console.print(f"[bold red]MISSING[/] {path} — scout must build the watchlist")
+        raise typer.Exit(1)
+    try:
+        book = Watchlist.model_validate_json(path.read_text(encoding="utf-8"))
+    except ValidationError as exc:
+        console.print(f"[bold red]INVALID[/] {path}")
+        console.print(str(exc))
+        raise typer.Exit(1) from exc
+    today = datetime.now(ET).date()
+    stale = book.stale(today)
+    active = book.active(today)
+    if as_json:
+        payload = book.model_dump(mode="json")
+        payload.update(stale=stale, active_count=len(active), today=today.isoformat())
+        console.print_json(json.dumps(payload))
+        return
+    verdict = "[bold yellow]STALE[/]" if stale else "[bold green]FRESH[/]"
+    console.print(f"{verdict}  as of {book.as_of} · {len(active)} active / {len(book.entries)} entries")
+    table = Table(title=f"Watchlist · {path}")
+    table.add_column("Symbol")
+    table.add_column("Sleeve")
+    table.add_column("Strategy", overflow="fold")
+    table.add_column("Entry zone", justify="right")
+    table.add_column("Stop", justify="right")
+    table.add_column("Target", justify="right")
+    table.add_column("Expiry")
+    table.add_column("Status")
+    for entry in book.entries:
+        table.add_row(
+            entry.symbol, entry.sleeve, entry.strategy,
+            f"{entry.entry_low:.2f}-{entry.entry_high:.2f}",
+            f"{entry.stop:.2f}", f"{entry.target:.2f}",
+            entry.expiry.isoformat(), entry.status,
+        )
+    console.print(table)
 
 
 def main() -> None:

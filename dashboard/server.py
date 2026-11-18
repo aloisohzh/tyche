@@ -28,11 +28,12 @@ import yaml  # noqa: E402
 
 from tyche.journal import read_events, verify_chain  # noqa: E402
 from tyche.market_calendar import (
+    ET,
     SessionPhase,
     earnings_season,
     evaluate,
     events_on,
-    generate_schedules,
+    generate_hourly_schedules,
     holiday_name,
     is_half_day,
     is_trading_day,
@@ -40,6 +41,7 @@ from tyche.market_calendar import (
     strategy_for,
 )
 from tyche.pipeline import PLAYBOOK, rules_hash  # noqa: E402
+from tyche.watchlist import Watchlist  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -786,6 +788,20 @@ _PHASE_ORDER = [
 ]
 
 
+def build_watchlist() -> dict | None:
+    path = ROOT / "data" / "watchlist.json"
+    if not path.is_file():
+        return None
+    try:
+        book = Watchlist.model_validate_json(path.read_text(encoding="utf-8"))
+    except ValueError:
+        return None
+    today = datetime.now(ET).date()
+    payload = book.model_dump(mode="json")
+    payload.update(stale=book.stale(today), active_count=len(book.active(today)))
+    return payload
+
+
 def build_calendar() -> dict:
     """Deterministic market-calendar gate + session-phase routing (local, no API)."""
     now = datetime.now(UTC)
@@ -827,7 +843,8 @@ def build_calendar() -> dict:
         "timeline": session_timeline(timeline_day),
         "phase_strategies": [strategy_for(p).model_dump(mode="json") for p in _PHASE_ORDER],
         "window": {"start": start.isoformat(), "end": end.isoformat()},
-        "schedules": [d.model_dump(mode="json") for d in generate_schedules(start, end)],
+        "schedules": [d.model_dump(mode="json") for d in generate_hourly_schedules(start, end)],
+        "watchlist": build_watchlist(),
         "upcoming": upcoming,
     }
 
