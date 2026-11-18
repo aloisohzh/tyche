@@ -78,6 +78,7 @@ class StrategyConfig(BaseModel):
     min_cash_weight: float = 0.05
     min_trade_notional: float = 500.0
     drift_band: float = 0.20
+    initial_stop_pct: float = Field(default=0.08, gt=0.0, le=0.5)
     regime: RegimeConfig = RegimeConfig()
     sleeve_caps: dict[RegimeKey, SleeveCaps]
 
@@ -120,6 +121,7 @@ class RiskPolicy(BaseModel):
     soft_drawdown_pct: float = 0.04
     hard_drawdown_pct: float = 0.06
     daily_loss_limit_pct: float = 0.025
+    risk_per_trade_pct: float = Field(default=0.01, gt=0.0, le=0.05)
     allow_short: bool = False
 
     @model_validator(mode="after")

@@ -12,6 +12,7 @@ max_weight: 0.30
 min_cash_weight: 0.05
 min_trade_notional: 500.0
 drift_band: 0.20
+initial_stop_pct: 0.08
 
 regime:
   trend_sma: 200

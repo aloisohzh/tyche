@@ -215,7 +215,18 @@ moomoo sim order buy US.SPY 39 --market US --type limit --price 402.45 \
 2. Record fills, unfilled orders, commissions, and end-of-day NAV. Write the
    report from `templates/eod-report.md` and the narrative prompt in
    `templates/prompts/eod-narrative.md`.
-3. Verify the journal:
+3. Journal every broker-verified fill canonically so R-multiple expectancy
+   (ADR 0016) can close round trips. One event per fill, side explicit:
+
+   ```bash
+   tyche record-order order.filled --journal journal/events.jsonl \
+     --data '{"symbol":"US.SPY","side":"buy","quantity":28,"price":731.54,"order_id":"3116580"}'
+   tyche expectancy --journal journal/events.jsonl
+   ```
+
+   Fills without a side or without a matching entry lot are reported as
+   unattributed, never guessed.
+4. Verify the journal:
 
    ```bash
    tyche journal-verify

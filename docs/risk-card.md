@@ -30,6 +30,7 @@ membership and sim-account-list presence before any submit.
 | Last price ≥ $1.00 | `price.minimum` | `min_price` | `test_competition_min_price_is_one_dollar` |
 | Limit within 3% of last | `price.limit_deviation` | `max_limit_deviation_pct` | `test_limit_price_deviation_is_blocked` |
 | Notional ≤ 30% NAV | `order.max_notional` | `max_order_notional_pct` | `test_order_notional_cap`, `test_order_notional_at_cap_is_allowed` |
+| Initial risk ≤ 1% NAV per buy (qty × (limit − stop)) | `trade.risk_budget` | `risk_per_trade_pct` | `test_kernel_blocks_initial_risk_above_budget` |
 | Notional ≥ $500 (unless closing) | `order.min_notional` | `min_order_notional` | `test_below_min_notional_is_blocked` |
 | No short sells | `position.no_short` | `allow_short=false` | `test_sell_beyond_holding_is_blocked` |
 

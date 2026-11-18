@@ -346,6 +346,13 @@ def build_intents(
         quantity = int(trade_value / limit_price)
         if not buy:
             quantity = min(quantity, held)
+        stop_price = None
+        if buy:
+            stop_price = round(limit_price * (1.0 - strategy.initial_stop_pct), 2)
+            distance = limit_price - stop_price
+            if distance > 0:
+                budget = config.risk.risk_per_trade_pct * nav
+                quantity = min(quantity, int(budget / distance))
         if quantity <= 0:
             continue
         intents.append(
@@ -354,6 +361,7 @@ def build_intents(
                 side=Side.BUY if buy else Side.SELL,
                 quantity=quantity,
                 limit_price=limit_price,
+                stop_price=stop_price,
                 reason=(
                     f"rebalance {current_weight:.1%} -> {target_weight:.1%} "
                     f"under {result.regime.value} regime"

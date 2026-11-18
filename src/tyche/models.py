@@ -63,6 +63,7 @@ class OrderIntent(BaseModel):
     quantity: int = Field(gt=0)
     order_type: OrderType = OrderType.LIMIT
     limit_price: float = Field(gt=0.0)
+    stop_price: float | None = Field(default=None, gt=0.0)
     reason: str
 
     @computed_field

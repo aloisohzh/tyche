@@ -88,6 +88,14 @@ def evaluate_intent(
             "order.max_notional",
             f"order notional {notional:,.0f} exceeds {policy.max_order_notional_pct:.0%} of NAV",
         )
+    if intent.side == Side.BUY and intent.stop_price is not None:
+        risk_usd = intent.quantity * (intent.limit_price - intent.stop_price)
+        if risk_usd > policy.risk_per_trade_pct * nav:
+            breach(
+                "trade.risk_budget",
+                f"initial risk {risk_usd:,.0f} exceeds "
+                f"{policy.risk_per_trade_pct:.1%} of NAV ({policy.risk_per_trade_pct * nav:,.0f})",
+            )
 
     held = snapshot.position(intent.symbol)
     held_qty = held.quantity if held else 0

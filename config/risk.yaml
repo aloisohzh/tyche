@@ -18,4 +18,5 @@ min_price: 1.00
 soft_drawdown_pct: 0.04
 hard_drawdown_pct: 0.06
 daily_loss_limit_pct: 0.025
+risk_per_trade_pct: 0.01
 allow_short: false
