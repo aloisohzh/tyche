@@ -17,7 +17,7 @@ c = s["initial_events"][0]["content"]
 print("SCHEDULE", s["name"], "status", s["status"], "events_version", s["initial_events_version"])
 print("  cron:", s["trigger_policy"]["expression"], s["trigger_policy"]["timezone"])
 print("  next:", s["trigger_policy"].get("upcoming_runs_at"))
-for marker in ("APPROVALS CONTRACT", "tyche authorize", "<HH:MM> UTC / <HH:MM> SGT",
+for marker in ("APPROVALS CONTRACT", "tyche authorize", "<HH:MM> UTC / <HH:MM> ET / <HH:MM> SGT",
                "propose the evening approval batch"):
     print(f"  [{'OK' if marker in c else 'MISSING'}] {marker}")
 

@@ -74,7 +74,7 @@ def main() -> None:
     for marker in ("CALENDAR CHECK", "tyche calendar-check", "scripts/refresh_calendar.py"):
         if marker not in live:
             raise SystemExit(f"schedule update missing marker: {marker}")
-    if "APPROVALS CONTRACT" not in live or "<HH:MM> UTC / <HH:MM> SGT" not in live:
+    if "APPROVALS CONTRACT" not in live or "<HH:MM> UTC / <HH:MM> ET / <HH:MM> SGT" not in live:
         raise SystemExit("schedule update clobbered the envelope/SGT clauses")
     print("schedule updated: calendar check inserted, version", check.get("initial_events_version"))
 

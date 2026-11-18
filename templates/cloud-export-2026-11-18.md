@@ -114,6 +114,17 @@ edit → coordinator compile and member roster pins (7/2/7 + advisor) untouched.
 `81ff4da` (merge `9f73198` integrated the parallel midday-monitor commit `325da01`; no file
 overlap). Rollback = restore `plans/cloud-schedule-pre-calcheck.json` initial_events (v2).
 
+Amendment 2026-11-18 18:41 UTC (ET added to sentinel digest header, operator-approved "Ok
+include it"): the line-1 header now reads `<HH:MM> UTC / <HH:MM> ET / <HH:MM> SGT` and the clock
+clause defines ET = US Eastern, the market's clock (UTC-5 EST / UTC-4 EDT). Schedule-events-only
+deploy (`scripts/deploy_et_header.py`, two exact single-occurrence replacements, idempotent,
+GET-after verify) bumped `sched_2dc7702e4f005d04235c078a` initial_events **v3→v4**; APPROVALS
+CONTRACT + CALENDAR CHECK + tyche authorize verified preserved. No template edit → coordinator
+compile and roster pins (7/2/7 + advisor) untouched; executor policies unchanged
+{input_order: always_allow, cancel/modify: always_ask}. Updated the header marker in
+`scripts/verify_envelope_deploy.py` and `scripts/deploy_calendar_check.py` to the three-clock
+format. Rollback = restore `plans/cloud-schedule-pre-et.json` initial_events (v3).
+
 ## Template (coordinator)
 
 - id: `tmpl_004fa008901a6c256bd0ed3f` — name `tyche-desk`, status active
