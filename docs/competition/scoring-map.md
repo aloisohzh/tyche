@@ -2,6 +2,7 @@
 
 The judging weights are in [rules.md](rules.md). This map makes each claim verifiable:
 every artifact points at evidence a judge can open. Status: `planned` / `built` / `evidenced`.
+Bonus tips and the submission checklist live in [bonus-tips.md](bonus-tips.md).
 
 ## Risk-adjusted return — 25%
 
@@ -35,7 +36,7 @@ Note: ~7 daily marks make Sharpe a noisy estimate. The honest play is a **smooth
 | Trading thesis + edge per setup | `docs/playbooks/PB-*.md` | planned |
 | **Explicit invalidation conditions** per setup and per trade | playbook invalidation section; plan artifact `invalidation` field | planned |
 | Risk card: every cap keyed and asserted by a test | `config/risk.yaml` + `tests/test_risk.py` | partial (needs competition deltas) |
-| Position limits, drawdown response, **kill switch (tested)** | risk kernel + halt runbook + a journaled kill-switch drill | partial |
+| Position limits, drawdown response, **kill switch (tested)** | risk kernel + halt runbook + [drill PASS record](../validation/2026-11-18-kill-switch-drill.md) | evidenced |
 | Liquidity/spread gate, fee model, EOD reconcile | risk kernel + fee engine + reconcile report | planned |
 | Options leg-group lifecycle + synthetic protection | playbook + monitor; defined-risk only | planned |
 | Pre-registration + honest "unvalidated" labeling | `docs/validation/` | planned |

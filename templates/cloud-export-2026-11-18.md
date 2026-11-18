@@ -85,8 +85,9 @@ approval. The pinned Collaboration roster is the only live desk.
 4. DONE (smoke 1 + smoke 2, 2026-11-18, see below): bootstrap, journal-verify,
    Collaboration delegation, Moomoo market-data AND account-scope OAuth
    (executor snapshot queries ret_code 0 first attempt, no authorization
-   prompts). STILL OPEN: kill-switch drill on the PERSONAL paper account only
-   (docs/runbooks/halt-kill.md).
+   prompts). Kill-switch drill DONE 2026-11-18 09:45 UTC on the PERSONAL paper
+   account (…748) via the MCP-only variant — PASS, see
+   docs/validation/2026-11-18-kill-switch-drill.md.
 5. DONE (2026-11-18 04:46–04:47 UTC): three cron schedules created, all active,
    new_session per run, max_concurrent_runs 1, stop 2026-11-28T00:00Z:
    - `sched_52f7a8a04e4bf656e25fac47` tyche-premarket — `45 13 18-20,23-25,27 11 *`
@@ -163,6 +164,13 @@ kernel's input); desk DAILY FLOW wires `tyche plan --prices data/prices.csv
 --account <run-dir>/snapshot.json`. Roster re-pinned researcher 4 / auditor 2 /
 executor 4 + advisor. Halt-kill runbook gained an MCP drill variant (no CLI
 install needed).
+
+Follow-up 09:45–09:50 UTC (kill-switch drill PASS): live MCP drill on the personal
+paper account …748 — seed buy 3115432 filled 10 SPY @735.99; halt engaged; 3 buys
+withheld + journaled (halt.skip); operator-authorized sell 3115472 filled 10 @737.04
+while halted; broker day-history shows no drill buys; resume + journal-verify OK
+(20 events). Record: docs/validation/2026-11-18-kill-switch-drill.md. Planning
+inputs were a labeled synthetic fixture (disclosed in the record); broker state real.
 
 ## API quirks observed (connector)
 
