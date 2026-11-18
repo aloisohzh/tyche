@@ -20,8 +20,8 @@ design 30% · reusability & documentation 15%.
 | H6 | **Version everything you tune**: re-run 3–4 fixed eval prompts after each prompt/skill change, diff outputs before promoting; **pin versions** on the trading agent — unpinned `latest` is a real risk when judges replay runs (§8.2, §9) | Reproducibility under replay | partial — pins done; fixed eval-prompt suite todo |
 | H7 | **Log decisions AND rejections as first-class artifacts** — one structured line per decision incl. rejected ones and why (§8.2) | Judges ask "what failed and why"; rejection log answers better than slides; gives the dashboard something real to chart | done (hash-chained journal, order.blocked/halt.skip rows) |
 | H8 | Collaboration best practices (§9): one role per agent; **file ownership** stated; delegation criteria + output formats in the coordinator prompt (selecting agents does not force delegation); credentials only to agents that need them; advisor advises only | Orchestration quality is scored, not just presence | done (delegation contract + file ownership in desk prompt) |
-| H9 | Channels: **Pairing mode** when others shouldn't task your agent; tokens only in token fields; first message = harmless connection check ("Say hello… Do not place any trades.") (§5) | Safe automation surface | in progress (WeChat pairing) |
-| H10 | Schedules: **test before long-term operation**; verify data permissions, output content, delivery destination; dedup/idempotency for external operations (§6) | Unattended runs must be provably safe | done (smoke-1/smoke-2 PASS; max_attempts 1; non-idempotent submit rule) |
+| H9 | Channels: **Pairing mode** when others shouldn't task your agent; tokens only in token fields; first message = harmless connection check ("Say hello… Do not place any trades.") (§5) | Safe automation surface | pivoted to Telegram outbound push (WeChat abandoned 2026-11-18; Telegram not a Forward channel type); token server-side in template env vars with explicit operator authorization; runbook docs/runbooks/sentinel-telegram.md |
+| H10 | Schedules: **test before long-term operation**; verify data permissions, output content, delivery destination; dedup/idempotency for external operations (§6) | Unattended runs must be provably safe | in progress — smoke-1/smoke-2 PASS; max_attempts 1; non-idempotent submit rule; rehearsal 1 `srun_843b2035dbc452e2b7848c06` FAILED at 30-min timeout (slow data path), remediated via researcher v5 + scripts/mcp_prices.py + 60-min timeout; digest verification pending re-rehearsal |
 | H11 | Keep **everything in one project folder** — skills, code, dashboards, decision logs (§2) | Packaging the submission is much easier | done |
 | H12 | FAQ: usage/credits view in the dashboard (Observability data); demo dashboard prompt in the Qoder Deck; final presentation may include screenshots instead of a hosted dashboard | Cheap extra polish | todo |
 
@@ -34,7 +34,7 @@ curve, drawdown ladder actually firing (journal rule ids), turnover discipline (
 is a ceiling, not a target).
 
 **30% Qoder & Cloud Agent usage** — pinned multi-agent roster with advisor; scheduled
-pre-market/EOD runs with run history; **channel delivery (WeChat sinks)** so outputs land
+pre-market/EOD runs with run history; **channel delivery (IM sinks or Telegram push)** so outputs land
 in chat; dashboard + screen capture; reusable skills/scripts/typed core; rejection log;
 least-privilege matrix (only executor holds trade tools, always_ask per order).
 
@@ -62,16 +62,31 @@ config, not code forks).
   `tyche record-order` journaling. `tyche execute`/`fetch` are local-only.
 - **Paper market orders are rejected while the market is closed** (backend biz error);
   use a marketable limit instead. A submit is not a fill; reconcile from broker state.
-- **WeChat QR binding ≠ pairing** (two independent steps): QR scan authorizes the channel
+- **QR binding ≠ pairing** (two independent steps): QR scan authorizes the channel
   (`binding_status=bound`); in pairing mode the first real message generates a **Pairing
   Code prompt and NO session**; admin pairs code + identity + template; the original
   message is **not replayed** — resend after pairing. Mode is permanent per channel.
+- **Personal WeChat binding failed in practice (2026-11-18):** the QR encodes a
+  `liteapp.weixin.qq.com` mini-program URL; 5 sessions (4 API + 1 console) all expired at
+  ~180 s TTL with **zero `scanned` events** even though the phone showed terms + bot chat.
+  Abandoned; prefer a provider whose native client reports scans, or outbound push.
+- **Forward channel types are only `wechat`, `wecom`, `feishu`, `dingtalk` (+ `teams`
+  Global)** — no Telegram/Slack in the Channel API. A Telegram sentinel is still possible
+  as outbound push: schedule runs call the Telegram Bot API with a vault-held token.
 - Chat commands worth knowing: `/status`, `/clear`, `/cancel`, `/btw <question>`, and
   **`/target`** — returns the push-target JSON needed to wire **schedule sinks**.
 - Auto-mode gates non-idempotent order submissions: inspect broker order state first,
   get explicit operator affirmation, never blind-retry.
 - Full account ids never in committed files/chat/reports (masked …598/…748); ids live
   server-side in template env vars; raw payloads stay in gitignored run dirs.
+- **Schedule attempt timeout is a hard wall.** Rehearsal 1 died at `timeout_ms` 1800000
+  (30 min) with the researcher still fetching klines — no plan/verdict/digest. Two fixes:
+  (a) raise `execution.timeout_ms` to 3600000 (60 min) via merge-patch; (b) remove the
+  real bottleneck — the researcher was hand-transcribing each kline chunk into CSV through
+  the model. `quote_cur_kline` accepts `num` up to **370** (one call covers the 252-bar
+  lookback); large outputs auto-persist to `/tmp/tool-outputs/mcp_*.txt`, and
+  `scripts/mcp_prices.py` parses them straight to `data/prices.csv`. Researcher prompt v5
+  mandates this fast path; roster re-pinned to v5. Budget the slowest member, not the mean.
 
 ## 4. Submission checklist (deadline 30 Nov 2026, 23:59 SGT)
 
