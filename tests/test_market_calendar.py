@@ -53,6 +53,35 @@ def test_half_days():
     assert closing_drive_start(date(2026, 11, 18)) == time(15, 0)
 
 
+def test_trading_days_2027():
+    assert not is_trading_day(date(2027, 11, 25))  # Thanksgiving
+    assert holiday_name(date(2027, 11, 25)) == "Thanksgiving"
+    assert is_trading_day(date(2027, 11, 26)) and is_half_day(date(2027, 11, 26))
+    assert not is_trading_day(date(2027, 3, 26))  # Good Friday
+    assert not is_trading_day(date(2027, 7, 5))  # Independence observed (Jul 4 is Sun)
+    assert not is_trading_day(date(2027, 12, 24))  # Christmas observed (Dec 25 is Sat)
+    assert holiday_name(date(2027, 6, 18)) == "Juneteenth (observed)"
+
+
+def test_trading_days_2028():
+    # New Year Jan 1 2028 is Saturday and NOT observed -> Mon Jan 3 trades.
+    assert holiday_name(date(2028, 1, 1)) is None
+    assert is_trading_day(date(2028, 1, 3))
+    assert not is_trading_day(date(2028, 7, 4))  # Independence Tue
+    assert is_trading_day(date(2028, 7, 3)) and is_half_day(date(2028, 7, 3))
+    assert is_half_day(date(2028, 11, 24))
+    assert not is_trading_day(date(2028, 11, 23))  # Thanksgiving
+    assert regular_close(date(2028, 7, 3)) == time(13, 0)
+
+
+def test_generate_hourly_2027_thanksgiving():
+    schedules = generate_hourly_schedules(date(2027, 11, 22), date(2027, 11, 28))
+    assert len(schedules) == 1
+    days = schedules[0].cron.split()[2]
+    assert "25" not in days  # Thanksgiving 2027 excluded
+    assert "26" in days  # half day still trades
+
+
 def test_phase_boundaries_est():
     # November = EST (UTC-5). 09:30 ET = 14:30 UTC.
     assert phase_at(utc(2026, 11, 18, 13, 0)) is SessionPhase.PRE_MARKET  # 08:00 ET

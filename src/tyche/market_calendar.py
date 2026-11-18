@@ -35,7 +35,9 @@ OPENING_DRIVE_END = time(10, 30)
 CLOSING_DRIVE_START = time(15, 0)
 HALF_CLOSING_DRIVE_START = time(12, 0)
 
-# NYSE full-day closures. Extend per year as needed; 2026 is the competition year.
+# NYSE full-day closures, pinned from nyse.com/trade/hours-calendars (2026-2028).
+# Refresh via scripts/refresh_calendar.py; the daily `tyche calendar-check` gate
+# alerts on any drift. Extend per year as NYSE publishes new years.
 HOLIDAYS: dict[int, dict[date, str]] = {
     2026: {
         date(2026, 1, 1): "New Year's Day",
@@ -48,14 +50,45 @@ HOLIDAYS: dict[int, dict[date, str]] = {
         date(2026, 9, 7): "Labor Day",
         date(2026, 11, 26): "Thanksgiving",
         date(2026, 12, 25): "Christmas",
-    }
+    },
+    2027: {
+        date(2027, 1, 1): "New Year's Day",
+        date(2027, 1, 18): "MLK Jr. Day",
+        date(2027, 2, 15): "Washington's Birthday",
+        date(2027, 3, 26): "Good Friday",
+        date(2027, 5, 31): "Memorial Day",
+        date(2027, 6, 18): "Juneteenth (observed)",
+        date(2027, 7, 5): "Independence Day (observed)",
+        date(2027, 9, 6): "Labor Day",
+        date(2027, 11, 25): "Thanksgiving",
+        date(2027, 12, 24): "Christmas (observed)",
+    },
+    2028: {
+        # New Year's Day falls on Saturday Jan 1 2028; NYSE does NOT observe it.
+        date(2028, 1, 17): "MLK Jr. Day",
+        date(2028, 2, 21): "Washington's Birthday",
+        date(2028, 4, 14): "Good Friday",
+        date(2028, 5, 29): "Memorial Day",
+        date(2028, 6, 19): "Juneteenth",
+        date(2028, 7, 4): "Independence Day",
+        date(2028, 9, 4): "Labor Day",
+        date(2028, 11, 23): "Thanksgiving",
+        date(2028, 12, 25): "Christmas",
+    },
 }
-# NYSE early closes (13:00 ET).
+# NYSE early closes (13:00 ET), pinned from the same source.
 HALF_DAYS: dict[int, dict[date, str]] = {
     2026: {
         date(2026, 11, 27): "Day after Thanksgiving",
         date(2026, 12, 24): "Christmas Eve",
-    }
+    },
+    2027: {
+        date(2027, 11, 26): "Day after Thanksgiving",
+    },
+    2028: {
+        date(2028, 7, 3): "Day before Independence Day",
+        date(2028, 11, 24): "Day after Thanksgiving",
+    },
 }
 
 

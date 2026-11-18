@@ -31,6 +31,7 @@ from tyche.market_calendar import (
     generate_schedules,
 )
 from tyche.models import AccountSnapshot, PlannedOrder, Side, TradePlan, apply_fill
+from tyche.nyse_calendar import diff_calendar, parse_nyse_page
 from tyche.persist import persist_run
 from tyche.pipeline import build_order_pipeline, build_plan_pipeline
 from tyche.risk import RiskState, evaluate_intent
@@ -897,6 +898,52 @@ def schedules(
     console.print(
         f"{len(defs)} schedule(s); holidays and weekends excluded by computed day lists."
     )
+
+
+@app.command("calendar-check")
+def calendar_check(
+    source: Path = typer.Option(
+        ..., "--source", help="Saved WebFetch readable output of nyse.com/trade/hours-calendars."
+    ),
+    as_json: bool = typer.Option(False, "--json", help="Emit the drift report as JSON."),
+) -> None:
+    """Read-only NYSE calendar drift check: exit 0 in-sync, 1 changed/uncertain (alert operator).
+
+    Never writes the calendar. The desk runs this once per day at pre-market; a
+    non-zero exit means alert the operator with the diff and propose a reviewed
+    re-pin (scripts/refresh_calendar.py) — never auto-apply.
+    """
+    if not source.is_file():
+        console.print(f"[bold red]MISSING[/] {source} — fetch the NYSE page via WebFetch first")
+        raise typer.Exit(1)
+    parsed = parse_nyse_page(source.read_text(encoding="utf-8"))
+    report = diff_calendar(parsed)
+    clean = not report["changed"] and not report["uncertain"]
+    if as_json:
+        console.print_json(json.dumps(report))
+        raise typer.Exit(0 if clean else 1)
+    if report["uncertain"]:
+        console.print("[bold yellow]UNCERTAIN[/] — parse incomplete; manual review needed")
+        for warning in report["warnings"]:
+            console.print(f"  · {warning}")
+    if report["changed"]:
+        console.print("[bold yellow]CHANGED[/] — NYSE calendar differs from the pinned tables")
+        for year in report["new_years"]:
+            console.print(f"  · new year published: {year}")
+        if report["changes"]:
+            table = Table(title="Calendar drift")
+            table.add_column("Kind")
+            table.add_column("Date")
+            table.add_column("Action")
+            table.add_column("Name", overflow="fold")
+            for change in report["changes"]:
+                table.add_row(change["kind"], change["date"], change["action"], change["name"])
+            console.print(table)
+        console.print("Propose a reviewed re-pin; do NOT auto-apply.")
+    elif not report["uncertain"]:
+        years = ", ".join(str(y) for y in report["years_source"])
+        console.print(f"[bold green]IN SYNC[/] — pinned calendar matches NYSE ({years})")
+    raise typer.Exit(0 if clean else 1)
 
 
 @app.command()
