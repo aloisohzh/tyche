@@ -78,6 +78,23 @@ the deterministic `tyche authorize` code gate + prompt + journal + auditor revie
 orders on stated intent). Direct-API inline POST was classifier-blocked; the file-based
 deploy script and the QCA connector tool path were used.
 
+Amendment 2026-11-18 18:03 UTC (executor path-B fail-closed wording, operator-approved
+envelope deploy follow-up): under `sim_trade_input_order` = always_allow the tool executes
+IMMEDIATELY with no platform pause, so the v6 path-B phrase "falls back to the platform
+confirmation prompt" was unsafe (the model could call it expecting a pause that never comes).
+Executor system-only edit (`scripts/fix_executor_gate_wording.py`, exact single-occurrence
+replacement, idempotent) rewrote path B: input_order is always_allow → never call until
+authorized; a no-envelope order needs CONVERSATIONAL per-order confirmation (preview in the
+reply, call ONLY after the operator's approving message); in an unattended run with no valid
+envelope, do NOT submit (journal awaiting authorization + report). Compiled executor
+`agent_00vtx8mfbxerk6vxmny5` v6→**v7** (get_agent verified: clause present, ACT/WAIT gate +
+OPERATOR AUTHORIZATION intact, policies {input_order: always_allow, cancel/modify: always_ask}
+unchanged). Desk roster re-pinned **7/2/7 + advisor** via the hybrid `template_id`+`version`
+shape (advisor inside `agents`, `type:coordinator`); desk system/tools/vault/env/mount preserved
+verbatim. Note: the `id`-shape + separate `advisor_models` field 400s — replicate the stored
+roster shape exactly. Rollback = restore `plans/cloud-executor-pre-envelope.json` (v4) or the
+v6 snapshot and re-pin accordingly.
+
 ## Template (coordinator)
 
 - id: `tmpl_004fa008901a6c256bd0ed3f` — name `tyche-desk`, status active
@@ -104,7 +121,7 @@ drive/schedule tools; each prompt refuses standalone operation outside the desk.
 |---|---|---|---|---|---|
 | Researcher (scout) | `tmpl_875834770244a9e35c7f6499` (rewritten from Moomoo Paper Trader) | `agent_00vs9v3dg0rnkr4740x3` | 7 | moomoo (read; all order-write tools disabled) | none |
 | Risk auditor | `tmpl_ae317cc0626a4fcc8fa8fad6` | `agent_00vtx8g7k1534t7w9eve` | 2 | none | none |
-| Executor | `tmpl_bc25a5c313827d53894fd7ff` | `agent_00vtx8mfbxerk6vxmny5` | 6 | moomoo, default **always_deny**; sim reads + quotes allowed; `sim_trade_input_order` = **always_allow** under the `tyche authorize` envelope gate (else per-order confirmation); `cancel` / `modify` = **always_ask** | paper only |
+| Executor | `tmpl_bc25a5c313827d53894fd7ff` | `agent_00vtx8mfbxerk6vxmny5` | 7 | moomoo, default **always_deny**; sim reads + quotes allowed; `sim_trade_input_order` = **always_allow** under the `tyche authorize` envelope gate (else conversational per-order confirmation; unattended + no valid envelope => do NOT submit); `cancel` / `modify` = **always_ask** | paper only |
 | Advisor | — (model consult) | — | — | none | none |
 
 Advisor model: `ultimate`. All member models: `qmodel_latest`, effort high.
