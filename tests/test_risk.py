@@ -89,9 +89,15 @@ def test_limit_price_deviation_is_blocked() -> None:
 
 
 def test_order_notional_cap() -> None:
-    verdict = evaluate(make_intent(quantity=40, price=600.0))
+    verdict = evaluate(make_intent(quantity=60, price=600.0))
     assert not verdict.allowed
     assert any(breach.rule == "order.max_notional" for breach in verdict.breaches)
+
+
+def test_order_notional_at_cap_is_allowed() -> None:
+    verdict = evaluate(make_intent(quantity=50, price=600.0))
+    assert verdict.allowed
+    assert verdict.adjusted_quantity == 50
 
 
 def test_soft_drawdown_halves_buy_quantity() -> None:
@@ -124,7 +130,7 @@ def test_daily_order_count() -> None:
 
 
 def test_turnover_cap() -> None:
-    state = RiskState(nav=100_000.0, prior_close_nav=100_000.0, traded_notional_today=20_000.0)
+    state = RiskState(nav=100_000.0, prior_close_nav=100_000.0, traded_notional_today=45_000.0)
     verdict = evaluate(make_intent(), state=state)
     assert not verdict.allowed
     assert any(breach.rule == "turnover.daily" for breach in verdict.breaches)

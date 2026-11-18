@@ -8,12 +8,13 @@ __pycache__/
 build/
 dist/
 
-# Runtime artifacts
-data/*.csv
-data/*.json
-journal/
-plans/
-reports/
+# Runtime artifacts (root-anchored so sanitized copies nested under
+# docs/performance/<date>/{reports,plans,journal,data} are NOT shadowed)
+/data/*.csv
+/data/*.json
+/journal/
+/plans/
+/reports/
 .env
 
 # OS / editor

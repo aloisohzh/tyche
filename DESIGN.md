@@ -198,7 +198,7 @@ blocked.
 | Price available | Last price > 0 | Reject |
 | Minimum price | $0.50 | Reject |
 | Limit deviation | 3% from last | Reject |
-| Order notional | 20% of NAV | Reject |
+| Order notional | 30% of NAV | Reject |
 | No shorting | Sell quantity <= held | Reject |
 | Minimum order | $500 unless closing | Reject |
 | Halt | Agent halted | Block buys |

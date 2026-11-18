@@ -108,8 +108,8 @@ class RiskPolicy(BaseModel):
     max_positions: int = 100
     cap_tolerance_pct: float = 0.0025
     min_cash_weight: float = 0.05
-    max_order_notional_pct: float = 0.20
-    max_daily_turnover_pct: float = 0.25
+    max_order_notional_pct: float = 0.30
+    max_daily_turnover_pct: float = 0.50
     max_orders_per_day: int = 6
     max_limit_deviation_pct: float = 0.03
     min_order_notional: float = 500.0
