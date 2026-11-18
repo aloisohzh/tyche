@@ -10,12 +10,12 @@ visible to judges and to the operator, and it is exactly the "strategy & risk de
 
 | Stage | Diagram | tyche today | Status / gap |
 |---|---|---|---|
-| 1 Thesis | market hypothesis & theme | playbook thesis + edge + invalidation | concept yes; **not yet a per-trade field** in plan/journal → add |
-| 2 Multi-factor | macro, fundamental filter, technical, sentiment & flow, seasonality & earnings | v0.1 core = **technicals only** (momentum/regime/vol). Researcher child + MCP news/capital-flow/event-calendar add macro/sentiment/seasonality; "fundamental" = eligibility filter (cap ≥$500M, price ≥$1, liquidity) | designed, not built |
-| 3 Outlook | bullish / bearish / neutral-range | v0.1 = **market regime only** (risk_on/neutral/risk_off) | add **per-setup outlook + conviction** and an act/wait gate |
-| 4 Vehicle & Edge | ETFs, Stocks (L/S), Options | v0.1 ETFs only; window = ETFs (ballast) + stocks long + **defined-risk options** | vehicle choice by edge/cost/liquidity lives in playbook; **deliberate divergence: no direct short** (defined-risk puts instead) |
-| 5 Edge/Expectancy | (Win%×AvgWin) − (Loss%×AvgLoss) | per-sleeve fee-net scorecard (expectancy R and %) | matches the formula; **small-n (~7 sessions) → label provisional, show n**; compare expected vs realized |
-| Execution | sizing, bracket/trailing, rolling | sizing = risk kernel + vol target + caps; **bracket/trailing impossible on sim** (Limit/Market only) → synthetic protection monitor + defined-risk structures; rolling = options leg-group (P2) | sizing yes; bracket/trailing replaced honestly; rolling planned |
+| 1 Thesis | market hypothesis & theme | playbook thesis + edge + invalidation | **built**: `plan.pipeline.thesis_ref` = PB-001 + frozen rules hash, journaled in plan.created |
+| 2 Multi-factor | macro, fundamental filter, technical, sentiment & flow, seasonality & earnings | v0.1 core = **technicals only** (momentum/regime/vol). Researcher child + MCP news/capital-flow/event-calendar add macro/sentiment/seasonality; "fundamental" = eligibility filter (cap ≥$500M, price ≥$1, liquidity) | designed, not built; brief path pinnable via `tyche plan --brief` |
+| 3 Outlook | bullish / bearish / neutral-range | regime → outlook + conviction tier from the 4-check score | **built**: `plan.pipeline.outlook/conviction` + per-order `action` act/wait gate (never blocks de-risking) |
+| 4 Vehicle & Edge | ETFs, Stocks (L/S), Options | v0.1 ETFs only; window = ETFs (ballast) + stocks long + **defined-risk options** | vehicle + rationale journaled per order; vehicle choice by edge/cost/liquidity lives in playbook; **deliberate divergence: no direct short** (defined-risk puts instead) |
+| 5 Edge/Expectancy | (Win%×AvgWin) − (Loss%×AvgLoss) | per-sleeve fee-net scorecard (expectancy R and %) | matches the formula; **small-n (~7 sessions) → label provisional, show n**; `expected_edge` field exists, stays None until validated — never fabricated |
+| Execution | sizing, bracket/trailing, rolling | sizing = risk kernel + vol target + caps; **bracket/trailing impossible on sim** (Limit/Market only) → synthetic protection monitor + defined-risk structures; rolling = options leg-group (P2) | sizing journaled per order; v0.1 protection_type = **rebalance** (honest: drift-band rebalance + drawdown ladder); monitor P2 |
 
 Two honest divergences to state in the report, not hide: the sim path has **no broker-native
 stops/trailing**, so protection is a monitor + defined-risk structures; and we **avoid direct shorting**
@@ -26,17 +26,22 @@ stops/trailing**, so protection is a monitor + defined-risk structures; and we *
 So the dashboard can render every stage from data, not prose:
 
 ```
-thesis_ref        playbook id (PB-xxx) + rules hash
-inputs_ref        research brief path + inputs snapshot hash
-outlook           bullish | bearish | range   + conviction tier
-vehicle           etf | stock_long | option_vertical   + vehicle_rationale
-expected_edge     R and % (pre-trade)
-invalidation      explicit price/level/time/event condition
-protection_type   synthetic_stop | defined_risk | time_exit
+thesis_ref        playbook id (PB-xxx) + rules hash        [plan.pipeline, journaled]
+inputs_ref        prices sha256 + research brief path      [plan.pipeline.inputs_ref]
+outlook           bullish | bearish | range + conviction   [plan.pipeline]
+vehicle           etf | stock_long | option_vertical + vehicle_rationale   [order.pipeline]
+expected_edge     R and % (pre-trade); None until validated, label provisional
+invalidation      explicit rule/price/level/time/event condition            [order.pipeline]
+protection_type   synthetic_stop | defined_risk | time_exit | rebalance
 roll_plan         for option leg groups (or none)
-sizing            risk unit, qty, notional, single-asset headroom, sleeve cap
-realized          fills, fees, exit kind, realized R and %   (post-trade)
+sizing            qty, effective qty, notional, %NAV, single-asset + sleeve caps
+action            act | wait — low-conviction gate on new non-defensive entries
+realized          fills, fees, exit kind, realized R and %   (post-trade, journal order events)
 ```
+
+Legacy plans without `pipeline` render as "derived" on the dashboard; new plans render
+"journaled". The gate is enforced by `tyche execute` (withheld + `gate.wait` journal event)
+and must be honored by the executor on the MCP path (docs/agent-engineering.md).
 
 ## Panels
 

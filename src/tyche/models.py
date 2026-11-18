@@ -122,9 +122,64 @@ class RiskVerdict(BaseModel):
     notes: list[str] = Field(default_factory=list)
 
 
+class Outlook(StrEnum):
+    BULLISH = "bullish"
+    BEARISH = "bearish"
+    RANGE = "range"
+
+
+class InputsRef(BaseModel):
+    prices_path: str
+    prices_sha256: str
+    brief: str | None = None
+
+
+class PlanPipeline(BaseModel):
+    """Research-to-execution context shared by every order in the plan."""
+
+    thesis_ref: str
+    rules_hash: str
+    inputs_ref: InputsRef
+    outlook: Outlook
+    conviction: Literal["high", "medium-high", "medium", "low"]
+    checks_score: int = Field(ge=0)
+    checks_total: int = Field(gt=0)
+    act_wait_rule: str
+
+
+class EdgeEstimate(BaseModel):
+    r: float | None = None
+    pct: float | None = None
+    label: str = "provisional — unvalidated"
+
+
+class Sizing(BaseModel):
+    quantity: int = Field(gt=0)
+    effective_quantity: int = Field(ge=0)
+    limit_price: float = Field(gt=0.0)
+    notional: float = Field(ge=0.0)
+    nav_pct: float = Field(ge=0.0)
+    single_asset_cap_pct: float = Field(gt=0.0)
+    sleeve_cap_pct: float | None = None
+
+
+class OrderPipeline(BaseModel):
+    """Per-trade contract fields (docs/dashboard.md) carried in plan + journal."""
+
+    vehicle: Literal["etf", "stock_long", "option_vertical"]
+    vehicle_rationale: str
+    expected_edge: EdgeEstimate | None = None
+    invalidation: str
+    protection_type: Literal["synthetic_stop", "defined_risk", "time_exit", "rebalance"]
+    roll_plan: str | None = None
+    sizing: Sizing
+    action: Literal["act", "wait"] = "act"
+
+
 class PlannedOrder(BaseModel):
     intent: OrderIntent
     verdict: RiskVerdict
+    pipeline: OrderPipeline | None = None
 
     @computed_field
     @property
@@ -163,6 +218,7 @@ class TradePlan(BaseModel):
     portfolio_vol: float
     vol_scale: float
     orders: list[PlannedOrder]
+    pipeline: PlanPipeline | None = None
     notes: list[str] = Field(default_factory=list)
 
 

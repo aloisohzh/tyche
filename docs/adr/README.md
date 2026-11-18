@@ -16,6 +16,7 @@ One decision per file. Format: context → decision → consequences → status.
 | [0010](0010-fees-and-caps.md) | Fee model + EOD reconcile; competition caps | accepted |
 | [0011](0011-topology.md) | 3-role topology + delegation + version pins | accepted |
 | [0012](0012-options-protection.md) | Defined-risk options leg groups + synthetic protection | accepted |
+| [0013](0013-protection-monitor.md) | Intraday protection monitor (watchlist, cadence, heartbeat) | proposed (design draft) |
 
 Parked decisions (post-window) are listed in the
 [2026-11-18 review](../reviews/2026-11-18-design-review.md), not written as ADRs yet.

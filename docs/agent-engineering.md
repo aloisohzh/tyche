@@ -46,6 +46,11 @@ Execution flow: plan → auditor approval → human arm → executor submits eac
 core reconciles fills and fees (`tyche.fees.reconcile_cash`). Submit is non-idempotent: on timeout,
 query today's orders before any further write; never retry blindly.
 
+**Act/wait gate:** every planned order carries `pipeline.action` (`act`/`wait`). The executor must
+skip `wait` orders on both paths — `tyche execute` withholds them automatically; on the MCP path
+the executor journals `tyche record-order gate.wait` and does not submit. The gate only ever
+withholds new non-defensive entries at low conviction; sells and defensive entries always act.
+
 ## Version pins
 
 - Pin **numeric** child agent + skill versions for the whole window; no `latest`.
@@ -57,7 +62,8 @@ query today's orders before any further write; never retry blindly.
 
 - Pre-market plan: ~13:45 UTC (08:45 ET). New session each run; self-contained instructions.
 - Intraday monitor: every 1–2 min **during the regular session only**, with an end time; short tasks
-  (concurrency 1); dedupe by stable order/trade id.
+  (concurrency 1); dedupe by stable order/trade id. Design contract: [ADR 0013](adr/0013-protection-monitor.md)
+  + [protection-monitor runbook](runbooks/protection-monitor.md) (draft; prerequisite for options).
 - EOD reconcile + report + **persist**: after 21:00 UTC; on the 27 Nov half day, after 18:00 UTC.
 - Skip holidays; window-bound; archive after the deadline.
 

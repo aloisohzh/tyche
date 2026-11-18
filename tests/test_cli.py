@@ -61,7 +61,27 @@ def test_plan_cli_end_to_end(tmp_path: Path) -> None:
     payload = json.loads(plans[0].read_text(encoding="utf-8"))
     assert payload["regime"] in {"risk_on", "neutral", "risk_off"}
     assert payload["targets"]
-    assert journal_path.read_text(encoding="utf-8").strip()
+    pipe = payload["pipeline"]
+    assert pipe["thesis_ref"].startswith("PB-001")
+    assert pipe["outlook"] in {"bullish", "bearish", "range"}
+    assert pipe["conviction"] in {"high", "medium-high", "medium", "low"}
+    assert pipe["inputs_ref"]["prices_sha256"]
+    for order in payload["orders"]:
+        op = order["pipeline"]
+        assert op["vehicle"] == "etf"
+        assert op["invalidation"]
+        assert op["protection_type"] == "rebalance"
+        assert op["action"] in {"act", "wait"}
+        assert op["sizing"]["notional"] >= 0
+    md = plans[0].with_suffix(".md").read_text(encoding="utf-8")
+    assert "## Pipeline" in md
+    assert "Act/wait gate" in md
+    events = [
+        json.loads(line)
+        for line in journal_path.read_text(encoding="utf-8").strip().splitlines()
+    ]
+    assert events[0]["type"] == "plan.created"
+    assert events[0]["payload"]["plan"]["pipeline"]["thesis_ref"] == pipe["thesis_ref"]
 
 
 def _write_run_dir(tmp_path: Path) -> Path:

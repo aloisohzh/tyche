@@ -191,6 +191,58 @@ def test_execute_submits_only_approved_orders(tmp_path: Path, monkeypatch) -> No
     assert types == ["order.requested", "order.submitted"]
 
 
+def test_execute_withholds_gate_wait_orders(tmp_path: Path, monkeypatch) -> None:
+    from tyche.config import load_config
+    from tyche.models import AccountSnapshot
+    from tyche.pipeline import build_order_pipeline
+
+    FakeCli.submitted = []
+    monkeypatch.setattr(FakeCli, "prices", {"US.SPY": 100.0, "US.IEF": 100.0})
+    monkeypatch.setattr("tyche.cli.MoomooCli", FakeCli)
+    config = load_config(ROOT)
+    snapshot = AccountSnapshot(account_id="SIM-TEST", cash=100_000.0)
+
+    def gated(symbol: str) -> PlannedOrder:
+        intent = OrderIntent(
+            symbol=symbol, side=Side.BUY, quantity=10, limit_price=100.0, reason="test"
+        )
+        verdict = RiskVerdict(allowed=True, adjusted_quantity=10)
+        pipeline = build_order_pipeline(
+            intent, verdict, snapshot, config, Regime.RISK_OFF, "low"
+        )
+        return PlannedOrder(intent=intent, verdict=verdict, pipeline=pipeline)
+
+    plan = make_plan()
+    plan.orders = [gated("US.SPY"), gated("US.IEF")]
+    assert plan.orders[0].pipeline.action == "wait"
+    assert plan.orders[1].pipeline.action == "act"
+    plan_path = tmp_path / "plan.json"
+    plan_path.write_text(plan.model_dump_json(indent=2), encoding="utf-8")
+    journal_path = tmp_path / "events.jsonl"
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "execute",
+            "--plan",
+            str(plan_path),
+            "--account-id",
+            "SIM-TEST",
+            "--yes",
+            "--config-root",
+            str(ROOT),
+            "--journal",
+            str(journal_path),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert [o["symbol"] for o in FakeCli.submitted] == ["US.IEF"]
+    events = [json.loads(line) for line in journal_path.read_text(encoding="utf-8").splitlines()]
+    assert events[0]["type"] == "gate.wait"
+    assert events[0]["payload"]["symbol"] == "US.SPY"
+    assert [e["type"] for e in events[1:]] == ["order.requested", "order.submitted"]
+
+
 def test_execute_rejects_non_paper_account(tmp_path: Path, monkeypatch) -> None:
     FakeCli.submitted = []
     monkeypatch.setattr("tyche.cli.MoomooCli", FakeCli)

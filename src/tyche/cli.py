@@ -25,6 +25,7 @@ from tyche.journal import append_event, verify_chain
 from tyche.market_calendar import SessionPhase, evaluate, generate_schedules
 from tyche.models import AccountSnapshot, PlannedOrder, Side, TradePlan, apply_fill
 from tyche.persist import persist_run
+from tyche.pipeline import build_order_pipeline, build_plan_pipeline
 from tyche.risk import RiskState, evaluate_intent
 from tyche.strategy import build_intents, fit_turnover_budget, rotation_targets
 
@@ -81,6 +82,23 @@ def _plan_markdown(plan: TradePlan) -> str:
     for name, passed in plan.regime_checks.items():
         lines.append(f"- {name}: {'PASS' if passed else 'FAIL'}")
 
+    if plan.pipeline is not None:
+        pipe = plan.pipeline
+        lines.extend(
+            [
+                "",
+                "## Pipeline",
+                "",
+                f"- Thesis: {pipe.thesis_ref}",
+                f"- Inputs: `{pipe.inputs_ref.prices_path}` "
+                f"(sha256 {pipe.inputs_ref.prices_sha256[:12]}…)"
+                + (f" · brief `{pipe.inputs_ref.brief}`" if pipe.inputs_ref.brief else ""),
+                (f"- Outlook: **{pipe.outlook.value}** · conviction {pipe.conviction} "
+                 f"({pipe.checks_score}/{pipe.checks_total} checks)"),
+                f"- Act/wait gate: {pipe.act_wait_rule}",
+            ]
+        )
+
     lines.extend(
         ["", "## Targets", "", "| Symbol | Target | Momentum | Volatility | Score | Selected |"]
     )
@@ -100,17 +118,43 @@ def _plan_markdown(plan: TradePlan) -> str:
     if not plan.orders:
         lines.append("_No trades required; portfolio is within rebalancing bands._")
     else:
-        lines.append("| Status | Side | Symbol | Qty | Limit | Notional | Risk notes |")
-        lines.append("| --- | --- | --- | ---: | ---: | ---: | --- |")
+        lines.append("| Status | Action | Side | Symbol | Qty | Limit | Notional | Risk notes |")
+        lines.append("| --- | --- | --- | --- | ---: | ---: | ---: | --- |")
         for order in plan.orders:
             status = "APPROVED" if order.verdict.allowed else "BLOCKED"
+            action = order.pipeline.action if order.pipeline else "act"
             notes = "; ".join(
                 [breach.rule for breach in order.verdict.breaches] + order.verdict.notes
             )
             lines.append(
-                f"| {status} | {order.intent.side.value} | {order.intent.symbol} | "
+                f"| {status} | {action} | {order.intent.side.value} | {order.intent.symbol} | "
                 f"{order.effective_quantity} | {order.intent.limit_price:.2f} | "
                 f"{order.effective_quantity * order.intent.limit_price:,.2f} | {notes} |"
+            )
+        for order in plan.orders:
+            pipe = order.pipeline
+            if pipe is None:
+                continue
+            sizing = pipe.sizing
+            lines.extend(
+                [
+                    "",
+                    f"### {order.intent.side.value.upper()} {order.intent.symbol}",
+                    "",
+                    f"- Vehicle: {pipe.vehicle} — {pipe.vehicle_rationale}",
+                    f"- Expected edge: {pipe.expected_edge.label if pipe.expected_edge else 'n/a'}",
+                    f"- Invalidation: {pipe.invalidation}",
+                    f"- Protection: {pipe.protection_type}"
+                    + (f" · roll plan: {pipe.roll_plan}" if pipe.roll_plan else ""),
+                    f"- Sizing: {sizing.quantity} → {sizing.effective_quantity} eff · "
+                    f"${sizing.notional:,.2f} ({sizing.nav_pct:.2%} NAV) · "
+                    f"single-asset cap {sizing.single_asset_cap_pct:.0%}"
+                    + (
+                        f" · sleeve cap {sizing.sleeve_cap_pct:.0%}"
+                        if sizing.sleeve_cap_pct is not None
+                        else ""
+                    ),
+                ]
             )
 
     lines.extend(["", "## Notes", ""])
@@ -175,6 +219,9 @@ def plan(
         None, "--as-of", help="ISO date; defaults to last price date."
     ),
     account: Path | None = typer.Option(None, "--account", help="Account snapshot JSON."),
+    brief: Path | None = typer.Option(
+        None, "--brief", help="Research brief path to pin in the plan's inputs_ref."
+    ),
     config_root: Path = typer.Option(Path.cwd(), "--config-root"),
     out_dir: Path = typer.Option(Path("plans"), "--out"),
     journal_path: Path = typer.Option(Path("journal/events.jsonl"), "--journal"),
@@ -217,6 +264,14 @@ def plan(
         halted=is_halted(journal_path.parent),
     )
     sleeve_caps = config.strategy.sleeve_caps[result.regime.value].as_dict()
+    plan_pipeline = build_plan_pipeline(
+        config_root,
+        config,
+        result.regime,
+        result.regime_checks,
+        prices,
+        str(brief) if brief else None,
+    )
     projected = snapshot.model_copy(deep=True)
     planned: list[PlannedOrder] = []
     for intent in intents:
@@ -230,13 +285,18 @@ def plan(
             sleeve_by_symbol=config.universe.sleeve_by_symbol(),
             sleeve_caps=sleeve_caps,
         )
+        order_pipeline = build_order_pipeline(
+            intent, verdict, projected, config, result.regime, plan_pipeline.conviction
+        )
         if verdict.allowed:
             quantity = min(intent.quantity, verdict.adjusted_quantity)
             state.orders_today += 1
             if intent.side == Side.BUY:
                 state.traded_notional_today += quantity * intent.limit_price
             projected = apply_fill(projected, intent, quantity)
-        planned.append(PlannedOrder(intent=intent, verdict=verdict))
+        planned.append(
+            PlannedOrder(intent=intent, verdict=verdict, pipeline=order_pipeline)
+        )
 
     trade_plan = TradePlan(
         as_of=as_of_date,
@@ -250,6 +310,7 @@ def plan(
         portfolio_vol=result.portfolio_vol,
         vol_scale=result.vol_scale,
         orders=planned,
+        pipeline=plan_pipeline,
         notes=result.notes,
     )
 
@@ -408,6 +469,24 @@ def execute(
     approved = [
         order for order in plan.orders if order.verdict.allowed and order.effective_quantity > 0
     ]
+    waited = [
+        order for order in approved if order.pipeline is not None and order.pipeline.action == "wait"
+    ]
+    if waited:
+        approved = [order for order in approved if order not in waited]
+        for order in waited:
+            append_event(
+                journal_path,
+                "gate.wait",
+                {
+                    "symbol": order.intent.symbol,
+                    "side": order.intent.side.value,
+                    "reason": "act/wait gate: low conviction on new non-defensive entry",
+                },
+            )
+        console.print(
+            f"Act/wait gate: withheld {len(waited)} low-conviction new entry(ies); journaled gate.wait."
+        )
     if not approved:
         console.print("No approved orders in this plan.")
         return
@@ -654,12 +733,12 @@ def resume(
 
 @app.command("record-order")
 def record_order(
-    event: str = typer.Argument(..., help="order.requested, order.submitted, order.rejected or halt.skip."),
+    event: str = typer.Argument(..., help="order.requested, order.submitted, order.rejected, halt.skip or gate.wait."),
     data: str = typer.Option(..., "--data", help="JSON object with the event payload."),
     journal_path: Path = typer.Option(Path("journal/events.jsonl"), "--journal"),
 ) -> None:
     """Journal an order event from the MCP submission path (executor is the single writer)."""
-    allowed = {"order.requested", "order.submitted", "order.rejected", "halt.skip"}
+    allowed = {"order.requested", "order.submitted", "order.rejected", "halt.skip", "gate.wait"}
     if event not in allowed:
         raise typer.BadParameter(f"event must be one of {sorted(allowed)}")
     try:
