@@ -12,6 +12,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import subprocess
 import sys
 import threading
 import time
@@ -26,6 +27,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 import yaml  # noqa: E402
 
+from tyche.approvals import ApprovalBatch, envelope_usage  # noqa: E402
 from tyche.journal import read_events, verify_chain  # noqa: E402
 from tyche.market_calendar import (
     ET,
@@ -231,6 +233,7 @@ def build_instrumentation(cards: list[dict]) -> dict:
 STATIC = Path(__file__).resolve().parent / "static"
 JOURNAL = ROOT / "journal" / "events.jsonl"
 HALT = ROOT / "journal" / "halt.json"
+APPROVALS = ROOT / "data" / "approvals.json"
 DRILL_DIR = ROOT / "plans" / "drill-2026-11-18"
 VALIDATION = ROOT / "docs" / "validation" / "2026-11-18-kill-switch-drill.md"
 PORT = 8765
@@ -336,15 +339,7 @@ def nav_marks(events: list[dict], snapshot: dict | None) -> dict[str, list[dict]
             {"ts": ts, "as_of": "snapshot", "nav": snapshot["nav"], "source": "snapshot"}
         )
     for acct, series in marks.items():
-        series.sort(key=lambda m: m["ts"])
-        deduped: list[dict] = []
-        for mark in series:
-            if deduped and deduped[-1]["nav"] == mark["nav"] and deduped[-1]["as_of"] == mark["as_of"]:
-                deduped[-1]["count"] = deduped[-1].get("count", 1) + 1
-                deduped[-1]["ts"] = mark["ts"]
-            else:
-                deduped.append(dict(mark))
-        marks[acct] = deduped
+        marks[acct] = _dedupe_marks(series)
     return marks
 
 
@@ -513,7 +508,8 @@ def build_cards(plans: dict[str, dict], orders: list[dict], validation: dict) ->
             symbol = intent["symbol"]
             matched = next(
                 (o for o in orders if o["symbol"] == symbol and o["side"] == intent["side"]
-                 and o["quantity"] == intent["quantity"] and o.get("purpose") != "drill-seed"),
+                 and o["quantity"] == intent["quantity"] and o.get("account") == acct
+                 and o.get("purpose") != "drill-seed"),
                 None,
             )
             halted = any(
@@ -660,6 +656,190 @@ def load_snapshot() -> dict | None:
     }
 
 
+# ---------------------------------------------------------------------------
+# Cloud-run feed. The cloud desk pushes sanitized run bundles to
+# docs/performance/<run>/ (kernel snapshot + broker MCP reads, ids redacted
+# upstream). The challenge account (account_type 2, US paper) is the desk's
+# primary feed; the local drill snapshot is only a fallback.
+PERF_DIR = ROOT / "docs" / "performance"
+CHALLENGE_ACCOUNT_TYPE = 2
+
+# Moomoo OpenD OrderStatus -> desk vocabulary. A submit is not a fill.
+_CLOUD_ORDER_STATUS = {
+    1: "requested", 2: "submitted", 3: "broker-rejected", 4: "filled",
+    5: "part-filled", 6: "cancelled", 7: "cancelled", 8: "submitted",
+    9: "cancelled", 10: "part-filled",
+}
+
+
+def challenge_mask() -> str:
+    path = DRILL_DIR / "accounts.json"
+    if path.is_file():
+        try:
+            accounts = json.loads(path.read_text(encoding="utf-8"))["data"]["accounts"]
+            for acct in accounts:
+                if acct.get("account_type") == CHALLENGE_ACCOUNT_TYPE and acct.get("market_id") == 100:
+                    return mask_id(str(acct["account_id"]))
+        except (json.JSONDecodeError, KeyError, TypeError):
+            pass
+    return "challenge"
+
+
+def _broker_ts(value) -> str | None:
+    try:
+        return datetime.fromtimestamp(int(value) / 1_000_000, UTC).isoformat()
+    except (TypeError, ValueError, OSError, OverflowError):
+        return None
+
+
+def load_cloud_runs() -> list[dict]:
+    runs = []
+    if not PERF_DIR.is_dir():
+        return runs
+    for path in PERF_DIR.glob("*/snapshot.json"):
+        try:
+            snap = json.loads(path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            continue
+        if not isinstance(snap, dict) or "nav" not in snap:
+            continue
+        # git checkout resets mtimes, so prefer the newest broker timestamp in
+        # the bundle when present; fall back to file mtime.
+        ts = path.stat().st_mtime
+        history = path.parent / "mcp" / "sim_trade_history_order_list.json"
+        if history.is_file():
+            try:
+                orders = json.loads(history.read_text(encoding="utf-8")).get("data", {}).get("orders", [])
+                stamps = [int(o["update_time"]) / 1_000_000 for o in orders if o.get("update_time")]
+                if stamps:
+                    ts = max(ts, max(stamps))
+            except (json.JSONDecodeError, OSError, KeyError, TypeError, ValueError):
+                pass
+        runs.append({
+            "run": path.parent.name,
+            "ts": datetime.fromtimestamp(ts, UTC).isoformat(),
+            "snapshot": snap,
+            "dir": path.parent,
+        })
+    runs.sort(key=lambda r: (r["ts"], r["run"]))
+    return runs
+
+
+def _challenge_runs(runs: list[dict]) -> list[dict]:
+    return [r for r in runs if r["snapshot"].get("account_type") == CHALLENGE_ACCOUNT_TYPE]
+
+
+def cloud_snapshot(runs: list[dict]) -> dict | None:
+    challenge = _challenge_runs(runs)
+    if not challenge:
+        return None
+    run = challenge[-1]
+    snap = run["snapshot"]
+    names: dict[str, str] = {}
+    raw = run["dir"] / "positions.json"
+    if raw.is_file():
+        try:
+            for pos in json.loads(raw.read_text(encoding="utf-8")).get("data", {}).get("positions", []):
+                names["US." + pos["symbol"]] = pos.get("stock_name", "")
+        except (json.JSONDecodeError, KeyError, TypeError):
+            pass
+    nav = snap["nav"]
+    positions = []
+    for pos in snap.get("positions", []):
+        mv = pos["market_value"]
+        cost = pos["avg_cost"] * pos["quantity"]
+        positions.append(
+            {
+                "symbol": pos["symbol"],
+                "name": names.get(pos["symbol"], ""),
+                "quantity": pos["quantity"],
+                "avg_cost": pos["avg_cost"],
+                "last_price": pos["last_price"],
+                "market_value": round(mv, 2),
+                "weight": mv / nav if nav else 0,
+                "pl": round(mv - cost, 2),
+                "pl_pct": (mv - cost) / cost if cost else 0,
+            }
+        )
+    positions.sort(key=lambda p: p["market_value"], reverse=True)
+    return {
+        "account": challenge_mask(),
+        "env": snap.get("env", "paper"),
+        "cash": snap["cash"],
+        "nav": nav,
+        "gross_exposure": snap["gross_exposure"],
+        "gross_weight": snap["gross_exposure"] / nav if nav else 0,
+        "cash_weight": snap["cash"] / nav if nav else 0,
+        "positions": positions,
+        "as_of": run["ts"],
+        "source": f"cloud run {run['run']} (broker sim_list)",
+        "run": run["run"],
+    }
+
+
+def cloud_orders(runs: list[dict]) -> list[dict]:
+    challenge = _challenge_runs(runs)
+    if not challenge:
+        return []
+    run = challenge[-1]
+    path = run["dir"] / "mcp" / "sim_trade_history_order_list.json"
+    if not path.is_file():
+        return []
+    try:
+        orders = json.loads(path.read_text(encoding="utf-8")).get("data", {}).get("orders", [])
+    except (json.JSONDecodeError, OSError):
+        return []
+    acct = challenge_mask()
+    out = []
+    for o in orders:
+        status = _CLOUD_ORDER_STATUS.get(o.get("status"), "submitted")
+        has_fill = status in ("filled", "part-filled")
+        ts = _broker_ts(o.get("create_time"))
+        out.append(
+            {
+                "remark": o.get("text"),
+                "symbol": "US." + o["symbol"],
+                "side": "buy" if o.get("side") == 1 else "sell",
+                "quantity": int(o["qty"]),
+                "account": acct,
+                "purpose": "cloud",
+                "requested_ts": ts,
+                "submitted_ts": ts,
+                "order_id": str(o.get("order_id")),
+                "limit_price": float(o["price"]) if o.get("price") else None,
+                "order_type": "limit",
+                "supersedes": None,
+                "note": f"cloud run {run['run']}",
+                "status": status,
+                "fill_price": float(o["avg_fill_price"]) if has_fill and o.get("avg_fill_price") else None,
+                "fill_qty": int(o["cum_qty"]) if has_fill else None,
+                "events": [],
+                "source": "cloud",
+            }
+        )
+    return out
+
+
+def _dedupe_marks(series: list[dict]) -> list[dict]:
+    series = sorted(series, key=lambda m: m["ts"])
+    deduped: list[dict] = []
+    for mark in series:
+        if deduped and deduped[-1]["nav"] == mark["nav"] and deduped[-1]["as_of"] == mark["as_of"]:
+            deduped[-1]["count"] = deduped[-1].get("count", 1) + 1
+            deduped[-1]["ts"] = mark["ts"]
+        else:
+            deduped.append(dict(mark))
+    return deduped
+
+
+def cloud_nav_marks(runs: list[dict]) -> dict[str, list[dict]]:
+    series = [
+        {"ts": r["ts"], "as_of": r["run"][:10], "nav": r["snapshot"]["nav"], "source": "cloud:" + r["run"]}
+        for r in _challenge_runs(runs)
+    ]
+    return {challenge_mask(): _dedupe_marks(series)} if series else {}
+
+
 def sentinel_fallback() -> list[dict]:
     out = []
     for path in sorted((ROOT / "plans" / "sentinel").glob("sched_*.json")):
@@ -681,6 +861,52 @@ def sentinel_fallback() -> list[dict]:
 EVENTS: list[dict] = []
 
 
+def build_approvals() -> dict:
+    """Operator approval state from the existing envelope system (single source of truth).
+
+    armed  = a valid same-day envelope exists -> executor auto-submits within bounds.
+    manual = no valid envelope -> every order needs per-order operator confirmation.
+    The kill-switch overrides auto: halted => no new entries regardless of envelope.
+    """
+    today = datetime.now(ET).date()
+    halt = json.loads(HALT.read_text(encoding="utf-8")) if HALT.is_file() else {"halted": False}
+    halted = bool(halt.get("halted"))
+    used = envelope_usage(JOURNAL, today)
+    out = {
+        "generated_at": datetime.now(UTC).isoformat(),
+        "today_et": today.isoformat(),
+        "halted": halted,
+        "used": used,
+        "max_orders": 0,
+        "envelope": None,
+        "mode": "manual",
+        "auto_active": False,
+        "reason": "No pre-approved envelope — every order needs per-order operator confirmation (console or Telegram).",
+    }
+    if not APPROVALS.is_file():
+        return scrub(out)
+    try:
+        batch = ApprovalBatch.model_validate_json(APPROVALS.read_text(encoding="utf-8"))
+    except ValueError as exc:
+        out["reason"] = "Envelope invalid — falling back to per-order confirmation."
+        out["error"] = str(exc)[:200]
+        return scrub(out)
+    env = batch.model_dump(mode="json")
+    env["valid_today"] = batch.valid_on(today)
+    out["envelope"] = env
+    out["max_orders"] = batch.max_orders
+    if not batch.valid_on(today):
+        out["reason"] = f"Envelope dated {batch.as_of} is not valid today ({today}) — per-order confirmation only."
+    elif halted:
+        out["mode"] = "armed"
+        out["reason"] = "Envelope valid today, but kill-switch engaged — no new entries."
+    else:
+        out["mode"] = "armed"
+        out["auto_active"] = True
+        out["reason"] = f"Envelope armed for {today}: auto-submit within approved bounds ({used}/{batch.max_orders} used)."
+    return scrub(out)
+
+
 def build_state() -> dict:
     global EVENTS
     EVENTS = read_events(JOURNAL)
@@ -689,13 +915,41 @@ def build_state() -> dict:
     risk = yaml.safe_load((ROOT / "config" / "risk.yaml").read_text(encoding="utf-8"))
     validation = parse_validation()
     plans = latest_plans(EVENTS)
-    snapshot = load_snapshot()
+    runs = load_cloud_runs()
+    cloud = cloud_snapshot(runs)
+    drill_snapshot = load_snapshot()
+    snapshot = cloud or drill_snapshot
     orders = build_orders(EVENTS, validation)
+    known_ids = {o["order_id"] for o in orders if o["order_id"]}
+    orders.extend(o for o in cloud_orders(runs) if o["order_id"] not in known_ids)
+    orders.sort(key=lambda r: r["requested_ts"] or "")
     rejections = build_rejections(EVENTS, orders)
     cards = build_cards(plans, orders, validation)
-    marks = nav_marks(EVENTS, snapshot)
-    live_acct = next((a for a in plans if not a.startswith("SIM-")), None)
-    latest_plan = plans.get(live_acct, {}).get("plan") if live_acct else None
+    marks = nav_marks(EVENTS, drill_snapshot)
+    marks.update(cloud_nav_marks(runs))
+    journal_acct = next((a for a in plans if not a.startswith("SIM-")), None)
+    primary = cloud["account"] if cloud else (journal_acct or (drill_snapshot or {}).get("account"))
+    if primary in marks:
+        marks = {primary: marks[primary], **{a: m for a, m in marks.items() if a != primary}}
+    plan_acct = primary if primary in plans else journal_acct
+    latest_plan = plans.get(plan_acct, {}).get("plan") if plan_acct else None
+    feed = {
+        "primary_account": primary,
+        "source": "cloud-run bundles (docs/performance)" if cloud else "local drill snapshot",
+        "run": cloud["run"] if cloud else None,
+        "as_of": snapshot["as_of"] if snapshot else None,
+        "cloud_runs": len(_challenge_runs(runs)),
+        "plan_account": mask_id(str(latest_plan["account_id"])) if latest_plan else None,
+    }
+    divergences = [
+        "Sim path has no broker-native stops/trailing — protection is a synthetic monitor + defined-risk structures (P2).",
+        "No direct shorting (margin 60/50, 6.0% financing, forced-liq risk) — defined-risk puts instead.",
+    ]
+    if cloud and plan_acct != primary:
+        divergences.append(
+            f"Challenge plan artifacts persist to the Drive locker; the git feed carries sanitized cloud snapshots + broker order history. "
+            f"The strategy view shows the latest journal plan (account {plan_acct}) until challenge plans are pushed."
+        )
     halt_timeline = [
         {"ts": ev["ts"], "type": ev["type"], "payload": ev["payload"]}
         for ev in EVENTS
@@ -706,9 +960,12 @@ def build_state() -> dict:
             "generated_at": datetime.now(UTC).isoformat(),
             "chain": {"ok": ok, "count": count, "error": error},
             "halt": halt,
+            "approvals": build_approvals(),
             "halt_timeline": halt_timeline,
             "risk": risk,
+            "feed": feed,
             "snapshot": snapshot,
+            "drill_snapshot": drill_snapshot if cloud else None,
             "latest_plan": latest_plan,
             "plans": {a: {"ts": e["ts"], "plan": e["plan"]} for a, e in plans.items()},
             "nav_marks": marks,
@@ -729,10 +986,7 @@ def build_state() -> dict:
                 "fees_note": "~$1/leg per drill validation doc; fee-net reconciliation pending EOD generator",
                 "provisional": True,
             },
-            "divergences": [
-                "Sim path has no broker-native stops/trailing — protection is a synthetic monitor + defined-risk structures (P2).",
-                "No direct shorting (margin 60/50, 6.0% financing, forced-liq risk) — defined-risk puts instead.",
-            ],
+            "divergences": divergences,
             "gaps": [
                 {"field": "thesis_ref / inputs_ref", "state": "gap", "note": "per-trade playbook + research-brief refs not in plan/journal yet"},
                 {"field": "outlook + conviction", "state": "partial", "note": "market regime only; per-setup outlook and act/wait gate pending"},
@@ -884,6 +1138,31 @@ def build_automation() -> dict:
 
 
 # ---------------------------------------------------------------- http
+def disarm_envelope() -> dict:
+    """Revert to manual: remove the envelope and propagate to the cloud mount via git.
+
+    Path-limited commit so concurrent in-progress files are never swept in. A backup
+    copy is kept locally (untracked) so the operator can re-arm by re-committing it.
+    """
+    if not APPROVALS.is_file():
+        return {"ok": True, "disarmed": False, "note": "no envelope to disarm", "approvals": build_approvals()}
+    backup = APPROVALS.with_name("approvals.disarmed.json")
+    backup.write_text(APPROVALS.read_text(encoding="utf-8"), encoding="utf-8")
+    APPROVALS.unlink()
+    pushed, git_error = False, None
+    try:
+        subprocess.run(["git", "add", "--", "data/approvals.json"], cwd=ROOT, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "Disarm auto approval envelope (operator via dashboard)", "--", "data/approvals.json"],
+            cwd=ROOT, check=True, capture_output=True,
+        )
+        subprocess.run(["git", "push", "origin", "main"], cwd=ROOT, check=True, capture_output=True)
+        pushed = True
+    except subprocess.CalledProcessError as exc:
+        git_error = (exc.stderr or exc.stdout or b"").decode("utf-8", "replace").strip()[:300]
+    return {"ok": True, "disarmed": True, "pushed": pushed, "git_error": git_error, "approvals": build_approvals()}
+
+
 class Handler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(STATIC), **kwargs)
@@ -917,6 +1196,16 @@ class Handler(SimpleHTTPRequestHandler):
         if path == "/":
             self.path = "/index.html"
         super().do_GET()
+
+    def do_POST(self):
+        path = self.path.split("?", 1)[0]
+        if path == "/api/approvals/disarm":
+            try:
+                self._json(disarm_envelope())
+            except Exception as exc:  # noqa: BLE001
+                self._json({"error": str(exc)}, 500)
+            return
+        self._json({"error": "not found"}, 404)
 
     def end_headers(self):
         self.send_header("Cache-Control", "no-store")

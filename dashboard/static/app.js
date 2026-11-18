@@ -7,6 +7,7 @@ const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "
 let STATE = null;
 let AUTO = null;
 const SNAPSHOT = window.TYCHE_SNAPSHOT || null;
+const LIVE = window.TYCHE_LIVE || null;
 let posSort = { key: "market_value", dir: -1 };
 let posQuery = "";
 let rejKind = "all";
@@ -15,14 +16,32 @@ let equityAcct = null;
 let autoErrorShown = false;
 let insView = "all";
 
-const THEMES = ["midnight", "daybreak", "phosphor"];
-function currentTheme() { return document.documentElement.getAttribute("data-theme") || "midnight"; }
+const THEMES = ["light", "dark"];
+function currentTheme() { return document.documentElement.getAttribute("data-theme") || "light"; }
 function setTheme(t) {
-  if (!THEMES.includes(t)) t = "midnight";
+  if (!THEMES.includes(t)) t = "light";
   document.documentElement.setAttribute("data-theme", t);
   try { localStorage.setItem("tyche-theme", t); } catch (e) {}
   document.querySelectorAll(".theme-btn").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.themeSet === t)));
 }
+
+/* ---------------- view routing ---------------- */
+const VIEWS = ["overview", "strategy", "risk", "automation", "controls"];
+const VIEW_LABEL = { overview: "Overview", strategy: "Strategy", risk: "Risk & Execution", automation: "Automation", controls: "Controls" };
+function showView(name) {
+  if (!VIEWS.includes(name)) name = "overview";
+  document.querySelectorAll(".view").forEach((v) => v.classList.toggle("active", v.id === "view-" + name));
+  document.querySelectorAll(".nav-item").forEach((n) => {
+    const on = n.dataset.view === name;
+    n.classList.toggle("is-active", on);
+    n.setAttribute("aria-current", on ? "page" : "false");
+  });
+  const crumb = $("#crumb-view");
+  if (crumb) crumb.textContent = VIEW_LABEL[name];
+  try { localStorage.setItem("tyche-view", name); } catch (e) {}
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+const setText = (sel, v) => { const el = $(sel); if (el) el.textContent = v; };
 
 const CONTRACT_FIELDS = ["thesis_ref", "inputs_ref", "outlook", "vehicle", "expected_edge", "invalidation", "protection_type", "roll_plan", "sizing", "realized"];
 
@@ -36,7 +55,7 @@ const STAGES = [
 const STATUS_LABEL = {
   closed: "closed", filled: "filled", "halt-skipped": "halt-skipped", blocked: "blocked",
   approved: "approved", cancelled: "cancelled", "broker-rejected": "broker rejected",
-  requested: "requested", submitted: "submitted", pending: "pending",
+  requested: "requested", submitted: "submitted", pending: "pending", "part-filled": "part-filled",
 };
 const STATUS_ORDER = { closed: 0, filled: 1, submitted: 2, "halt-skipped": 3, blocked: 4, "broker-rejected": 5, cancelled: 6, approved: 7, requested: 8 };
 const DONUT_HUES = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)", "var(--chart-5)", "var(--chart-6)", "var(--chart-7)", "var(--chart-8)"];
@@ -78,35 +97,56 @@ function fmtCountdown(ms) {
 const plClass = (n) => n > 0 ? "pos" : n < 0 ? "neg" : "";
 
 /* ---------------- data fetch ---------------- */
+async function fetchJson(url, fallback) {
+  try {
+    const r = await fetch(url, { cache: "no-store" });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const j = await r.json();
+    if (j && j.error) throw new Error(j.error);
+    return j;
+  } catch (err) {
+    if (fallback) {
+      const r2 = await fetch(fallback, { cache: "no-store" });
+      if (r2.ok) { const j2 = await r2.json(); if (!j2.error) return j2; }
+    }
+    throw err;
+  }
+}
+
 async function fetchAll(manual = false) {
   const btn = $("#refresh-btn");
-  btn.classList.add("spinning");
+  if (btn) btn.classList.add("spinning");
+  const stateUrl = SNAPSHOT ? SNAPSHOT.state_url : (LIVE ? LIVE.state_url : "/api/state");
+  const autoUrl = SNAPSHOT ? SNAPSHOT.automation_url : (LIVE ? LIVE.automation_url : "/api/automation");
+  let stateErr = null;
+  // State and automation are fetched independently: an automation outage (or a single
+  // render exception) must never blank the figures. Last good STATE is always kept.
   try {
-    const stateUrl = SNAPSHOT ? SNAPSHOT.state_url : "/api/state";
-    const autoUrl = SNAPSHOT ? SNAPSHOT.automation_url : "/api/automation";
-    const [stateRes, autoRes] = await Promise.all([
-      fetch(stateUrl).then((r) => r.json()),
-      fetch(autoUrl).then((r) => r.json()),
-    ]);
-    if (stateRes.error) throw new Error(stateRes.error);
-    STATE = stateRes;
-    AUTO = autoRes;
+    STATE = await fetchJson(stateUrl, LIVE ? LIVE.state_fallback : null);
     if (!equityAcct) {
       const accts = Object.keys(STATE.nav_marks || {});
       equityAcct = accts.find((a) => !a.startsWith("SIM-")) || accts[0] || null;
     }
-    renderAll();
-    $("#updated-stamp").textContent = (SNAPSHOT ? "snapshot built " : "updated ") + hhmmss(STATE.generated_at) + " UTC";
-    if (manual) showToast(SNAPSHOT ? "Snapshot re-read — data frozen at build time" : "Desk state refreshed — journal chain " + (STATE.chain.ok ? "verified" : "BROKEN"));
-    if (!SNAPSHOT && !AUTO.ok && !autoErrorShown) {
-      autoErrorShown = true;
-      showToast("Forward API unreachable — showing cached local schedule export", true);
-    }
+  } catch (err) { stateErr = err.message; }
+  try {
+    AUTO = await fetchJson(autoUrl, LIVE ? LIVE.automation_fallback : null);
   } catch (err) {
-    showToast("Refresh failed: " + err.message + " — keeping last good data", true);
-  } finally {
-    setTimeout(() => btn.classList.remove("spinning"), 450);
+    if (!AUTO) AUTO = { ok: false, live: false, schedules: [], sessions: [], calendar: null, source: "unreachable", error: err.message };
   }
+  if (STATE) {
+    renderAll();
+    setText("#updated-stamp", (SNAPSHOT ? "snapshot built " : "updated ") + hhmmss(STATE.generated_at) + " UTC");
+  }
+  if (stateErr) {
+    showToast(STATE ? "State refresh failed: " + stateErr + " — keeping last good data" : "Could not load desk state: " + stateErr, true);
+  } else if (manual && STATE) {
+    showToast(SNAPSHOT ? "Snapshot re-read — data frozen at build time" : "Desk state refreshed — journal chain " + (STATE.chain.ok ? "verified" : "BROKEN"));
+  }
+  if (!SNAPSHOT && AUTO && !AUTO.ok && !autoErrorShown) {
+    autoErrorShown = true;
+    showToast("Forward API unreachable — showing cached local schedule export", true);
+  }
+  if (btn) setTimeout(() => btn.classList.remove("spinning"), 450);
 }
 
 function showToast(msg, isErr = false) {
@@ -125,6 +165,7 @@ function renderTop() {
     const checks = Object.values(plan.regime_checks || {});
     chip.textContent = `${plan.regime.replace("_", "-")} · ${checks.filter(Boolean).length}/${checks.length}`;
     chip.className = "chip regime " + plan.regime;
+    chip.title = plan.account_id ? `latest journal plan · account ${plan.account_id}` : "";
   }
   const kill = $("#kill-pill");
   const halted = STATE.halt.halted;
@@ -333,6 +374,91 @@ function renderKill() {
     <ul class="kill-timeline">${items}</ul>`;
 }
 
+function renderApproval() {
+  const a = STATE.approvals;
+  const pill = $("#approval-mode-pill");
+  const body = $("#approval-body");
+  if (!a) {
+    body.innerHTML = '<p class="table-note">Approval state unavailable.</p>';
+    return;
+  }
+  const armed = a.mode === "armed";
+  const active = a.auto_active === true;
+  pill.className = "pill " + (active ? "live-pill live" : armed ? "kill armed" : "live-pill cached");
+  pill.querySelector("span").textContent = active ? "AUTO · envelope armed" : armed ? "ARMED · kill-switch" : "MANUAL · per-order";
+  pill.title = a.reason || "";
+
+  const env = a.envelope;
+  const canControl = !LIVE && !SNAPSHOT;
+  let envelopeHtml;
+  if (env && Array.isArray(env.orders) && env.orders.length) {
+    const rows = env.orders.map((o) => {
+      const bound = o.side === "buy" ? "≤ " + money(o.limit_max) : "≥ " + money(o.limit_min);
+      return `<tr><td><strong>${esc(o.symbol)}</strong></td><td>${esc(o.side)}</td><td class="num mono">${o.max_qty}</td><td class="num mono">${bound}</td></tr>`;
+    }).join("");
+    const used = a.used || 0;
+    const max = a.max_orders || env.max_orders || 0;
+    const pctUsed = max ? Math.min(100, Math.round((used / max) * 100)) : 0;
+    envelopeHtml = `
+      <div class="tbl-scroll"><table class="tbl approval-tbl">
+        <thead><tr><th>Symbol</th><th>Side</th><th class="num">Max qty</th><th class="num">Limit bound</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>
+      <div class="approval-budget">
+        <span class="card-kicker">Envelope budget · ${used}/${max} used today</span>
+        <div class="budget-track"><div class="budget-fill" style="width:${pctUsed}%"></div></div>
+      </div>`;
+  } else {
+    envelopeHtml = '<p class="table-note">No pre-approved batch. Every order waits for your explicit confirmation — in the console or via Telegram.</p>';
+  }
+
+  const validTag = env
+    ? (env.valid_today ? '<span class="chip ok-chip">valid today</span>' : '<span class="chip">stale · not today</span>')
+    : '<span class="chip">no envelope</span>';
+  const haltTag = a.halted ? '<span class="chip halt-chip">kill-switch armed</span>' : "";
+  const haltNote = a.halted ? '<p class="table-note halt-note">Kill-switch engaged — no new entries regardless of mode.</p>' : "";
+
+  let control;
+  if (armed) {
+    control = canControl
+      ? '<button class="btn disarm-btn" id="disarm-btn">Disarm auto → manual</button>'
+      : '<span class="table-note">Disarm via Telegram <code>/mode manual</code> or the operator console.</span>';
+  } else {
+    control = '<span class="table-note">Arm overnight auto: commit today\'s bounded batch to <code>data/approvals.json</code> (<code>tyche approvals</code> validates), or <code>/arm</code> via Telegram.</span>';
+  }
+
+  body.innerHTML = `
+    <div class="approval-grid">
+      <div class="approval-info">
+        <p class="approval-reason">${esc(a.reason || "")}</p>
+        <div class="approval-meta">${validTag}<span class="chip">ET today ${esc(a.today_et || "")}</span>${haltTag}</div>
+        ${haltNote}
+        <div class="approval-control">${control}</div>
+      </div>
+      <div class="approval-envelope">${envelopeHtml}</div>
+    </div>`;
+
+  const db = $("#disarm-btn");
+  if (db) db.addEventListener("click", disarmAuto);
+}
+
+async function disarmAuto() {
+  if (!confirm("Disarm auto trading and propagate to the cloud desk?\n\nOrders revert to per-order confirmation (manual). This commits + pushes the envelope removal. Reversible — re-arm by committing a fresh bounded batch.")) return;
+  const btn = $("#disarm-btn");
+  if (btn) { btn.disabled = true; btn.textContent = "Disarming…"; }
+  try {
+    const r = await fetch("/api/approvals/disarm", { method: "POST" });
+    const j = await r.json();
+    if (j.error) throw new Error(j.error);
+    if (j.pushed) showToast("Auto disarmed — manual per-order confirmation (cloud synced)");
+    else showToast("Disarmed locally; cloud push failed: " + (j.git_error || "unknown"), true);
+    await fetchAll(true);
+  } catch (e) {
+    showToast("Disarm failed: " + e.message, true);
+    if (btn) { btn.disabled = false; btn.textContent = "Disarm auto → manual"; }
+  }
+}
+
 function gauge(label, value, cap, capLabel, mode, valueLabel) {
   const frac = Math.min(1, value / cap);
   const cls = mode === "min" ? (value >= cap ? "g-ok" : "g-hot") : frac < 0.6 ? "g-ok" : frac < 0.85 ? "g-warn" : "g-hot";
@@ -351,7 +477,7 @@ function renderGauges() {
   let peak = -Infinity, dd = 0;
   for (const m of marks) { peak = Math.max(peak, m.nav); dd = Math.max(dd, (peak - m.nav) / peak); }
   const today = new Date().toISOString().slice(0, 10);
-  const ordersToday = (STATE.orders || []).filter((o) => (o.requested_ts || "").slice(0, 10) === today).length;
+  const ordersToday = (STATE.orders || []).filter((o) => (o.requested_ts || "").slice(0, 10) === today && (!snap?.account || o.account === snap.account)).length;
   const ddRung = (label, threshold) => `<div class="rung${dd >= threshold ? " hit" : ""}"><b>${pct(threshold, 0)}</b>${esc(label)}</div>`;
   $("#gauges-card").innerHTML = `
     <span class="card-kicker">Exposure vs hard caps</span>
@@ -450,6 +576,7 @@ function renderOrders() {
   $("#order-rows").innerHTML = orders.map((o) => `<tr>
     <td class="mono">${esc(o.order_id || "—")}</td>
     <td class="mono" style="font-size:10.5px;color:var(--muted)">${esc(o.remark || "—")}</td>
+    <td class="mono acct-cell">${esc(o.account || "—")}</td>
     <td><span class="side ${o.side}">${o.side.toUpperCase()}</span></td>
     <td class="num">${o.quantity}</td>
     <td class="num">${o.limit_price != null ? money(o.limit_price) : "market"}</td>
@@ -741,8 +868,9 @@ function renderAutomation() {
     pill.querySelector("span").textContent = "static snapshot · " + dateLabel(SNAPSHOT.built_at);
     pill.title = "Baked read-only snapshot — " + (AUTO.source || "");
   } else {
-    pill.className = "pill live-pill " + (AUTO.ok ? "live" : "cached");
-    pill.querySelector("span").textContent = AUTO.ok ? "live · Forward API" : "cached local export";
+    const isLive = LIVE ? AUTO.live === true : AUTO.ok;
+    pill.className = "pill live-pill " + (isLive ? "live" : "cached");
+    pill.querySelector("span").textContent = isLive ? "live · Forward API" : (LIVE ? "cached export" : "cached local export");
     pill.title = AUTO.source + (AUTO.error ? " — " + AUTO.error : "");
   }
   const scheds = [...(AUTO.schedules || [])].sort((a, b) => {
@@ -807,25 +935,66 @@ function renderFooter() {
   $("#divergence-list").innerHTML = STATE.divergences.map((d) => `<li>${esc(d)}</li>`).join("");
 }
 
+/* ---------------- overview extras ---------------- */
+function renderOverview() {
+  const feed = STATE.feed;
+  const fn = $("#feed-note");
+  if (fn) {
+    fn.innerHTML = feed && feed.primary_account
+      ? `Primary feed: <strong>${esc(feed.primary_account)}</strong> · ${esc(feed.source)}${feed.run ? ` · run ${esc(feed.run)}` : ""} · ${feed.cloud_runs || 0} cloud run${feed.cloud_runs === 1 ? "" : "s"} synced`
+      : "";
+  }
+  const a = STATE.approvals;
+  const ov = $("#ov-approval");
+  if (ov && a) {
+    const active = a.auto_active === true, armed = a.mode === "armed";
+    ov.className = "pill " + (active ? "live-pill live" : armed ? "kill armed" : "live-pill cached");
+    ov.querySelector("span").textContent = active ? "AUTO · envelope armed" : armed ? "ARMED · kill-switch" : "MANUAL · per-order";
+    ov.title = a.reason || "";
+  }
+  const kill = $("#ov-kill");
+  if (kill) {
+    const halted = STATE.halt.halted;
+    kill.className = "brief-kill " + (halted ? "armed" : "clear");
+    kill.innerHTML = `<span class="kill-lamp ${halted ? "armed" : "clear"}"></span><strong>${halted ? "ARMED" : "CLEAR"}</strong><span>${esc(STATE.halt.reason || (halted ? "" : "no active halt"))}</span>`;
+  }
+  const scheds = (AUTO && AUTO.schedules) || [];
+  const activeScheds = scheds.filter((s) => s.status === "active").length;
+  const sessions = (AUTO && AUTO.sessions) || [];
+  const credits = sessions.reduce((x, s) => x + (s.usage?.total_credits || 0), 0);
+  setText("#ov-sched-count", scheds.length ? `${activeScheds}/${scheds.length}` : "—");
+  setText("#ov-sessions", sessions.length ? String(sessions.length) : "—");
+  setText("#ov-credits", sessions.length ? credits.toFixed(1) : "—");
+  setText("#ov-chain", STATE.chain.ok ? `${STATE.chain.count} ✓` : "BROKEN");
+}
+
 /* ---------------- render all ---------------- */
+function safeRender(name, fn) {
+  try { fn(); } catch (err) { console.error("[tyche] render " + name + " failed:", err); }
+}
 function renderAll() {
-  renderTop();
-  renderDesk();
-  renderPipeline();
-  renderExpectancy();
-  renderKill();
-  renderGauges();
-  renderDonut();
-  renderPositions();
-  renderOrders();
-  renderRejections();
-  renderEquityControls();
-  renderEquity();
-  renderCalendar();
-  renderAutomation();
-  renderInstrumentation();
-  renderFooter();
-  tickCountdowns();
+  if (!STATE) return;
+  safeRender("top", renderTop);
+  safeRender("desk", renderDesk);
+  safeRender("overview", renderOverview);
+  safeRender("pipeline", renderPipeline);
+  safeRender("expectancy", renderExpectancy);
+  safeRender("kill", renderKill);
+  safeRender("approval", renderApproval);
+  safeRender("gauges", renderGauges);
+  safeRender("donut", renderDonut);
+  safeRender("positions", renderPositions);
+  safeRender("orders", renderOrders);
+  safeRender("rejections", renderRejections);
+  safeRender("equityControls", renderEquityControls);
+  safeRender("equity", renderEquity);
+  safeRender("instrumentation", renderInstrumentation);
+  safeRender("footer", renderFooter);
+  if (AUTO) {
+    safeRender("calendar", renderCalendar);
+    safeRender("automation", renderAutomation);
+  }
+  safeRender("countdowns", tickCountdowns);
 }
 
 /* ---------------- interactions ---------------- */
@@ -838,14 +1007,11 @@ function setup() {
       `<span class="snap-built">built ${esc(built.toISOString().slice(0, 16).replace("T", " "))} UTC</span>` +
       `<span>Data is frozen at build time — the live desk refreshes from the journal and Forward API. Theme, filters, sorting and the drawer still work.</span>`;
     banner.hidden = false;
-    const toggle = $("#auto-refresh");
-    toggle.checked = false;
-    toggle.closest(".auto-toggle").querySelector(".lbl").textContent = "snapshot";
-    toggle.closest(".auto-toggle").title = "Static snapshot — auto-refresh disabled";
   }
   document.querySelectorAll(".theme-btn").forEach((b) => b.addEventListener("click", () => setTheme(b.dataset.themeSet)));
   document.querySelectorAll("#ins-toggle button").forEach((b) => b.addEventListener("click", () => { insView = b.dataset.ins; renderInstrumentation(); }));
   $("#refresh-btn").addEventListener("click", () => fetchAll(true));
+  $("#controls-refresh").addEventListener("click", () => fetchAll(true));
   $("#drawer-close").addEventListener("click", closeDrawer);
   $("#drawer-backdrop").addEventListener("click", closeDrawer);
   document.addEventListener("keydown", (e) => {
@@ -854,10 +1020,7 @@ function setup() {
     if (tag === "input" || tag === "select" || tag === "textarea" || e.metaKey || e.ctrlKey || e.altKey) return;
     if (e.key === "t" || e.key === "T") { setTheme(THEMES[(THEMES.indexOf(currentTheme()) + 1) % THEMES.length]); }
     else if (e.key === "r" || e.key === "R") { fetchAll(true); }
-    else if (e.key >= "1" && e.key <= "6") {
-      const ids = ["pipeline", "expectancy", "execution", "equity", "automation", "instrumentation"];
-      document.getElementById(ids[Number(e.key) - 1])?.scrollIntoView({ behavior: "smooth" });
-    }
+    else if (e.key >= "1" && e.key <= "5") { showView(VIEWS[Number(e.key) - 1]); }
   });
   $("#pos-search").addEventListener("input", (e) => { posQuery = e.target.value.toLowerCase(); renderPositions(); });
   $("#rej-search").addEventListener("input", (e) => { rejQuery = e.target.value.toLowerCase(); renderRejections(); });
@@ -871,23 +1034,11 @@ function setup() {
 
   setInterval(() => { $("#clock").textContent = new Date().toISOString().slice(11, 19) + " UTC"; }, 1000);
   setInterval(tickCountdowns, 1000);
-  setInterval(() => { if (!SNAPSHOT && $("#auto-refresh").checked) fetchAll(); }, 30000);
 
-  const revealIO = new IntersectionObserver((entries) => {
-    entries.forEach((en) => { if (en.isIntersecting) { en.target.classList.add("in"); revealIO.unobserve(en.target); } });
-  }, { threshold: 0.06 });
-  document.querySelectorAll(".reveal").forEach((el) => revealIO.observe(el));
-  setTimeout(() => document.querySelectorAll(".reveal:not(.in)").forEach((el) => el.classList.add("in")), 2000);
-
-  const navLinks = [...document.querySelectorAll(".navlink")];
-  const spyIO = new IntersectionObserver((entries) => {
-    entries.forEach((en) => {
-      if (en.isIntersecting) {
-        navLinks.forEach((l) => l.classList.toggle("active", l.getAttribute("href") === "#" + en.target.id));
-      }
-    });
-  }, { rootMargin: "-130px 0px -62% 0px", threshold: 0 });
-  ["pipeline", "expectancy", "execution", "equity", "automation", "instrumentation"].forEach((id) => spyIO.observe(document.getElementById(id)));
+  document.querySelectorAll(".nav-item").forEach((n) => n.addEventListener("click", () => showView(n.dataset.view)));
+  let savedView = "overview";
+  try { savedView = localStorage.getItem("tyche-view") || "overview"; } catch (e) {}
+  showView(savedView);
 }
 
 setup();

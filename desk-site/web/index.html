@@ -308,6 +308,20 @@
         </div>
         <p class="table-note" id="cal-cron-note">—</p>
       </div>
+
+      <div class="cal-crons-wrap" id="cal-watchlist-wrap" hidden>
+        <div class="cal-crons-head">
+          <span class="card-kicker">Scout watchlist · entry/exit plans</span>
+          <span class="desk-sub mono" id="cal-watchlist-state">—</span>
+        </div>
+        <div class="tbl-scroll">
+          <table class="tbl cal-crons">
+            <thead><tr><th>Symbol</th><th>Sleeve</th><th>Strategy</th><th class="num">Entry zone</th><th class="num">Stop</th><th class="num">Target</th><th>Expiry</th><th>Status</th></tr></thead>
+            <tbody id="cal-watchlist-rows"></tbody>
+          </table>
+        </div>
+        <p class="table-note">Written by the scout at pre-market only; intraday runs monitor these plans instead of re-running discovery. Working copy in the Drive locker; this is the sanitized repo snapshot.</p>
+      </div>
     </div>
 
     <div class="sched-grid" id="sched-grid"></div>
@@ -404,7 +418,7 @@
 </aside>
 
 <div class="toast" id="toast"></div>
-<script>window.TYCHE_SNAPSHOT={"built_at": "2026-11-18T15:23:29.024320+00:00", "state_url": "data/state.json", "automation_url": "data/automation.json"};</script>
+<script>window.TYCHE_LIVE={"state_url": "/functions/v1/app/state", "automation_url": "/functions/v1/app/automation", "state_fallback": "data/state.json", "automation_fallback": "data/automation.json"};</script>
 <script src="app.js"></script>
 </body>
 </html>

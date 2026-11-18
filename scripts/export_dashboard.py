@@ -8,7 +8,15 @@ Telegram credential, signing secret or full account id appears in the output.
 
 The local dashboard is untouched; only the baked copy carries the snapshot flag.
 
-Run: .venv/Scripts/python.exe scripts/export_dashboard.py [output-dir]
+Run: .venv/Scripts/python.exe scripts/export_dashboard.py [output-dir] [--live] [--data-only]
+
+Modes:
+  (default)    baked read-only snapshot (window.TYCHE_SNAPSHOT → data/*.json).
+  --live       hosted live site (window.TYCHE_LIVE → Sites Function /functions/v1/app/*,
+               with data/*.json kept as an offline fallback). The Function lives in
+               desk-site/functions/ and is packaged separately by Sites.
+  --data-only  refresh only the sanitized data/*.json feed (no HTML/CSS/JS rewrite); used by
+               scripts/publish_desk_data.py to update the live site without republishing.
 """
 from __future__ import annotations
 
@@ -63,7 +71,11 @@ def assert_no_secrets(blob: str, srv, env: dict[str, str]) -> None:
 
 
 def main() -> None:
-    out_root = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "desk-site"
+    args = sys.argv[1:]
+    live = "--live" in args
+    data_only = "--data-only" in args
+    positional = [a for a in args if not a.startswith("--")]
+    out_root = Path(positional[0]) if positional else ROOT / "desk-site"
     web = out_root / "web"
     srv = load_server()
     env = env_values()
@@ -76,17 +88,34 @@ def main() -> None:
     auto_json = json.dumps(automation, ensure_ascii=False, default=str)
     assert_no_secrets(state_json + auto_json, srv, env)
 
-    if web.exists():
+    if not data_only and web.exists():
         shutil.rmtree(web)
-    (web / "data").mkdir(parents=True)
+    (web / "data").mkdir(parents=True, exist_ok=True)
     (web / "data" / "state.json").write_text(state_json, encoding="utf-8")
     (web / "data" / "automation.json").write_text(auto_json, encoding="utf-8")
+
+    cal = automation.get("calendar") or {}
+    if data_only:
+        print("SECRET GUARD: PASS (no PAT / Telegram / signing secret / full account id)")
+        print("data-only refresh:", web / "data")
+        print("built_at:", built_at)
+        print("state bytes:", len(state_json), "| automation bytes:", len(auto_json))
+        return
 
     shutil.copy2(STATIC / "style.css", web / "style.css")
     shutil.copy2(STATIC / "app.js", web / "app.js")
 
-    snapshot = {"built_at": built_at, "state_url": "data/state.json", "automation_url": "data/automation.json"}
-    inject = "<script>window.TYCHE_SNAPSHOT=" + json.dumps(snapshot) + ";</script>\n"
+    if live:
+        live_cfg = {
+            "state_url": "/functions/v1/app/state",
+            "automation_url": "/functions/v1/app/automation",
+            "state_fallback": "data/state.json",
+            "automation_fallback": "data/automation.json",
+        }
+        inject = "<script>window.TYCHE_LIVE=" + json.dumps(live_cfg) + ";</script>\n"
+    else:
+        snapshot = {"built_at": built_at, "state_url": "data/state.json", "automation_url": "data/automation.json"}
+        inject = "<script>window.TYCHE_SNAPSHOT=" + json.dumps(snapshot) + ";</script>\n"
     html = (STATIC / "index.html").read_text(encoding="utf-8")
     html = html.replace('<script src="app.js"></script>', inject + '<script src="app.js"></script>')
     (web / "index.html").write_text(html, encoding="utf-8")
@@ -94,8 +123,8 @@ def main() -> None:
     # Guard the assembled HTML too (injected flag carries no secrets, but verify).
     assert_no_secrets(html, srv, env)
 
-    cal = automation.get("calendar") or {}
     print("SECRET GUARD: PASS (no PAT / Telegram / signing secret / full account id)")
+    print("mode:", "live" if live else "snapshot")
     print("output:", web)
     print("built_at:", built_at)
     print("automation ok:", automation.get("ok"), "| schedules:", len(automation.get("schedules") or []))
