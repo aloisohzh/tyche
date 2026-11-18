@@ -651,6 +651,26 @@ def resume(
     console.print("Resumed: buys permitted again.")
 
 
+@app.command("record-order")
+def record_order(
+    event: str = typer.Argument(..., help="order.requested, order.submitted, order.rejected or halt.skip."),
+    data: str = typer.Option(..., "--data", help="JSON object with the event payload."),
+    journal_path: Path = typer.Option(Path("journal/events.jsonl"), "--journal"),
+) -> None:
+    """Journal an order event from the MCP submission path (executor is the single writer)."""
+    allowed = {"order.requested", "order.submitted", "order.rejected", "halt.skip"}
+    if event not in allowed:
+        raise typer.BadParameter(f"event must be one of {sorted(allowed)}")
+    try:
+        payload = json.loads(data)
+    except json.JSONDecodeError as exc:
+        raise typer.BadParameter(f"--data must be valid JSON: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise typer.BadParameter("--data must be a JSON object")
+    append_event(journal_path, event, payload)
+    console.print(f"Journaled {event}.")
+
+
 @app.command()
 def persist(
     raw_dir: Path = typer.Option(..., "--raw", help="Directory of raw run artifacts."),

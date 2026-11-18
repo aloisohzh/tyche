@@ -102,3 +102,35 @@ def test_snapshot_cli_rejects_unknown_account(tmp_path: Path) -> None:
     )
     assert result.exit_code != 0
     assert not (run_dir / "snapshot.json").exists()
+
+
+def test_record_order_journals_mcp_events(tmp_path: Path) -> None:
+    journal_path = tmp_path / "events.jsonl"
+    runner = CliRunner()
+    for event in ("order.requested", "order.submitted"):
+        result = runner.invoke(
+            app,
+            [
+                "record-order",
+                event,
+                "--data",
+                json.dumps({"symbol": "US.SPY", "side": "sell", "quantity": 1}),
+                "--journal",
+                str(journal_path),
+            ],
+        )
+        assert result.exit_code == 0, result.output
+    lines = journal_path.read_text(encoding="utf-8").strip().splitlines()
+    assert len(lines) == 2
+    assert json.loads(lines[0])["type"] == "order.requested"
+    assert json.loads(lines[1])["type"] == "order.submitted"
+    bad = runner.invoke(
+        app,
+        ["record-order", "order.filled", "--data", "{}", "--journal", str(journal_path)],
+    )
+    assert bad.exit_code != 0
+    bad_json = runner.invoke(
+        app,
+        ["record-order", "order.submitted", "--data", "not-json", "--journal", str(journal_path)],
+    )
+    assert bad_json.exit_code != 0

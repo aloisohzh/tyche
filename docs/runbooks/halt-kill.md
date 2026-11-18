@@ -53,6 +53,34 @@ intact journal chain (`halt.engaged` then `halt.released`).
 A submit is not a fill. The drill passes only when broker order state confirms the
 buy never reached the market and the sell did.
 
+### Live paper drill via MCP (no moomoo CLI needed)
+
+`tyche execute` shells out to the official moomoo CLI binary (local-only path). If
+it is not installed, run the same drill through the authenticated Moomoo MCP
+connector with the operator-side agent acting as executor — the same submission
+path the cloud desk uses:
+
+1. Same account rule: personal US paper account only (`account_type` 1,
+   `market_id` 100), id via gitignored local `.env` / `TYCHE_ALLOWED_ACCOUNT_IDS`.
+2. Fetch accounts/cash/positions via `sim_trade_*` MCP reads into a run dir; run
+   `tyche snapshot --dir <run> --account-id <personal-id>`.
+3. Build a small plan with one approved buy and one approved sell of a held
+   position via `tyche plan`; review the preview. If the account holds nothing,
+   seed one small position first (unhalted, paper, operator-authorized).
+4. `tyche halt --reason "kill-switch drill"`.
+5. Withhold the buy and journal it: `tyche record-order halt.skip --data '{...}'`.
+   Submit ONLY the sell via `sim_trade_input_order` after the operator preview;
+   journal `order.requested` before and `order.submitted` after via
+   `tyche record-order`.
+6. Reconcile via `sim_trade_history_order_list`: no buy order exists; the sell is
+   present.
+7. `tyche resume`; `tyche journal-verify`; persist the drill artifacts and record
+   the outcome in `docs/validation/`.
+
+The kernel's halt-withholding logic is proven deterministically by
+`tests/test_halt.py`; this variant additionally proves broker-side behavior on
+the MCP submission path.
+
 ## Veto
 
 The human operator may veto any plan before arming. A veto is a halt with reason

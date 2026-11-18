@@ -31,9 +31,9 @@ drive/schedule tools; each prompt refuses standalone operation outside the desk.
 
 | Role | Member template | Compiled agent (roster entry) | Pin | MCP | Trade tools |
 |---|---|---|---|---|---|
-| Researcher (scout) | `tmpl_875834770244a9e35c7f6499` (rewritten from Moomoo Paper Trader) | `agent_00vs9v3dg0rnkr4740x3` | 3 | moomoo (read; all order-write tools disabled) | none |
+| Researcher (scout) | `tmpl_875834770244a9e35c7f6499` (rewritten from Moomoo Paper Trader) | `agent_00vs9v3dg0rnkr4740x3` | 4 | moomoo (read; all order-write tools disabled) | none |
 | Risk auditor | `tmpl_ae317cc0626a4fcc8fa8fad6` | `agent_00vtx8g7k1534t7w9eve` | 2 | none | none |
-| Executor | `tmpl_bc25a5c313827d53894fd7ff` | `agent_00vtx8mfbxerk6vxmny5` | 3 | moomoo, default **always_deny**; sim reads + quotes allowed; `sim_trade_input_order` / `cancel` / `modify` = **always_ask** (per-order operator confirmation) | paper only |
+| Executor | `tmpl_bc25a5c313827d53894fd7ff` | `agent_00vtx8mfbxerk6vxmny5` | 4 | moomoo, default **always_deny**; sim reads + quotes allowed; `sim_trade_input_order` / `cancel` / `modify` = **always_ask** (per-order operator confirmation) | paper only |
 | Advisor | — (model consult) | — | — | none | none |
 
 Advisor model: `ultimate`. All member models: `qmodel_latest`, effort high.
@@ -153,6 +153,16 @@ linkage (F3/F4); executor prompt (compile v3) mandates the snapshot step and the
 desk roster was re-pinned 3/2/3 + advisor. Full suite 82 passed, ruff clean.
 These changes must be committed + pushed BEFORE the 13:45 UTC pre-market run,
 which mounts the repo from origin.
+
+Follow-up 05:00–05:05 UTC (MCP-only cloud path): the moomoo CLI binary is absent
+in the cloud sandbox, so `tyche execute`/`tyche fetch` are local-only. Executor
+prompt now submits via MCP sim_trade_input_order and journals order events via
+the new `tyche record-order` CLI (order.requested/submitted/rejected, halt.skip);
+researcher prompt now also produces data/prices.csv via MCP klines (the plan
+kernel's input); desk DAILY FLOW wires `tyche plan --prices data/prices.csv
+--account <run-dir>/snapshot.json`. Roster re-pinned researcher 4 / auditor 2 /
+executor 4 + advisor. Halt-kill runbook gained an MCP drill variant (no CLI
+install needed).
 
 ## API quirks observed (connector)
 
