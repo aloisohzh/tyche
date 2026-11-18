@@ -1,0 +1,45 @@
+{
+  "as_of": "2026-11-18",
+  "phase": "after_hours",
+  "evaluation_only": true,
+  "triggers": [
+    {
+      "symbol": "US.SPY",
+      "close": 730.2,
+      "trigger": 727.5,
+      "buffer_pct": 0.371,
+      "breached": false,
+      "after_hours": 730.1446,
+      "quote_time_utc": "2026-11-18T21:00:00.268000+00:00"
+    },
+    {
+      "symbol": "US.EFA",
+      "close": 100.25,
+      "trigger": 100.0,
+      "buffer_pct": 0.25,
+      "breached": false,
+      "after_hours": 100.18,
+      "quote_time_utc": "2026-11-18T20:59:59.735000+00:00"
+    },
+    {
+      "symbol": "US.VNQ",
+      "close": 95.18,
+      "trigger": 93.5,
+      "buffer_pct": 1.797,
+      "breached": false,
+      "after_hours": 95.3336,
+      "quote_time_utc": "2026-11-18T21:00:00.050000+00:00"
+    },
+    {
+      "symbol": "US.QQQ",
+      "close": 659.51,
+      "prev_close": 656.95,
+      "red_close": false,
+      "volume": 41387233,
+      "avg10_volume_approx": 58100000,
+      "volume_above_avg": false,
+      "overlay_triggered": false,
+      "quote_time_utc": "2026-11-18T21:00:00.427000+00:00"
+    }
+  ]
+}
