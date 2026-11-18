@@ -11,7 +11,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 
@@ -34,7 +34,7 @@ def bar_date(item: dict) -> date | None:
         return date(raw // 10000, raw % 10000 // 100, raw % 100)
     stamp = item.get("time_key")
     if isinstance(stamp, (int, float)) and stamp > 1e11:
-        return datetime.fromtimestamp(stamp / 1000, tz=timezone.utc).date()
+        return datetime.fromtimestamp(stamp / 1000, tz=UTC).date()
     return None
 
 

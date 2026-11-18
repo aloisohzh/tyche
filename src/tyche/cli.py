@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 import pandas as pd
@@ -22,6 +22,7 @@ from tyche.broker import (
 from tyche.config import load_config
 from tyche.halt import is_halted, set_halt
 from tyche.journal import append_event, verify_chain
+from tyche.market_calendar import SessionPhase, evaluate, generate_schedules
 from tyche.models import AccountSnapshot, PlannedOrder, Side, TradePlan, apply_fill
 from tyche.persist import persist_run
 from tyche.risk import RiskState, evaluate_intent
@@ -685,6 +686,104 @@ def persist(
     manifest = persist_run(raw_dir, git_dir, account_ids, bucket_dir)
     console.print(
         f"Persisted {len(manifest['raw'])} raw and {len(manifest['sanitized'])} sanitized file(s)."
+    )
+
+
+@app.command()
+def calendar(
+    at: str = typer.Option("", "--at", help="ISO timestamp to evaluate (default: now UTC)."),
+    phase: str = typer.Option("", "--phase", help="Intended schedule phase for mismatch gating, e.g. opening_drive."),
+    as_json: bool = typer.Option(False, "--json", help="Emit the gate result as JSON; exit 0=run, 1=skip."),
+) -> None:
+    """Calendar gate: should a scheduled run act now, and with which strategy?"""
+    try:
+        now = datetime.fromisoformat(at) if at else datetime.now(UTC)
+    except ValueError as exc:
+        raise typer.BadParameter(f"--at must be an ISO timestamp: {exc}") from exc
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=UTC)
+    intended: SessionPhase | None = None
+    if phase:
+        try:
+            intended = SessionPhase(phase)
+        except ValueError as exc:
+            choices = ", ".join(p.value for p in SessionPhase)
+            raise typer.BadParameter(f"--phase must be one of: {choices}") from exc
+
+    result = evaluate(now, intended)
+    if as_json:
+        console.print_json(result.model_dump_json())
+        raise typer.Exit(0 if result.run else 1)
+
+    verdict = "[bold green]RUN[/]" if result.run else "[bold red]SKIP[/]"
+    console.print(f"{verdict}  {result.reason}")
+    table = Table(title=f"Market gate · {result.now_et:%Y-%m-%d %H:%M %Z}")
+    table.add_column("Field")
+    table.add_column("Value", overflow="fold")
+    table.add_row("Now (UTC)", f"{result.now_utc:%Y-%m-%d %H:%M}")
+    table.add_row("Now (ET)", f"{result.now_et:%Y-%m-%d %H:%M %Z}")
+    table.add_row("Trading day", "yes" if result.trading_day else "no")
+    table.add_row("Half day", "yes" if result.half_day else "no")
+    table.add_row("Holiday", result.holiday or "—")
+    table.add_row("Session phase", result.phase.value)
+    strategy = result.strategy
+    table.add_row("Activity", strategy.activity)
+    table.add_row("Sleeves", ", ".join(strategy.sleeves) or "—")
+    table.add_row("New entries", "yes" if strategy.new_entries else "no")
+    table.add_row("Max orders", str(strategy.max_orders))
+    table.add_row("Event caution", "yes" if strategy.event_caution else "no")
+    table.add_row("Risk note", strategy.risk_note)
+    console.print(table)
+
+    if result.events:
+        events = Table(title="Events today")
+        events.add_column("Name")
+        events.add_column("Kind")
+        events.add_column("ET time")
+        for event in result.events:
+            events.add_row(event.name, event.kind, event.time_et or "—")
+        console.print(events)
+
+    if result.next_run:
+        nr = result.next_run
+        minutes = nr.in_seconds // 60
+        console.print(
+            f"Next run: [bold]{nr.name}[/] ({nr.phase.value}) "
+            f"{nr.utc:%Y-%m-%d %H:%M} UTC · {nr.et:%H:%M} ET · in {minutes} min"
+        )
+
+
+@app.command()
+def schedules(
+    start: date | None = typer.Option(None, "--start", help="Range start YYYY-MM-DD (default: today)."),
+    end: date | None = typer.Option(None, "--end", help="Range end YYYY-MM-DD (default: start + 13 days)."),
+    as_json: bool = typer.Option(False, "--json", help="Emit schedule defs as JSON for Qoder Forward."),
+) -> None:
+    """Emit calendar-gated Qoder Forward cron schedules (UTC) for a date range."""
+    start = start or datetime.now(UTC).date()
+    end = end or start + timedelta(days=13)
+    try:
+        defs = generate_schedules(start, end)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    if as_json:
+        console.print_json(json.dumps([d.model_dump(mode="json") for d in defs]))
+        return
+    table = Table(title=f"Forward schedules · {start} → {end} (UTC cron)")
+    table.add_column("Name")
+    table.add_column("Cron")
+    table.add_column("Phase")
+    table.add_column("Activity")
+    table.add_column("ET")
+    table.add_column("Days", justify="right")
+    for definition in defs:
+        table.add_row(
+            definition.name, definition.cron, definition.phase.value,
+            definition.activity, definition.et_time, str(definition.days),
+        )
+    console.print(table)
+    console.print(
+        f"{len(defs)} schedule(s); holidays and weekends excluded by computed day lists."
     )
 
 
