@@ -55,7 +55,11 @@ bound IM channel); delivery lives in the run instructions instead.
 - `scripts/forward.py get|post|delete|env-set|qr|poll` — Forward API client (PAT from
   `.env`; `MSYS_NO_PATHCONV=1` in Git Bash).
 
-## Inbound (questions / commands) — wired 2026-11-18
+## Inbound (questions / commands) — local listener, STOPPED 2026-11-18
+
+> Per the operator's decision, Telegram is an **outbound-only sentinel**; the inbound
+> listener below is stopped (restart on demand with `listen`). Order approvals are
+> handled in the Qoder console session thread, not via Telegram. Kept as a fallback.
 
 `scripts/telegram.py listen` runs on the operator's PC and bridges Telegram to a
 desk session via `POST /api/v1/forward/sessions/{id}/events`:
@@ -91,7 +95,27 @@ listener). The approval relay (`user.tool_confirmation`) is API-verified but
 has NOT yet been exercised against a real pending order ask — do a controlled
 drill on the PERSONAL paper account before relying on it for challenge orders.
 
-## Cloud bridge (no PC) — Sites function, 2026-11-18
+## Cloud bridge (no PC) — Sites function experiment, ARCHIVED 2026-11-18
+
+> **Outcome: not feasible on Qoder Sites; inbound bridge dropped.** The operator
+> decided to keep Telegram as an **outbound-only sentinel** (schedule-run digests).
+> The Sites Function gateway enforces a **same-origin check on every write (POST)**:
+> a POST with no `Origin` header, or a foreign one, is rejected at the gateway with
+> `sites_gateway_origin_forbidden` before it reaches the function; only a POST
+> carrying `Origin: https://<site-host>` passes. Telegram `setWebhook` and Forward
+> webhook deliveries are server-to-server and send no `Origin`, and neither source
+> supports custom headers (Forward endpoint body is only `url`/`events`/`metadata`).
+> Verified empirically: anonymous GET (status/health) works; the Forward `webhook.test`
+> delivery was rejected at the gateway and never reached the function. The skill
+> contract confirms it: "writes also require same-origin checks." Sites Functions are
+> built for `browser → function → Qoder`, not for receiving external webhooks.
+>
+> Cleanup done: site reverted to **private**; Forward webhook endpoint deleted;
+> local listener and dev preview server stopped; no Telegram webhook set (outbound
+> `sendMessage` digests unaffected). `bridge-site/` and `scripts/cloud_bridge.py`
+> are retained as a documented experiment, not a live path. A no-PC inbound bridge
+> would need either a scheduled Qoder cloud poller (drains `getUpdates` on a cron)
+> or an external serverless receiver that accepts anonymous POSTs — neither built.
 
 The local listener above requires the operator's PC to be on. The cloud bridge
 replaces it with a Qoder Sites Edge Function (`bridge-site/`) that receives
