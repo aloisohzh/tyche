@@ -95,6 +95,25 @@ verbatim. Note: the `id`-shape + separate `advisor_models` field 400s — replic
 roster shape exactly. Rollback = restore `plans/cloud-executor-pre-envelope.json` (v4) or the
 v6 snapshot and re-pin accordingly.
 
+Amendment 2026-11-18 18:34 UTC (forward-looking NYSE calendar + daily alert-only drift
+check, operator-approved "yes proceed"): pinned 2027–2028 NYSE holidays/half-days into
+`src/tyche/market_calendar.py` from nyse.com/trade/hours-calendars (2026 unchanged); added
+`src/tyche/nyse_calendar.py` (page parser + date-based diff + literal renderer), the read-only
+`tyche calendar-check --source <file> --json` CLI (exit 0 in-sync, exit 1 changed/uncertain/
+missing — never writes the calendar), and operator-side `scripts/refresh_calendar.py`
+(`--emit-tables` proposes literals for a reviewed re-pin; never fetches, never auto-applies).
+Fixture `tests/fixtures/nyse_hours_calendars.txt` + `tests/test_nyse_calendar.py` (11 tests);
+full suite 162 pass, ruff clean. Schedule-events-only deploy (`scripts/deploy_calendar_check.py`,
+exact single-occurrence insert before the PHASE PLAYBOOK anchor, idempotent, GET-after verify)
+added a CALENDAR CHECK clause to `sched_2dc7702e4f005d04235c078a` initial_events **v2→v3**: at the
+first pre_market run the desk WebFetches the NYSE page, saves it, runs `tyche calendar-check`,
+and on non-zero exit ALERTS the operator (Calendar line: new_years / added-removed closures /
+parse warnings) and proposes a reviewed re-pin — it NEVER auto-applies or alters the pinned
+tables, which still govern every decision. Envelope + SGT clauses verified preserved. No template
+edit → coordinator compile and member roster pins (7/2/7 + advisor) untouched. Code pushed
+`81ff4da` (merge `9f73198` integrated the parallel midday-monitor commit `325da01`; no file
+overlap). Rollback = restore `plans/cloud-schedule-pre-calcheck.json` initial_events (v2).
+
 ## Template (coordinator)
 
 - id: `tmpl_004fa008901a6c256bd0ed3f` — name `tyche-desk`, status active
