@@ -11,23 +11,58 @@ import json
 import sys
 import urllib.error
 import urllib.request
+from datetime import date, timedelta
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+
+from tyche.market_calendar import is_trading_day
+
 BASE = "https://api.qoder.com/api/v1/cloud"
 AGENT_ID = "agent_00vtt1wjgm22o20s8ykz"
 ENVIRONMENT_ID = "env_00vtw0llz5kw0jxmu4hl"
 VAULT_ID = "vault_00vs6gjsbcxkw661ka7o"
 MEMORY_STORE_ID = "memstore_00vtw0mkv8irmz3cmpkd"
 NAME = "Tyche desk - premarket and close"
+WINDOW = (date(2026, 11, 19), date(2026, 11, 28))
 DESCRIPTION = (
     "Tyche paper desk: ETF ballast plus catalyst stocks and standard long options; "
     "two-fire premarket/close runs, independent audits and retained position-protection review."
 )
 SECRET_KEYS = ("TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID", "TYCHE_ALLOWED_ACCOUNT_IDS")
+
+
+def _ranges(days: list[int]) -> str:
+    parts: list[str] = []
+    start = prev = days[0]
+    for day in days[1:]:
+        if day == prev + 1:
+            prev = day
+            continue
+        parts.append(str(start) if start == prev else f"{start}-{prev}")
+        start = prev = day
+    parts.append(str(start) if start == prev else f"{start}-{prev}")
+    return ",".join(parts)
+
+
+def desk_cron(start: date, end: date) -> str:
+    """Cron that fires 08:05/15:05 ET only on NYSE trading days; one month per card."""
+    if (start.year, start.month) != (end.year, end.month):
+        raise ValueError("window must stay within one month; use one card per month")
+    days = []
+    day = start
+    while day <= end:
+        if is_trading_day(day):
+            days.append(day.day)
+        day += timedelta(days=1)
+    if not days:
+        raise ValueError("window contains no trading days")
+    return f"5 8,15 {_ranges(days)} {start.month} *"
 PROMPT = """TYCHE TWO-FIRE PAPER DESK RUN (ARMED 2026-11-19).
 
-CLOCK: this automation fires at 08:05 and 15:05 America/New_York on weekdays. At the very start run
+CLOCK: this automation fires at 08:05 and 15:05 America/New_York only on NYSE trading days in the
+card window; the cron day list already excludes weekends and holidays. At the very start still run
 tyche calendar --json from the repo. Exit 1 means skip: weekend, NYSE holiday or outside 04:00-20:00
 ET; finish read-only with a one-line note and submit nothing. Exit 0 reports trading_day, half_day,
 session phase and events; obey them. 08:05 is the premarket plan fire. 15:05 is the close fire; on a
@@ -150,6 +185,7 @@ def main() -> None:
             "id": deployment.get("id"),
             "status": deployment.get("status"),
             "cron": f"{schedule.get('expression')} {schedule.get('timezone')}",
+            "upcoming_runs_at": schedule.get("upcoming_runs_at"),
             "prompt_sha256": hashlib.sha256(events.encode()).hexdigest()[:16],
             "prompt_chars": len(events),
             "has_calendar_gate": "tyche calendar --json" in events,
@@ -188,7 +224,7 @@ def main() -> None:
             },
             {"type": "memory_store", "memory_store_id": MEMORY_STORE_ID, "access": "read_write"},
         ],
-        "schedule": {"type": "cron", "expression": "5 8,15 * * 1-5", "timezone": "America/New_York"},
+        "schedule": {"type": "cron", "expression": desk_cron(*WINDOW), "timezone": "America/New_York"},
         "metadata": {"source": "operator", "profile": "two-fire", "window": "2026-11-19..2026-11-28"},
         "initial_events": [{"type": "user.message", "content": [{"type": "text", "text": PROMPT}]}],
     }
@@ -216,6 +252,8 @@ def main() -> None:
         payload_path = Path(sys.argv[sys.argv.index("--emit-update") + 2])
         config_path = Path(sys.argv[sys.argv.index("--emit-update") + 3])
         payload_path.write_text(json.dumps({
+            "schedule": {"type": "cron", "expression": desk_cron(*WINDOW),
+                         "timezone": "America/New_York"},
             "initial_events": [{"type": "user.message",
                                 "content": [{"type": "text", "text": PROMPT}]}]
         }))
@@ -227,7 +265,7 @@ def main() -> None:
         )
         print(json.dumps({"staged": True, "deployment_id": deployment_id,
                           "payload_file": str(payload_path), "curl_config": str(config_path),
-                          "prompt_chars": len(PROMPT)}, indent=2))
+                          "cron": desk_cron(*WINDOW), "prompt_chars": len(PROMPT)}, indent=2))
         return
     if "--apply" not in sys.argv:
         print(json.dumps({"dry_run": True, "name": NAME, "agent_version": version,
