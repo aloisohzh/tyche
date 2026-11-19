@@ -156,7 +156,7 @@ class TacticalConfig(BaseModel):
     min_reward_risk: float = Field(default=1.5, ge=1)
     max_quote_age_seconds: int = Field(default=60, ge=5, le=120)
     max_snapshot_age_seconds: int = Field(default=120, ge=5, le=300)
-    monitor_interval_seconds: int = Field(default=120, ge=30, le=3600)
+    monitor_interval_seconds: int = Field(default=120, ge=30, le=86400)
     stock_spread_pct: float = Field(default=0.003, gt=0, le=0.01)
     option_spread_pct: float = Field(default=0.05, gt=0, le=0.10)
     min_option_open_interest: int = Field(default=100, ge=0)
