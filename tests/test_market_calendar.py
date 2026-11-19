@@ -144,6 +144,16 @@ def test_events_and_earnings_season():
     assert any(e.kind == "earnings" for e in events_on(date(2026, 10, 15)))
 
 
+def test_ipo_debut_is_event_day():
+    nov19 = events_on(date(2026, 11, 19))
+    assert any(e.kind == "ipo" and "ANT" in e.name for e in nov19)
+    gate = evaluate(utc(2026, 11, 19, 14, 35), SessionPhase.OPENING_DRIVE)
+    assert gate.run and gate.strategy.event_caution
+    assert gate.strategy.max_orders == 1
+    dec4 = events_on(date(2026, 12, 4))
+    assert any(e.kind == "index" and "ANT" in e.name for e in dec4)
+
+
 def test_gate_skips_holiday():
     result = evaluate(utc(2026, 11, 26, 15, 0))
     assert not result.run

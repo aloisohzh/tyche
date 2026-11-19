@@ -5,8 +5,16 @@ const $ = (sel) => document.querySelector(sel);
 const esc = (s) => String(s ?? "").replace(/[—–]/g, "-").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const hy = (s) => String(s ?? "").replace(/[—–]/g, "-");
 
-const VERSION = "0.2.1";
+const VERSION = "0.2.2";
 const CHANGELOG = [
+  {
+    version: "0.2.2", date: "2026-11-19", title: "ANT IPO event capture",
+    items: [
+      "Market calendar pins the Anthropic (ANT) Nasdaq debut on Nov 19 ($83 offer, ~$1.5T valuation) and the Dec 4 Hang Seng HK-US Tech Index inclusion; new ipo/index event kinds.",
+      "Today is an event day: opening/closing drives run with event caution - halved order counts and per-trade risk.",
+      "US.ANT added to the tactical research universe (proposals only); calendar chips render ipo (violet) and index (green) events.",
+    ],
+  },
   {
     version: "0.2.1", date: "2026-11-19", title: "Per-trade risk budget + fee-net expectancy (ADR 0016)",
     items: [
@@ -972,7 +980,7 @@ const PHASE_META = {
   closed: { name: "Closed", hue: "var(--faint)" },
 };
 const ACTIVITY_LABEL = { plan: "plan", active: "active", monitor: "monitor", reconcile: "reconcile", noop: "no-op" };
-const EVENT_HUE = { fomc: "var(--red)", macro: "var(--amber)", earnings: "var(--cyan)" };
+const EVENT_HUE = { fomc: "var(--red)", macro: "var(--amber)", earnings: "var(--cyan)", ipo: "var(--violet)", index: "var(--green)" };
 const toMin = (s) => { const [h, m] = s.split(":").map(Number); return h * 60 + m; };
 
 function renderCalendar() {

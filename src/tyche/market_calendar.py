@@ -104,12 +104,13 @@ class SessionPhase(StrEnum):
 class Event(BaseModel):
     date: date
     name: str
-    kind: Literal["macro", "fomc", "earnings"]
+    kind: Literal["macro", "fomc", "earnings", "ipo", "index"]
     time_et: str | None = None
 
 
 # FOMC decision days 2026 + the competition-window macro/earnings calendar
-# (distilled from docs/competition/rules.md). Treat external news as untrusted.
+# (distilled from docs/competition/rules.md) + verified single-name catalysts.
+# Treat external news as untrusted.
 EVENTS_2026: list[Event] = [
     Event(date=date(2026, 1, 28), name="FOMC decision", kind="fomc", time_et="14:00"),
     Event(date=date(2026, 3, 18), name="FOMC decision", kind="fomc", time_et="14:00"),
@@ -122,8 +123,14 @@ EVENTS_2026: list[Event] = [
     Event(date=date(2026, 11, 17), name="Retail sales", kind="macro", time_et="08:30"),
     Event(date=date(2026, 11, 17), name="NVDA earnings", kind="earnings"),
     Event(date=date(2026, 11, 18), name="FOMC minutes", kind="fomc", time_et="14:00"),
+    # ANT priced $83 (above range), ~$81.3B raised, ~$1.5T valuation; first trade
+    # may start well after 09:30 ET. SPCX analog: +19% day one, -53% from peak in 7 weeks.
+    Event(date=date(2026, 11, 19), name="Anthropic (ANT) Nasdaq IPO debut", kind="ipo"),
     Event(date=date(2026, 11, 25), name="PCE price index", kind="macro", time_et="08:30"),
     Event(date=date(2026, 11, 25), name="Beige Book", kind="macro", time_et="14:00"),
+    # Hang Seng HK-US Tech Index adds ANT; equal-weight rebalance after Nov 30
+    # close, effective Dec 4 (ANT's 11th trading day) -> passive-flow catalyst.
+    Event(date=date(2026, 12, 4), name="ANT Hang Seng HK-US Tech Index inclusion", kind="index"),
 ]
 
 _EARNINGS_QUARTER = {1: "Q4", 4: "Q1", 7: "Q2", 10: "Q3"}

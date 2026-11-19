@@ -3,7 +3,7 @@ enabled: true
 options_enabled: true
 # No order authorization until the single-writer cloud monitor and broker drill pass.
 execution_enabled: false
-symbols: [US.NVDA, US.AMD, US.AVGO, US.MU, US.SMH]
+symbols: [US.NVDA, US.AMD, US.AVGO, US.MU, US.SMH, US.ANT]
 etf_symbols: [US.SMH]
 stock_allocation_cap: 0.45
 max_name_weight: 0.20
