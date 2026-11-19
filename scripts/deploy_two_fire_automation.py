@@ -3,7 +3,7 @@
 Reads QODER_PAT and the three runtime secret values from gitignored .env and sends
 them directly to the Cloud API. Never prints secret values.
 
-Run: .venv/Scripts/python.exe scripts/deploy_two_fire_automation.py [--apply]
+Run: .venv/Scripts/python.exe scripts/deploy_two_fire_automation.py [--month 2026-12] [--apply]
 """
 from __future__ import annotations
 
@@ -24,8 +24,8 @@ AGENT_ID = "agent_00vtt1wjgm22o20s8ykz"
 ENVIRONMENT_ID = "env_00vtw0llz5kw0jxmu4hl"
 VAULT_ID = "vault_00vs6gjsbcxkw661ka7o"
 MEMORY_STORE_ID = "memstore_00vtw0mkv8irmz3cmpkd"
-NAME = "Tyche desk - premarket and close"
-WINDOW = (date(2026, 11, 19), date(2026, 11, 28))
+DEFAULT_MONTH = (2026, 11)
+COMPETITION_END = date(2026, 12, 31)
 DESCRIPTION = (
     "Tyche paper desk: ETF ballast plus catalyst stocks and standard long options; "
     "two-fire premarket/close runs, independent audits and retained position-protection review."
@@ -59,10 +59,35 @@ def desk_cron(start: date, end: date) -> str:
     if not days:
         raise ValueError("window contains no trading days")
     return f"5 8,15 {_ranges(days)} {start.month} *"
+
+
+def card_month(argv: list[str]) -> tuple[int, int]:
+    if "--month" not in argv:
+        return DEFAULT_MONTH
+    year, month = argv[argv.index("--month") + 1].split("-")
+    return int(year), int(month)
+
+
+def card_name(month: tuple[int, int]) -> str:
+    suffix = "" if month == DEFAULT_MONTH else f" ({date(month[0], month[1], 1):%b})"
+    return "Tyche desk - premarket and close" + suffix
+
+
+def card_window(month: tuple[int, int]) -> tuple[date, date]:
+    year, mon = month
+    start = max(date(year, mon, 1), date(2026, 11, 19))
+    end = min(date(year + mon // 12, mon % 12 + 1, 1) - timedelta(days=1), COMPETITION_END)
+    return start, end
+
+
+def card_prompt(window: tuple[date, date]) -> str:
+    return PROMPT.replace("{{WINDOW}}", f"{window[0]}..{window[1]}")
+
+
 PROMPT = """TYCHE TWO-FIRE PAPER DESK RUN (ARMED 2026-11-19).
 
 CLOCK: this automation fires at 08:05 and 15:05 America/New_York only on NYSE trading days in the
-card window; the cron day list already excludes weekends and holidays. At the very start still run
+card window {{WINDOW}}; the cron day list already excludes weekends and holidays. At the very start still run
 tyche calendar --json from the repo. Exit 1 means skip: weekend, NYSE holiday or outside 04:00-20:00
 ET; finish read-only with a one-line note and submit nothing. Exit 0 reports trading_day, half_day,
 session phase and events; obey them. 08:05 is the premarket plan fire. 15:05 is the close fire; on a
@@ -208,9 +233,14 @@ def main() -> None:
     version = agent.get("version")
     if not isinstance(version, int):
         raise SystemExit("agent version unavailable; refusing to create an unpinned card")
+    month = card_month(sys.argv)
+    name = card_name(month)
+    window = card_window(month)
+    cron = desk_cron(*window)
+    prompt_text = card_prompt(window)
     envs = ";".join(f"{key}={values[key]}" for key in missing)
     payload = {
-        "name": NAME,
+        "name": name,
         "description": DESCRIPTION,
         "agent": {"id": AGENT_ID, "type": "agent", "version": version},
         "environment_id": ENVIRONMENT_ID,
@@ -224,9 +254,10 @@ def main() -> None:
             },
             {"type": "memory_store", "memory_store_id": MEMORY_STORE_ID, "access": "read_write"},
         ],
-        "schedule": {"type": "cron", "expression": desk_cron(*WINDOW), "timezone": "America/New_York"},
-        "metadata": {"source": "operator", "profile": "two-fire", "window": "2026-11-19..2026-11-28"},
-        "initial_events": [{"type": "user.message", "content": [{"type": "text", "text": PROMPT}]}],
+        "schedule": {"type": "cron", "expression": cron, "timezone": "America/New_York"},
+        "metadata": {"source": "operator", "profile": "two-fire",
+                     "window": f"{window[0]}..{window[1]}"},
+        "initial_events": [{"type": "user.message", "content": [{"type": "text", "text": prompt_text}]}],
     }
     if envs:
         payload["environment_variables"] = envs
@@ -241,9 +272,9 @@ def main() -> None:
             'data-binary = "@' + payload_path.as_posix() + '"\n'
         )
         print(json.dumps({"staged": True, "payload_file": str(payload_path),
-                          "curl_config": str(config_path), "name": NAME,
+                          "curl_config": str(config_path), "name": name,
                           "agent_version": version, "cron": payload["schedule"],
-                          "prompt_chars": len(PROMPT),
+                          "prompt_chars": len(prompt_text),
                           "environment_carries": sorted(inherited & set(SECRET_KEYS)),
                           "from_dotenv": missing}, indent=2))
         return
@@ -252,10 +283,11 @@ def main() -> None:
         payload_path = Path(sys.argv[sys.argv.index("--emit-update") + 2])
         config_path = Path(sys.argv[sys.argv.index("--emit-update") + 3])
         payload_path.write_text(json.dumps({
-            "schedule": {"type": "cron", "expression": desk_cron(*WINDOW),
-                         "timezone": "America/New_York"},
+            "schedule": {"type": "cron", "expression": cron, "timezone": "America/New_York"},
+            "metadata": {"source": "operator", "profile": "two-fire",
+                         "window": f"{window[0]}..{window[1]}"},
             "initial_events": [{"type": "user.message",
-                                "content": [{"type": "text", "text": PROMPT}]}]
+                                "content": [{"type": "text", "text": prompt_text}]}]
         }))
         config_path.write_text(
             'url = "https://api.qoder.com/api/v1/cloud/deployments/' + deployment_id + '"\n'
@@ -265,11 +297,11 @@ def main() -> None:
         )
         print(json.dumps({"staged": True, "deployment_id": deployment_id,
                           "payload_file": str(payload_path), "curl_config": str(config_path),
-                          "cron": desk_cron(*WINDOW), "prompt_chars": len(PROMPT)}, indent=2))
+                          "cron": cron, "prompt_chars": len(prompt_text)}, indent=2))
         return
     if "--apply" not in sys.argv:
-        print(json.dumps({"dry_run": True, "name": NAME, "agent_version": version,
-                          "cron": payload["schedule"], "prompt_chars": len(PROMPT),
+        print(json.dumps({"dry_run": True, "name": name, "agent_version": version,
+                          "cron": payload["schedule"], "prompt_chars": len(prompt_text),
                           "environment_carries": sorted(inherited & set(SECRET_KEYS)),
                           "from_dotenv": missing}, indent=2))
         return
