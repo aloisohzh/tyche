@@ -23,6 +23,7 @@ from tyche.broker import (
 from tyche.config import load_config
 from tyche.halt import is_halted, set_halt
 from tyche.journal import append_event, verify_chain
+from tyche.lifecycle_cli import app as lifecycle_app
 from tyche.market_calendar import (
     ET,
     SessionPhase,
@@ -39,6 +40,7 @@ from tyche.strategies import build_intents, fit_turnover_budget, rotation_target
 from tyche.watchlist import Watchlist
 
 app = typer.Typer(add_completion=False, help="Regime-aware ETF rotation agent.")
+app.add_typer(lifecycle_app, name="lifecycle")
 console = Console()
 
 
@@ -494,6 +496,13 @@ def execute(
     if account_id not in config.risk.account_allowlist:
         console.print(
             f"Refusing {account_id}: not in the paper account allowlist."
+        )
+        raise typer.Exit(2)
+
+    if account_id not in {"SIM-DEMO-US", "SIM-TEST"}:
+        console.print(
+            "Legacy execution disabled for broker accounts: use lifecycle preview/approve, "
+            "then lifecycle reserve and the paper MCP executor. --yes cannot bypass this gate."
         )
         raise typer.Exit(2)
 

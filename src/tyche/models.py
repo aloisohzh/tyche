@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from enum import StrEnum
 from typing import Literal
 
-from pydantic import BaseModel, Field, computed_field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 
 class Side(StrEnum):
@@ -23,10 +23,16 @@ class Regime(StrEnum):
 
 
 class Position(BaseModel):
+    model_config = ConfigDict(allow_inf_nan=False)
     symbol: str
     quantity: int = Field(ge=0)
+    available_quantity: int | None = Field(default=None, ge=0)
     avg_cost: float = Field(ge=0.0)
     last_price: float = Field(ge=0.0)
+
+    @property
+    def sellable(self) -> int:
+        return min(self.quantity, self.available_quantity) if self.available_quantity is not None else self.quantity
 
     @computed_field
     @property
@@ -35,8 +41,12 @@ class Position(BaseModel):
 
 
 class AccountSnapshot(BaseModel):
+    model_config = ConfigDict(allow_inf_nan=False)
     account_id: str
     cash: float = Field(ge=0.0)
+    frozen_cash: float = Field(default=0.0, ge=0.0)
+    broker_nav: float | None = Field(default=None, gt=0.0)
+    captured_at: datetime | None = None
     positions: list[Position] = Field(default_factory=list)
     env: Literal["paper", "live"] = "paper"
     account_type: int | None = None
@@ -54,7 +64,7 @@ class AccountSnapshot(BaseModel):
     @computed_field
     @property
     def nav(self) -> float:
-        return self.cash + self.gross_exposure
+        return self.cash + self.frozen_cash + self.gross_exposure
 
 
 class OrderIntent(BaseModel):

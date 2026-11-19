@@ -115,6 +115,7 @@ class RiskPolicy(BaseModel):
     max_order_notional_pct: float = 0.30
     max_daily_turnover_pct: float = 0.50
     max_orders_per_day: int = 6
+    competition_order_cap: int = Field(default=200, gt=0)
     max_limit_deviation_pct: float = 0.03
     min_order_notional: float = 500.0
     min_price: float = 1.00

@@ -41,8 +41,25 @@ Risk unit = vol-targeted weight; single-asset cap 40% (desk target ≤38%), per-
 notional ≤30% NAV, sleeve caps per regime, daily turnover ≤50%, ≤6 orders/day.
 
 ## Exit
-Rebalance-to-target (drift band 20%); de-risking sells always allowed, even halted.
-Time exit: none (rolling ballast). Final-day flatten per competition rules at EOD.
+The base strategy exits by rebalance-to-target (drift band 20%); a halt blocks
+new exposure, not protective sells, although broker/account checks and the
+competition order ceiling still apply. The rolling-ballast signal has no time
+exit of its own; final-day flattening is an intention, not a guaranteed order.
+
+Unattended execution additionally requires an approved **complete lifecycle**:
+entry bounds and quantity, stop and its basis (last price or completed daily
+close), profit target, entry expiry, explicit holding deadline, and sourced
+thesis-invalidation conditions. Review the thesis and relevant material events
+each hour and immediately before reserving an entry. Missing/stale/uncertain
+research blocks entries without disabling already-approved protective exits.
+Changing the contract requires a new preview and approval; a positive research
+refresh cannot silently rearm a previously invalidated lifecycle.
+
+The [hourly lifecycle implementation](../runbooks/protection-monitor.md) is local
+only as of 2026-11-19, not yet deployed or armed. Existing positions require
+reviewed adoption plans; neither the sizing stop nor an old research level
+constitutes that approval. Synthetic hourly checks do not guarantee stop prices
+or liquidation at the deadline; choose deadlines within the deployed schedule.
 
 ## Regime fit
 All regimes — the sleeve caps are the regime expression (risk_off: equity ≤20%,
