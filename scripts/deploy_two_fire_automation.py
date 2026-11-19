@@ -27,11 +27,13 @@ DESCRIPTION = (
 SECRET_KEYS = ("TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID", "TYCHE_ALLOWED_ACCOUNT_IDS")
 PROMPT = """TYCHE TWO-FIRE PAPER DESK RUN (ARMED 2026-11-19).
 
-CLOCK: this automation fires at 08:05 and 15:05 America/New_York on weekdays. Confirm the live ET
-date/time and trading day first; if the market is closed, finish read-only with a one-line note and
-no orders. 08:05 is the premarket fire (discovery ahead of the 09:30 open). 15:05 is the close fire
-(revalidation; option exit cutoff is 15:15 ET, close minus 45 minutes). A late or skipped fire never
-authorizes catch-up with stale quotes.
+CLOCK: this automation fires at 08:05 and 15:05 America/New_York on weekdays. At the very start run
+tyche calendar --json from the repo. Exit 1 means skip: weekend, NYSE holiday or outside 04:00-20:00
+ET; finish read-only with a one-line note and submit nothing. Exit 0 reports trading_day, half_day,
+session phase and events; obey them. 08:05 is the premarket plan fire. 15:05 is the close fire; on a
+13:00 early close it is AFTER_HOURS, so it may reconcile only and never submit. The option exit cutoff
+is session close minus 45 minutes (15:15 ET normally, 12:15 ET on early closes). A late or skipped fire
+never authorizes catch-up with stale quotes.
 
 BOOTSTRAP: repo mount /data/workspace/tyche. Install editable --no-deps if tyche is missing; run
 tyche journal-verify and tyche halt-status --json. halted=true blocks buys while approved de-risking
@@ -138,6 +140,23 @@ def main() -> None:
         print(json.dumps({"environment_keys": sorted(inherited),
                           "missing_secret_keys": missing}, indent=2))
         return
+    if "--verify" in sys.argv:
+        deployment_id = sys.argv[sys.argv.index("--verify") + 1]
+        import hashlib
+        deployment = req(values, "GET", f"/deployments/{deployment_id}")
+        events = json.dumps(deployment.get("initial_events") or [])
+        schedule = deployment.get("schedule") or {}
+        print(json.dumps({
+            "id": deployment.get("id"),
+            "status": deployment.get("status"),
+            "cron": f"{schedule.get('expression')} {schedule.get('timezone')}",
+            "prompt_sha256": hashlib.sha256(events.encode()).hexdigest()[:16],
+            "prompt_chars": len(events),
+            "has_calendar_gate": "tyche calendar --json" in events,
+            "has_half_day_cutoff": "12:15 ET" in events,
+            "has_after_hours_guard": "AFTER_HOURS" in events,
+        }, indent=2))
+        return
     if "--sanitize" in sys.argv:
         result = json.loads(Path(sys.argv[sys.argv.index("--sanitize") + 1]).read_text())
         for path in (Path(sys.argv[sys.argv.index("--sanitize") + 1]),
@@ -191,6 +210,24 @@ def main() -> None:
                           "prompt_chars": len(PROMPT),
                           "environment_carries": sorted(inherited & set(SECRET_KEYS)),
                           "from_dotenv": missing}, indent=2))
+        return
+    if "--emit-update" in sys.argv:
+        deployment_id = sys.argv[sys.argv.index("--emit-update") + 1]
+        payload_path = Path(sys.argv[sys.argv.index("--emit-update") + 2])
+        config_path = Path(sys.argv[sys.argv.index("--emit-update") + 3])
+        payload_path.write_text(json.dumps({
+            "initial_events": [{"type": "user.message",
+                                "content": [{"type": "text", "text": PROMPT}]}]
+        }))
+        config_path.write_text(
+            'url = "https://api.qoder.com/api/v1/cloud/deployments/' + deployment_id + '"\n'
+            'header = "Authorization: Bearer ' + values["QODER_PAT"] + '"\n'
+            'header = "Content-Type: application/json"\n'
+            'data-binary = "@' + payload_path.as_posix() + '"\n'
+        )
+        print(json.dumps({"staged": True, "deployment_id": deployment_id,
+                          "payload_file": str(payload_path), "curl_config": str(config_path),
+                          "prompt_chars": len(PROMPT)}, indent=2))
         return
     if "--apply" not in sys.argv:
         print(json.dumps({"dry_run": True, "name": NAME, "agent_version": version,
