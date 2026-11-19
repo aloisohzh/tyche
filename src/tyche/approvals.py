@@ -15,12 +15,17 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from tyche.execution_state import request_notional
 from tyche.journal import read_events
 
 
 class ApprovalLine(BaseModel):
+    model_config = ConfigDict(allow_inf_nan=False)
+    max_total_qty: int | None = Field(default=None, gt=0)
+    multiplier: Literal[1, 100] = 1
+    setup_hash: str | None = None
     symbol: str
     side: Literal["buy", "sell"]
     max_qty: int = Field(gt=0)
@@ -38,6 +43,8 @@ class ApprovalLine(BaseModel):
 
 
 class ApprovalBatch(BaseModel):
+    model_config = ConfigDict(allow_inf_nan=False)
+    max_notional: float | None = Field(default=None, gt=0)
     as_of: date
     approved_at: datetime
     approved_by: str = "operator"
@@ -71,6 +78,15 @@ def envelope_usage(journal_path: Path, today: date) -> int:
     return count
 
 
+def envelope_totals(events: list[dict], today: date, symbol: str, side: str) -> tuple[int, float]:
+    rows = [e.get("payload", {}) for e in events if e.get("type") == "order.requested"
+            and e.get("payload", {}).get("authorization", {}).get("kind") == "envelope"
+            and e.get("payload", {}).get("authorization", {}).get("as_of") == today.isoformat()]
+    qty = sum(int(r.get("quantity", r.get("qty", 0))) for r in rows
+              if r.get("symbol") == symbol and r.get("side") == side)
+    return qty, sum(request_notional(r) for r in rows)
+
+
 def authorize_order(
     batch: ApprovalBatch,
     *,
@@ -80,6 +96,9 @@ def authorize_order(
     limit: float | None,
     today: date,
     used: int,
+    used_qty: int = 0,
+    used_notional: float = 0.0,
+    multiplier: int = 1,
 ) -> tuple[bool, str]:
     """Deterministic envelope gate: (authorized, plain-words reason)."""
     if not batch.valid_on(today):
@@ -91,8 +110,14 @@ def authorize_order(
         return False, "quantity must be positive"
     if qty > line.max_qty:
         return False, f"qty {qty} exceeds approved max {line.max_qty} for {symbol} {side}"
-    if limit is None:
-        return False, "envelope authorizes limit orders only; no market orders"
+    if limit is None or not 0 < limit < float("inf"):
+        return False, "envelope requires a finite positive limit; no market orders"
+    if line.multiplier != multiplier:
+        return False, "instrument multiplier differs from approved product"
+    if used_qty + qty > (line.max_total_qty or line.max_qty):
+        return False, "cumulative quantity exceeds daily symbol-side approval"
+    if batch.max_notional is not None and used_notional + qty * limit * multiplier > batch.max_notional:
+        return False, "cumulative envelope notional budget exhausted"
     if side == "buy" and limit > line.limit_max:
         return False, f"limit {limit} above approved ceiling {line.limit_max} for {symbol}"
     if side == "sell" and limit < line.limit_min:

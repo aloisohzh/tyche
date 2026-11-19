@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from tyche.models import AccountSnapshot, OrderAck, OrderIntent, Position, Side
+from tyche.models import AccountSnapshot, OrderAck, OrderIntent, apply_fill
 
 
 class Broker(Protocol):
@@ -12,6 +12,8 @@ class Broker(Protocol):
 
 
 class PaperBroker:
+    """In-memory fill simulator; not evidence of a Moomoo broker fill."""
+
     def __init__(self, snapshot: AccountSnapshot) -> None:
         self._snapshot = snapshot.model_copy(deep=True)
         self._orders: list[OrderAck] = []
@@ -20,41 +22,13 @@ class PaperBroker:
         return self._snapshot.model_copy(deep=True)
 
     def submit(self, intent: OrderIntent) -> OrderAck:
-        price = intent.limit_price
-        notional = intent.quantity * price
-        if intent.side == Side.BUY:
-            if notional > self._snapshot.cash:
-                raise ValueError("insufficient paper cash for order")
-            self._snapshot.cash -= notional
-            self._apply_buy(intent.symbol, intent.quantity, price)
-        else:
-            position = self._snapshot.position(intent.symbol)
-            if position is None or position.quantity < intent.quantity:
-                raise ValueError("insufficient paper position for order")
-            self._snapshot.cash += notional
-            position.quantity -= intent.quantity
-            position.last_price = price
-            if position.quantity == 0:
-                self._snapshot.positions.remove(position)
-
+        if self._snapshot.env != "paper":
+            raise ValueError("paper broker refuses live account")
+        self._snapshot = apply_fill(self._snapshot, intent, intent.quantity)
         ack = OrderAck(
             order_id=f"PAPER-{len(self._orders) + 1:04d}",
             status="filled",
-            raw={"fill_price": price},
+            raw={"fill_price": intent.limit_price, "multiplier": intent.multiplier},
         )
         self._orders.append(ack)
         return ack
-
-    def _apply_buy(self, symbol: str, quantity: int, price: float) -> None:
-        position = self._snapshot.position(symbol)
-        if position is None:
-            self._snapshot.positions.append(
-                Position(symbol=symbol, quantity=quantity, avg_cost=price, last_price=price)
-            )
-            return
-        total_quantity = position.quantity + quantity
-        position.avg_cost = (
-            position.avg_cost * position.quantity + price * quantity
-        ) / total_quantity
-        position.quantity = total_quantity
-        position.last_price = price

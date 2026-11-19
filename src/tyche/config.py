@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 Sleeve = Literal["equity", "defensive", "real_asset", "credit"]
 RegimeKey = Literal["risk_on", "neutral", "risk_off"]
@@ -66,6 +66,7 @@ class SleeveCaps(BaseModel):
 
 class StrategyConfig(BaseModel):
     id: str = Field(pattern=r"^PB-\d{3}$")
+    allocation_cap: float = Field(default=0.95, gt=0, le=0.95)
     enabled: bool = True
     playbook: str
     lookbacks: list[int] = [63, 126, 252]
@@ -103,6 +104,10 @@ class StrategyConfig(BaseModel):
 
 
 class RiskPolicy(BaseModel):
+    model_config = ConfigDict(allow_inf_nan=False)
+    option_risk_per_trade_pct: float = Field(default=0.0075, gt=0, le=0.02)
+    max_option_premium_pct: float = Field(default=0.05, gt=0, le=0.25)
+    competition_order_cap: int = Field(default=200, ge=1, le=200)
     account_allowlist: list[str] = Field(default_factory=lambda: ["SIM-DEMO-US", "SIM-TEST"])
     sim_account_types: list[int] = Field(default_factory=lambda: [1, 2])
     sim_market_id: int = 100
@@ -139,7 +144,41 @@ class RiskPolicy(BaseModel):
         return self
 
 
+class TacticalConfig(BaseModel):
+    model_config = ConfigDict(allow_inf_nan=False, extra="forbid")
+    enabled: bool = False
+    options_enabled: bool = False
+    execution_enabled: bool = False  # rollout gate; enable only after cloud/broker drill
+    symbols: list[str] = Field(default_factory=lambda: ["US.NVDA", "US.AMD", "US.AVGO", "US.MU", "US.SMH"])
+    etf_symbols: list[str] = Field(default_factory=lambda: ["US.SMH"])
+    stock_allocation_cap: float = Field(default=0.65, gt=0, le=0.8)
+    max_name_weight: float = Field(default=0.20, gt=0, le=0.38)
+    min_reward_risk: float = Field(default=1.5, ge=1)
+    max_quote_age_seconds: int = Field(default=60, ge=5, le=120)
+    max_snapshot_age_seconds: int = Field(default=120, ge=5, le=300)
+    monitor_interval_seconds: int = Field(default=120, ge=30, le=300)
+    stock_spread_pct: float = Field(default=0.003, gt=0, le=0.01)
+    option_spread_pct: float = Field(default=0.05, gt=0, le=0.10)
+    min_option_open_interest: int = Field(default=100, ge=0)
+    min_option_volume: int = Field(default=50, ge=0)
+    min_option_dte: int = Field(default=2, ge=1)
+    max_option_dte: int = Field(default=30, ge=2)
+    option_exit_minutes_before_close: int = Field(default=45, ge=15, le=120)
+    session_exit_minutes_before_close: int = Field(default=10, ge=5, le=60)
+    max_new_orders_per_tick: int = Field(default=3, ge=1, le=10)
+    max_entries_per_setup: int = Field(default=1, ge=1, le=3)
+
+    @model_validator(mode="after")
+    def _bounds(self):
+        if self.min_option_dte > self.max_option_dte:
+            raise ValueError("invalid option DTE range")
+        if len(self.symbols) != len(set(self.symbols)) or not set(self.etf_symbols) <= set(self.symbols):
+            raise ValueError("invalid tactical universe")
+        return self
+
+
 class AppConfig(BaseModel):
+    tactical: TacticalConfig = Field(default_factory=TacticalConfig)
     universe: UniverseConfig
     strategies: list[StrategyConfig]
     risk: RiskPolicy
@@ -195,8 +234,18 @@ def load_config(root: Path) -> AppConfig:
                 f"(expected {strategy.id.lower()}.yaml)"
             )
         strategies.append(strategy)
+    tactical_path = config_dir / "tactical.yaml"
+    tactical = TacticalConfig.model_validate(_read_yaml(tactical_path)) if tactical_path.is_file() else TacticalConfig()
+    universe = UniverseConfig.model_validate(_read_yaml(config_dir / "universe.yaml"))
+    if tactical.enabled and set(tactical.symbols) & set(universe.by_symbol()):
+        raise ValueError("tactical and ballast symbols must not overlap; separate position ownership")
+    if tactical.enabled and (sum(s.allocation_cap for s in strategies if s.enabled)
+                             + tactical.stock_allocation_cap + risk.max_option_premium_pct
+                             > risk.max_gross_exposure + 1e-8):
+        raise ValueError("strategy allocation caps exceed gross exposure cap")
     return AppConfig(
-        universe=UniverseConfig.model_validate(_read_yaml(config_dir / "universe.yaml")),
+        tactical=tactical,
+        universe=universe,
         strategies=strategies,
         risk=risk,
         root=root,

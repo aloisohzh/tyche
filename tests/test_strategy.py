@@ -66,9 +66,10 @@ def test_target_weights_respect_constraints() -> None:
 
     invested = sum(weight for symbol, weight in result.targets.items() if symbol != "CASH")
     assert invested <= 1.0 - config.strategy_by_id("PB-001").min_cash_weight + 1e-6
-    assert invested >= 0.75
-    assert result.targets["CASH"] >= config.strategy_by_id("PB-001").min_cash_weight - 1e-6
-    assert result.targets["CASH"] <= 0.25 + 1e-6
+    cap = config.strategy_by_id("PB-001").allocation_cap
+    assert invested <= cap + 1e-6
+    assert invested >= cap - 1e-6  # bullish fixture uses its ballast budget
+    assert result.targets["CASH"] >= 1 - cap - 1e-6
     caps = {asset.symbol: asset.max_weight for asset in config.universe.assets}
     assert all(
         weight <= caps[symbol] + 1e-6

@@ -1,0 +1,23 @@
+# Research produces proposals; this profile never authorizes a broker write.
+enabled: true
+options_enabled: true
+# No order authorization until the single-writer cloud monitor and broker drill pass.
+execution_enabled: false
+symbols: [US.NVDA, US.AMD, US.AVGO, US.MU, US.SMH]
+etf_symbols: [US.SMH]
+stock_allocation_cap: 0.45
+max_name_weight: 0.20
+min_reward_risk: 1.5
+max_quote_age_seconds: 60
+max_snapshot_age_seconds: 120
+monitor_interval_seconds: 120
+stock_spread_pct: 0.003
+option_spread_pct: 0.05
+min_option_open_interest: 100
+min_option_volume: 50
+min_option_dte: 2
+max_option_dte: 30
+option_exit_minutes_before_close: 45
+session_exit_minutes_before_close: 10
+max_new_orders_per_tick: 3
+max_entries_per_setup: 1

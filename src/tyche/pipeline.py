@@ -111,7 +111,7 @@ def build_order_pipeline(
     sleeve = asset.sleeve if asset else None
     held = snapshot.position(symbol) is not None
     effective = min(intent.quantity, verdict.adjusted_quantity) if verdict.allowed else 0
-    notional = effective * intent.limit_price
+    notional = effective * intent.limit_price * intent.multiplier
     sleeve_cap = (
         strategy.sleeve_caps[regime.value].as_dict().get(sleeve)
         if sleeve is not None
