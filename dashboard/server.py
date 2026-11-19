@@ -942,6 +942,7 @@ def build_state() -> dict:
     global EVENTS
     EVENTS = read_events(JOURNAL)
     exp_report = compute_expectancy(EVENTS, SLEEVE_BY_SYMBOL)
+    sleeve_report = {s.sleeve: s for s in exp_report.sleeves}
     ok, count, error = verify_chain(JOURNAL)
     halt = json.loads(HALT.read_text(encoding="utf-8")) if HALT.is_file() else {"halted": False}
     risk = yaml.safe_load((ROOT / "config" / "risk.yaml").read_text(encoding="utf-8"))
@@ -1026,16 +1027,18 @@ def build_state() -> dict:
                 "open_lots": [lot.model_dump(mode="json") for lot in exp_report.open_lots],
                 "sleeves": [
                     {
-                        "name": s.sleeve.replace("_", " ").title(),
-                        "closed_n": s.closed_n,
-                        "win_rate": s.win_rate,
-                        "avg_win_r": s.avg_win_r,
-                        "avg_loss_r": s.avg_loss_r,
-                        "expectancy_r": s.expectancy_r,
-                        "expectancy_pct": s.expectancy_pct,
-                        "pnl_net": s.pnl_net,
+                        "name": name.replace("_", " ").title(),
+                        "closed_n": s.closed_n if s else 0,
+                        "win_rate": s.win_rate if s else None,
+                        "avg_win_r": s.avg_win_r if s else None,
+                        "avg_loss_r": s.avg_loss_r if s else None,
+                        "expectancy_r": s.expectancy_r if s else None,
+                        "expectancy_pct": s.expectancy_pct if s else None,
+                        "pnl_net": s.pnl_net if s else 0.0,
                     }
-                    for s in exp_report.sleeves
+                    for name, s in (
+                        (n, sleeve_report.get(n)) for n in sorted(set(SLEEVE_BY_SYMBOL.values()))
+                    )
                 ] + [
                     {"name": "Event sleeves (stocks)", "closed_n": 0},
                     {"name": "Defined-risk options", "closed_n": 0},
