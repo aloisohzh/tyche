@@ -67,7 +67,7 @@ def assert_no_secrets(blob: str, srv, env: dict[str, str]) -> None:
         if sid in blob:
             leaks.append("account_id:" + srv.mask_id(sid))
     if leaks:
-        raise SystemExit("SECRET GUARD FAILED — refusing to write. Leaked: " + ", ".join(leaks))
+        raise SystemExit("SECRET GUARD FAILED - refusing to write. Leaked: " + ", ".join(leaks))
 
 
 def main() -> None:

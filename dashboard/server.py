@@ -1,11 +1,12 @@
-"""Tyche desk dashboard — local read-only server.
+"""Tyche desk dashboard - local desk server.
 
 Serves the single-page dashboard and two JSON endpoints:
   /api/state       journal-derived desk state (truth = journal/events.jsonl)
   /api/automation  live Qoder Forward schedules + sessions (PAT server-side only)
 
-No order entry, no writes to the journal. Full account ids are redacted to ***NNN
-before anything leaves this process.
+Operator controls (local desk only): kill-switch and approval-envelope arm/disarm.
+No order entry. Full account ids are redacted to ***NNN before anything leaves
+this process.
 """
 from __future__ import annotations
 
@@ -28,7 +29,8 @@ sys.path.insert(0, str(ROOT / "scripts"))
 import yaml  # noqa: E402
 
 from tyche.approvals import ApprovalBatch, envelope_usage  # noqa: E402
-from tyche.journal import read_events, verify_chain  # noqa: E402
+from tyche.halt import set_halt  # noqa: E402
+from tyche.journal import append_event, read_events, verify_chain  # noqa: E402
 from tyche.market_calendar import (
     ET,
     SessionPhase,
@@ -96,7 +98,7 @@ def derive_contract(card: dict, plan: dict | None, order_pipeline: dict | None =
         "signals": plan.get("signals", {}),
         "targets": plan.get("targets", {}),
     })
-    sleeve = SLEEVE_BY_SYMBOL.get(card["symbol"], "—")
+    sleeve = SLEEVE_BY_SYMBOL.get(card["symbol"], "-")
     vehicle = "etf" if card["symbol"] in ETF_SYMBOLS else "stock"
     maxw = MAXW_BY_SYMBOL.get(card["symbol"])
     f: dict[str, dict] = {}
@@ -146,7 +148,7 @@ def derive_contract(card: dict, plan: dict | None, order_pipeline: dict | None =
         else:
             f["expected_edge"] = {
                 "value": None, "provenance": "gap",
-                "note": edge.get("label") or "No pre-trade edge estimate — never fabricated.",
+                "note": edge.get("label") or "No pre-trade edge estimate - never fabricated.",
             }
         f["invalidation"] = {
             "value": order_pipeline["invalidation"], "provenance": "journaled",
@@ -157,18 +159,18 @@ def derive_contract(card: dict, plan: dict | None, order_pipeline: dict | None =
             "note": "v0.1 ballast: drift-band rebalance + risk-kernel drawdown ladder; synthetic monitor is P2.",
         }
         f["roll_plan"] = {
-            "value": order_pipeline.get("roll_plan") or "none — no option legs",
+            "value": order_pipeline.get("roll_plan") or "none - no option legs",
             "provenance": "journaled",
             "note": "Option leg groups + roll plans are P2.",
         }
     else:
         f["vehicle"] = {
-            "value": f"{vehicle} · {sleeve} sleeve — {card.get('reason', '')}", "provenance": "derived",
+            "value": f"{vehicle} · {sleeve} sleeve -{card.get('reason', '')}", "provenance": "derived",
             "note": "Vehicle type from the pinned universe; the rationale is the journaled order reason.",
         }
         f["expected_edge"] = {
             "value": None, "provenance": "gap",
-            "note": "Pre-trade R and % need an expectancy model. Not instrumented (P1) — never fabricated.",
+            "note": "Pre-trade R and % need an expectancy model. Not instrumented (P1) - never fabricated.",
         }
         f["invalidation"] = {
             "value": f"regime flip {regime}→risk_off if checks<2; de-risk if equity_trend fails (SPY<200-SMA)",
@@ -180,7 +182,7 @@ def derive_contract(card: dict, plan: dict | None, order_pipeline: dict | None =
             "note": "Sim broker has no native stops; the deterministic monitor is the protection (disclosed divergence). Heartbeat is P2.",
         }
         f["roll_plan"] = {
-            "value": "none — ETF/stock leg, no option expiry", "provenance": "derived",
+            "value": "none - ETF/stock leg, no option expiry", "provenance": "derived",
             "note": "No option legs in v0.1. Option leg groups + roll plans are P2.",
         }
     headroom = f" · sleeve cap {maxw:.0%}" if maxw else ""
@@ -200,7 +202,7 @@ def derive_contract(card: dict, plan: dict | None, order_pipeline: dict | None =
                          "provenance": "journaled", "note": "Reconciled fill."}
     else:
         f["realized"] = {"value": None, "provenance": "gap",
-                         "note": "No reconciled fill yet — realized edge renders when the trade closes."}
+                         "note": "No reconciled fill yet - realized edge renders when the trade closes."}
     filled = sum(1 for x in f.values() if x["provenance"] in ("journaled", "derived") and x["value"] is not None)
     return {"fields": f, "completeness": round(filled / len(CONTRACT_FIELDS), 3),
             "filled": filled, "total": len(CONTRACT_FIELDS)}
@@ -469,7 +471,7 @@ def stage_track(plan: dict, symbol: str, realized: float | None) -> dict:
     return {
         "thesis": {
             "state": "partial",
-            "text": f"v0.1 regime rotation — {regime}, checks {passed}/{len(checks)}",
+            "text": f"v0.1 regime rotation -{regime}, checks {passed}/{len(checks)}",
             "gap": "per-trade thesis_ref not instrumented",
         },
         "multifactor": {
@@ -542,7 +544,7 @@ def build_cards(plans: dict[str, dict], orders: list[dict], validation: dict) ->
                 "reason": intent["reason"],
                 "stages": stage_track(plan, symbol, realized),
                 "order": matched,
-                "protection": "synthetic stop monitor (P2) — sim has no broker-native stops",
+                "protection": "synthetic stop monitor (P2) - sim has no broker-native stops",
                 "roll_plan": None,
                 "band": "execution",
             }
@@ -570,7 +572,7 @@ def build_cards(plans: dict[str, dict], orders: list[dict], validation: dict) ->
                 "reason": rec.get("note") or "kill-switch drill seed position",
                 "stages": stage_track(plan, rec["symbol"], realized),
                 "order": rec,
-                "protection": "defined-risk drill — closed same session",
+                "protection": "defined-risk drill - closed same session",
                 "roll_plan": None,
                 "band": "execution",
                 "round_trip": realized,
@@ -762,11 +764,22 @@ def cloud_snapshot(runs: list[dict]) -> dict | None:
             }
         )
     positions.sort(key=lambda p: p["market_value"], reverse=True)
+    hold, total_asset = None, None
+    cash_path = run["dir"] / "cash.json"
+    if cash_path.is_file():
+        try:
+            data = json.loads(cash_path.read_text(encoding="utf-8")).get("data", {})
+            hold = float(data["hold"]) if data.get("hold") is not None else None
+            total_asset = float(data["total_asset"]) if data.get("total_asset") is not None else None
+        except (json.JSONDecodeError, KeyError, TypeError, ValueError):
+            pass
     return {
         "account": challenge_mask(),
         "env": snap.get("env", "paper"),
         "cash": snap["cash"],
         "nav": nav,
+        "order_hold": hold,
+        "broker_total_asset": total_asset,
         "gross_exposure": snap["gross_exposure"],
         "gross_weight": snap["gross_exposure"] / nav if nav else 0,
         "cash_weight": snap["cash"] / nav if nav else 0,
@@ -881,14 +894,14 @@ def build_approvals() -> dict:
         "envelope": None,
         "mode": "manual",
         "auto_active": False,
-        "reason": "No pre-approved envelope — every order needs per-order operator confirmation at the desk console.",
+        "reason": "No pre-approved envelope - every order needs per-order operator confirmation at the desk console.",
     }
     if not APPROVALS.is_file():
         return scrub(out)
     try:
         batch = ApprovalBatch.model_validate_json(APPROVALS.read_text(encoding="utf-8"))
     except ValueError as exc:
-        out["reason"] = "Envelope invalid — falling back to per-order confirmation."
+        out["reason"] = "Envelope invalid - falling back to per-order confirmation."
         out["error"] = str(exc)[:200]
         return scrub(out)
     env = batch.model_dump(mode="json")
@@ -896,10 +909,10 @@ def build_approvals() -> dict:
     out["envelope"] = env
     out["max_orders"] = batch.max_orders
     if not batch.valid_on(today):
-        out["reason"] = f"Envelope dated {batch.as_of} is not valid today ({today}) — per-order confirmation only."
+        out["reason"] = f"Envelope dated {batch.as_of} is not valid today ({today}) - per-order confirmation only."
     elif halted:
         out["mode"] = "armed"
-        out["reason"] = "Envelope valid today, but kill-switch engaged — no new entries."
+        out["reason"] = "Envelope valid today, but kill-switch engaged - no new entries."
     else:
         out["mode"] = "armed"
         out["auto_active"] = True
@@ -919,6 +932,10 @@ def build_state() -> dict:
     cloud = cloud_snapshot(runs)
     drill_snapshot = load_snapshot()
     snapshot = cloud or drill_snapshot
+    snapshots: dict[str, dict] = {}
+    for snap in (cloud, drill_snapshot):
+        if snap and snap["account"] not in snapshots:
+            snapshots[snap["account"]] = snap
     orders = build_orders(EVENTS, validation)
     known_ids = {o["order_id"] for o in orders if o["order_id"]}
     orders.extend(o for o in cloud_orders(runs) if o["order_id"] not in known_ids)
@@ -942,8 +959,8 @@ def build_state() -> dict:
         "plan_account": mask_id(str(latest_plan["account_id"])) if latest_plan else None,
     }
     divergences = [
-        "Sim path has no broker-native stops/trailing — protection is a synthetic monitor + defined-risk structures (P2).",
-        "No direct shorting (margin 60/50, 6.0% financing, forced-liq risk) — defined-risk puts instead.",
+        "Sim path has no broker-native stops/trailing - protection is a synthetic monitor + defined-risk structures (P2).",
+        "No direct shorting (margin 60/50, 6.0% financing, forced-liq risk) - defined-risk puts instead.",
     ]
     if cloud and plan_acct != primary:
         divergences.append(
@@ -965,6 +982,7 @@ def build_state() -> dict:
             "risk": risk,
             "feed": feed,
             "snapshot": snapshot,
+            "snapshots": snapshots,
             "drill_snapshot": drill_snapshot if cloud else None,
             "latest_plan": latest_plan,
             "plans": {a: {"ts": e["ts"], "plan": e["plan"]} for a, e in plans.items()},
@@ -978,7 +996,7 @@ def build_state() -> dict:
                 "formula": "(Win% × AvgWin) − (Loss% × AvgLoss)",
                 "closed_n": 0,
                 "sleeves": [
-                    {"name": "Ballast — ETF rotation", "closed_n": 0},
+                    {"name": "Ballast - ETF rotation", "closed_n": 0},
                     {"name": "Event sleeves (stocks)", "closed_n": 0},
                     {"name": "Defined-risk options", "closed_n": 0},
                 ],
@@ -991,8 +1009,8 @@ def build_state() -> dict:
                 {"field": "thesis_ref / inputs_ref", "state": "gap", "note": "per-trade playbook + research-brief refs not in plan/journal yet"},
                 {"field": "outlook + conviction", "state": "partial", "note": "market regime only; per-setup outlook and act/wait gate pending"},
                 {"field": "expected_edge", "state": "gap", "note": "pre-trade R and % not instrumented"},
-                {"field": "protection heartbeat", "state": "gap", "note": "P2 — synthetic stop monitor"},
-                {"field": "roll_plan", "state": "gap", "note": "P2 — option leg groups"},
+                {"field": "protection heartbeat", "state": "gap", "note": "P2 - synthetic stop monitor"},
+                {"field": "roll_plan", "state": "gap", "note": "P2 - option leg groups"},
                 {"field": "macro / sentiment / seasonality", "state": "partial", "note": "researcher child designed, not yet in plan artifacts"},
             ],
             "sentinel_fallback": sentinel_fallback(),
@@ -1117,16 +1135,16 @@ def build_automation() -> dict:
             sessions = forward.req("GET", "/sessions?limit=12").get("data") or []
             payload = {
                 "ok": True,
-                "source": "live — api.qoder.com/api/v1/forward",
+                "source": "live - api.qoder.com/api/v1/forward",
                 "fetched_at": datetime.now(UTC).isoformat(),
                 "schedules": [slim_schedule(s) for s in schedules],
                 "sessions": [slim_session(s) for s in sessions],
                 "calendar": calendar,
             }
-        except Exception as exc:  # noqa: BLE001 — degrade to local export
+        except Exception as exc:  # noqa: BLE001 - degrade to local export
             payload = {
                 "ok": False,
-                "source": "cached local export (plans/sentinel) — Forward API unreachable",
+                "source": "cached local export (plans/sentinel) - Forward API unreachable",
                 "error": str(exc)[:300],
                 "fetched_at": datetime.now(UTC).isoformat(),
                 "schedules": sentinel_fallback(),
@@ -1163,6 +1181,69 @@ def disarm_envelope() -> dict:
     return {"ok": True, "disarmed": True, "pushed": pushed, "git_error": git_error, "approvals": build_approvals()}
 
 
+def _git_push_approvals(message: str) -> tuple[bool, str | None]:
+    try:
+        subprocess.run(["git", "add", "--", "data/approvals.json"], cwd=ROOT, check=True, capture_output=True)
+        subprocess.run(["git", "commit", "-m", message, "--", "data/approvals.json"], cwd=ROOT, check=True, capture_output=True)
+        subprocess.run(["git", "push", "origin", "main"], cwd=ROOT, check=True, capture_output=True)
+        return True, None
+    except subprocess.CalledProcessError as exc:
+        return False, (exc.stderr or exc.stdout or b"").decode("utf-8", "replace").strip()[:300]
+
+
+def arm_envelope(body: dict) -> dict:
+    """Operator pre-approval from the desk: write a bounded same-day envelope.
+
+    reuse_last re-dates the last disarmed envelope (the operator re-approves its
+    bounds for today); otherwise the body must carry explicit order lines.
+    Propagates to the cloud mount via a path-limited commit, mirroring disarm.
+    """
+    today = datetime.now(ET).date()
+    if body.get("reuse_last"):
+        backup = APPROVALS.with_name("approvals.disarmed.json")
+        source = backup if backup.is_file() else APPROVALS
+        if not source.is_file():
+            return {"ok": False, "error": "No previous envelope to re-arm. Use Pre-approve to define bounds."}
+        try:
+            candidate = json.loads(source.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            return {"ok": False, "error": "Previous envelope backup is unreadable."}
+        candidate["as_of"] = today.isoformat()
+        candidate["approved_at"] = datetime.now(UTC).isoformat()
+        candidate["approved_by"] = "operator (dashboard auto re-arm)"
+        candidate["note"] = ((candidate.get("note") or "") + " | re-armed for today via dashboard").strip(" |")
+    else:
+        candidate = {
+            "as_of": today.isoformat(),
+            "approved_at": datetime.now(UTC).isoformat(),
+            "approved_by": "operator (dashboard)",
+            "max_orders": body.get("max_orders"),
+            "max_notional": body.get("max_notional"),
+            "note": str(body.get("note") or "")[:200],
+            "orders": body.get("orders"),
+        }
+    try:
+        batch = ApprovalBatch.model_validate(candidate)
+    except (ValueError, TypeError) as exc:
+        return {"ok": False, "error": f"Envelope invalid: {str(exc)[:300]}"}
+    APPROVALS.write_text(batch.model_dump_json(indent=2), encoding="utf-8")
+    pushed, git_error = _git_push_approvals("Arm auto approval envelope (operator via dashboard)")
+    return {"ok": True, "armed": True, "pushed": pushed, "git_error": git_error, "approvals": build_approvals()}
+
+
+def halt_control(body: dict) -> dict:
+    """Kill-switch from the desk: same flag + journaled transition as the CLI."""
+    halted = body.get("halted")
+    if not isinstance(halted, bool):
+        return {"ok": False, "error": "halted must be a boolean"}
+    reason = str(body.get("reason") or "").strip()[:200]
+    if not reason:
+        reason = "operator kill-switch via dashboard" if halted else "operator resume via dashboard"
+    state = set_halt(JOURNAL.parent, halted, reason)
+    append_event(JOURNAL, "halt.engaged" if halted else "halt.released", state)
+    return {"ok": True, "halt": state, "approvals": build_approvals()}
+
+
 class Handler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(STATIC), **kwargs)
@@ -1197,6 +1278,15 @@ class Handler(SimpleHTTPRequestHandler):
             self.path = "/index.html"
         super().do_GET()
 
+    def _body(self) -> dict:
+        length = int(self.headers.get("Content-Length") or 0)
+        if length <= 0 or length > 64_000:
+            raise ValueError("empty or oversized request body")
+        data = json.loads(self.rfile.read(length))
+        if not isinstance(data, dict):
+            raise ValueError("request body must be a JSON object")
+        return data
+
     def do_POST(self):
         path = self.path.split("?", 1)[0]
         if path == "/api/approvals/disarm":
@@ -1204,6 +1294,18 @@ class Handler(SimpleHTTPRequestHandler):
                 self._json(disarm_envelope())
             except Exception as exc:  # noqa: BLE001
                 self._json({"error": str(exc)}, 500)
+            return
+        if path == "/api/approvals/arm":
+            try:
+                self._json(arm_envelope(self._body()))
+            except Exception as exc:  # noqa: BLE001
+                self._json({"error": str(exc)}, 400)
+            return
+        if path == "/api/halt":
+            try:
+                self._json(halt_control(self._body()))
+            except Exception as exc:  # noqa: BLE001
+                self._json({"error": str(exc)}, 400)
             return
         self._json({"error": "not found"}, 404)
 

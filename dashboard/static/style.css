@@ -1,4 +1,4 @@
-/* TYCHE desk — editorial console aligned with the Fortuna reference design language.
+/* TYCHE desk - editorial console aligned with the Fortuna reference design language.
    Quiet cream surfaces, deep forest-green chrome, serif wordmark, hairline rounded cards,
    explicit financial data channels. Light + dark. Legacy var names are aliased so the
    journal-derived charts, donut and calendar rail (inline-styled in app.js) stay visible. */
@@ -35,7 +35,7 @@
   --err-bg: #fceff0; --err-line: #efc7cc; --err-ink: #9d3342;
   --chrome: #193b30; --chrome-2: #214a39; --chrome-ink: #edf2e9; --chrome-muted: #b6c9ba;
   --chrome-active: #e7eddf; --chrome-active-ink: #1e4535; --chrome-hover: #2b4b3d;
-  /* chart channels — eight separable hues */
+  /* chart channels - eight separable hues */
   --chart-1: #3976b0; --chart-2: #bd7f32; --chart-3: #3c8b79; --chart-4: #8570b1;
   --chart-5: #13795a; --chart-6: #b84251; --chart-7: #926416; --chart-8: #ac5744;
   --chart-other: #8a9a92; --chart-cash: #c3cdc4;
@@ -124,7 +124,6 @@ ul { margin: 0; padding: 0; list-style: none; }
 .brand-name { font-family: var(--font-serif); font-size: 31px; font-weight: 700; letter-spacing: -1.6px; line-height: 1; }
 .brand-name > span { color: var(--accent); }
 [data-theme="dark"] .brand-name > span { color: var(--chrome-active); }
-.brand-sub { display: block; font-family: var(--font-ui); font-size: 9.5px; font-weight: 500; letter-spacing: .04em; color: var(--chrome-muted); margin-top: 5px; }
 .nav-label { font-size: 9px; letter-spacing: .13em; font-weight: 600; color: var(--chrome-muted); margin: 4px 12px 10px; text-transform: uppercase; }
 .primary-nav { display: flex; flex-direction: column; gap: 5px; flex: 1 1 auto; min-height: 0; }
 .nav-item {
@@ -662,13 +661,6 @@ ul { margin: 0; padding: 0; list-style: none; }
 }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 .toast.err { background: var(--red); color: #fff; }
-.footer { margin-top: 34px; padding-top: 22px; border-top: 1px solid var(--sep-hair); }
-.foot-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
-.footer h4 { font: 600 10px/1.4 var(--font-ui); letter-spacing: .09em; text-transform: uppercase; color: var(--label-3); margin-bottom: 12px; }
-.footer ul { display: flex; flex-direction: column; gap: 9px; }
-.footer li { font-size: 11px; color: var(--label-2); line-height: 1.6; }
-.footer .mono { font-size: 10px; color: var(--accent); }
-.foot-line { font-size: 10.5px; color: var(--label-4); margin-top: 22px; line-height: 1.6; }
 
 /* ============================ responsive ============================ */
 @media (max-width: 1200px) {
@@ -687,7 +679,11 @@ ul { margin: 0; padding: 0; list-style: none; }
   .sidebar { width: 74px; padding-inline: 10px; overflow: visible; }
   .workspace-body { margin-left: 74px; }
   .brand { padding-left: 6px; justify-content: center; }
-  .brand-name, .brand-sub, .nav-label, .nav-item > span:not(.nav-dot):not(.nav-badge), .sidebar-foot { display: none; }
+  .brand-name, .nav-label, .nav-item > span:not(.nav-dot):not(.nav-badge) { display: none; }
+  .sidebar-foot { padding: 10px 0 0; margin-top: 10px; }
+  .version-btn { justify-content: center; padding: 8px 4px; }
+  .version-btn > span:not(.version-tag), .version-btn svg { display: none; }
+  .version-tag { font-size: 8.5px; padding: 2px 4px; }
   .nav-item { padding: 13px; justify-content: center; }
   .nav-item svg { width: 20px; height: 20px; }
   .nav-badge, .nav-dot { display: none; }
@@ -703,7 +699,6 @@ ul { margin: 0; padding: 0; list-style: none; }
   .exp-grid { grid-template-columns: 1fr; }
   .stage-grid { grid-template-columns: 1fr 1fr; }
   .approval-grid { grid-template-columns: 1fr; gap: 16px; }
-  .foot-grid { grid-template-columns: 1fr; gap: 20px; }
   .roster-members { grid-template-columns: 1fr; }
   .roster-edges { display: none; }
 }
@@ -723,7 +718,7 @@ ul { margin: 0; padding: 0; list-style: none; }
   .nav-item.nav-admin { display: flex; }
   .workspace-body { margin-left: 0; }
   .topbar { top: 0; padding: 10px 16px; gap: 10px; min-height: 60px; flex-wrap: wrap; }
-  .topbar::before { content: "tyche."; font: 700 24px/1 var(--font-serif); color: var(--accent); letter-spacing: -1px; }
+  .topbar::before { content: "Tyche."; font: 700 24px/1 var(--font-serif); color: var(--accent); letter-spacing: -1px; }
   .breadcrumb { display: none; }
   .topbar-status { margin-left: auto; gap: 6px; }
   .topbar-status .pill { font-size: 10px; padding: 4px 9px; }
@@ -755,15 +750,13 @@ ul { margin: 0; padding: 0; list-style: none; }
 @media (max-width: 380px) {
   .stat-grid { grid-template-columns: 1fr; }
   .cal-phases { grid-template-columns: 1fr; }
-  .topbar-status .pill.chain { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; scroll-behavior: auto !important; }
 }
 
 /* ============================ shell extras ============================ */
-.stamp { font-size: 10.5px; color: var(--label-4); white-space: nowrap; }
-.brand-name .brand-sub { color: var(--chrome-muted); }
+.stamp { font-size: 10.5px; color: var(--label-4); line-height: 1.45; text-align: right; max-width: 190px; }
 .stat-label em { font-style: normal; font-size: 10px; font-weight: 400; color: var(--label-4); }
 .stat-primary .stat-label em { color: #c2d3c0; }
 .stat-value.countdown { font-size: clamp(19px, 1.7vw, 26px); letter-spacing: -.6px; }
@@ -774,3 +767,61 @@ ul { margin: 0; padding: 0; list-style: none; }
 .brief-kill.armed strong { color: var(--red); }
 .brief-row .checks { margin-top: 0; }
 @media (max-width: 600px) { .stamp { display: none; } }
+
+/* ============================ v0.2: account bar + version log ============================ */
+.acct-label { font-size: 10px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--label-3); }
+#account-select { max-width: 230px; font-weight: 600; color: var(--label); }
+.version-btn {
+  display: flex; align-items: center; gap: 8px; width: 100%; padding: 9px 10px;
+  border: 1px solid var(--chrome-hover); border-radius: 10px; background: transparent;
+  color: var(--chrome-muted); font-size: 11px; font-weight: 500;
+}
+.version-btn:hover { background: var(--chrome-hover); color: var(--chrome-ink); }
+.version-btn svg { width: 13px; height: 13px; margin-left: auto; flex-shrink: 0; }
+.version-tag { font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 6px; background: var(--chrome-hover); color: var(--chrome-ink); white-space: nowrap; }
+.changelog-rel h5 { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; text-transform: none; letter-spacing: 0; font-size: 12.5px; color: var(--label); }
+.changelog-date { font-size: 10.5px; color: var(--label-4); font-weight: 400; margin-left: auto; }
+.changelog-list { display: flex; flex-direction: column; gap: 8px; }
+.changelog-list li { font-size: 12px; color: var(--label-2); line-height: 1.6; padding-left: 16px; position: relative; }
+.changelog-list li::before { content: ""; position: absolute; left: 0; top: 8px; width: 6px; height: 6px; border-radius: 2px; background: var(--accent); opacity: .6; }
+
+/* ============================ v0.2: trading mode + kill control ============================ */
+.mode-seg { display: inline-flex; gap: 4px; background: var(--bg-elevated-2); border: 1px solid var(--sep-hair); border-radius: 11px; padding: 4px; flex-wrap: wrap; }
+.mode-opt { border: 0; background: transparent; padding: 8px 16px; border-radius: 8px; font-size: 12px; font-weight: 600; color: var(--label-3); min-height: 36px; }
+.mode-opt:hover:not(:disabled) { color: var(--accent); background: var(--fill-2); }
+.mode-opt.on { background: var(--accent-tint); color: var(--accent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent); }
+.mode-hint { font-size: 11px; color: var(--label-3); line-height: 1.6; margin-top: 10px; }
+.env-form { margin-top: 16px; padding: 16px; border: 1px solid var(--sep-hair); border-radius: 12px; background: var(--bg-elevated-2); }
+.env-form-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+.env-line { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; align-items: center; }
+.env-line .search { flex: 1 1 90px; min-width: 0; }
+.env-line .select { flex: 0 0 84px; }
+.env-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+.env-form-grid label { display: flex; flex-direction: column; gap: 5px; font-size: 10.5px; font-weight: 600; color: var(--label-3); }
+.env-form-grid .search { min-width: 0; width: 100%; }
+.env-note { grid-column: 1 / -1; }
+.env-form-actions { display: flex; gap: 10px; margin-top: 14px; }
+.halt-reason { width: 100%; min-width: 0; margin-top: 12px; }
+.kill-btn { margin-top: 12px; width: 100%; }
+#kill-control-body .kill-state { margin-top: 4px; }
+
+/* ============================ v0.2: plain-language labels ============================ */
+.k-label { font-family: var(--font-ui); font-size: 11.5px; font-weight: 600; color: var(--label-2); }
+.k-raw { font-size: 9.5px; color: var(--label-4); }
+.ins-field { display: flex; flex-direction: column; gap: 2px; }
+.nav-broker { font-size: 10.5px; }
+
+/* ============================ v0.2: alignment + justified copy ============================ */
+.stat-card { display: flex; flex-direction: column; }
+.stat-card .stat-caption { margin-top: auto; padding-top: 9px; }
+.stat-card .stat-caption + .stat-caption { margin-top: 0; padding-top: 6px; }
+.portfolio-grid, .risk-grid, .exp-grid, .controls-grid, .sched-grid, .auto-grid { align-items: stretch; }
+.page-heading p, .section-sub, .table-note, .control-sub, .brief-footnote, .cal-reason,
+.sched-desc, .formula-note, .approval-reason, .tg-text, .mode-hint, .stage-empty {
+  text-align: justify; hyphens: auto;
+}
+@media (max-width: 600px) {
+  .env-form-grid { grid-template-columns: 1fr; }
+  #account-select { max-width: 160px; font-size: 11px; }
+  .acct-label { display: none; }
+}

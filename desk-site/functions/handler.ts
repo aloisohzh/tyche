@@ -98,7 +98,7 @@ async function handleAutomation(): Promise<Response> {
       ok: true,
       live: true,
       secret_configured: true,
-      source: "live — api.qoder.com/api/v1/forward",
+      source: "live - api.qoder.com/api/v1/forward",
       fetched_at: new Date().toISOString(),
       schedules,
       sessions,
@@ -110,7 +110,7 @@ async function handleAutomation(): Promise<Response> {
       ok: false,
       live: false,
       secret_configured: true,
-      source: "Forward API unreachable — committed export",
+      source: "Forward API unreachable - committed export",
       fetched_at: new Date().toISOString(),
     });
   }
