@@ -1,0 +1,5 @@
+# Discovered events pinned by the Desk Head after scout proposal + source
+# validation (tyche events add). Merged into the calendar gate: any event on
+# a date makes it an event day (drive phases halve orders and risk).
+# Static macro/FOMC/earnings anchors live in src/tyche/market_calendar.py.
+events: []

@@ -12,10 +12,12 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime, time, timedelta
 from enum import StrEnum
+from pathlib import Path
 from typing import Literal
 from zoneinfo import ZoneInfo
 
-from pydantic import BaseModel, Field
+import yaml
+from pydantic import AwareDatetime, BaseModel, Field, model_validator
 
 ET = ZoneInfo("America/New_York")
 SGT = ZoneInfo("Asia/Singapore")  # operator's home clock; display-only, cron stays UTC
@@ -106,6 +108,36 @@ class Event(BaseModel):
     name: str
     kind: Literal["macro", "fomc", "earnings", "ipo", "index"]
     time_et: str | None = None
+
+
+class DiscoveredEvent(Event):
+    """Scout-proposed catalyst, validated and pinned by the Desk Head."""
+    symbols: list[str] = Field(default_factory=list)  # empty means market-wide
+    source: str = Field(min_length=1)
+    added_at: AwareDatetime
+
+
+class EventOverlay(BaseModel):
+    events: list[DiscoveredEvent] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _unique(self) -> EventOverlay:
+        keys = [(e.date, e.name) for e in self.events]
+        if len(keys) != len(set(keys)):
+            raise ValueError("duplicate overlay event (date, name)")
+        return self
+
+
+def load_overlay(root: Path | None = None) -> tuple[EventOverlay, str | None]:
+    """Read config/events.yaml; a broken overlay never crashes the gate."""
+    path = (root or Path.cwd()) / "config" / "events.yaml"
+    if not path.exists():
+        return EventOverlay(), None
+    try:
+        payload = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        return EventOverlay.model_validate(payload), None
+    except (OSError, ValueError, yaml.YAMLError) as exc:
+        return EventOverlay(), f"event overlay invalid ({path}): {exc}"
 
 
 # FOMC decision days 2026 + the competition-window macro/earnings calendar
@@ -215,8 +247,11 @@ def earnings_season(d: date) -> str | None:
     return None
 
 
-def events_on(d: date) -> list[Event]:
+def events_on(d: date, overlay: EventOverlay | None = None) -> list[Event]:
+    if overlay is None:
+        overlay, _ = load_overlay()
     events = [e for e in EVENTS_2026 if e.date == d]
+    events += [e for e in overlay.events if e.date == d]
     season = earnings_season(d)
     if season and not any(e.kind == "earnings" for e in events):
         events.append(Event(date=d, name=season, kind="earnings"))
@@ -298,6 +333,7 @@ class GateResult(BaseModel):
     reason: str
     strategy: StrategyDirective
     events: list[Event] = Field(default_factory=list)
+    overlay_error: str | None = None
     next_run: NextRun | None = None
 
 
@@ -448,7 +484,8 @@ def next_run(now: datetime) -> NextRun | None:
     return None
 
 
-def evaluate(now: datetime, intended_phase: SessionPhase | None = None) -> GateResult:
+def evaluate(now: datetime, intended_phase: SessionPhase | None = None,
+             root: Path | None = None) -> GateResult:
     """Calendar gate: decide whether a scheduled run should act, and how.
 
     Called first inside every Qoder automation run. Returns run=False on
@@ -461,7 +498,8 @@ def evaluate(now: datetime, intended_phase: SessionPhase | None = None) -> GateR
     half = is_half_day(d)
     holiday = holiday_name(d)
     phase = phase_at(now)
-    events = events_on(d)
+    overlay, overlay_error = load_overlay(root)
+    events = events_on(d, overlay)
     strategy = strategy_for(phase, bool(events))
     if not trading:
         run, reason = False, f"market closed: {holiday or 'weekend'}"
@@ -474,5 +512,5 @@ def evaluate(now: datetime, intended_phase: SessionPhase | None = None) -> GateR
     return GateResult(
         now_utc=now.astimezone(UTC), now_et=local, trading_day=trading, half_day=half,
         holiday=holiday, phase=phase, run=run, reason=reason, strategy=strategy,
-        events=events, next_run=next_run(now),
+        events=events, overlay_error=overlay_error, next_run=next_run(now),
     )

@@ -21,6 +21,7 @@ from tyche.broker import (
     snapshot_from_dir,
 )
 from tyche.config import load_config
+from tyche.events_cli import app as events_app
 from tyche.execution_state import daily_usage
 from tyche.halt import is_halted, set_halt
 from tyche.journal import append_event, read_events, verify_chain
@@ -45,6 +46,7 @@ from tyche.watchlist import Watchlist
 app = typer.Typer(add_completion=False, help="Regime-aware ETF rotation agent.")
 app.add_typer(lifecycle_app, name="lifecycle")
 app.add_typer(tactical_app, name="tactical")
+app.add_typer(events_app, name="events")
 console = Console()
 
 
@@ -931,6 +933,8 @@ def calendar(
 
     verdict = "[bold green]RUN[/]" if result.run else "[bold red]SKIP[/]"
     console.print(f"{verdict}  {result.reason}")
+    if result.overlay_error:
+        console.print(f"[bold red]Event overlay error:[/] {result.overlay_error}")
     table = Table(title=f"Market gate · {result.now_et:%Y-%m-%d %H:%M %Z}")
     table.add_column("Field")
     table.add_column("Value", overflow="fold")
