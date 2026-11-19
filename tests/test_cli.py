@@ -25,7 +25,7 @@ SYMBOLS = [
 ]
 
 
-def test_plan_cli_end_to_end(tmp_path: Path) -> None:
+def _write_prices(tmp_path: Path) -> Path:
     days = pd.bdate_range("2024-01-01", periods=320)
     rng = np.random.default_rng(7)
     rows: list[tuple[str, str, float]] = []
@@ -38,6 +38,11 @@ def test_plan_cli_end_to_end(tmp_path: Path) -> None:
         )
     prices_path = tmp_path / "prices.csv"
     pd.DataFrame(rows, columns=["date", "symbol", "close"]).to_csv(prices_path, index=False)
+    return prices_path
+
+
+def test_plan_cli_end_to_end(tmp_path: Path) -> None:
+    prices_path = _write_prices(tmp_path)
 
     journal_path = tmp_path / "events.jsonl"
     result = CliRunner().invoke(
@@ -82,6 +87,75 @@ def test_plan_cli_end_to_end(tmp_path: Path) -> None:
     ]
     assert events[0]["type"] == "plan.created"
     assert events[0]["payload"]["plan"]["pipeline"]["thesis_ref"] == pipe["thesis_ref"]
+
+
+def _account_marked_above_close(prices_path: Path, drift: float) -> dict:
+    closes = pd.read_csv(prices_path).groupby("symbol")["close"].last().to_dict()
+    quantity = 10
+    broker_mark = round(closes["US.SPY"] + drift, 2)
+    return {
+        "account_id": "SIM-PLAN-TEST",
+        "cash": 100_000.0 - quantity * broker_mark,
+        "broker_nav": 100_000.0,
+        "prior_close_nav": 100_000.0,
+        "high_water_nav": 100_000.0,
+        "account_type": 2,
+        "market_id": 100,
+        "source": "sim_list",
+        "positions": [
+            {
+                "symbol": "US.SPY",
+                "quantity": quantity,
+                "avg_cost": closes["US.SPY"],
+                "last_price": broker_mark,
+            }
+        ],
+    }
+
+
+def _run_plan(tmp_path: Path, prices_path: Path, account_path: Path):
+    return CliRunner().invoke(
+        app,
+        [
+            "plan",
+            "--prices",
+            str(prices_path),
+            "--account",
+            str(account_path),
+            "--config-root",
+            str(ROOT),
+            "--out",
+            str(tmp_path / "plans"),
+            "--journal",
+            str(tmp_path / "events.jsonl"),
+        ],
+    )
+
+
+def test_plan_tolerates_overnight_mark_drift(tmp_path: Path) -> None:
+    prices_path = _write_prices(tmp_path)
+    account_path = tmp_path / "account.json"
+    account_path.write_text(json.dumps(_account_marked_above_close(prices_path, 5.0)), encoding="utf-8")
+
+    result = _run_plan(tmp_path, prices_path, account_path)
+
+    assert result.exit_code == 0, result.output
+    plan = json.loads(next((tmp_path / "plans").glob("*-plan.json")).read_text(encoding="utf-8"))
+    rules = {breach["rule"] for order in plan["orders"] for breach in order["verdict"]["breaches"]}
+    assert "account.reconcile" not in rules
+
+
+def test_plan_rejects_snapshot_that_does_not_reconcile_at_capture(tmp_path: Path) -> None:
+    prices_path = _write_prices(tmp_path)
+    payload = _account_marked_above_close(prices_path, 5.0)
+    payload["cash"] -= 500.0
+    account_path = tmp_path / "account.json"
+    account_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    result = _run_plan(tmp_path, prices_path, account_path)
+
+    assert result.exit_code != 0
+    assert "does not reconcile at capture" in result.output
 
 
 def _write_run_dir(tmp_path: Path) -> Path:

@@ -303,6 +303,14 @@ def plan(
         raise typer.BadParameter(f"no price data on or before {as_of_date}")
 
     snapshot, prior_close, high_water = _load_account(account)
+    if snapshot.broker_nav is not None and abs(snapshot.broker_nav - snapshot.nav) > max(1.0, snapshot.broker_nav * 0.001):
+        raise typer.BadParameter(
+            f"account snapshot does not reconcile at capture: broker {snapshot.broker_nav:,.2f} "
+            f"vs computed {snapshot.nav:,.2f}; recapture cash/frozen/positions"
+        )
+    # Planning marks come from the price file; broker marks were reconciled above, and normal
+    # overnight price movement must not read as a missing position or cash error.
+    snapshot = snapshot.model_copy(update={"broker_nav": None})
     last_prices = {symbol: float(series.iloc[-1]) for symbol, series in histories.items()}
     for position in snapshot.positions:
         if position.symbol in last_prices:
