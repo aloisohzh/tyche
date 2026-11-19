@@ -7,6 +7,7 @@ System-only edits (tools/vault/env/mount preserved); the compiled researcher
 version bumps and the desk roster is re-pinned. Idempotent; pre-change
 snapshots under gitignored plans/. Never prints env-var values.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -26,7 +27,7 @@ PLANS = ROOT / "plans"
 PLANS.mkdir(exist_ok=True)
 
 R_MARKER = "EVENT DISCOVERY (catalyst scan)"
-R_ANCHOR = "\n\nRULES: every delegation message you receive is self-contained"
+R_ANCHOR = "\n\nOUTPUT 1: reports/"
 R_CLAUSE = (
     "EVENT DISCOVERY (catalyst scan): each run, scan Moomoo news_search and "
     "quote_ipo_list_us for catalysts over the next 14 days affecting "
@@ -43,7 +44,7 @@ R_CLAUSE = (
 )
 
 D_MARKER = "EVENT TRIAGE:"
-D_ANCHOR = "HARD RULES: paper accounts only"
+D_ANCHOR = "\n\nRESEARCH/PROTECTION CONTRACT:"
 D_CLAUSE = (
     "EVENT TRIAGE: after each scout report, validate its 'Event discovery proposals' "
     "against the cited source or a second MCP payload; pin material ones with "
@@ -68,69 +69,96 @@ def sha(text: str) -> str:
 # --- researcher template: insert discovery clause -------------------------
 t = forward.req("GET", f"/templates/{RESEARCHER}")
 system = t["system"]
-if R_MARKER in system:
+researcher_edited = R_MARKER not in system
+if not researcher_edited:
     print("researcher clause already present - skipping template edit")
     new_system = system
 else:
     if system.count(R_ANCHOR) != 1:
-        raise SystemExit(f"expected 1 RULES anchor, found {system.count(R_ANCHOR)}")
+        raise SystemExit(f"expected 1 OUTPUT 1 anchor, found {system.count(R_ANCHOR)}")
     new_system = system.replace(R_ANCHOR, "\n\n" + R_CLAUSE + R_ANCHOR)
-    (PLANS / "cloud-researcher-pre-event-discovery.json").write_text(json.dumps({
-        "retrieved_at": stamp(), "template_id": RESEARCHER, "name": t["name"],
-        "system": system, "tools": t["tools"], "vaults": t["vaults"],
-        "model": t["model"],
-    }, indent=2))
-    forward.req("POST", f"/templates/{RESEARCHER}",
-                {"name": t["name"], "system": new_system})
+    (PLANS / "cloud-researcher-pre-event-discovery.json").write_text(
+        json.dumps(
+            {
+                "retrieved_at": stamp(),
+                "template_id": RESEARCHER,
+                "name": t["name"],
+                "system": system,
+                "tools": t["tools"],
+                "vaults": t["vaults"],
+                "model": t["model"],
+            },
+            indent=2,
+        )
+    )
+    forward.req("POST", f"/templates/{RESEARCHER}", {"name": t["name"], "system": new_system})
     print("researcher template updated")
 
 chk = forward.req("GET", f"/templates/{RESEARCHER}")
 assert chk["system"] == new_system, "post-edit system differs from intended text"
 assert chk["system"].count(R_MARKER) == 1
-disabled = {c["name"] for ts in chk["tools"] for c in ts.get("configs", [])
-            if c.get("enabled") is False}
+disabled = {
+    c["name"] for ts in chk["tools"] for c in ts.get("configs", []) if c.get("enabled") is False
+}
 assert {"sim_trade_input_order", "trading_order_place"} <= disabled, disabled
 assert chk["vaults"] == t["vaults"], "vault binding changed"
 print("verify: researcher clause exact, order-write tools still disabled, vault intact")
 
-agent = forward.req("GET", f"/agents/{RESEARCHER_AGENT}")
+agent = forward.req("GET", f"/agents/{RESEARCHER_AGENT}", check=False)
 version = agent.get("version", agent.get("item", {}).get("version"))
-if not isinstance(version, int):
-    raise SystemExit(f"unexpected compiled version {version!r}; re-pin manually")
-print("compiled researcher version:", version)
+if isinstance(version, int):
+    print("compiled researcher version:", version)
+elif len(sys.argv) > 1:
+    version = int(sys.argv[1])
+    print("compiled researcher version (supplied from qca list_agents):", version)
+else:
+    raise SystemExit(
+        "compiled version unavailable via REST (/agents 404); pass the version "
+        "reported by qca list_agents as the first argument"
+    )
 
 # --- desk template: triage clause + roster re-pin --------------------------
 desk = forward.req("GET", f"/templates/{DESK}")
 desk_system = desk["system"]
 desk_sha_before = sha(desk_system)
 roster = json.loads(json.dumps(desk["multiagent"]))
-(PLANS / "cloud-desk-pre-event-discovery.json").write_text(json.dumps({
-    "retrieved_at": stamp(), "template_id": DESK, "multiagent": desk["multiagent"],
-    "system_sha256": desk_sha_before,
-}, indent=2))
+(PLANS / "cloud-desk-pre-event-discovery.json").write_text(
+    json.dumps(
+        {
+            "retrieved_at": stamp(),
+            "template_id": DESK,
+            "multiagent": desk["multiagent"],
+            "system_sha256": desk_sha_before,
+        },
+        indent=2,
+    )
+)
 
 if D_MARKER in desk_system:
     print("desk triage clause already present - skipping system edit")
     new_desk_system = desk_system
 else:
     if desk_system.count(D_ANCHOR) != 1:
-        raise SystemExit(f"expected 1 HARD RULES anchor, found {desk_system.count(D_ANCHOR)}")
-    new_desk_system = desk_system.replace(D_ANCHOR, D_CLAUSE + D_ANCHOR)
+        raise SystemExit(
+            f"expected 1 RESEARCH/PROTECTION anchor, found {desk_system.count(D_ANCHOR)}"
+        )
+    new_desk_system = desk_system.replace(D_ANCHOR, "\n\n" + D_CLAUSE.strip() + D_ANCHOR)
 
 entries = roster["agents"]
 researcher_entries = [e for e in entries if e.get("template_id") == RESEARCHER]
 if len(researcher_entries) != 1:
     raise SystemExit("roster researcher entry not found exactly once")
 old_pin = researcher_entries[0].get("version")
-if isinstance(old_pin, int) and version <= old_pin:
+if researcher_edited and isinstance(old_pin, int) and version <= old_pin:
     raise SystemExit(f"compiled version {version} did not advance past pin {old_pin}")
+if isinstance(old_pin, int) and version < old_pin:
+    raise SystemExit(f"compiled version {version} is behind pin {old_pin}")
 researcher_entries[0]["version"] = version
 
 system_changed = new_desk_system != desk_system
 pin_changed = old_pin != version
 if system_changed or pin_changed:
-    forward.req("POST", f"/templates/{DESK}",
-                {"system": new_desk_system, "multiagent": roster})
+    forward.req("POST", f"/templates/{DESK}", {"system": new_desk_system, "multiagent": roster})
     print(f"desk updated: system_changed={system_changed}, researcher {old_pin} -> {version}")
 else:
     print("desk already current - skipping edit")
@@ -140,8 +168,9 @@ assert dchk["system"] == new_desk_system
 assert dchk["system"].count(D_MARKER) == 1
 pins = {e.get("template_id"): e.get("version") for e in dchk["multiagent"]["agents"]}
 assert pins[RESEARCHER] == version, pins
-assert sorted((dchk.get("environment_variables") or {}).keys()) == \
-    sorted((desk.get("environment_variables") or {}).keys()), "env keys changed"
+assert sorted((dchk.get("environment_variables") or {}).keys()) == sorted(
+    (desk.get("environment_variables") or {}).keys()
+), "env keys changed"
 assert dchk["github_repositories"] == desk["github_repositories"], "mount changed"
 print("verify: desk pins", pins)
 print("desk env-keys/mount preserved (values never printed)")

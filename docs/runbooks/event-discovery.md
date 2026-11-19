@@ -61,3 +61,7 @@ without weakening any gate.
 idempotent, snapshots under gitignored `plans/`). Schedules reference the desk
 template by id, so the triage clause reaches all hourly runs without schedule
 changes.
+
+The Forward REST `/agents/{id}` route is gone, so read the compiled researcher
+version with the QCA `list_agents` tool first and pass it as the script's
+argument (after a template edit it is the previous pin + 1).
