@@ -16,7 +16,7 @@ from tyche.broker.mcp_json import snapshot_from_dir
 from tyche.broker.tactical_data import normalize_quotes
 from tyche.config import load_config
 from tyche.execution_state import broker_orders, pending_intents
-from tyche.halt import is_halted
+from tyche.halt import effective_halt
 from tyche.journal import append_locked, journal_lock, read_events, verify_chain
 from tyche.lifecycle import LifecycleState, account_hash
 from tyche.lifecycle_cli import emit, fail, load, save
@@ -71,7 +71,7 @@ def inputs(book: Path, account: Path, quotes: Path, orders: Path, journal: Path,
     rows = broker_orders(json.loads(orders.read_text(encoding="utf-8")))
     config, watchlist = load_config(config_root), load(Watchlist, book)
     report = plan_tick(watchlist, snapshot, quote_rows, pending_intents(rows, contracts), rows,
-                       events, state, config, now, halted=is_halted(journal.parent))
+                       events, state, config, now, halted=bool(effective_halt(journal.parent, config_root).get("halted")))
     return report, state, events, snapshot, watchlist, config
 
 
@@ -191,6 +191,8 @@ def reserve(
                         or exit_line.multiplier != intent.multiplier or exit_line.max_qty < intent.quantity):
                     raise ValueError("entry requires a matching bounded exit authorization")
             used_qty, used_notional = envelope_totals(events, today, symbol, intent.side.value)
+            if intent.side.value == "buy" and effective_halt(journal.parent, config_root).get("halted"):
+                raise ValueError("kill-switch engaged - buys blocked, de-risking sells still allowed")
             authorized, reason = authorize_order(
                 batch, symbol=symbol, side=intent.side.value, qty=intent.quantity,
                 limit=intent.limit_price, today=today, used=envelope_usage(journal, today),

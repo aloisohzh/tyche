@@ -327,7 +327,7 @@ def test_exact_reservation_is_atomic_and_one_shot(tmp_path, monkeypatch, blocker
     append_event(journal, "tactical.monitor", {"state": args[6].model_dump(mode="json")})
     monkeypatch.setattr("tyche.tactical_cli.now_utc", lambda: now)
     monkeypatch.setattr("tyche.tactical_cli.load_config", lambda _: args[7])
-    cmd = ["tactical", "reserve", "--symbol", OPT, "--journal", str(journal), "--config-root", str(ROOT)]
+    cmd = ["tactical", "reserve", "--symbol", OPT, "--journal", str(journal), "--config-root", str(tmp_path)]
     for key, path in paths.items():
         cmd.extend(["--" + key, str(path)])
     runner = CliRunner()

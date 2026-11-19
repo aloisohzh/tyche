@@ -1,17 +1,31 @@
-// Tyche desk live adapter — server-side reads only, no writes, no secrets in responses.
+// Tyche desk live adapter - server-side reads, plus an operator-gated control path.
 //
-// /state      → latest sanitized desk state committed to the public repo (the desk's
+// /state      -> latest sanitized desk state committed to the public repo (the desk's
 //               push-back refreshes it; the Python builders stay the single source of truth).
-// /automation → live Forward schedule/session health via a server-side PAT, overlaid on the
+// /automation -> live Forward schedule/session health via a server-side PAT, overlaid on the
 //               committed deterministic calendar; degrades to the committed export when the
 //               secret is absent or Forward is unreachable.
+// /control    -> POST operator console (passphrase-gated): arm/disarm the approval envelope
+//               and engage/release the kill-switch by committing data/approvals.json and
+//               data/halt.json through the GitHub contents API. GET /control/status reports
+//               only whether the console is configured. Visitors without the passphrase see
+//               a read-only desk; secrets never appear in responses or client code.
 //
-// The browser never sees the PAT. Only selected (slimmed) fields are returned, never raw
+// The browser never sees the PATs. Only selected (slimmed) fields are returned, never raw
 // upstream bodies or exception text.
 
 const REPO_RAW = "https://raw.githubusercontent.com/aloisohzh/tyche/main/desk-site/web/data";
 const FORWARD_BASE = "https://api.qoder.com/api/v1/forward";
+const GH_REPO = "aloisohzh/tyche";
 const TIMEOUT_MS = 8000;
+
+function env(name: string): string | undefined {
+  return Deno.env.get(name);
+}
+
+function ghApi(): string {
+  return env("TYCHE_GITHUB_API") || "https://api.github.com";
+}
 
 type Json = Record<string, unknown>;
 
@@ -116,13 +130,187 @@ async function handleAutomation(): Promise<Response> {
   }
 }
 
+// ---------------------------------------------------------------- operator console
+function b64encode(s: string): string {
+  const bytes = new TextEncoder().encode(s);
+  let bin = "";
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin);
+}
+
+function b64decode(s: string): string {
+  const bin = atob(s.replace(/\s/g, ""));
+  return new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0)));
+}
+
+function todayET(): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(new Date());
+}
+
+function operatorConfigured(): boolean {
+  return Boolean(env("TYCHE_OPERATOR_PASSPHRASE") && env("TYCHE_GITHUB_PAT"));
+}
+
+function ghHeaders(pat: string): Record<string, string> {
+  return {
+    authorization: "Bearer " + pat,
+    accept: "application/vnd.github+json",
+    "user-agent": "tyche-desk",
+    "content-type": "application/json",
+  };
+}
+
+async function ghFetch(url: string, pat: string, init?: RequestInit): Promise<Response> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...init, headers: ghHeaders(pat), signal: ctrl.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function ghRead(path: string, pat: string): Promise<{ sha?: string; text?: string }> {
+  const res = await ghFetch(`${ghApi()}/repos/${GH_REPO}/contents/${path}?ref=main`, pat);
+  if (res.status === 404) return {};
+  if (!res.ok) throw new Error("gh read " + res.status);
+  const d = (await res.json()) as Json;
+  return { sha: d.sha as string, text: b64decode((d.content as string) || "") };
+}
+
+async function ghCommit(path: string, pat: string, message: string, text: string | null, sha?: string): Promise<void> {
+  const url = `${ghApi()}/repos/${GH_REPO}/contents/${path}`;
+  if (text === null) {
+    if (!sha) return; // nothing to delete
+    const res = await ghFetch(url, pat, { method: "DELETE", body: JSON.stringify({ message, sha, branch: "main" }) });
+    if (!res.ok) throw new Error("gh delete " + res.status);
+    return;
+  }
+  const body: Json = { message, content: b64encode(text), branch: "main" };
+  if (sha) body.sha = sha;
+  const res = await ghFetch(url, pat, { method: "PUT", body: JSON.stringify(body) });
+  if (!res.ok) throw new Error("gh write " + res.status);
+}
+
+function finitePos(x: unknown): x is number {
+  return typeof x === "number" && Number.isFinite(x) && x > 0;
+}
+
+function validateEnvelope(e: Json): string | null {
+  const orders = e.orders;
+  if (!Array.isArray(orders) || orders.length < 1) return "envelope needs at least one order line";
+  const maxOrders = e.max_orders;
+  if (typeof maxOrders !== "number" || !Number.isInteger(maxOrders) || maxOrders < 1) return "max_orders must be a whole number >= 1";
+  if (e.max_notional != null && !finitePos(e.max_notional)) return "max_notional must be a positive number";
+  const seen = new Set<string>();
+  for (const raw of orders) {
+    const o = raw as Json;
+    if (typeof o.symbol !== "string" || !o.symbol) return "each line needs a symbol";
+    if (o.side !== "buy" && o.side !== "sell") return "side must be buy or sell";
+    if (typeof o.max_qty !== "number" || !Number.isInteger(o.max_qty) || o.max_qty < 1) return "max_qty must be a whole number >= 1";
+    if (o.multiplier != null && o.multiplier !== 1 && o.multiplier !== 100) return "multiplier must be 1 or 100";
+    if (o.max_total_qty != null && (typeof o.max_total_qty !== "number" || !Number.isInteger(o.max_total_qty) || o.max_total_qty < 1)) {
+      return "max_total_qty must be a whole number >= 1";
+    }
+    if (o.side === "buy") {
+      if (!finitePos(o.limit_max) || o.limit_min != null) return "buy line needs a positive limit_max and no limit_min";
+    } else if (!finitePos(o.limit_min) || o.limit_max != null) {
+      return "sell line needs a positive limit_min and no limit_max";
+    }
+    const key = o.symbol + "|" + o.side;
+    if (seen.has(key)) return "duplicate symbol+side lines in envelope";
+    seen.add(key);
+  }
+  return null;
+}
+
+async function handleControl(req: Request): Promise<Response> {
+  const passphrase = env("TYCHE_OPERATOR_PASSPHRASE");
+  const pat = env("TYCHE_GITHUB_PAT");
+  if (!passphrase || !pat) {
+    return json({ ok: false, configured: false, error: "Operator console not configured - add TYCHE_OPERATOR_PASSPHRASE and TYCHE_GITHUB_PAT in Sites Settings." }, 503);
+  }
+  let body: Json;
+  try {
+    body = (await req.json()) as Json;
+  } catch {
+    return json({ ok: false, error: "invalid JSON body" }, 400);
+  }
+  if (!body || typeof body !== "object" || body.passphrase !== passphrase) {
+    return json({ ok: false, error: "passphrase rejected" }, 401);
+  }
+  const action = body.action;
+  try {
+    if (action === "ping") return json({ ok: true, operator: true });
+
+    if (action === "halt") {
+      if (typeof body.halted !== "boolean") return json({ ok: false, error: "halted must be a boolean" }, 400);
+      const reason = String(body.reason || "").slice(0, 200) || (body.halted ? "operator kill-switch via hosted desk" : "operator resume via hosted desk");
+      const state = { halted: body.halted, reason, ts: new Date().toISOString(), set_by: "operator (hosted desk)" };
+      const cur = await ghRead("data/halt.json", pat);
+      await ghCommit("data/halt.json", pat, body.halted ? "Engage kill-switch (operator via hosted desk)" : "Release kill-switch (operator via hosted desk)", JSON.stringify(state, null, 2), cur.sha);
+      return json({ ok: true, pushed: true, halt: state });
+    }
+
+    if (action === "disarm") {
+      const cur = await ghRead("data/approvals.json", pat);
+      await ghCommit("data/approvals.json", pat, "Disarm auto approval envelope (operator via hosted desk)", null, cur.sha);
+      return json({ ok: true, pushed: true, disarmed: true });
+    }
+
+    if (action === "arm") {
+      let candidate: Json;
+      if (body.reuse_last) {
+        const cur = await ghRead("data/approvals.json", pat);
+        if (!cur.text) return json({ ok: false, error: "No previous envelope in the cloud feed - use Pre-approve to define bounds." }, 400);
+        try {
+          candidate = JSON.parse(cur.text) as Json;
+        } catch {
+          return json({ ok: false, error: "Previous envelope is unreadable." }, 400);
+        }
+        candidate.approved_by = "operator (hosted auto re-arm)";
+        candidate.note = String(candidate.note || "") + " | re-armed for today via hosted desk";
+      } else {
+        candidate = {
+          max_orders: body.max_orders,
+          max_notional: body.max_notional ?? null,
+          note: String(body.note || "").slice(0, 200),
+          orders: body.orders,
+          approved_by: "operator (hosted desk)",
+        };
+      }
+      candidate.as_of = todayET();
+      candidate.approved_at = new Date().toISOString();
+      const invalid = validateEnvelope(candidate);
+      if (invalid) return json({ ok: false, error: "Envelope invalid: " + invalid }, 400);
+      const cur = await ghRead("data/approvals.json", pat);
+      await ghCommit("data/approvals.json", pat, "Arm auto approval envelope (operator via hosted desk)", JSON.stringify(candidate, null, 2), cur.sha);
+      return json({ ok: true, pushed: true, armed: true, envelope: candidate });
+    }
+
+    return json({ ok: false, error: "unknown action" }, 400);
+  } catch {
+    return json({ ok: false, error: "Cloud write failed - check that TYCHE_GITHUB_PAT has contents:write on the repo." }, 502);
+  }
+}
+
 export async function handleRequest(req: Request): Promise<Response> {
-  if (req.method !== "GET") return json({ error: "method_not_allowed" }, 405);
   const path = new URL(req.url).pathname.replace(/\/+$/, "");
+  if (path.endsWith("/control/status")) {
+    if (req.method !== "GET") return json({ error: "method_not_allowed" }, 405);
+    return json({ operator_configured: operatorConfigured() });
+  }
+  if (path.endsWith("/control")) {
+    if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
+    return handleControl(req);
+  }
+  if (req.method !== "GET") return json({ error: "method_not_allowed" }, 405);
   if (path.endsWith("/state")) return handleState();
   if (path.endsWith("/automation")) return handleAutomation();
   if (path === "" || path.endsWith("/app") || path.endsWith("/health")) {
-    return json({ ok: true, service: "tyche-desk-adapter", endpoints: ["/state", "/automation"] });
+    return json({ ok: true, service: "tyche-desk-adapter", endpoints: ["/state", "/automation", "/control"] });
   }
   return json({ error: "not_found" }, 404);
 }

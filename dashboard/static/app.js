@@ -5,8 +5,20 @@ const $ = (sel) => document.querySelector(sel);
 const esc = (s) => String(s ?? "").replace(/[—–]/g, "-").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const hy = (s) => String(s ?? "").replace(/[—–]/g, "-");
 
-const VERSION = "0.2.2";
+const VERSION = "0.3.0";
 const CHANGELOG = [
+  {
+    version: "0.3.0", date: "2026-11-19", title: "Trader-first overview + hosted operator console",
+    items: [
+      "Overview now leads with a trader scorecard: total paper P&L, open and realized P&L, win rate, expectancy, Sharpe and max drawdown - with honest small-sample labels.",
+      "Automation evidence (schedules, sessions, credits, journal chain) moved off Overview onto the Automation page, where it belongs.",
+      "Hosted operator console: unlock the Controls page with your passphrase to select trading mode and operate the kill-switch from the published site; everyone else stays view-only (refresh always works).",
+      "Kill-switch now reaches the cloud desk: a shared data/halt.json flag rides the git mount, so buys are blocked everywhere while de-risking sells still pass.",
+      "'Updated' stamp is now relative Singapore time (just now, 5 mins ago, yesterday) and ticks live.",
+      "Descriptions use the full container width; the empty decorative banner is gone; Controls rebuilt as icon rows with tighter card spacing.",
+      "Plain-English copy across every page - the market calendar gate, schedule note and risk labels read like a trader wrote them.",
+    ],
+  },
   {
     version: "0.2.2", date: "2026-11-19", title: "ANT IPO event capture",
     items: [
@@ -61,6 +73,11 @@ let rejQuery = "";
 let deskAcct = null;
 let autoErrorShown = false;
 let insView = "all";
+let operatorKey = null;
+let operatorConfigured = null;
+const controlsEnabled = () => (!LIVE && !SNAPSHOT) || (!!LIVE && !!operatorKey);
+const CONTROL_URL = LIVE ? (LIVE.control_url || "/functions/v1/app/control") : null;
+const CONTROL_STATUS_URL = LIVE ? (LIVE.control_status_url || "/functions/v1/app/control/status") : null;
 
 const THEMES = ["light", "dark"];
 function currentTheme() { return document.documentElement.getAttribute("data-theme") || "light"; }
@@ -118,11 +135,11 @@ const fieldLabel = (f) => FIELD_LABELS[f] || humanize(f);
 const ruleLabel = (r) => RULE_LABELS[r] || humanize(r);
 
 const STAGES = [
-  { key: "thesis", name: "Thesis", sub: "hypothesis & theme", empty: "No per-trade thesis cards yet - the playbook reference is a P1 instrumentation gap. The regime hypothesis lives in plan notes." },
-  { key: "multifactor", name: "Multi-factor", sub: "macro · technical · flow", empty: "Technicals are in plan signals. Macro, sentiment & flow and seasonality briefs arrive with the researcher child." },
-  { key: "outlook", name: "Outlook", sub: "bullish / bearish / range", empty: "Market-level regime only today; per-setup outlook + conviction and the act/wait gate are pending." },
+  { key: "thesis", name: "Thesis", sub: "hypothesis & theme", empty: "No per-trade thesis cards yet - the playbook reference is still being built. The market view lives in the plan notes." },
+  { key: "multifactor", name: "Multi-factor", sub: "macro · technical · flow", empty: "Technicals are in the plan signals. Macro, sentiment, flow and seasonality briefs arrive with the researcher." },
+  { key: "outlook", name: "Outlook", sub: "bullish / bearish / range", empty: "Market-level view only today; the per-trade outlook and act/wait check are still being built." },
   { key: "vehicle", name: "Vehicle & Edge", sub: "ETFs · stocks · options", empty: "" },
-  { key: "edge", name: "Edge / Expectancy", sub: "expected vs realized", empty: "Pre-trade expected edge is not instrumented yet; realized edge renders here as trades close." },
+  { key: "edge", name: "Edge / Expectancy", sub: "expected vs realized", empty: "Pre-trade expected edge is not built yet; realized edge shows here as trades close." },
 ];
 const STATUS_LABEL = {
   closed: "Closed", filled: "Filled", "halt-skipped": "Halt-skipped", blocked: "Blocked",
@@ -158,6 +175,29 @@ const dualTime = (ts) => ts ? `${etHHMM(ts)} ET · ${sgtHHMM(ts)} SGT` : "-";
 const dualCell = (ts) => ts ? `<div>${etTime(ts)} ET</div><div class="dim">${sgtTime(ts)} SGT</div>` : "-";
 const dateLabel = (ts) => ts ? new Date(ts).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: TZ_ET }) : "-";
 const etDateStr = (ts) => ts ? new Date(ts).toLocaleDateString("en-CA", { timeZone: TZ_ET }) : "";
+const sgtDateStr = (ts) => ts ? new Date(ts).toLocaleDateString("en-CA", { timeZone: TZ_SGT }) : "";
+function relativeTime(ts) {
+  if (!ts) return "";
+  const t = Date.parse(ts);
+  if (Number.isNaN(t)) return "";
+  const sec = Math.max(0, (Date.now() - t) / 1000);
+  if (sec < 45) return "just now";
+  if (sec < 90) return "1 min ago";
+  if (sec < 3600) return Math.floor(sec / 60) + " mins ago";
+  if (sec < 5400) return "1 hour ago";
+  if (sec < 86400) return Math.floor(sec / 3600) + " hours ago";
+  const days = Math.round((Date.parse(sgtDateStr(new Date().toISOString()) + "T00:00:00Z") - Date.parse(sgtDateStr(ts) + "T00:00:00Z")) / 86400000);
+  if (days <= 1) return "yesterday";
+  if (days < 7) return days + " days ago";
+  return new Date(ts).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: TZ_SGT });
+}
+function stampText() {
+  if (!STATE) return "Loading…";
+  const ts = STATE.generated_at;
+  const rel = relativeTime(ts);
+  const prefix = SNAPSHOT ? "Built " : "Updated ";
+  return rel ? `${prefix}${rel} · SGT ${sgtHHMM(ts)}` : prefix + dualTime(ts);
+}
 const sym = (s) => String(s || "").replace(/^US\./, "");
 function fmtDur(sec) {
   if (sec == null) return "-";
@@ -235,7 +275,7 @@ async function fetchAll(manual = false) {
   }
   if (STATE) {
     renderAll();
-    setText("#updated-stamp", (SNAPSHOT ? "Snapshot built " : "Updated ") + dualTime(STATE.generated_at));
+    setText("#updated-stamp", stampText());
   }
   if (stateErr) {
     showToast(STATE ? "State refresh failed: " + stateErr + " - keeping last good data" : "Could not load desk state: " + stateErr, true);
@@ -293,6 +333,60 @@ function renderDesk() {
   $("#window-fill").style.width = (frac * 100).toFixed(1) + "%";
   const day = Math.min(12, Math.max(1, Math.floor((now - start) / 86400000) + 1));
   $("#window-days").textContent = `Day ${day} of 12 · ${dateLabel(new Date(now).toISOString())} · closes Nov 28`;
+}
+
+/* ---------------- trader scorecard ---------------- */
+function markStats(marks) {
+  let peak = -Infinity, dd = 0;
+  for (const m of marks) { peak = Math.max(peak, m.nav); dd = Math.max(dd, (peak - m.nav) / peak); }
+  const rets = [];
+  for (let i = 1; i < marks.length; i++) rets.push(marks[i].nav / marks[i - 1].nav - 1);
+  let sharpe = null;
+  if (rets.length >= 3) {
+    const mean = rets.reduce((a, b) => a + b, 0) / rets.length;
+    const varr = rets.reduce((a, b) => a + (b - mean) ** 2, 0) / (rets.length - 1);
+    const sd = Math.sqrt(varr);
+    if (sd > 1e-12) sharpe = mean / sd;
+  }
+  return { dd, sharpe, rets };
+}
+function scoreTile(label, value, sub, cls = "") {
+  return `<div class="score-tile"><span class="score-label">${esc(label)}</span><b class="score-value mono ${cls}">${value}</b><span class="score-sub">${sub}</span></div>`;
+}
+function renderScorecard() {
+  const grid = $("#score-grid");
+  if (!grid) return;
+  const snap = currentSnap();
+  const marks = STATE.nav_marks[deskAcct] || [];
+  const e = STATE.expectancy || {};
+  const { dd, sharpe } = markStats(marks);
+  setText("#score-acct-tag", deskAcct ? acctLabel(deskAcct) : "-");
+
+  const base = marks.length ? marks[0].nav : null;
+  const cur = snap ? snap.nav : (marks.length ? marks[marks.length - 1].nav : null);
+  const total = base != null && cur != null ? cur - base : null;
+  const totalPct = total != null && base ? total / base : null;
+  const open = (snap?.positions || []).reduce((a, p) => a + (p.pl || 0), 0);
+  const hasPos = (snap?.positions || []).length > 0;
+
+  const tiles = [
+    scoreTile("Total P&L", total != null ? signedMoney(total) : "-",
+      total != null ? `${signedPct(totalPct, 2)} vs first mark` : "needs a starting mark", plClass(total)),
+    scoreTile("Open P&L", hasPos ? signedMoney(open) : "-",
+      hasPos ? `unrealized · ${snap.positions.length} position${snap.positions.length === 1 ? "" : "s"}` : "no open positions", plClass(open)),
+    scoreTile("Realized (net)", e.pnl_net != null ? signedMoney(e.pnl_net) : "-",
+      e.closed_n ? `${e.closed_n} closed · net of fees` : "no closed trades yet", plClass(e.pnl_net)),
+    scoreTile("Win rate", e.win_rate != null ? pct(e.win_rate, 0) : "-",
+      e.closed_n ? `${e.closed_n} closed trade${e.closed_n === 1 ? "" : "s"}` : "small sample", ""),
+    scoreTile("Expectancy", e.expectancy_r != null ? e.expectancy_r.toFixed(2) + " R" : "-",
+      e.expectancy_r != null ? "average edge per trade" : "needs wins and losses", plClass(e.expectancy_r)),
+    scoreTile("Sharpe", sharpe != null ? sharpe.toFixed(2) : "-",
+      sharpe != null ? "per mark · provisional" : "needs 3+ marks", ""),
+    scoreTile("Max drawdown", marks.length ? pct(dd, 2) : "-",
+      marks.length ? `from ${marks.length} mark${marks.length === 1 ? "" : "s"}` : "no marks yet", dd > 0 ? "neg" : ""),
+  ];
+  grid.innerHTML = tiles.join("");
+  setText("#score-note", "Sharpe is measured between NAV marks (not annualized) and stays blank until there are at least three. Realized P&L is net of modeled fees from closed trades. Every figure is provisional while the sample is small - the journal is the only truth.");
 }
 
 /* ---------------- pipeline ---------------- */
@@ -404,7 +498,7 @@ function openDrawer(cardId) {
       o.events.map((e) => `<li><span class="ev-type">${esc(e.type)}</span><span class="ev-ts">${etHHMM(e.ts)} ET · ${sgtHHMM(e.ts)} SGT</span><span class="ev-hash">${esc(e.hash.slice(0, 12))}…</span></li>`).join("") +
       `</ul></div>`;
   }
-  html += `<p class="table-note" style="padding:0">Provenance: <b>journaled</b> = carried by the plan/journal · <b>derived</b> = computed deterministically from journaled inputs + pinned config · <b>gap</b> = not instrumented yet. Nothing is fabricated - the journal is the only truth.</p>`;
+  html += `<p class="table-note" style="padding:0">Provenance: <b>journaled</b> = written down at plan time · <b>derived</b> = computed from the record · <b>gap</b> = not captured yet. Nothing is made up - the journal is the only truth.</p>`;
   $("#drawer-body").innerHTML = html;
   $("#drawer").classList.add("open");
   $("#drawer").setAttribute("aria-hidden", "false");
@@ -471,9 +565,9 @@ function renderKill() {
   const items = events.map((ev) => {
     const cls = ev.type === "halt.engaged" ? "ev-engaged" : ev.type === "halt.skip" ? "ev-skip" : ev.type === "halt.released" ? "ev-released" : "";
     let text;
-    if (ev.type === "halt.skip") text = `withheld ${sym(ev.payload.symbol)} ${ev.payload.quantity} - ${esc(ev.payload.reason)}`;
-    else if (ev.type === "halt.engaged") text = `halt engaged - ${esc(ev.payload.reason)}`;
-    else if (ev.type === "halt.released") text = `halt released - ${esc(ev.payload.reason)}`;
+    if (ev.type === "halt.skip") text = `blocked ${sym(ev.payload.symbol)} ${ev.payload.quantity} - ${esc(ev.payload.reason)}`;
+    else if (ev.type === "halt.engaged") text = `kill-switch engaged - ${esc(ev.payload.reason)}`;
+    else if (ev.type === "halt.released") text = `kill-switch released - ${esc(ev.payload.reason)}`;
     else if (ev.type === "order.filled") text = `de-risk sell filled ${ev.payload.quantity} ${sym(ev.payload.symbol)} @ ${money(ev.payload.price)}`;
     else text = `de-risk sell requested ${sym(ev.payload.symbol)} ${ev.payload.quantity}`;
     return `<li class="${cls}"><span class="mono">${etHHMM(ev.ts)} ET</span> - ${text}</li>`;
@@ -501,7 +595,7 @@ function renderApproval() {
   pill.title = hy(a.reason || "");
 
   const env = a.envelope;
-  const canControl = !LIVE && !SNAPSHOT;
+  const canControl = controlsEnabled();
   const modeState = !armed ? "manual" : String(env?.approved_by || "").includes("auto re-arm") ? "auto" : "pre";
   let envelopeHtml;
   if (env && Array.isArray(env.orders) && env.orders.length) {
@@ -541,7 +635,7 @@ function renderApproval() {
     </div>
     <p class="mode-hint">${canControl
       ? "Manual confirms every order. Auto re-uses your last approved bounds for today. Pre-approve defines fresh bounds. The kill-switch overrides all modes."
-      : "Read-only feed - trading mode is selectable on the local desk console."}</p>`;
+      : (LIVE ? "View-only - unlock the operator console above to change the trading mode. Everyone can refresh." : "Read-only snapshot - trading mode is selectable on the live desk.")}</p>`;
 
   const envForm = canControl ? `
     <div class="env-form" id="env-form" hidden>
@@ -623,10 +717,96 @@ async function postControl(url, payload) {
   return j;
 }
 
+async function controlPost(localUrl, action, payload = {}) {
+  if (!LIVE) return postControl(localUrl, payload);
+  if (!operatorKey) throw new Error("Operator console locked - unlock it first");
+  try {
+    return await postControl(CONTROL_URL, { ...payload, passphrase: operatorKey, action });
+  } catch (e) {
+    if (/passphrase/i.test(e.message)) {
+      operatorKey = null;
+      renderOperator(); renderApproval(); renderKillControl();
+    }
+    throw e;
+  }
+}
+
+/* ---------------- operator console (hosted) ---------------- */
+async function fetchOperatorStatus() {
+  if (!LIVE) return;
+  try {
+    const r = await fetch(CONTROL_STATUS_URL, { cache: "no-store" });
+    const j = await r.json();
+    operatorConfigured = !!j.operator_configured;
+  } catch (e) {
+    operatorConfigured = false;
+  }
+  renderOperator();
+}
+
+function renderOperator() {
+  const card = $("#operator-card");
+  if (!card) return;
+  if (!LIVE) { card.hidden = true; return; }
+  card.hidden = false;
+  const state = $("#operator-state");
+  const row = $("#operator-row");
+  const sub = $("#operator-sub");
+  const icon = $("#operator-icon");
+  if (operatorConfigured === false) {
+    row.hidden = true;
+    state.className = "pill cached";
+    state.querySelector("span").textContent = "Not configured";
+    sub.textContent = "Operator controls are disabled on this hosted desk until the owner adds TYCHE_OPERATOR_PASSPHRASE and TYCHE_GITHUB_PAT in Sites Settings. Everyone can still refresh and view every figure.";
+    icon.classList.remove("ok");
+    return;
+  }
+  if (operatorKey) {
+    row.hidden = true;
+    state.className = "pill live-pill live";
+    state.querySelector("span").textContent = "Unlocked";
+    sub.innerHTML = 'Operator unlocked - you can change the trading mode and kill-switch below. <button class="text-button" id="operator-lock" type="button">Lock again</button>';
+    const lock = $("#operator-lock");
+    if (lock) lock.addEventListener("click", lockOperator);
+    icon.classList.add("ok");
+  } else {
+    row.hidden = false;
+    state.className = "pill cached";
+    state.querySelector("span").textContent = "Locked";
+    sub.textContent = "This desk is shared read-only. Unlock with your operator passphrase to change the trading mode or the kill-switch. The passphrase is held in memory only and never stored.";
+    icon.classList.remove("ok");
+  }
+}
+
+function lockOperator() {
+  operatorKey = null;
+  renderOperator(); renderApproval(); renderKillControl();
+  showToast("Operator console locked - controls are view-only again");
+}
+
+async function unlockOperator() {
+  const inp = $("#operator-pass");
+  const pass = (inp?.value || "").trim();
+  if (!pass) { showToast("Enter your operator passphrase", true); return; }
+  const btn = $("#operator-unlock");
+  btn.disabled = true; btn.textContent = "Unlocking…";
+  try {
+    await postControl(CONTROL_URL, { passphrase: pass, action: "ping" });
+    operatorKey = pass;
+    inp.value = "";
+    renderOperator(); renderApproval(); renderKillControl();
+    showToast("Operator console unlocked - controls enabled");
+  } catch (e) {
+    showToast("Unlock failed: " + e.message, true);
+  } finally {
+    btn.disabled = false; btn.textContent = "Unlock";
+  }
+}
+
 async function disarmAuto() {
   if (!confirm("Switch to Manual and propagate to the cloud desk?\n\nOrders revert to per-order confirmation. This commits + pushes the envelope removal. Reversible - re-arm any time with Auto or Pre-approve.")) return;
   try {
-    const j = await postControl("/api/approvals/disarm");
+    const j = await controlPost("/api/approvals/disarm", "disarm");
     if (j.pushed) showToast("Manual mode - per-order confirmation (cloud synced)");
     else showToast("Disarmed locally; cloud push failed: " + (j.git_error || "unknown"), true);
     await fetchAll(true);
@@ -638,7 +818,7 @@ async function disarmAuto() {
 async function armAuto() {
   if (!confirm("Auto mode: re-arm your LAST approved envelope for today?\n\nThe previous bounds (symbols, quantities, limit bounds, order budget) are re-approved as-is for today's ET date and pushed to the cloud desk. Choose Pre-approve instead to define fresh bounds.")) return;
   try {
-    const j = await postControl("/api/approvals/arm", { reuse_last: true });
+    const j = await controlPost("/api/approvals/arm", "arm", { reuse_last: true });
     showToast(j.pushed ? "Auto armed - last approved bounds valid today (cloud synced)" : "Armed locally; cloud push failed: " + (j.git_error || "unknown"), !j.pushed);
     await fetchAll(true);
   } catch (e) {
@@ -665,7 +845,7 @@ async function submitEnvelope() {
   const btn = $("#env-submit");
   btn.disabled = true; btn.textContent = "Arming…";
   try {
-    const j = await postControl("/api/approvals/arm", { max_orders: maxOrders, max_notional: maxNotional, note: $("#env-note").value, orders: lines });
+    const j = await controlPost("/api/approvals/arm", "arm", { max_orders: maxOrders, max_notional: maxNotional, note: $("#env-note").value, orders: lines });
     showToast(j.pushed ? "Envelope armed - pre-approved auto within bounds (cloud synced)" : "Armed locally; cloud push failed: " + (j.git_error || "unknown"), !j.pushed);
     await fetchAll(true);
   } catch (e) {
@@ -678,15 +858,16 @@ function renderKillControl() {
   const wrap = $("#kill-control-body");
   if (!wrap) return;
   const halted = STATE.halt.halted;
-  const canControl = !LIVE && !SNAPSHOT;
+  const canControl = controlsEnabled();
+  const srcTag = STATE.halt.source === "repo" ? " · shared cloud flag" : "";
   wrap.innerHTML = `
     <div class="kill-state ${halted ? "armed" : "clear"}"><span class="kill-lamp ${halted ? "armed" : "clear"}"></span><strong>${halted ? "ARMED" : "CLEAR"}</strong></div>
-    <div class="kill-meta">${esc(STATE.halt.reason || "")} · ${dualTime(STATE.halt.ts)}</div>
+    <div class="kill-meta">${esc(STATE.halt.reason || "")} · ${dualTime(STATE.halt.ts)}${srcTag}</div>
     ${canControl ? `
       ${halted ? "" : '<input type="text" id="halt-reason" class="search halt-reason" maxlength="200" placeholder="Reason for halting (journaled)" aria-label="Halt reason">'}
       <button class="btn ${halted ? "btn-primary" : "disarm-btn"} kill-btn" id="kill-toggle">${halted ? "Release kill-switch" : "Engage kill-switch"}</button>
-      <p class="table-note" style="padding:10px 0 0">${halted ? "Release resumes buys after your review. The transition is journaled." : "Engaging blocks new buys immediately; de-risking sells still pass. The transition is journaled."}</p>
-    ` : '<p class="table-note" style="padding:10px 0 0">Read-only feed - the kill-switch is operated from the local desk console or <code>tyche halt</code> / <code>tyche resume</code>.</p>'}`;
+      <p class="table-note" style="padding:10px 0 0">${halted ? "Release resumes buys after your review. The change is journaled and reaches the cloud desk." : "Engaging blocks new buys everywhere immediately; de-risking sells still pass. The change is journaled and reaches the cloud desk."}</p>
+    ` : `<p class="table-note" style="padding:10px 0 0">${LIVE ? "View-only - unlock the operator console above to operate the kill-switch." : "Read-only snapshot - the kill-switch is operated from the live desk."}</p>`}`;
   const btn = $("#kill-toggle");
   if (btn) btn.addEventListener("click", () => toggleHalt(!halted));
 }
@@ -700,8 +881,8 @@ async function toggleHalt(halted) {
   const btn = $("#kill-toggle");
   if (btn) { btn.disabled = true; btn.textContent = halted ? "Engaging…" : "Releasing…"; }
   try {
-    await postControl("/api/halt", { halted, reason });
-    showToast(halted ? "Kill-switch ARMED - buys blocked, transition journaled" : "Kill-switch released - buys permitted, transition journaled");
+    await controlPost("/api/halt", "halt", { halted, reason });
+    showToast(halted ? "Kill-switch ARMED - buys blocked everywhere, transition journaled" : "Kill-switch released - buys permitted, transition journaled");
     await fetchAll(true);
   } catch (e) {
     showToast("Kill-switch change failed: " + e.message, true);
@@ -737,9 +918,9 @@ function renderGauges() {
     ${gauge("Order attempts today", ordersToday / risk.max_orders_per_day, 1, "daily cap", null, `${ordersToday}/${risk.max_orders_per_day}`)}
     <span class="card-kicker" style="margin-top:6px">Drawdown ladder · current DD ${pct(dd, 2)} <em>(n=${marks.length} marks)</em></span>
     <div class="ladder">
-      ${ddRung("soft alert", risk.soft_drawdown_pct)}
-      ${ddRung("hard halt", risk.hard_drawdown_pct)}
-      ${ddRung("daily loss block", risk.daily_loss_limit_pct)}
+      ${ddRung("alert", risk.soft_drawdown_pct)}
+      ${ddRung("auto-halt", risk.hard_drawdown_pct)}
+      ${ddRung("daily stop", risk.daily_loss_limit_pct)}
     </div>`;
 }
 
@@ -842,7 +1023,7 @@ function renderRejections() {
   const kinds = ["all", "risk-kernel", "halt", "broker"];
   $("#rej-filters").innerHTML = kinds.map((k) => {
     const n = k === "all" ? all.length : all.filter((r) => r.kind === k).length;
-    const label = k === "all" ? "All" : k === "risk-kernel" ? "Risk kernel" : k === "halt" ? "Halt" : "Broker";
+    const label = k === "all" ? "All" : k === "risk-kernel" ? "Risk rules" : k === "halt" ? "Halt" : "Broker";
     return `<button class="fchip${rejKind === k ? " on" : ""}" data-kind="${k}">${label} ${n}</button>`;
   }).join("");
   $("#rej-filters").querySelectorAll(".fchip").forEach((b) =>
@@ -853,7 +1034,7 @@ function renderRejections() {
   $("#rej-count").textContent = `· ${rows.length}/${all.length} events`;
   $("#rej-rows").innerHTML = rows.map((r) => `<tr>
     <td class="mono" style="font-size:10.5px">${dualCell(r.ts)}</td>
-    <td><span class="kind ${r.kind}">${r.kind === "risk-kernel" ? "Risk kernel" : r.kind === "halt" ? "Halt" : "Broker"}</span></td>
+    <td><span class="kind ${r.kind}">${r.kind === "risk-kernel" ? "Risk rules" : r.kind === "halt" ? "Halt" : "Broker"}</span></td>
     <td><span class="rule-code" title="${esc(r.rule)}">${esc(ruleLabel(r.rule))}</span></td>
     <td><strong>${esc(sym(r.symbol))}</strong></td>
     <td><span class="side ${r.side}">${r.side.toUpperCase()}</span></td>
@@ -979,9 +1160,19 @@ const PHASE_META = {
   after_hours: { name: "After-hours", hue: "var(--magenta)" },
   closed: { name: "Closed", hue: "var(--faint)" },
 };
-const ACTIVITY_LABEL = { plan: "plan", active: "active", monitor: "monitor", reconcile: "reconcile", noop: "no-op" };
+const ACTIVITY_LABEL = { plan: "plans", active: "trades", monitor: "monitors", reconcile: "reconciles", noop: "rests" };
 const EVENT_HUE = { fomc: "var(--red)", macro: "var(--amber)", earnings: "var(--cyan)", ipo: "var(--violet)", index: "var(--green)" };
 const toMin = (s) => { const [h, m] = s.split(":").map(Number); return h * 60 + m; };
+function plainCalReason(cal) {
+  const r = String(cal.reason || "");
+  const pm = PHASE_META[cal.phase] || PHASE_META.closed;
+  if (r.startsWith("market closed:")) return "Market closed - " + r.slice(14).trim() + ". Scheduled runs skip until the next session.";
+  if (r.startsWith("outside trading session")) return "Outside trading hours (04:00-20:00 ET). Scheduled runs skip.";
+  const m = r.match(/phase mismatch: schedule wants (\w+), now (\w+)/);
+  if (m) return `This schedule trades in the ${(PHASE_META[m[1]] || {}).name || m[1]} window; right now it is ${(PHASE_META[m[2]] || {}).name || m[2]}.`;
+  if (r.endsWith("active")) return `${pm.name} window is open - this schedule trades now.`;
+  return hy(r);
+}
 
 function renderCalendar() {
   const cal = AUTO?.calendar;
@@ -997,12 +1188,13 @@ function renderCalendar() {
 
   const gate = $("#cal-gate");
   gate.className = "cal-gate " + (cal.run ? "run" : "skip");
-  gate.querySelector("span").textContent = cal.run ? "RUN" : "SKIP";
+  gate.querySelector("span").textContent = cal.run ? "Trading now" : "Skipping now";
+  gate.title = "Whether a scheduled run firing right now would place orders";
   const pm = PHASE_META[cal.phase] || PHASE_META.closed;
   const phasePill = $("#cal-phase");
   phasePill.textContent = pm.name;
   phasePill.style.setProperty("--seg-hue", pm.hue);
-  $("#cal-reason").textContent = hy(cal.reason) + (cal.strategy?.event_caution ? " · event caution - order count halved" : "");
+  $("#cal-reason").textContent = plainCalReason(cal) + (cal.strategy?.event_caution ? " Event day - order count and per-trade risk are halved." : "");
 
   const tl = cal.timeline || [];
   const rail = $("#cal-rail");
@@ -1083,14 +1275,14 @@ function renderCalendar() {
       <td class="num">${s.days}</td>
     </tr>`;
   }).join("");
-  $("#cal-cron-note").textContent = "One hourly cron (08:05-17:05 ET at :05 = 21:05-06:05 SGT) fires only on computed NYSE trading days - weekends and holidays excluded by construction. The evaluate() gate routes every run by live session phase (plan / active / monitor / reconcile), half-day aware and DST-safe; a misfired cron still skips. SGT (+1d) means the run lands after midnight in Singapore.";
+  $("#cal-cron-note").textContent = "One hourly schedule fires at :05 past each hour from 08:05 to 17:05 ET (21:05 to 06:05 SGT, landing after midnight in Singapore). It only trades on NYSE open days - weekends and holidays are skipped automatically. Each run checks the session phase first, so a run outside its window does nothing, and half-days and clock changes are handled.";
 
   const wl = cal.watchlist;
   const wlWrap = $("#cal-watchlist-wrap");
   if (wlWrap) {
     wlWrap.hidden = !wl;
     if (wl) {
-      $("#cal-watchlist-state").textContent = `${wl.stale ? "STALE" : "FRESH"} · as of ${wl.as_of} · ${wl.active_count} active`;
+      $("#cal-watchlist-state").textContent = `${wl.stale ? "Stale" : "Fresh"} · as of ${wl.as_of} · ${wl.active_count} active`;
       $("#cal-watchlist-rows").innerHTML = (wl.entries || []).map((e) => `<tr>
         <td><strong style="font-size:12px">${esc(e.symbol)}</strong></td>
         <td>${esc(e.sleeve)}</td>
@@ -1117,6 +1309,14 @@ function renderAutomation() {
     pill.querySelector("span").textContent = isLive ? "Live · Forward API" : (LIVE ? "Cached export" : "Cached local export");
     pill.title = hy(AUTO.source) + (AUTO.error ? " - " + AUTO.error : "");
   }
+  const allScheds = AUTO.schedules || [];
+  const activeScheds = allScheds.filter((s) => s.status === "active").length;
+  const allSessions = AUTO.sessions || [];
+  const totalCredits = allSessions.reduce((x, s) => x + (s.usage?.total_credits || 0), 0);
+  setText("#ov-sched-count", allScheds.length ? `${activeScheds}/${allScheds.length}` : "-");
+  setText("#ov-sessions", allSessions.length ? String(allSessions.length) : "-");
+  setText("#ov-credits", allSessions.length ? totalCredits.toFixed(1) : "-");
+  setText("#ov-chain", STATE.chain.ok ? `${STATE.chain.count} ✓` : "BROKEN");
   const scheds = [...(AUTO.schedules || [])].sort((a, b) => {
     const na = (a.trigger_policy?.upcoming_runs_at || ["9999"])[0];
     const nb = (b.trigger_policy?.upcoming_runs_at || ["9999"])[0];
@@ -1130,7 +1330,7 @@ function renderAutomation() {
       <p class="sched-desc">${esc(s.description || "")}</p>
       <span class="sched-cron mono">${esc(s.trigger_policy?.expression || "-")} · ${esc(s.trigger_policy?.timezone || "UTC")}</span>
       <div class="sched-next">${nextT && nextT > Date.now() ? `Next run <b data-countdown="${nextT}">${fmtCountdown(nextT - Date.now())}</b> · ${dateLabel(next)} ${etHHMM(next)} ET · ${sgtHHMM(next)} SGT` : "No upcoming runs in the cached window - refresh for live Forward data"}</div>
-      <div class="sched-pin">initial_events v${esc(s.initial_events_version ?? "?")} pinned · ${esc(s.status)} · ${esc((s.template_id || "").slice(0, 13))}…</div>
+      <div class="sched-pin">Pinned prompt v${esc(s.initial_events_version ?? "?")} · ${esc(s.status)}</div>
     </div>`;
   }).join("");
   const sessions = AUTO.sessions || [];
@@ -1191,7 +1391,7 @@ function renderOverview() {
   const fn = $("#feed-note");
   if (fn) {
     fn.innerHTML = feed && feed.primary_account
-      ? `Primary feed: <strong>${esc(feed.primary_account)}</strong> · ${esc(feed.source)}${feed.run ? ` · run ${esc(feed.run)}` : ""} · ${feed.cloud_runs || 0} cloud run${feed.cloud_runs === 1 ? "" : "s"} synced`
+      ? `Main feed: <strong>${esc(feed.primary_account)}</strong> · ${feed.run ? `latest cloud run ${esc(feed.run)}` : "local broker snapshot"} · ${feed.cloud_runs || 0} cloud run${feed.cloud_runs === 1 ? "" : "s"} synced`
       : "";
   }
   const a = STATE.approvals;
@@ -1208,14 +1408,6 @@ function renderOverview() {
     kill.className = "brief-kill " + (halted ? "armed" : "clear");
     kill.innerHTML = `<span class="kill-lamp ${halted ? "armed" : "clear"}"></span><strong>${halted ? "ARMED" : "CLEAR"}</strong><span>${esc(STATE.halt.reason || (halted ? "" : "no active halt"))}</span>`;
   }
-  const scheds = (AUTO && AUTO.schedules) || [];
-  const activeScheds = scheds.filter((s) => s.status === "active").length;
-  const sessions = (AUTO && AUTO.sessions) || [];
-  const credits = sessions.reduce((x, s) => x + (s.usage?.total_credits || 0), 0);
-  setText("#ov-sched-count", scheds.length ? `${activeScheds}/${scheds.length}` : "-");
-  setText("#ov-sessions", sessions.length ? String(sessions.length) : "-");
-  setText("#ov-credits", sessions.length ? credits.toFixed(1) : "-");
-  setText("#ov-chain", STATE.chain.ok ? `${STATE.chain.count} ✓` : "BROKEN");
 }
 
 /* ---------------- render all ---------------- */
@@ -1226,6 +1418,7 @@ function renderAll() {
   if (!STATE) return;
   safeRender("accountBar", renderAccountBar);
   safeRender("desk", renderDesk);
+  safeRender("scorecard", renderScorecard);
   safeRender("overview", renderOverview);
   safeRender("pipeline", renderPipeline);
   safeRender("expectancy", renderExpectancy);
@@ -1240,6 +1433,7 @@ function renderAll() {
   safeRender("equity", renderEquity);
   safeRender("instrumentation", renderInstrumentation);
   safeRender("footer", renderFooter);
+  safeRender("operator", renderOperator);
   if (AUTO) {
     safeRender("calendar", renderCalendar);
     safeRender("automation", renderAutomation);
@@ -1262,6 +1456,10 @@ function setup() {
   document.querySelectorAll("#ins-toggle button").forEach((b) => b.addEventListener("click", () => { insView = b.dataset.ins; renderInstrumentation(); }));
   $("#refresh-btn").addEventListener("click", () => fetchAll(true));
   $("#controls-refresh").addEventListener("click", () => fetchAll(true));
+  const unlockBtn = $("#operator-unlock");
+  if (unlockBtn) unlockBtn.addEventListener("click", unlockOperator);
+  const passInput = $("#operator-pass");
+  if (passInput) passInput.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); unlockOperator(); } });
   $("#version-btn").addEventListener("click", openChangelog);
   $("#drawer-close").addEventListener("click", closeDrawer);
   $("#drawer-backdrop").addEventListener("click", closeDrawer);
@@ -1288,11 +1486,14 @@ function setup() {
     $("#clock").textContent = `SGT ${sgtTime(now)} · ET ${etTime(now)}`;
   }, 1000);
   setInterval(tickCountdowns, 1000);
+  setInterval(() => { if (STATE) setText("#updated-stamp", stampText()); }, 30000);
 
   document.querySelectorAll(".nav-item").forEach((n) => n.addEventListener("click", () => showView(n.dataset.view)));
   let savedView = "overview";
   try { savedView = localStorage.getItem("tyche-view") || "overview"; } catch (e) {}
   showView(savedView);
+  renderOperator();
+  fetchOperatorStatus();
 }
 
 setup();

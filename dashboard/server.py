@@ -29,7 +29,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 import yaml  # noqa: E402
 
 from tyche.approvals import ApprovalBatch, envelope_usage  # noqa: E402
-from tyche.halt import set_halt  # noqa: E402
+from tyche.halt import effective_halt, set_halt  # noqa: E402
 from tyche.journal import append_event, read_events, verify_chain  # noqa: E402
 from tyche.market_calendar import (
     ET,
@@ -251,6 +251,7 @@ def build_instrumentation(cards: list[dict]) -> dict:
 STATIC = Path(__file__).resolve().parent / "static"
 JOURNAL = ROOT / "journal" / "events.jsonl"
 HALT = ROOT / "journal" / "halt.json"
+REPO_HALT = ROOT / "data" / "halt.json"
 APPROVALS = ROOT / "data" / "approvals.json"
 DRILL_DIR = ROOT / "plans" / "drill-2026-11-18"
 VALIDATION = ROOT / "docs" / "validation" / "2026-11-18-kill-switch-drill.md"
@@ -900,7 +901,7 @@ def build_approvals() -> dict:
     The kill-switch overrides auto: halted => no new entries regardless of envelope.
     """
     today = datetime.now(ET).date()
-    halt = json.loads(HALT.read_text(encoding="utf-8")) if HALT.is_file() else {"halted": False}
+    halt = effective_halt(JOURNAL.parent, ROOT)
     halted = bool(halt.get("halted"))
     used = envelope_usage(JOURNAL, today)
     out = {
@@ -944,7 +945,7 @@ def build_state() -> dict:
     exp_report = compute_expectancy(EVENTS, SLEEVE_BY_SYMBOL)
     sleeve_report = {s.sleeve: s for s in exp_report.sleeves}
     ok, count, error = verify_chain(JOURNAL)
-    halt = json.loads(HALT.read_text(encoding="utf-8")) if HALT.is_file() else {"halted": False}
+    halt = effective_halt(JOURNAL.parent, ROOT)
     risk = yaml.safe_load((ROOT / "config" / "risk.yaml").read_text(encoding="utf-8"))
     validation = parse_validation()
     plans = latest_plans(EVENTS)
@@ -979,13 +980,13 @@ def build_state() -> dict:
         "plan_account": mask_id(str(latest_plan["account_id"])) if latest_plan else None,
     }
     divergences = [
-        "Sim path has no broker-native stops/trailing - protection is a synthetic monitor + defined-risk structures (P2).",
-        "No direct shorting (margin 60/50, 6.0% financing, forced-liq risk) - defined-risk puts instead.",
+        "The simulator has no broker stop orders, so protection uses monitored exit plans and defined-risk options instead.",
+        "No direct shorting (margin costs and forced-liquidation risk) - defined-risk puts are used instead.",
     ]
     if cloud and plan_acct != primary:
         divergences.append(
-            f"Challenge plan artifacts persist to the Drive locker; the git feed carries sanitized cloud snapshots + broker order history. "
-            f"The strategy view shows the latest journal plan (account {plan_acct}) until challenge plans are pushed."
+            f"Challenge plans stay in the private Drive locker; the public feed carries sanitized snapshots and broker order history. "
+            f"The Strategy view shows the latest journal plan (account {plan_acct}) until challenge plans are published."
         )
     halt_timeline = [
         {"ts": ev["ts"], "type": ev["type"], "payload": ev["payload"]}
@@ -1045,8 +1046,8 @@ def build_state() -> dict:
                 ],
                 "realized_gross": validation["realized_gross"],
                 "fees_note": (
-                    f"Fee-net R accounting (ADR 0016): {exp_report.closed_n} closed round trips, "
-                    f"modeled fees ${exp_report.fees_total:,.2f}; drill gross shown separately."
+                    f"Net of modeled fees: {exp_report.closed_n} closed round trips, "
+                    f"${exp_report.fees_total:,.2f} in fees. The drill round-trip is shown separately."
                 ),
                 "provisional": exp_report.provisional,
             },
@@ -1227,14 +1228,18 @@ def disarm_envelope() -> dict:
     return {"ok": True, "disarmed": True, "pushed": pushed, "git_error": git_error, "approvals": build_approvals()}
 
 
-def _git_push_approvals(message: str) -> tuple[bool, str | None]:
+def _git_push_paths(message: str, paths: list[str]) -> tuple[bool, str | None]:
     try:
-        subprocess.run(["git", "add", "--", "data/approvals.json"], cwd=ROOT, check=True, capture_output=True)
-        subprocess.run(["git", "commit", "-m", message, "--", "data/approvals.json"], cwd=ROOT, check=True, capture_output=True)
+        subprocess.run(["git", "add", "--", *paths], cwd=ROOT, check=True, capture_output=True)
+        subprocess.run(["git", "commit", "-m", message, "--", *paths], cwd=ROOT, check=True, capture_output=True)
         subprocess.run(["git", "push", "origin", "main"], cwd=ROOT, check=True, capture_output=True)
         return True, None
     except subprocess.CalledProcessError as exc:
         return False, (exc.stderr or exc.stdout or b"").decode("utf-8", "replace").strip()[:300]
+
+
+def _git_push_approvals(message: str) -> tuple[bool, str | None]:
+    return _git_push_paths(message, ["data/approvals.json"])
 
 
 def arm_envelope(body: dict) -> dict:
@@ -1278,7 +1283,7 @@ def arm_envelope(body: dict) -> dict:
 
 
 def halt_control(body: dict) -> dict:
-    """Kill-switch from the desk: same flag + journaled transition as the CLI."""
+    """Kill-switch from the desk: journal flag + shared repo flag pushed to the cloud mount."""
     halted = body.get("halted")
     if not isinstance(halted, bool):
         return {"ok": False, "error": "halted must be a boolean"}
@@ -1287,7 +1292,13 @@ def halt_control(body: dict) -> dict:
         reason = "operator kill-switch via dashboard" if halted else "operator resume via dashboard"
     state = set_halt(JOURNAL.parent, halted, reason)
     append_event(JOURNAL, "halt.engaged" if halted else "halt.released", state)
-    return {"ok": True, "halt": state, "approvals": build_approvals()}
+    REPO_HALT.parent.mkdir(parents=True, exist_ok=True)
+    REPO_HALT.write_text(json.dumps({**state, "set_by": "operator (dashboard)"}, indent=2), encoding="utf-8")
+    pushed, git_error = _git_push_paths(
+        "Engage kill-switch (operator via dashboard)" if halted else "Release kill-switch (operator via dashboard)",
+        ["data/halt.json"],
+    )
+    return {"ok": True, "halt": state, "pushed": pushed, "git_error": git_error, "approvals": build_approvals()}
 
 
 class Handler(SimpleHTTPRequestHandler):

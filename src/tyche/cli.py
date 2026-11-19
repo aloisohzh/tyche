@@ -23,7 +23,7 @@ from tyche.broker import (
 from tyche.config import load_config
 from tyche.events_cli import app as events_app
 from tyche.execution_state import daily_usage
-from tyche.halt import is_halted, set_halt
+from tyche.halt import effective_halt, repo_halt_path, set_halt
 from tyche.journal import append_event, read_events, verify_chain
 from tyche.lifecycle_cli import app as lifecycle_app
 from tyche.market_calendar import (
@@ -321,7 +321,7 @@ def plan(
         nav=snapshot.nav,
         prior_close_nav=prior_close if prior_close is not None else snapshot.nav,
         high_water_nav=high_water if high_water is not None else snapshot.nav,
-        halted=is_halted(journal_path.parent),
+        halted=bool(effective_halt(journal_path.parent, journal_path.resolve().parent.parent).get("halted")),
     )
     sleeve_caps = strategy.sleeve_caps[result.regime.value].as_dict()
     plan_pipeline = build_plan_pipeline(
@@ -564,7 +564,7 @@ def execute(
         console.print("No approved orders in this plan.")
         return
 
-    if is_halted(journal_path.parent):
+    if effective_halt(journal_path.parent, journal_path.resolve().parent.parent).get("halted"):
         withheld = [order for order in approved if order.intent.side == Side.BUY]
         approved = [order for order in approved if order.intent.side == Side.SELL]
         for order in withheld:
@@ -834,7 +834,11 @@ def halt(
     """Engage the kill-switch: block buys, allow de-risking sells."""
     state = set_halt(journal_path.parent, True, reason)
     append_event(journal_path, "halt.engaged", state)
+    shared = repo_halt_path(journal_path.resolve().parent.parent)
+    shared.parent.mkdir(parents=True, exist_ok=True)
+    shared.write_text(json.dumps({**state, "set_by": "operator (CLI)"}, indent=2), encoding="utf-8")
     console.print(f"Halted: {reason}")
+    console.print("Shared flag written to data/halt.json - commit it (or use desk Controls) to reach cloud runs.")
 
 
 @app.command()
@@ -844,6 +848,9 @@ def resume(
     """Release the kill-switch after operator review."""
     state = set_halt(journal_path.parent, False, "operator resume")
     append_event(journal_path, "halt.released", state)
+    shared = repo_halt_path(journal_path.resolve().parent.parent)
+    shared.parent.mkdir(parents=True, exist_ok=True)
+    shared.write_text(json.dumps({**state, "set_by": "operator (CLI)"}, indent=2), encoding="utf-8")
     console.print("Resumed: buys permitted again.")
 
 
@@ -1162,6 +1169,8 @@ def authorize(
         console.print_json(json.dumps({"authorized": False, "reason": reason, "today": today.isoformat()}))
         raise typer.Exit(1)
 
+    if side == "buy" and effective_halt(journal_path.parent, journal_path.resolve().parent.parent).get("halted"):
+        deny("kill-switch engaged - buys blocked, de-risking sells still allowed")
     if not path.is_file():
         deny(f"no envelope at {path}; operator has not pre-approved any batch")
     try:

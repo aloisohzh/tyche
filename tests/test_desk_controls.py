@@ -34,8 +34,12 @@ def desk(srv, tmp_path, monkeypatch):
     data.mkdir()
     monkeypatch.setattr(srv, "JOURNAL", journal / "events.jsonl")
     monkeypatch.setattr(srv, "HALT", journal / "halt.json")
+    monkeypatch.setattr(srv, "REPO_HALT", data / "halt.json")
+    effective_halt = srv.effective_halt
+    monkeypatch.setattr(srv, "effective_halt", lambda journal_dir, root: effective_halt(journal_dir, tmp_path))
     monkeypatch.setattr(srv, "APPROVALS", data / "approvals.json")
     monkeypatch.setattr(srv, "_git_push_approvals", lambda message: (False, "git disabled in test"))
+    monkeypatch.setattr(srv, "_git_push_paths", lambda message, paths: (False, "git disabled in test"))
     return tmp_path
 
 
@@ -115,6 +119,24 @@ def test_halt_overrides_armed_envelope(srv, desk):
     assert out["approvals"]["mode"] == "armed"
     assert out["approvals"]["auto_active"] is False
     assert out["approvals"]["halted"] is True
+
+
+def test_halt_control_writes_shared_repo_flag(srv, desk, monkeypatch):
+    perf = desk / "perf"
+    perf.mkdir()
+    drill = desk / "drill"
+    drill.mkdir()
+    monkeypatch.setattr(srv, "PERF_DIR", perf)
+    monkeypatch.setattr(srv, "DRILL_DIR", drill)
+    out = srv.halt_control({"halted": True, "reason": "cloud reach"})
+    assert out["ok"] and out["pushed"] is False
+    shared = json.loads(srv.REPO_HALT.read_text(encoding="utf-8"))
+    assert shared["halted"] is True and shared["set_by"] == "operator (dashboard)"
+    state = srv.build_state()
+    assert state["halt"]["halted"] is True and state["halt"]["source"] in {"journal", "repo"}
+    srv.halt_control({"halted": False})
+    assert json.loads(srv.REPO_HALT.read_text(encoding="utf-8"))["halted"] is False
+    assert srv.build_state()["halt"]["halted"] is False
 
 
 def test_cloud_snapshot_broker_reconcile(srv, tmp_path, monkeypatch):

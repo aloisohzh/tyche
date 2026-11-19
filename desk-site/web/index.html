@@ -49,7 +49,7 @@
     </nav>
     <div class="sidebar-foot">
       <button class="version-btn" id="version-btn" title="Open the version log">
-        <span class="version-tag mono" id="version-tag">v0.2.0</span>
+        <span class="version-tag mono" id="version-tag">v0.3.0</span>
         <span>Version log</span>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
       </button>
@@ -94,7 +94,7 @@
         <div class="page-heading">
           <div>
             <h1>Desk overview</h1>
-            <p>The fundamentals at a glance - net asset value and the fee-net equity path, exposure against hard caps, the kill-switch, what we hold, and the cloud automation evidence. Read from the hash-chained journal and the cloud desk's sanitized run bundles; nothing is fabricated.</p>
+            <p>Your paper account at a glance - what it is worth today, your profit or loss, the edge you are trading, and the risk you are carrying. Every figure comes from the broker or the trade journal; nothing is made up.</p>
             <p class="feed-note" id="feed-note"></p>
           </div>
           <div class="heading-aside">
@@ -135,12 +135,24 @@
           </div>
         </div>
 
+        <div class="card scorecard">
+          <div class="section-heading">
+            <div>
+              <h2>Trader scorecard</h2>
+              <p class="section-subtitle">Profit, edge and risk in one row. Small samples are labeled - figures stay provisional until enough trades close.</p>
+            </div>
+            <span class="chip" id="score-acct-tag">-</span>
+          </div>
+          <div class="score-grid" id="score-grid"></div>
+          <p class="table-note" id="score-note"></p>
+        </div>
+
         <div class="portfolio-grid">
           <div class="card performance-card">
             <div class="section-heading">
               <div>
                 <h2>Equity curve</h2>
-                <p class="section-subtitle">NAV marks from the journal + broker snapshots · sparse marks labeled with n</p>
+                <p class="section-subtitle">Account value over time, from broker snapshots and the journal. Few points so far - each is labeled.</p>
               </div>
               <div class="equity-controls"><span class="chip" id="equity-acct-tag">-</span></div>
             </div>
@@ -194,19 +206,6 @@
             </table>
           </div>
         </div>
-
-        <div class="section-head">
-          <div>
-            <h2><span class="h-num">✦</span>Automation evidence</h2>
-            <p class="section-sub">The cloud desk runs unattended on Qoder Forward schedules - the orchestration the challenge weighs at 30%. Open the Automation tab for the full calendar, session history and pinned roster.</p>
-          </div>
-        </div>
-        <div class="evidence-strip">
-          <div class="card evidence-card"><span class="ev-num mono" id="ov-sched-count">-</span><span class="ev-label">Active schedules</span><span class="ev-sub">Pre-market · intraday · EOD</span></div>
-          <div class="card evidence-card"><span class="ev-num mono" id="ov-sessions">-</span><span class="ev-label">Desk sessions</span><span class="ev-sub">Coordinator + children</span></div>
-          <div class="card evidence-card"><span class="ev-num mono" id="ov-credits">-</span><span class="ev-label">Credits consumed</span><span class="ev-sub">Forward run usage</span></div>
-          <div class="card evidence-card"><span class="ev-num mono" id="ov-chain">-</span><span class="ev-label">Journal events ✓</span><span class="ev-sub">Hash-chain verified</span></div>
-        </div>
       </section>
 
       <!-- ============================ STRATEGY ============================ -->
@@ -214,7 +213,7 @@
         <div class="page-heading">
           <div>
             <h1>Strategy &amp; edge</h1>
-            <p>Every idea is a card moving through the professional pipeline - thesis, multi-factor, outlook, vehicle, edge. Stage evidence is rendered from the journal; missing instrumentation is shown, never fabricated. The expectancy scorecard and per-trade contract completeness live here.</p>
+            <p>Each trade idea moves through five checks before it can become an order - the thesis, the factors behind it, the market outlook, the instrument, and the expected edge. Missing evidence is shown as a gap, never filled in.</p>
           </div>
           <div class="legend">
             <span class="lg"><i class="sw ok"></i>Instrumented</span>
@@ -228,19 +227,19 @@
         <div class="exec-band">
           <div class="band-head">
             <h3>Execution &amp; trade management</h3>
-            <span class="band-sub">Sizing by the deterministic risk kernel · protection = synthetic monitor + defined-risk (sim has no broker-native stops) · no direct shorting</span>
+            <span class="band-sub">Position size comes from the risk engine. Protection uses monitored exit plans and defined-risk options, because the simulator has no broker stop orders. No direct shorting.</span>
           </div>
           <div class="band-cards" id="band-cards"></div>
         </div>
 
         <div class="section-head"><div><h2><span class="h-num">02</span>Edge / expectancy</h2>
-          <p class="section-sub">Fee-net scorecard per sleeve. Small sample - every figure carries its n and a provisional label until the EOD generator produces reconciled marks.</p></div></div>
+          <p class="section-sub">A scorecard per strategy group, net of fees. The sample is small - every figure shows its trade count and stays provisional until 30 trades have closed.</p></div></div>
         <div class="exp-grid">
           <div class="card formula-card">
             <span class="card-kicker">Expectancy formula</span>
             <div class="formula mono">(Win% × AvgWin)<br>− (Loss% × AvgLoss)</div>
-            <p class="formula-note">Computed per sleeve in R and %, net of modeled fees. Expected edge is compared against realized edge once trades close.</p>
-            <span class="chip provisional">Provisional · challenge window just opened</span>
+            <p class="formula-note">Worked out per strategy group in R and percent, net of modeled fees. Expected edge is checked against what actually happened once trades close.</p>
+            <span class="chip provisional" id="exp-chip">Provisional · challenge window just opened</span>
           </div>
           <div class="card sleeve-card">
             <span class="card-kicker">Per-sleeve scorecard</span>
@@ -250,19 +249,19 @@
                 <tbody id="sleeve-rows"></tbody>
               </table>
             </div>
-            <p class="table-note" id="sleeve-note">No strategy trades closed yet - the drill round-trip below is a kill-switch validation, not strategy edge. Conviction calibration: not instrumented.</p>
+            <p class="table-note" id="sleeve-note">No strategy trades have closed yet - the drill round-trip below tested the kill-switch, it is not strategy edge. Win-probability calibration is not built yet.</p>
           </div>
           <div class="card realized-card">
             <span class="card-kicker">Realized to date · drill round-trip</span>
             <div class="realized-big mono" id="realized-big">-</div>
             <div class="realized-legs mono" id="realized-legs">-</div>
             <p class="formula-note" id="fees-note">-</p>
-            <span class="chip gap-chip">Fee-net reconciliation pending EOD</span>
+            <span class="chip gap-chip">Fee reconciliation lands with the daily report</span>
           </div>
         </div>
 
         <div class="section-head"><div><h2><span class="h-num">03</span>Instrumentation</h2>
-          <p class="section-sub">Per-trade contract completeness - what the journal carries, what is honestly derived from it, and what is still a gap. Derived fields are computed deterministically from journaled inputs + pinned config, and tagged so they are never mistaken for ground truth.</p></div></div>
+          <p class="section-sub">What each trade record carries: what was written down at plan time, what we compute from it, and what is still missing. Computed fields are labeled so they are never mistaken for broker facts.</p></div></div>
         <div class="card ins-card">
           <div class="ins-top">
             <div class="ins-ring-wrap">
@@ -291,7 +290,7 @@
         <div class="page-heading">
           <div>
             <h1>Risk &amp; execution</h1>
-            <p>The risk kernel's own audit trail - kill-switch state and timeline, exposure against every hard cap, the drawdown ladder, allocation, the full order history and every rejection. A submit is not a fill; fill states come from broker reconciliation.</p>
+            <p>The safety layer: the kill-switch, every exposure limit, the drawdown ladder, all orders and every rejection. An order that was sent is not an order that filled - fills come from the broker.</p>
           </div>
         </div>
         <div class="risk-grid">
@@ -314,7 +313,7 @@
               <tbody id="order-rows"></tbody>
             </table>
           </div>
-          <p class="table-note">A submit is not a fill - fill states come from broker reconciliation (drill validation record or the cloud run's order history), never from the submit response.</p>
+          <p class="table-note">Sending an order is not a fill. Fill status comes from the broker (the drill validation record or the cloud run's order history), never from our submit call.</p>
         </div>
 
         <div class="card table-card">
@@ -337,15 +336,22 @@
         <div class="page-heading">
           <div>
             <h1>Automation / orchestration</h1>
-            <p>The cloud desk runs unattended on Qoder Forward schedules; every sim write is gated by per-order operator confirmation or a bounded pre-approved envelope. Read live from the Forward API, server-side - the PAT never reaches the browser.</p>
+            <p>The desk trades on a schedule in the cloud, even when your PC is off. Every order is either confirmed by you or inside a pre-approved envelope. Schedule and session status below is read live from Qoder Forward; the access token stays server-side.</p>
           </div>
           <div class="heading-aside"><span class="pill live-pill" id="automation-source"><i class="dot"></i><span>Connecting…</span></span></div>
+        </div>
+
+        <div class="evidence-strip">
+          <div class="card evidence-card"><span class="ev-num mono" id="ov-sched-count">-</span><span class="ev-label">Active schedules</span><span class="ev-sub">Pre-market · intraday · EOD</span></div>
+          <div class="card evidence-card"><span class="ev-num mono" id="ov-sessions">-</span><span class="ev-label">Desk sessions</span><span class="ev-sub">Coordinator + children</span></div>
+          <div class="card evidence-card"><span class="ev-num mono" id="ov-credits">-</span><span class="ev-label">Credits consumed</span><span class="ev-sub">Forward run usage</span></div>
+          <div class="card evidence-card"><span class="ev-num mono" id="ov-chain">-</span><span class="ev-label">Journal events ✓</span><span class="ev-sub">Hash-chain verified</span></div>
         </div>
 
         <div class="card cal-card" id="cal-card">
           <div class="cal-top">
             <div class="cal-title">
-              <span class="card-kicker">Market calendar · session-phase routing</span>
+              <span class="card-kicker">Market calendar · today's session</span>
               <span class="cal-sub mono" id="cal-now">-</span>
             </div>
             <div class="cal-gate-wrap">
@@ -363,7 +369,7 @@
           <div class="cal-aware" id="cal-aware"></div>
           <div class="cal-crons-wrap">
             <div class="cal-crons-head">
-              <span class="card-kicker">Calendar-gated crons · UTC</span>
+              <span class="card-kicker">Schedule · cron in UTC</span>
               <span class="desk-sub mono" id="cal-window">-</span>
             </div>
             <div class="tbl-scroll">
@@ -385,7 +391,7 @@
                 <tbody id="cal-watchlist-rows"></tbody>
               </table>
             </div>
-            <p class="table-note">Written by the scout at pre-market only; intraday runs monitor these plans instead of re-running discovery. Working copy in the Drive locker; this is the sanitized repo snapshot.</p>
+            <p class="table-note">The scout writes these plans at pre-market only; intraday runs monitor them instead of searching again. The working copy lives in the private Drive locker; this is the sanitized public snapshot.</p>
           </div>
         </div>
 
@@ -417,7 +423,7 @@
                 <div class="roster-node"><strong>executor</strong><span>broker reads + gated sim writes</span><code class="mono">tmpl_bc25a5…</code></div>
               </div>
             </div>
-            <p class="table-note">Default-deny tools · <span class="mono">always_ask</span> on every sim order write · env <span class="mono">tyche</span> · challenge account allowlisted · live/crypto tools never mounted.</p>
+            <p class="table-note">Children start with no tools. Every sim order needs approval unless it is inside your pre-approved envelope. Challenge account only - live and crypto tools are never mounted.</p>
           </div>
         </div>
       </section>
@@ -426,68 +432,92 @@
       <section class="view" id="view-controls">
         <div class="page-heading">
           <div>
-            <h1>Controls &amp; administration</h1>
-            <p>Operator-only settings, grouped away from the read-only desk. Trading mode (manual per-order confirmation, auto with your last approved bounds, or a fresh pre-approved envelope), the kill-switch, refresh behavior, the outbound Telegram sentinel, and the honest data-source / divergence record.</p>
+            <h1>Controls</h1>
+            <p>Operator settings. Choose how orders are approved, arm or release the kill-switch, and see where every figure comes from. Visitors see this page read-only - only the operator can change anything, and everyone can refresh.</p>
           </div>
+        </div>
+
+        <div class="card operator-card" id="operator-card" hidden>
+          <span class="ctl-icon" id="operator-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10.5" width="15" height="10" rx="2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/><circle cx="12" cy="15.5" r="1.4"/></svg>
+          </span>
+          <div class="ctl-main">
+            <h3>Operator console</h3>
+            <p class="control-sub" id="operator-sub">This desk is shared read-only. Unlock with your operator passphrase to change the trading mode or the kill-switch. The passphrase is held in memory only and never stored.</p>
+            <div class="operator-row" id="operator-row">
+              <input type="password" id="operator-pass" class="input" placeholder="Operator passphrase" autocomplete="off" aria-label="Operator passphrase">
+              <button class="btn primary" id="operator-unlock">Unlock</button>
+            </div>
+          </div>
+          <div class="ctl-side"><span class="pill cached" id="operator-state"><i class="dot"></i><span>Locked</span></span></div>
         </div>
 
         <div class="card approval-card" id="approval-card">
           <div class="table-head">
-            <span class="card-kicker">Trading mode</span>
+            <span class="head-left">
+              <span class="head-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2.2"/><circle cx="8" cy="17" r="2.2"/></svg></span>
+              <span class="card-kicker">Trading mode</span>
+            </span>
             <span class="pill live-pill cached" id="approval-mode-pill"><i class="dot"></i><span>-</span></span>
           </div>
           <div id="approval-body"></div>
         </div>
 
         <div class="controls-grid">
-          <div class="card control-card" id="kill-control-card">
-            <h3>Kill-switch</h3>
-            <p class="control-sub">Blocks new buys immediately; de-risking sells still pass. Every transition is journaled and auditable.</p>
-            <div id="kill-control-body"></div>
+          <div class="card control-card row-card wide" id="kill-control-card">
+            <span class="ctl-icon danger" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/><path d="M9 9l6 6M15 9l-6 6"/></svg>
+            </span>
+            <div class="ctl-main">
+              <h3>Kill-switch</h3>
+              <p class="control-sub">Stops new buys right away; sells that reduce risk still go through. Every change is recorded in the journal and reaches the cloud desk.</p>
+            </div>
+            <div class="ctl-side" id="kill-control-body"></div>
           </div>
 
-          <div class="card control-card">
-            <h3>Refresh</h3>
-            <p class="control-sub">The desk loads fresh data on open and whenever you refresh. There is no background polling - figures stay put until you ask for new ones.</p>
-            <div class="control-row">
-              <div><div class="control-k">Refresh now</div><div class="control-d">Re-reads journal state + Forward automation. Also in the top bar, or press <span class="mono">R</span>.</div></div>
+          <div class="card control-card row-card wide">
+            <span class="ctl-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 6.3"/><path d="M20 5v6h-6"/></svg>
+            </span>
+            <div class="ctl-main">
+              <h3>Refresh</h3>
+              <p class="control-sub">Fresh data loads when you open the desk or press Refresh. Nothing polls in the background - figures stay put until you ask for new ones.</p>
+              <div class="control-kbd"><span class="mono">1-5</span> views · <span class="mono">R</span> refresh · <span class="mono">T</span> theme · <span class="mono">Esc</span> close</div>
+            </div>
+            <div class="ctl-side">
               <button class="btn" id="controls-refresh">
                 <svg viewBox="0 0 24 24" width="15" height="15"><path fill="currentColor" d="M12 4V1L7 6l5 5V7a6 6 0 1 1-6 6H4a8 8 0 1 0 8-9z"/></svg>
                 Refresh
               </button>
             </div>
-            <div class="control-row">
-              <div><div class="control-k">Keyboard</div><div class="control-d"><span class="mono">1-5</span> switch views · <span class="mono">R</span> refresh · <span class="mono">T</span> theme · <span class="mono">Esc</span> close drawer</div></div>
-            </div>
           </div>
 
-          <div class="card control-card">
-            <h3>Telegram sentinel · outbound only</h3>
-            <p class="control-sub">Push alerts from the cloud desk. Order approval is not routed through Telegram.</p>
-            <div class="telegram-status info">
+          <div class="card control-card row-card wide">
+            <span class="ctl-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4L3 11l6 2.5L18 6l-6.5 9.5L21 4z"/><path d="M9 13.5V19l3-2.5"/></svg>
-              <div class="tg-text">
-                <b>Outbound: working.</b> Schedule runs push risk alerts + digests via the Bot API (<span class="mono">@tyche_sentinel_bot</span>) - no PC required, the cloud desk sends them.<br>
-                <b>Inbound approval: skipped by operator decision (2026-11-19).</b> The desk PC is not always on, so a local approval listener cannot be relied on. Orders are approved at the desk only: per-order confirmation, or a bounded pre-approved envelope for unattended runs.
-              </div>
+            </span>
+            <div class="ctl-main">
+              <h3>Telegram alerts</h3>
+              <p class="control-sub">The cloud desk pushes risk alerts and digests to Telegram (<span class="mono">@tyche_sentinel_bot</span>) - no PC needed. Order approval is not sent through Telegram; you approve at this desk, per order or with a pre-approved envelope.</p>
             </div>
+            <div class="ctl-side"><span class="chip ok-chip">Outbound on</span></div>
           </div>
 
-          <div class="card control-card">
-            <h3>Data sources</h3>
+          <div class="card control-card list-card">
+            <span class="head-left"><span class="head-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5.5" rx="7" ry="2.8"/><path d="M5 5.5v6c0 1.5 3.1 2.8 7 2.8s7-1.3 7-2.8v-6"/><path d="M5 11.5v6c0 1.5 3.1 2.8 7 2.8s7-1.3 7-2.8v-6"/></svg></span><h3>Data sources</h3></span>
             <ul class="data-list">
               <li id="chain-row"></li>
-              <li><strong>Primary:</strong> cloud run bundles <span class="mono">docs/performance/&lt;run&gt;/</span> - challenge account snapshot, positions &amp; broker order history (sanitized push-back)</li>
-              <li><span class="mono">journal/events.jsonl</span> - hash-chained truth for plans, orders, halts, rejections</li>
-              <li>Broker snapshot fallback <span class="mono">plans/drill-2026-11-18/snapshot.json</span> (sim_list)</li>
-              <li>Qoder Forward API - schedules &amp; sessions, PAT server-side only</li>
-              <li>Fill states - <span class="mono">docs/validation/2026-11-18-kill-switch-drill.md</span></li>
+              <li><strong>Main feed:</strong> cloud run bundles <span class="mono">docs/performance/&lt;run&gt;/</span> - the challenge account's snapshot, positions and broker order history, sanitized before publishing.</li>
+              <li><strong>Trade journal</strong> <span class="mono">journal/events.jsonl</span> - the hash-chained record of plans, orders, halts and rejections.</li>
+              <li><strong>Broker fallback</strong> <span class="mono">plans/drill-2026-11-18/snapshot.json</span> - used when no cloud run is available.</li>
+              <li><strong>Qoder Forward API</strong> - schedules and sessions; the access token stays server-side.</li>
+              <li><strong>Fill confirmations</strong> <span class="mono">docs/validation/2026-11-18-kill-switch-drill.md</span>.</li>
             </ul>
           </div>
 
-          <div class="card control-card">
-            <h3>Honest divergences</h3>
-            <p class="control-sub">Where the desk is still provisional or not yet instrumented - stated, never hidden.</p>
+          <div class="card control-card list-card">
+            <span class="head-left"><span class="head-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4"/><path d="M5 4h13l-2.5 4L18 12H5"/></svg></span><h3>Where we're still provisional</h3></span>
+            <p class="control-sub">Honest gaps in the desk - stated, never hidden.</p>
             <ul class="data-list" id="divergence-list"></ul>
           </div>
         </div>
@@ -506,7 +536,7 @@
 </aside>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
-<script>window.TYCHE_LIVE={"state_url": "/functions/v1/app/state", "automation_url": "/functions/v1/app/automation", "state_fallback": "data/state.json", "automation_fallback": "data/automation.json"};</script>
+<script>window.TYCHE_LIVE={"state_url": "/functions/v1/app/state", "automation_url": "/functions/v1/app/automation", "control_url": "/functions/v1/app/control", "control_status_url": "/functions/v1/app/control/status", "state_fallback": "data/state.json", "automation_fallback": "data/automation.json"};</script>
 <script src="app.js"></script>
 </body>
 </html>

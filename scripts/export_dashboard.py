@@ -109,6 +109,8 @@ def main() -> None:
         live_cfg = {
             "state_url": "/functions/v1/app/state",
             "automation_url": "/functions/v1/app/automation",
+            "control_url": "/functions/v1/app/control",
+            "control_status_url": "/functions/v1/app/control/status",
             "state_fallback": "data/state.json",
             "automation_fallback": "data/automation.json",
         }
