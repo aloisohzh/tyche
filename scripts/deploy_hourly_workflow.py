@@ -62,9 +62,10 @@ STATE = (
     "distributed locks. Do not break locks, overwrite authority or copy it to concurrent writers."
 )
 CONTRACT = (
-    "RESERVATION CONTRACT: only the executor uses the existing authenticated Moomoo MCP. "
-    "The direct-HTTP execute-exit adapter is optional and is not the hourly deployment path; "
-    "do not provision another token or extract connector credentials. Tactical orders need a "
+    "RESERVATION CONTRACT: only the executor uses the existing authenticated Moomoo MCP for "
+    "all lifecycle and tactical submissions; the local direct-HTTP exit adapter has been "
+    "removed. Do not provision another broker token or extract connector credentials. "
+    "Tactical orders need a "
     "same-ET-day exact setup/config/account-bound entry AND exit envelope, fresh independent "
     "exact-order Audit and successful live-clock tyche tactical reserve. Stock/ETF orders need "
     "the exact immutable lifecycle grant and tyche lifecycle reserve. Config/rules changes require "

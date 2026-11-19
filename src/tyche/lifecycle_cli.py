@@ -11,8 +11,12 @@ from pathlib import Path
 import typer
 from pydantic import ValidationError
 
-from tyche.broker.mcp_json import build_snapshot, extract_nav
-from tyche.broker.moomoo_http import MoomooPaperHttp, PaperApiError, complete_order_rows
+from tyche.broker.mcp_json import (
+    PaperApiError,
+    build_snapshot,
+    complete_order_rows,
+    extract_nav,
+)
 from tyche.config import load_config
 from tyche.execution_state import combined_usage, unresolved_symbols
 from tyche.journal import append_locked, journal_lock, read_events, verify_chain
@@ -32,7 +36,7 @@ from tyche.lifecycle import (
 from tyche.market_calendar import ET, regular_close
 from tyche.models import OptionContract
 
-app = typer.Typer(help="Paper lifecycles; only execute-exit --submit can send an approved exit.")
+app = typer.Typer(help="Paper lifecycles; execute-exit is read-only, submission stays with executor MCP.")
 
 
 def emit(value: dict) -> None:
@@ -354,156 +358,51 @@ def execute_exit(
     plan_hash: str = typer.Option(..., "--hash"),
     config_root: Path = typer.Option(Path.cwd()),
     journal: Path = typer.Option(Path("journal/events.jsonl")),
-    submit: bool = typer.Option(False, "--submit", help="Execute an already-approved paper exit once."),
 ) -> None:
-    """Refresh broker data and check one exact approved exit; read-only by default."""
-    attempted, acknowledged = False, False
-    request = None
+    """Read-only check of one exact approved exit; the executor submits via Moomoo MCP."""
     try:
         if not journal.is_file() or not state.is_file():
-            raise PaperApiError("persistent journal/state missing; restore before execution")
-        with journal_lock(journal), locked_state(state) as ledger:
-            valid, _, _ = verify_chain(journal)
-            if not valid:
-                raise PaperApiError("journal integrity failed; no execution permitted")
-            events = read_events(journal)
-            check_execution_journal(events, ledger)
-            config, context = load_config(config_root), load(MarketSnapshot, market)
-            account = context.snapshot
-            key = account_hash(account.account_id)
-            if (account.env != "paper" or account.source != "sim_list" or account.market_id != 100
-                    or account.account_type not in config.risk.sim_account_types
-                    or account.account_id not in config.risk.account_allowlist):
-                raise PaperApiError("unverified or non-allowlisted US paper account")
-            approval = next((a for a in ledger.approvals if a.plan_hash == plan_hash
-                             and a.contract.plan_id == plan_id and a.account_hash == key
-                             and not a.revoked and a.approved_at <= now_utc()), None)
-            if approval is None:
-                raise PaperApiError("exact lifecycle requires prior operator approval")
-            contract = approval.contract
-            broker = MoomooPaperHttp.from_env()
-            closes = {q.symbol: {"close": q.close, "close_at": q.close_at}
-                      for q in context.quotes if q.close is not None}
-            contracts = {item.symbol: item.option for item in [*account.positions, *context.orders]
-                         if item.option is not None}
-
-            def refresh():
-                payloads = broker.read(account.account_id, contract.symbol,
-                                       config.risk.sim_account_types, clock=now_utc)
-                fresh_market = captured_market(
-                    account.account_id, payloads, context.prior_close_nav, context.high_water_nav,
-                    context.regime, context.conviction, closes, contracts,
-                )
-                from tyche.halt import is_halted
-                fresh_market.halted = is_halted(journal.parent) or context.halted
-                validate_market(fresh_market, config, now_utc())
-                if abs(fresh_market.snapshot.nav - fresh_market.broker_nav) > max(
-                    1.0, fresh_market.broker_nav * 0.001
-                ):
-                    raise PaperApiError("broker cash, positions and NAV do not reconcile")
-                return fresh_market, payloads["orders"]
-
-            quotes, rows = refresh()
-            now = now_utc()
-            inputs, gaps = monitoring_book(book, now)
-            report = tick(inputs, quotes, ledger, config, now)
-            if submit:
-                save(state, ledger)
-            decision = next((d for d in report["decisions"]
-                             if d["plan_id"] == plan_id and d["plan_hash"] == plan_hash), None)
-            if decision is not None and decision["action"] == "buy":
-                decision["authorized"] = False
-                decision["reason"] = "exit-only routine cannot authorize an entry"
-            if decision is None or not decision["authorized"] or decision["action"] != "sell":
-                emit({"ok": True, "submitted": False, "attempted": False,
-                      "reason": decision["reason"] if decision else "no approved exit available",
-                      "decision": decision, "warnings": report["gaps"] + gaps})
-                return
-            if contract.symbol in unresolved_symbols(events, rows):
-                raise PaperApiError("unresolved journal order for this symbol; no further submission")
-            count, _ = combined_usage(events, rows, now.astimezone(ET).date(), contracts)
-            if count >= config.risk.competition_order_cap:
-                raise PaperApiError("competition daily order ceiling reached across execution lanes")
-            owned = approval.adopted_quantity + sum(
-                r.filled_quantity * (1 if r.side == "buy" else -1) for r in ledger.reservations
-                if r.account_hash == key and r.plan_hash == plan_hash
-            )
-            if decision["quantity"] != owned:
-                raise PaperApiError("full attributed position unavailable; reconcile before exit")
-            if not submit:
-                emit({"ok": True, "submitted": False, "attempted": False,
-                      "decision": decision, "warnings": report["gaps"] + gaps, "dry_run": True})
-                return
-            quote = next(q for q in quotes.quotes if q.symbol == contract.symbol)
-            close = datetime.combine(now.astimezone(ET).date(),
-                                     regular_close(now.astimezone(ET).date()), ET)
-            deadline = min(now + timedelta(seconds=60), close,
-                           quotes.observed_at + timedelta(seconds=120),
-                           quote.at + timedelta(seconds=contract.quote_max_age_seconds))
-            request = Reservation(
-                request_id="tyche-lc-" + uuid.uuid4().hex, plan_hash=plan_hash, account_hash=key,
-                symbol=contract.symbol, side="sell", quantity=decision["quantity"],
-                limit_price=decision["limit_price"], reason=decision["reason"], reserved_at=now,
-            )
-            ledger.reservations.append(request)
-            save(state, ledger)
-            append_locked(journal, "order.requested", {
-                **request.model_dump(mode="json"),
-                "authorization": {"mode": "lifecycle_exit", "plan_hash": plan_hash,
-                                  "as_of": now.astimezone(ET).date().isoformat()},
-            })
-            if now_utc() >= deadline:
-                raise PaperApiError("submission window expired; reservation retained")
-            attempted = True
-            failure = None
-            try:
-                request.order_id = broker.submit_exit(account.account_id, request,
-                                                       deadline=deadline, clock=now_utc)
-                acknowledged = True
-            except (OSError, ValueError) as exc:
-                # The broker may have accepted the order even when its reply was lost.
-                failure = type(exc).__name__
-            save(state, ledger)
-            append_locked(journal, "order.submitted" if acknowledged else "order.unknown", {
-                "request_id": request.request_id, "order_id": request.order_id,
-                "plan_hash": plan_hash, "account_hash": key, "failure": failure,
-            })
-            after, _ = refresh()
-            from tyche.lifecycle import reconcile
-            reconcile(ledger, after)
-            before_held = quotes.snapshot.position(contract.symbol)
-            after_held = after.snapshot.position(contract.symbol)
-            if (after_held.quantity if after_held else 0) != before_held.quantity - request.filled_quantity:
-                raise PaperApiError("fills and holdings disagree; reconcile before further execution")
-            matched = any(o.order_id == request.order_id for o in after.orders)
-            if request.order_id and not acknowledged:
-                append_locked(journal, "order.submitted", {
-                    "request_id": request.request_id, "order_id": request.order_id,
-                    "plan_hash": plan_hash, "account_hash": key,
-                })
-            acknowledged = acknowledged or request.order_id is not None
-            save(state, ledger)
-            append_locked(journal, "order.reconciled", {
-                **request.model_dump(mode="json"), "observed_at": after.observed_at.isoformat(),
-            })
-            emit({"ok": matched, "attempted": True,
-                  "submitted": True if acknowledged else None, "filled": request.complete,
-                  "request_id": request.request_id,
-                  "outcome": "filled" if request.complete else "pending" if matched else "unknown",
-                  "warnings": report["gaps"] + gaps,
-                  "retry_permitted": False})
-            if not matched:
-                raise typer.Exit(1)
-    except typer.Exit:
-        raise
+            raise PaperApiError("persistent journal/state missing; restore before checking")
+        valid, _, _ = verify_chain(journal)
+        if not valid:
+            raise PaperApiError("journal integrity failed; no execution permitted")
+        events = read_events(journal)
+        ledger = load(LifecycleState, state)
+        check_execution_journal(events, ledger)
+        config, context = load_config(config_root), load(MarketSnapshot, market)
+        account = context.snapshot
+        key = account_hash(account.account_id)
+        if (account.env != "paper" or account.source != "sim_list" or account.market_id != 100
+                or account.account_type not in config.risk.sim_account_types
+                or account.account_id not in config.risk.account_allowlist):
+            raise PaperApiError("unverified or non-allowlisted US paper account")
+        now = now_utc()
+        approval = next((a for a in ledger.approvals if a.plan_hash == plan_hash
+                         and a.contract.plan_id == plan_id and a.account_hash == key
+                         and not a.revoked and a.approved_at <= now), None)
+        if approval is None:
+            raise PaperApiError("exact lifecycle requires prior operator approval")
+        if abs(context.snapshot.nav - context.broker_nav) > max(1.0, context.broker_nav * 0.001):
+            raise PaperApiError("broker cash, positions and NAV do not reconcile")
+        from tyche.halt import effective_halt
+        context.halted = context.halted or effective_halt(journal.parent, config_root)["halted"]
+        inputs, gaps = monitoring_book(book, now)
+        report = tick(inputs, context, ledger, config, now)
+        decision = next((d for d in report["decisions"]
+                         if d["plan_id"] == plan_id and d["plan_hash"] == plan_hash), None)
+        if decision is not None and decision["action"] == "buy":
+            decision["authorized"] = False
+            decision["reason"] = "exit-only routine cannot authorize an entry"
+        emit({"ok": True, "submitted": False, "attempted": False, "dry_run": True,
+              "reason": decision["reason"] if decision else "no approved exit available",
+              "decision": decision, "warnings": report["gaps"] + gaps,
+              "next": "run 'tyche lifecycle reserve' then submit once via Moomoo MCP"})
     except (OSError, ValueError, RuntimeError, KeyError, TypeError, OverflowError) as exc:
         reason = str(exc) if isinstance(exc, PaperApiError) else (
-            "broker, journal or lifecycle check failed; operator review required ("
+            "journal or lifecycle check failed; operator review required ("
             + type(exc).__name__ + ")"
         )
-        emit({"ok": False, "reason": reason, "attempted": attempted,
-              "submitted": True if acknowledged else None if attempted else False,
-              "request_id": request.request_id if request else None, "retry_permitted": False})
+        emit({"ok": False, "reason": reason, "submitted": False})
         raise typer.Exit(1) from None
 
 

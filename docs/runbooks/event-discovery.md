@@ -6,10 +6,15 @@ without weakening any gate.
 
 ## Loop
 
-1. **Scout (hourly pre-market research)** scans Moomoo `news_search` +
-   `quote_ipo_list_us` for catalysts over the next 14 days affecting
-   `config/universe.yaml` / `config/tactical.yaml` symbols: IPOs, index
-   inclusions, earnings dates, guidance changes, halts, macro surprises.
+1. **Scout (hourly pre-market research)** runs a fixed core Moomoo MCP scan -
+   `news_search`, `quote_ipo_list_us`, market state, economic calendar, quotes,
+   live ticker, capital-flow history and the three unusual-activity tools - then
+   deep-dives at most five candidates (option chain/volatility/screen, top
+   brokers, insiders, short interest, analyst consensus, financials, holders,
+   corporate actions). Large payloads are persisted to files, not model context.
+   It looks for catalysts over the next 14 days affecting `config/universe.yaml` /
+   `config/tactical.yaml` symbols: IPOs, index inclusions, earnings dates,
+   guidance changes, halts, macro surprises.
    It skips anything already pinned and writes up to five candidates into an
    "Event discovery proposals" section of `reports/<date>-research.md`:
    date, name, kind, symbols, source, one-line materiality rationale.
@@ -61,6 +66,11 @@ without weakening any gate.
 idempotent, snapshots under gitignored `plans/`). Schedules reference the desk
 template by id, so the triage clause reaches all hourly runs without schedule
 changes.
+
+`scripts/deploy_scout_data_suite.py` applies the fixed-core/deep-dive data-suite
+clause to the researcher and re-pins the desk roster the same way. Run it after
+compiling the edited researcher template, passing the version reported by QCA
+`list_agents` when the REST agent route is unavailable.
 
 The Forward REST `/agents/{id}` route is gone, so read the compiled researcher
 version with the QCA `list_agents` tool first and pass it as the script's

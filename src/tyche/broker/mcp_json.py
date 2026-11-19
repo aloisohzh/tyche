@@ -21,6 +21,33 @@ from tyche.models import AccountSnapshot, OptionContract, Position
 MARKET_PREFIX = {100: "US", 1: "HK", 14: "SG", 16: "JP", 102: "KR"}
 
 
+class PaperApiError(ValueError):
+    pass
+
+
+def complete_order_rows(pages: list[dict]) -> list[dict]:
+    """Validate explicit, consecutive, duplicate-free MCP order pages."""
+    if not pages:
+        raise PaperApiError("order pages missing")
+    rows = []
+    for index, page in enumerate(pages):
+        if (not isinstance(page, dict) or type(page.get("ret_code")) is not int
+                or page["ret_code"] != 0 or not isinstance(page.get("data"), dict)
+                or page.get("error") or page.get("skipped")):
+            raise PaperApiError("failed or incomplete paper API response")
+        more = (page.get("pagination") or {}).get("has_more")
+        if type(more) is not bool or more != (index < len(pages) - 1):
+            raise PaperApiError("explicit consecutive order pagination completeness required")
+        batch = page["data"].get("orders")
+        if not isinstance(batch, list):
+            raise PaperApiError("order array missing")
+        rows.extend(batch)
+    ids = [str(row["order_id"]) for row in rows]
+    if len(ids) != len(set(ids)):
+        raise PaperApiError("duplicate broker order IDs")
+    return rows
+
+
 def extract_sim_accounts(payload: Any) -> list[dict]:
     candidates: list[list[dict]] = []
     for node in _walk(payload):

@@ -61,10 +61,8 @@ for the initial long-stock/ETF implementation only. It does not enable options.
 
 `tyche lifecycle --help` and `tyche lifecycle schema` describe the exact CLI and
 JSON contracts. Core files: `src/tyche/lifecycle.py`, `src/tyche/lifecycle_cli.py`.
-The deployed release still uses executor-owned MCP submission. The local
-`execute-exit` command integrates the complete exit sequence; it is read-only by
-default and can send only an already-approved paper exit with explicit `--submit`.
-It has not been published, deployed or armed.
+All submissions are executor-owned Moomoo MCP. The local `execute-exit` command is
+a read-only check of one approved exit; it cannot place, cancel or modify orders.
 
 | Command | Effect |
 |---|---|
@@ -76,8 +74,7 @@ It has not been published, deployed or armed.
 | `tick ... --at ISO_TIMESTAMP` | Historical replay only; cannot be combined with `--record`. |
 | `reserve --book BOOK --market MARKET --state STATE --plan-id ID --hash HASH --journal JOURNAL` | Rechecks live-clock gates, durably reserves one exact order, then appends `order.requested`. Only successful output authorizes the executor's one attempt. |
 | `receipt --state STATE --request-id REQUEST --order-id ORDER` | Attaches the returned broker ID; does not mark a fill. |
-| `execute-exit --book BOOK --market MARKET --state STATE --plan-id ID --hash HASH --journal JOURNAL` | Refreshes broker data and evaluates one exact approved exit without writing lifecycle state or orders. |
-| `execute-exit ... --submit` | Reuses that approval, reserves durably, attempts one paper RTH limit sell, then reconciles. Does not approve a plan, enter, cancel, modify, or replay a prior reservation. |
+| `execute-exit --book BOOK --market MARKET --state STATE --plan-id ID --hash HASH --journal JOURNAL` | Read-only check of one exact approved exit against captured MCP evidence; never writes state, reserves or submits. |
 
 Pass `--config-root` when not running from the repository root. The legacy
 `tyche execute` path is disabled for broker accounts; `--yes` cannot bypass the
@@ -165,53 +162,28 @@ for a separately confirmed cancellation rather than submitting opposing orders.
 Daily entry budgets preserve capacity for protective sells, but the competition
 order ceiling and broker/account safety checks still apply to exits.
 
-## Integrated exit routine (local, not deployed)
+## Exit checks and submission
 
-Local verification: **411 tests passed**, including no-retry transport failures,
-lost receipts, partial fills, restart reconciliation, write failures, revoked
-grants, stale data, cross-lane budgets and separate-process lock exclusion. Ruff
-and CLI help checks passed. Dashboard/tactical fixtures were isolated from real
-kill-switch paths and git writes after the first full run exposed shared-control
-leakage. The local kill switch remains engaged; the final full rerun verified its
-bytes were unchanged. No broker order, approval or cloud deployment was made.
+`execute-exit` is a read-only check against a captured `--market` file. It verifies
+the journal chain, the exact approval hash, account allowlisting, journal/state
+consistency and broker NAV reconciliation, then evaluates the contract and prints
+the decision. It never fetches broker data, writes lifecycle state, reserves or
+submits. Refresh `--market` with `tyche lifecycle capture` from fresh MCP reads
+before relying on the result.
 
-The executor can invoke `execute-exit` once per approved contract on the existing
-hourly check. Run it without `--submit` first. `--market` supplies the account
-binding, reconciled prior-close/high-water NAV and kernel regime/conviction; its
-old cash, holdings, orders and spot prices are not execution evidence. The routine
-fetches these directly again, with the oldest read timestamp and actual exchange
-quote timestamps. Existing completed daily-close evidence retains its original
-timestamp; the lifecycle gate rejects an obsolete bar rather than inventing one.
+Submission belongs to the single executor:
 
-The routine holds the existing journal lock and lifecycle state lock across reads,
-checks, reservation, submission and reconciliation. It checks all-lane unresolved
-journal requests and the competition count, refuses divergent journal/state pairs,
-and requires the full attributed holding to be available. A halt still allows
-approved de-risking sells. Missing research does not disable an approved stop,
-target or deadline. It cannot create new positions or new approvals.
+1. Run `tick --record` and `reserve` with the exact plan ID and hash.
+2. Only exit code 0 plus `authorized: true` permits one MCP limit order with the
+   exact symbol, side, quantity and limit.
+3. Use `request_id` as broker text, submit once before `submit_before`, then
+   record the receipt and reconcile broker orders and positions.
 
-The transport calls only the official Global API at `webapi.moomoo.com` using a
-dedicated Moomoo OAuth access token injected as `TYCHE_MOOMOO_ACCESS_TOKEN` in the
-execution environment. It does not read CLI token files, Qoder login credentials
-or chat secrets, and does not refresh tokens or perform sign-in. Provision and
-verify broker authorization through a supported secure runtime mechanism before
-deployment; an existing MCP connection does not automatically authenticate Python.
-No token was accessed and no broker API call was made during local development.
-
-The inspected official CLI revision `b98eafc197e5e4df429277df652b16a7de1784f0`
-retries timeout/5xx responses regardless of HTTP method. This routine instead uses
-Python's direct HTTPS transport without retries or redirects. A quote POST is a
-read; the sole trading write is an exact RTH limit sell to the paper endpoint.
-A timeout, server error or missing receipt never causes another order submission.
-The request text links evidence but is not a broker idempotency guarantee.
-
-After any attempted send, the routine performs read-only reconciliation. A
-receipt means submitted, not filled; only matching broker cumulative fills and
-consistent holdings can establish completion. Partial/resting orders remain
-reserved. Missing orders, disagreeing holdings, or a failed post-send read/write
-require review. Output uses `submitted: null` for an unknown outcome, never false.
-If a crash occurs after reservation, rerunning reconciles or stays blocked instead
-of sending again. Do not delete reservations or replay command output to retry.
+A timeout, unknown outcome or missing receipt blocks retry. Receipt is not fill;
+only matching cumulative fills and holdings establish completion. A halt still
+allows approved de-risking sells. Missing research does not disable an approved
+stop, target or deadline. There is no direct broker HTTP token, no second
+credential and no local order-writing path.
 
 Local locks prove exclusion only for processes using the same filesystem. Before
 arming, route every write through the one durable owner and verify persistence
@@ -269,6 +241,6 @@ active window; the system cannot guarantee liquidation at an arbitrary deadline.
 A last tick more than 75 minutes ago is reported as a coverage gap (including
 overnight gaps); this is not a market-aware uptime metric or an independent
 watchdog. A schedule that never runs cannot alert about its own failure.
-The deployed MCP route still relies on executor compliance; deploying the local
-integrated routine must remove that parallel write route. No claim is made of tamper-proof authorization,
-automatic coverage for all strategies, options protection, or deployed exits.
+The MCP route relies on executor compliance; there is no second local write path.
+No claim is made of tamper-proof authorization, automatic coverage for all
+strategies, options protection, or deployed exits.
