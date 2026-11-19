@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
@@ -75,6 +76,38 @@ CONTRACT_FIELDS = [
     "thesis_ref", "inputs_ref", "outlook", "vehicle", "expected_edge",
     "invalidation", "protection_type", "roll_plan", "sizing", "initial_risk", "realized",
 ]
+STRATEGY_LABELS = {"PB-001": "Regime rotation (ETFs)", "PB-004": "Intraday breakout (scalp)"}
+
+
+def strategy_label(strategy_id: str | None, reason: str = "") -> str:
+    """Human name for a playbook id; never invents a playbook that is not configured."""
+    sid = (strategy_id or "").strip().upper()
+    if sid in STRATEGY_LABELS:
+        return STRATEGY_LABELS[sid]
+    if sid:
+        return f"{sid} playbook"
+    low = reason.lower()
+    if "rebalance" in low:
+        return "Regime rotation (ETFs)"
+    if "breakout" in low or "scalp" in low:
+        return "Intraday breakout (scalp)"
+    return "Desk playbook"
+
+
+def order_intent(rec: dict) -> str:
+    """Entry vs exit vs de-risk, from side and the journaled reason - never guessed from price."""
+    side = rec.get("side")
+    if side == "sell":
+        reason = str(rec.get("reason") or rec.get("remark") or "").lower()
+        if any(word in reason for word in ("halt", "de-risk", "derisk", "reduce", "stop", "exit")):
+            return "Exit"
+        return "Reduce"
+    if side == "buy":
+        reason = str(rec.get("reason") or rec.get("remark") or "").lower()
+        if "rebalance" in reason:
+            return "Rebalance"
+        return "Entry"
+    return "-"
 
 
 def _conviction(score: int, total: int) -> str:
@@ -188,7 +221,7 @@ def derive_contract(card: dict, plan: dict | None, order_pipeline: dict | None =
         }
     stop = card.get("stop_price")
     nav = plan.get("nav")
-    if stop and card.get("side") == "buy":
+    if stop and card.get("side") == "buy" and card.get("limit_price") is not None and card.get("quantity"):
         risk_usd = card["quantity"] * (card["limit_price"] - stop)
         pct = f" · {risk_usd / nav:.2%} NAV" if nav else ""
         f["initial_risk"] = {
@@ -202,8 +235,10 @@ def derive_contract(card: dict, plan: dict | None, order_pipeline: dict | None =
             "note": "No plan stop on this order (legacy plan or sell); initial R undefined — never fabricated.",
         }
     headroom = f" · sleeve cap {maxw:.0%}" if maxw else ""
+    notional_txt = f"${card['notional']:,.0f}" if card.get("notional") is not None else "-"
+    limit_txt = f"${card['limit_price']:,.2f}" if card.get("limit_price") is not None else "market"
     f["sizing"] = {
-        "value": f"{card['quantity']}→{card['effective_quantity']} eff · ${card['notional']:,.0f} · limit ${card['limit_price']:,.2f}{headroom}",
+        "value": f"{card.get('quantity')}→{card.get('effective_quantity')} eff · {notional_txt} · limit {limit_txt}{headroom}",
         "provenance": "journaled",
         "note": "Quantity, effective quantity, notional and limit from the journaled plan; sleeve cap from config.",
     }
@@ -329,16 +364,53 @@ def parse_validation() -> dict:
 
 
 # ---------------------------------------------------------------- state
+def normalize_plan(plan: dict) -> dict:
+    """One shape for legacy account plans and account-less strategy plans."""
+    out = dict(plan)
+    out.setdefault("orders", [])
+    out.setdefault("as_of", out.get("created_at") or "")
+    return out
+
+
+def plan_account(plan: dict) -> str | None:
+    aid = plan.get("account_id")
+    return mask_id(str(aid)) if aid not in (None, "") else None
+
+
 def latest_plans(events: list[dict]) -> dict[str, dict]:
+    """Newest account-bearing plan per account (legacy PB-001 plans)."""
     plans: dict[str, dict] = {}
     for ev in events:
         if ev["type"] != "plan.created":
             continue
-        plan = ev["payload"]["plan"]
-        acct = mask_id(str(plan["account_id"]))
+        plan = ev["payload"].get("plan") or {}
+        acct = plan_account(plan)
+        if not acct:
+            continue
         if acct not in plans or ev["ts"] > plans[acct]["ts"]:
-            plans[acct] = {"ts": ev["ts"], "plan": plan, "hash": ev["hash"]}
+            plans[acct] = {"ts": ev["ts"], "plan": normalize_plan(plan), "hash": ev["hash"]}
     return plans
+
+
+def strategy_plans(events: list[dict]) -> list[dict]:
+    """Account-less strategy plans (e.g. PB-004 scalps), newest first per strategy."""
+    groups: dict[str, list[dict]] = {}
+    for ev in events:
+        if ev["type"] != "plan.created":
+            continue
+        plan = ev["payload"].get("plan") or {}
+        if plan_account(plan):
+            continue
+        sid = str(plan.get("strategy_id") or "desk")
+        groups.setdefault(sid, []).append(
+            {"ts": ev["ts"], "strategy_id": sid, "plan": normalize_plan(plan), "hash": ev["hash"]}
+        )
+    newest: list[dict] = []
+    for entries in groups.values():
+        entries.sort(key=lambda e: e["ts"], reverse=True)
+        newest.extend(entries[:6])
+    newest.sort(key=lambda e: e["ts"], reverse=True)
+    return newest
 
 
 def nav_marks(events: list[dict], snapshot: dict | None) -> dict[str, list[dict]]:
@@ -346,10 +418,12 @@ def nav_marks(events: list[dict], snapshot: dict | None) -> dict[str, list[dict]
     for ev in events:
         if ev["type"] != "plan.created":
             continue
-        plan = ev["payload"]["plan"]
-        acct = mask_id(str(plan["account_id"]))
+        plan = ev["payload"].get("plan") or {}
+        acct = plan_account(plan)
+        if not acct or plan.get("nav") is None:
+            continue
         marks.setdefault(acct, []).append(
-            {"ts": ev["ts"], "as_of": plan["as_of"], "nav": plan["nav"], "source": "plan.created"}
+            {"ts": ev["ts"], "as_of": plan.get("as_of") or "", "nav": plan["nav"], "source": "plan.created"}
         )
     if snapshot:
         acct = mask_id(str(snapshot["account"]))
@@ -362,19 +436,32 @@ def nav_marks(events: list[dict], snapshot: dict | None) -> dict[str, list[dict]
     return marks
 
 
+def _max_loss(side: str | None, quantity, limit_price, stop_price) -> float | None:
+    """Sized max loss for a long entry: qty x (limit - stop). None when no stop was journaled."""
+    try:
+        if side != "buy" or stop_price is None or limit_price is None:
+            return None
+        risk = float(quantity) * (float(limit_price) - float(stop_price))
+    except (TypeError, ValueError):
+        return None
+    return round(risk, 2) if risk > 0 else None
+
+
 def build_orders(events: list[dict], validation: dict) -> list[dict]:
     orders: list[dict] = []
     for ev in events:
         if ev["type"] != "order.requested":
             continue
         p = ev["payload"]
+        authorization = p.get("authorization") or {}
+        stop_price = p.get("stop_price", p.get("stop"))
         orders.append(
             {
                 "remark": p.get("remark"),
                 "symbol": p["symbol"],
                 "side": p["side"],
                 "quantity": p["quantity"],
-                "account": p.get("account", ""),
+                "account": p.get("account") or "",
                 "purpose": p.get("purpose"),
                 "requested_ts": ev["ts"],
                 "submitted_ts": None,
@@ -387,6 +474,16 @@ def build_orders(events: list[dict], validation: dict) -> list[dict]:
                 "fill_price": None,
                 "fill_qty": None,
                 "events": [{"ts": ev["ts"], "type": ev["type"], "hash": ev["hash"]}],
+                "strategy_id": p.get("strategy_id"),
+                "strategy": strategy_label(p.get("strategy_id"), p.get("reason") or ""),
+                "intent": order_intent(dict(p)),
+                "reason": p.get("reason") or p.get("remark") or "",
+                "authorization": authorization.get("kind") or "manual",
+                "request_id": p.get("request_id"),
+                "stop_price": stop_price,
+                "target": p.get("target"),
+                "max_loss": _max_loss(p.get("side"), p.get("quantity"), p.get("limit_price"), stop_price),
+                "setup_id": p.get("setup_id"),
             }
         )
     for ev in events:
@@ -399,17 +496,38 @@ def build_orders(events: list[dict], validation: dict) -> list[dict]:
             and o["side"] == p["side"] and o["quantity"] == p["quantity"]
             and o["requested_ts"] <= ev["ts"]
         ]
+        by_request = [o for o in candidates if p.get("request_id") and o["request_id"] == p["request_id"]]
         exact = [o for o in candidates if o["limit_price"] == p.get("limit_price")]
-        rec = (exact or candidates or [None])[-1]
+        rec = (by_request or exact or candidates or [None])[-1]
         if rec is None:
             continue
         rec["submitted_ts"] = ev["ts"]
-        rec["order_id"] = p.get("order_id")
+        rec["order_id"] = str(p.get("order_id")) if p.get("order_id") else None
         rec["status"] = "submitted"
+        acct = plan_account(p)
+        if acct:
+            rec["account"] = acct
+        rec["events"].append({"ts": ev["ts"], "type": ev["type"], "hash": ev["hash"]})
+    for ev in events:
+        if ev["type"] != "order.filled":
+            continue
+        p = ev["payload"]
+        oid = str(p.get("order_id")) if p.get("order_id") else None
+        rec = next(
+            (o for o in orders if (oid and o["order_id"] == oid)
+             or (p.get("request_id") and o["request_id"] == p["request_id"])),
+            None,
+        )
+        if rec is None:
+            continue
+        rec["status"] = "filled"
+        rec["fill_price"] = p.get("price")
+        rec["fill_qty"] = p.get("quantity")
+        rec["fee"] = p.get("fees")
         rec["events"].append({"ts": ev["ts"], "type": ev["type"], "hash": ev["hash"]})
     for rec in orders:
         oid = rec["order_id"]
-        if oid and oid in validation["fills"]:
+        if oid and oid in validation["fills"] and rec["status"] != "filled":
             rec["status"] = "filled"
             rec["fill_price"] = validation["fills"][oid]["price"]
             rec["fill_qty"] = validation["fills"][oid]["qty"]
@@ -425,24 +543,25 @@ def build_rejections(events: list[dict], orders: list[dict]) -> list[dict]:
     for ev in events:
         if ev["type"] != "plan.created":
             continue
-        plan = ev["payload"]["plan"]
-        acct = mask_id(str(plan["account_id"]))
-        for order in plan["orders"]:
-            verdict = order["verdict"]
-            if verdict["allowed"]:
+        plan = ev["payload"].get("plan") or {}
+        acct = plan_account(plan) or "-"
+        for order in plan.get("orders", []):
+            verdict = order.get("verdict")
+            if not verdict or verdict.get("allowed"):
                 continue
-            for breach in verdict["breaches"]:
+            intent = order.get("intent") or {}
+            for breach in verdict.get("breaches", []):
                 out.append(
                     {
                         "ts": ev["ts"],
                         "kind": "risk-kernel",
-                        "rule": breach["rule"],
-                        "symbol": order["intent"]["symbol"],
-                        "side": order["intent"]["side"],
-                        "quantity": order["intent"]["quantity"],
-                        "detail": breach["detail"],
+                        "rule": breach.get("rule"),
+                        "symbol": intent.get("symbol"),
+                        "side": intent.get("side"),
+                        "quantity": intent.get("quantity"),
+                        "detail": breach.get("detail") or "",
                         "account": acct,
-                        "as_of": plan["as_of"],
+                        "as_of": plan.get("as_of"),
                     }
                 )
     for ev in events:
@@ -480,93 +599,134 @@ def build_rejections(events: list[dict], orders: list[dict]) -> list[dict]:
     return out
 
 
-def stage_track(plan: dict, symbol: str, realized: float | None) -> dict:
-    regime = plan["regime"]
-    checks = plan.get("regime_checks", {})
+def stage_track(plan: dict, symbol: str, realized: float | None,
+                reason: str = "", levels: dict | None = None) -> dict:
+    """Five-stage track for a plan order. Regime fields are only claimed when journaled."""
+    levels = levels or {}
+    regime = plan.get("regime")
+    checks = plan.get("regime_checks") or {}
     passed = sum(1 for v in checks.values() if v)
-    signal = plan.get("signals", {}).get(symbol, {})
+    signal = (plan.get("signals") or {}).get(symbol, {})
+    strategy_id = plan.get("strategy_id")
+    label = strategy_label(strategy_id, reason)
+    if checks:
+        thesis_text = f"{label} - {regime}, checks {passed}/{len(checks)}"
+    else:
+        thesis_text = f"{label} setup" + (f" - {reason}" if reason else "")
+    stop, target, entry = levels.get("stop"), levels.get("target"), levels.get("limit")
+    expected = None
+    if stop is not None and target is not None and entry is not None and entry > stop:
+        rr = (target - entry) / (entry - stop)
+        expected = f"reward {rr:.1f}x risk ({rr:.0f}R) from journaled stop/target"
     return {
         "thesis": {
-            "state": "partial",
-            "text": f"v0.1 regime rotation -{regime}, checks {passed}/{len(checks)}",
-            "gap": "per-trade thesis_ref not instrumented",
+            "state": "ok" if reason else "partial",
+            "text": thesis_text,
+            "gap": None if reason else "per-trade thesis_ref not instrumented",
         },
         "multifactor": {
-            "state": "partial",
+            "state": "partial" if signal else "gap",
             "momentum": signal.get("momentum"),
             "score": signal.get("score"),
             "volatility": signal.get("volatility"),
             "selected": signal.get("selected"),
-            "covered": ["technical"],
+            "covered": ["technical"] if signal else [],
             "missing": ["macro", "sentiment & flow", "seasonality"],
-            "note": "fundamental = eligibility filter (cap, price, liquidity)",
+            "note": "fundamental = eligibility filter (cap, price, liquidity)" if signal else "no factor snapshot journaled for this setup",
         },
         "outlook": {
-            "state": "partial",
+            "state": "partial" if regime else "gap",
             "regime": regime,
-            "mapped": REGIME_OUTLOOK.get(regime, regime),
-            "gap": "per-setup outlook + conviction not instrumented (market-level only)",
+            "mapped": REGIME_OUTLOOK.get(regime, regime) if regime else None,
+            "gap": None if regime else "no market regime journaled - setup is price-action native",
         },
-        "vehicle": {"state": "ok", "type": "etf", "rationale": None},
+        "vehicle": {"state": "ok", "type": "etf" if symbol in ETF_SYMBOLS else "stock", "rationale": None},
         "edge": {
-            "state": "gap" if realized is None else "partial",
-            "expected": None,
+            "state": "partial" if expected else ("gap" if realized is None else "partial"),
+            "expected": expected,
             "realized": realized,
-            "gap": "pre-trade expected edge not instrumented",
+            "gap": None if expected else "pre-trade expected edge not instrumented",
         },
     }
 
 
-def build_cards(plans: dict[str, dict], orders: list[dict], validation: dict) -> list[dict]:
+def _matching_order(orders: list[dict], acct: str | None, symbol: str, side: str,
+                    quantity: int, request_id: str | None = None) -> dict | None:
+    if request_id:
+        hit = next((o for o in orders if o.get("request_id") == request_id and o.get("status") != "requested"), None)
+        if hit:
+            return hit
+    return next(
+        (o for o in orders if o["symbol"] == symbol and o["side"] == side
+         and o["quantity"] == quantity
+         and (acct is None or o.get("account") in ("", acct))
+         and o.get("purpose") != "drill-seed"),
+        None,
+    )
+
+
+def _card_status(verdict: dict | None, matched: dict | None, halted: bool) -> str:
+    if matched and matched["status"] == "filled":
+        return "filled"
+    if matched and matched["status"] == "submitted":
+        return "submitted"
+    if verdict is not None and not verdict.get("allowed", True):
+        return "blocked"
+    if halted:
+        return "halt-skipped"
+    if verdict is not None:
+        return "approved"
+    return "pending"
+
+
+def build_cards(plans: dict[str, dict], strat_plans: list[dict], orders: list[dict],
+                validation: dict) -> list[dict]:
     cards: list[dict] = []
     live_accts = [a for a in plans if not a.startswith("SIM-")]
     for acct in live_accts:
         plan = plans[acct]["plan"]
-        for order in plan["orders"]:
-            intent, verdict = order["intent"], order["verdict"]
+        for order in plan.get("orders", []):
+            intent = order.get("intent") or {}
+            if not intent.get("symbol"):
+                continue
+            verdict = order.get("verdict")
             symbol = intent["symbol"]
-            matched = next(
-                (o for o in orders if o["symbol"] == symbol and o["side"] == intent["side"]
-                 and o["quantity"] == intent["quantity"] and o.get("account") == acct
-                 and o.get("purpose") != "drill-seed"),
-                None,
-            )
+            matched = _matching_order(orders, acct, symbol, intent.get("side", ""), intent.get("quantity", 0))
             halted = any(
                 ev["type"] == "halt.skip" and ev["payload"]["symbol"] == symbol
                 for ev in EVENTS
             )
-            if matched and matched["status"] == "filled":
-                status = "filled"
-            elif not verdict["allowed"]:
-                status = "blocked"
-            elif halted:
-                status = "halt-skipped"
-            elif verdict["allowed"]:
-                status = "approved"
-            else:
-                status = "pending"
+            status = _card_status(verdict, matched, halted)
             realized = validation["realized_gross"] if matched and matched["status"] == "filled" else None
+            levels = {"stop": intent.get("stop_price"), "target": intent.get("target"),
+                      "limit": intent.get("limit_price")}
             card = {
-                "id": f"plan:{acct}:{symbol}:{intent['side']}",
+                "id": f"plan:{acct}:{symbol}:{intent.get('side')}",
                 "symbol": symbol,
-                "side": intent["side"],
-                "quantity": intent["quantity"],
-                "effective_quantity": order["effective_quantity"],
-                "limit_price": intent["limit_price"],
+                "side": intent.get("side"),
+                "quantity": intent.get("quantity"),
+                "effective_quantity": order.get("effective_quantity", intent.get("quantity")),
+                "limit_price": intent.get("limit_price"),
                 "stop_price": intent.get("stop_price"),
-                "notional": intent["notional"],
+                "target": intent.get("target"),
+                "notional": intent.get("notional"),
                 "account": acct,
-                "as_of": plan["as_of"],
+                "as_of": plan.get("as_of"),
                 "status": status,
-                "verdict": verdict,
-                "reason": intent["reason"],
-                "stages": stage_track(plan, symbol, realized),
+                "verdict": verdict or {"allowed": matched is not None, "breaches": [], "notes": []},
+                "reason": intent.get("reason") or "",
+                "strategy_id": plan.get("strategy_id") or intent.get("strategy_id"),
+                "strategy": strategy_label(plan.get("strategy_id") or intent.get("strategy_id"), intent.get("reason") or ""),
+                "intent": order_intent(dict(intent)),
+                "max_loss": _max_loss(intent.get("side"), intent.get("quantity"),
+                                      intent.get("limit_price"), intent.get("stop_price")),
+                "stages": stage_track(plan, symbol, realized, intent.get("reason") or "", levels),
                 "order": matched,
                 "protection": "synthetic stop monitor (P2) - sim has no broker-native stops",
                 "roll_plan": None,
                 "band": "execution",
             }
-            card["stages"]["vehicle"]["rationale"] = intent["reason"]
+            card["stages"]["vehicle"]["rationale"] = intent.get("reason")
             card["contract"] = derive_contract(card, plan, order.get("pipeline"))
             cards.append(card)
     for rec in orders:
@@ -574,7 +734,7 @@ def build_cards(plans: dict[str, dict], orders: list[dict], validation: dict) ->
             plan = plans.get(rec["account"], {}).get("plan")
             if plan is None:
                 continue
-            realized = validation["realized_gross"] if rec["status"] == "filled" else None
+            realized = validation["realized_gross"]
             card = {
                 "id": f"order:{rec['remark']}",
                 "symbol": rec["symbol"],
@@ -601,31 +761,93 @@ def build_cards(plans: dict[str, dict], orders: list[dict], validation: dict) ->
         if not acct.startswith("SIM-"):
             continue
         plan = entry["plan"]
-        for order in plan["orders"]:
-            intent, verdict = order["intent"], order["verdict"]
+        for order in plan.get("orders", []):
+            intent = order.get("intent") or {}
+            if not intent.get("symbol"):
+                continue
+            verdict = order.get("verdict") or {"allowed": True, "breaches": []}
             card = {
-                "id": f"plan:{acct}:{intent['symbol']}:{intent['side']}",
+                "id": f"plan:{acct}:{intent['symbol']}:{intent.get('side')}",
                 "symbol": intent["symbol"],
-                "side": intent["side"],
-                "quantity": intent["quantity"],
-                "effective_quantity": order["effective_quantity"],
-                "limit_price": intent["limit_price"],
+                "side": intent.get("side"),
+                "quantity": intent.get("quantity"),
+                "effective_quantity": order.get("effective_quantity", intent.get("quantity")),
+                "limit_price": intent.get("limit_price"),
                 "stop_price": intent.get("stop_price"),
-                "notional": intent["notional"],
+                "target": intent.get("target"),
+                "notional": intent.get("notional"),
                 "account": acct,
-                "as_of": plan["as_of"],
-                "status": "approved" if verdict["allowed"] else "blocked",
+                "as_of": plan.get("as_of"),
+                "status": "approved" if verdict.get("allowed") else "blocked",
                 "verdict": verdict,
-                "reason": intent["reason"],
-                "stages": stage_track(plan, intent["symbol"], None),
+                "reason": intent.get("reason") or "",
+                "strategy_id": plan.get("strategy_id") or intent.get("strategy_id"),
+                "strategy": strategy_label(plan.get("strategy_id") or intent.get("strategy_id"), intent.get("reason") or ""),
+                "intent": order_intent(dict(intent)),
+                "max_loss": _max_loss(intent.get("side"), intent.get("quantity"),
+                                      intent.get("limit_price"), intent.get("stop_price")),
+                "stages": stage_track(plan, intent["symbol"], None, intent.get("reason") or ""),
                 "order": None,
                 "protection": "synthetic stop monitor (P2)",
                 "roll_plan": None,
                 "band": "stage4",
                 "dry_run": True,
             }
-            card["stages"]["vehicle"]["rationale"] = intent["reason"]
+            card["stages"]["vehicle"]["rationale"] = intent.get("reason")
             card["contract"] = derive_contract(card, plan, order.get("pipeline"))
+            cards.append(card)
+    # Account-less strategy plans (PB-004 scalps): one card per journaled plan,
+    # tied to the broker submit/fill by request id.
+    for entry in strat_plans:
+        plan = entry["plan"]
+        for order in plan.get("orders", []):
+            intent = order.get("intent") or {}
+            if not intent.get("symbol"):
+                continue
+            symbol = intent["symbol"]
+            matched = _matching_order(orders, None, symbol, intent.get("side", ""),
+                                      intent.get("quantity", 0), order.get("request_id"))
+            halted = any(
+                ev["type"] == "halt.skip" and ev["payload"]["symbol"] == symbol
+                for ev in EVENTS
+            )
+            status = _card_status(None, matched, halted)
+            levels = {"stop": intent.get("stop_price") or intent.get("stop"),
+                      "target": intent.get("target"), "limit": intent.get("limit_price")}
+            quantity = intent.get("quantity")
+            notional = intent.get("notional")
+            if notional is None and intent.get("limit_price") is not None:
+                notional = round(float(intent["limit_price"]) * float(quantity or 0), 2)
+            card = {
+                "id": f"strategy:{entry['strategy_id']}:{entry['ts']}:{symbol}",
+                "symbol": symbol,
+                "side": intent.get("side"),
+                "quantity": quantity,
+                "effective_quantity": quantity,
+                "limit_price": intent.get("limit_price"),
+                "stop_price": levels["stop"],
+                "target": intent.get("target"),
+                "notional": notional,
+                "account": (matched or {}).get("account") or "-",
+                "as_of": plan.get("as_of") or entry["ts"][:10],
+                "status": status,
+                "verdict": {"allowed": matched is not None, "breaches": [],
+                            "notes": ["envelope-authorized submit" if matched else "no submit journaled yet"]},
+                "reason": intent.get("reason") or "",
+                "strategy_id": entry["strategy_id"],
+                "strategy": strategy_label(entry["strategy_id"], intent.get("reason") or ""),
+                "intent": order_intent(dict(intent)),
+                "max_loss": _max_loss(intent.get("side"), quantity, intent.get("limit_price"), levels["stop"]),
+                "stages": stage_track(plan, symbol,
+                                      None if not matched else validation["realized_gross"],
+                                      intent.get("reason") or "", levels),
+                "order": matched,
+                "protection": "intraday timeout + synthetic stop monitor",
+                "roll_plan": None,
+                "band": "execution",
+            }
+            card["stages"]["vehicle"]["rationale"] = intent.get("reason")
+            card["contract"] = derive_contract(card, plan)
             cards.append(card)
     return cards
 
@@ -663,8 +885,11 @@ def load_snapshot() -> dict | None:
             }
         )
     positions.sort(key=lambda p: p["market_value"], reverse=True)
+    raw_acct = str(snap["account_id"])
+    if raw_acct.startswith("${"):
+        raw_acct = sorted(SENSITIVE)[0] if SENSITIVE else "personal-paper"
     return {
-        "account": mask_id(str(snap["account_id"])),
+        "account": mask_id(raw_acct),
         "env": snap.get("env"),
         "cash": snap["cash"],
         "nav": nav,
@@ -872,6 +1097,258 @@ def cloud_nav_marks(runs: list[dict]) -> dict[str, list[dict]]:
     return {challenge_mask(): _dedupe_marks(series)} if series else {}
 
 
+# ---------------------------------------------------------------------------
+# Broker capture feed. The executor writes raw moomoo MCP JSON into data/<run>/
+# (accounts, cash, positions, and often a normalized tactical-account.json).
+# Refresh picks the newest capture, and the moomoo CLI is tried first when it
+# is installed so the desk can read the broker directly instead of the last file.
+DATA_DIR = ROOT / "data"
+LIVE_CACHE: dict = {"at": 0.0, "snap": None, "note": None}
+LIVE_LOCK = threading.Lock()
+LIVE_TTL = 15.0
+
+
+def _capture_meta(directory: Path) -> dict[str, dict]:
+    path = directory / "accounts.json"
+    if not path.is_file():
+        return {}
+    try:
+        accounts = json.loads(path.read_text(encoding="utf-8")).get("data", {}).get("accounts", [])
+    except (json.JSONDecodeError, OSError):
+        return {}
+    return {
+        str(a.get("account_id")): {
+            "account_id": str(a.get("account_id")),
+            "title": a.get("account_title") or "",
+            "account_type": a.get("account_type"),
+            "market_id": a.get("market_id"),
+        }
+        for a in accounts if a.get("account_id")
+    }
+
+
+def _capture_names(directory: Path) -> dict[str, str]:
+    path = directory / "positions.json"
+    names: dict[str, str] = {}
+    if not path.is_file():
+        return names
+    try:
+        for pos in json.loads(path.read_text(encoding="utf-8")).get("data", {}).get("positions", []):
+            symbol = str(pos.get("symbol") or "")
+            if symbol and not symbol.startswith("US."):
+                symbol = "US." + symbol
+            if symbol:
+                names[symbol] = pos.get("stock_name") or ""
+    except (json.JSONDecodeError, OSError, KeyError):
+        pass
+    return names
+
+
+def _position_row(symbol: str, name: str, quantity, avg_cost, last_price, market_value, nav: float) -> dict:
+    qty = float(quantity or 0)
+    cost = float(avg_cost or 0) * qty
+    mv = float(market_value if market_value is not None else (last_price or 0) * qty)
+    return {
+        "symbol": symbol,
+        "name": name,
+        "quantity": int(qty) if qty == int(qty) else qty,
+        "avg_cost": float(avg_cost or 0),
+        "last_price": float(last_price or 0),
+        "market_value": round(mv, 2),
+        "weight": mv / nav if nav else 0,
+        "pl": round(mv - cost, 2),
+        "pl_pct": (mv - cost) / cost if cost else 0,
+    }
+
+
+def _load_capture(directory: Path) -> dict | None:
+    """Normalize one capture directory into the same snapshot shape as cloud runs."""
+    meta = _capture_meta(directory)
+    names = _capture_names(directory)
+    tactical = directory / "tactical-account.json"
+    if tactical.is_file():
+        try:
+            snap = json.loads(tactical.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            snap = None
+        if snap and snap.get("env", "paper") == "paper" and snap.get("positions") is not None:
+            positions = [
+                _position_row(
+                    str(p.get("symbol")),
+                    names.get(str(p.get("symbol")), ""),
+                    p.get("quantity"),
+                    p.get("avg_cost"),
+                    p.get("last_price"),
+                    p.get("market_value"),
+                    0,
+                )
+                for p in snap.get("positions", [])
+            ]
+            cash = float(snap.get("cash") or 0)
+            gross = round(sum(p["market_value"] for p in positions), 2)
+            nav = round(cash + gross, 2) or float(snap.get("broker_nav") or 0)
+            for p in positions:
+                p["weight"] = p["market_value"] / nav if nav else 0
+            positions.sort(key=lambda p: p["market_value"], reverse=True)
+            acct = str(snap.get("account_id") or "")
+            info = meta.get(acct, {})
+            captured = snap.get("captured_at")
+            if not captured:
+                captured = datetime.fromtimestamp(tactical.stat().st_mtime, UTC).isoformat()
+            return {
+                "account": mask_id(acct) if acct else "-",
+                "account_type": snap.get("account_type", info.get("account_type")),
+                "account_title": info.get("title") or "",
+                "market_id": snap.get("market_id", info.get("market_id")),
+                "env": "paper",
+                "cash": cash,
+                "order_hold": float(snap.get("frozen_cash") or 0),
+                "broker_total_asset": snap.get("broker_nav"),
+                "nav": nav,
+                "gross_exposure": gross,
+                "gross_weight": gross / nav if nav else 0,
+                "cash_weight": cash / nav if nav else 0,
+                "positions": positions,
+                "as_of": str(captured),
+                "source": f"broker capture {directory.name}",
+                "capture_dir": directory.name,
+                "live": False,
+            }
+    cash_path, pos_path = directory / "cash.json", directory / "positions.json"
+    if not (cash_path.is_file() and pos_path.is_file()):
+        return None
+    try:
+        cash_data = json.loads(cash_path.read_text(encoding="utf-8")).get("data", {})
+        raw_positions = json.loads(pos_path.read_text(encoding="utf-8")).get("data", {}).get("positions", [])
+    except (json.JSONDecodeError, OSError, KeyError):
+        return None
+    balance = float(cash_data.get("balance") or 0)
+    hold = float(cash_data.get("hold") or 0)
+    positions = []
+    for pos in raw_positions:
+        symbol = str(pos.get("symbol") or "")
+        if symbol and not symbol.startswith("US."):
+            symbol = "US." + symbol
+        if not symbol:
+            continue
+        positions.append(_position_row(symbol, pos.get("stock_name") or names.get(symbol, ""),
+                                       pos.get("qty"), pos.get("cost_price"), pos.get("cur_price"),
+                                       pos.get("mv"), 0))
+    gross = round(sum(p["market_value"] for p in positions), 2)
+    nav = float(cash_data.get("total_asset") or 0) or round(balance + gross, 2)
+    for p in positions:
+        p["weight"] = p["market_value"] / nav if nav else 0
+    positions.sort(key=lambda p: p["market_value"], reverse=True)
+    stamp = max(cash_path.stat().st_mtime, pos_path.stat().st_mtime)
+    acct_info = next(
+        (v for v in meta.values() if v.get("account_type") == 2 and v.get("market_id") == 100),
+        next((v for v in meta.values() if v.get("market_id") == 100), {}),
+    )
+    acct = str(acct_info.get("account_id") or "")
+    return {
+        "account": mask_id(acct) if acct else "-",
+        "account_type": acct_info.get("account_type"),
+        "account_title": acct_info.get("title") or "",
+        "market_id": acct_info.get("market_id"),
+        "env": "paper",
+        "cash": balance,
+        "order_hold": hold,
+        "broker_total_asset": float(cash_data.get("total_asset") or 0),
+        "nav": nav,
+        "gross_exposure": gross,
+        "gross_weight": gross / nav if nav else 0,
+        "cash_weight": balance / nav if nav else 0,
+        "positions": positions,
+        "as_of": datetime.fromtimestamp(stamp, UTC).isoformat(),
+        "source": f"broker capture {directory.name} (raw MCP JSON)",
+        "capture_dir": directory.name,
+        "live": False,
+    }
+
+
+def broker_capture() -> dict | None:
+    """Newest local broker capture across data/<run>/ directories."""
+    best: dict | None = None
+    if not DATA_DIR.is_dir():
+        return None
+    for directory in sorted(DATA_DIR.iterdir()):
+        if not directory.is_dir():
+            continue
+        snap = _load_capture(directory)
+        if snap and (best is None or snap["as_of"] > best["as_of"]):
+            best = snap
+    return best
+
+
+def live_broker_snapshot() -> tuple[dict | None, str | None]:
+    """Direct broker read through the moomoo CLI when it is installed (15s cache)."""
+    now = time.time()
+    with LIVE_LOCK:
+        if now - LIVE_CACHE["at"] < LIVE_TTL:
+            return LIVE_CACHE["snap"], LIVE_CACHE["note"]
+    try:
+        from tyche.broker.mcp_json import account_meta, build_snapshot
+        from tyche.broker.moomoo_cli import MoomooCli, MoomooCliError
+    except ImportError as exc:
+        return None, f"broker adapter unavailable: {exc}"
+    cli = MoomooCli(os.environ.get("TYCHE_MOOMOO_CLI", "moomoo"), timeout=10.0)
+    if not cli.available():
+        return None, "moomoo CLI not installed on this host - showing the newest broker capture"
+    try:
+        accounts = cli.sim_accounts()
+        allowed = sorted(SENSITIVE)
+        preferred = next((a for a in allowed if account_meta(accounts, a)), None)
+        meta = account_meta(accounts, preferred) if preferred else None
+        if meta is None:
+            rows = accounts.get("data", {}).get("accounts", []) if isinstance(accounts, dict) else []
+            meta = next((r for r in rows if r.get("account_type") == 2 and r.get("market_id") == 100),
+                        next((r for r in rows if r.get("market_id") == 100), None))
+        if meta is None:
+            raise MoomooCliError("no US paper account returned by the CLI")
+        acct = str(meta["account_id"])
+        cash = cli.sim_funds(acct)
+        positions = cli.sim_positions(acct)
+        snap = build_snapshot(acct, accounts, cash, positions, env="paper", source="sim_list",
+                              captured_at=datetime.now(UTC))
+        if snap.account_type not in (1, 2) or snap.market_id != 100:
+            raise MoomooCliError("CLI account is not a verified US paper account")
+        rows = [
+            _position_row(p.symbol, "", p.quantity, p.avg_cost, p.last_price, p.market_value, 0)
+            for p in snap.positions
+        ]
+        gross = round(sum(p["market_value"] for p in rows), 2)
+        nav = round(snap.cash + gross, 2)
+        for p in rows:
+            p["weight"] = p["market_value"] / nav if nav else 0
+        rows.sort(key=lambda p: p["market_value"], reverse=True)
+        out = {
+            "account": mask_id(acct),
+            "account_type": snap.account_type,
+            "account_title": meta.get("account_title") or "",
+            "market_id": snap.market_id,
+            "env": "paper",
+            "cash": snap.cash,
+            "order_hold": snap.frozen_cash,
+            "broker_total_asset": snap.broker_nav,
+            "nav": nav,
+            "gross_exposure": gross,
+            "gross_weight": gross / nav if nav else 0,
+            "cash_weight": snap.cash / nav if nav else 0,
+            "positions": rows,
+            "as_of": datetime.now(UTC).isoformat(),
+            "source": "live moomoo CLI (sim account funds + positions)",
+            "live": True,
+        }
+        with LIVE_LOCK:
+            LIVE_CACHE.update({"at": now, "snap": out, "note": None})
+        return out, None
+    except (MoomooCliError, KeyError, TypeError, ValueError, OSError) as exc:
+        note = f"live read failed ({exc}); showing the newest broker capture"
+        with LIVE_LOCK:
+            LIVE_CACHE.update({"at": now, "snap": None, "note": note})
+        return None, note
+
+
 def sentinel_fallback() -> list[dict]:
     out = []
     for path in sorted((ROOT / "plans" / "sentinel").glob("sched_*.json")):
@@ -949,35 +1426,74 @@ def build_state() -> dict:
     risk = yaml.safe_load((ROOT / "config" / "risk.yaml").read_text(encoding="utf-8"))
     validation = parse_validation()
     plans = latest_plans(EVENTS)
+    strat_plans = strategy_plans(EVENTS)
     runs = load_cloud_runs()
     cloud = cloud_snapshot(runs)
     drill_snapshot = load_snapshot()
-    snapshot = cloud or drill_snapshot
+    live_snap, live_note = live_broker_snapshot()
+    capture = broker_capture()
+    # Precedence, not recency: the challenge feed stays primary and the local
+    # drill snapshot is only a fallback.
+    snapshot = live_snap or capture or cloud or drill_snapshot
     snapshots: dict[str, dict] = {}
-    for snap in (cloud, drill_snapshot):
-        if snap and snap["account"] not in snapshots:
+    for snap in (snapshot, live_snap, capture, cloud, drill_snapshot):
+        if not snap or str(snap["account"]).startswith("${"):
+            continue
+        if snap["account"] not in snapshots:
             snapshots[snap["account"]] = snap
+    titles: dict[str, dict] = {}
+    for directory in (DRILL_DIR, *sorted(DATA_DIR.glob("*"))):
+        if directory.is_dir():
+            titles.update(_capture_meta(directory))
+    personal = mask_id(sorted(SENSITIVE)[0]) if SENSITIVE else None
+    accounts = []
+    for acct, snap in snapshots.items():
+        title = snap.get("account_title") or ""
+        if not title:
+            title = next((m["title"] for raw, m in titles.items() if mask_id(raw) == acct), "")
+        if not title and acct == personal:
+            title = next((m["title"] for raw, m in titles.items() if raw.startswith("${")), "")
+        accounts.append({
+            "account": acct,
+            "title": title,
+            "account_type": snap.get("account_type"),
+            "market_id": snap.get("market_id"),
+            "source": snap.get("source"),
+            "as_of": snap.get("as_of"),
+            "live": bool(snap.get("live")),
+            "primary": bool(snapshot and acct == snapshot["account"]),
+        })
     orders = build_orders(EVENTS, validation)
     known_ids = {o["order_id"] for o in orders if o["order_id"]}
     orders.extend(o for o in cloud_orders(runs) if o["order_id"] not in known_ids)
     orders.sort(key=lambda r: r["requested_ts"] or "")
     rejections = build_rejections(EVENTS, orders)
-    cards = build_cards(plans, orders, validation)
+    cards = build_cards(plans, strat_plans, orders, validation)
     marks = nav_marks(EVENTS, drill_snapshot)
     marks.update(cloud_nav_marks(runs))
+    for snap in (capture, live_snap):
+        if snap:
+            marks.setdefault(snap["account"], []).append(
+                {"ts": snap["as_of"], "as_of": str(snap["as_of"])[:10], "nav": snap["nav"],
+                 "source": snap.get("source") or "broker capture"}
+            )
+    marks = {a: _dedupe_marks(m) for a, m in marks.items() if not a.startswith("${")}
     journal_acct = next((a for a in plans if not a.startswith("SIM-")), None)
-    primary = cloud["account"] if cloud else (journal_acct or (drill_snapshot or {}).get("account"))
+    primary = snapshot["account"] if snapshot else journal_acct
     if primary in marks:
         marks = {primary: marks[primary], **{a: m for a, m in marks.items() if a != primary}}
     plan_acct = primary if primary in plans else journal_acct
     latest_plan = plans.get(plan_acct, {}).get("plan") if plan_acct else None
     feed = {
         "primary_account": primary,
-        "source": "cloud-run bundles (docs/performance)" if cloud else "local drill snapshot",
+        "source": snapshot.get("source") if snapshot else "no broker snapshot available",
         "run": cloud["run"] if cloud else None,
-        "as_of": snapshot["as_of"] if snapshot else None,
+        "as_of": snapshot.get("as_of") if snapshot else None,
         "cloud_runs": len(_challenge_runs(runs)),
-        "plan_account": mask_id(str(latest_plan["account_id"])) if latest_plan else None,
+        "plan_account": plan_account(latest_plan) if latest_plan else None,
+        "live": bool(snapshot and snapshot.get("live")),
+        "live_note": live_note,
+        "capture": capture.get("capture_dir") if capture else None,
     }
     divergences = [
         "The simulator has no broker stop orders, so protection uses monitored exit plans and defined-risk options instead.",
@@ -1002,11 +1518,16 @@ def build_state() -> dict:
             "halt_timeline": halt_timeline,
             "risk": risk,
             "feed": feed,
+            "accounts": accounts,
             "snapshot": snapshot,
             "snapshots": snapshots,
-            "drill_snapshot": drill_snapshot if cloud else None,
+            "drill_snapshot": drill_snapshot if snapshot is not drill_snapshot else None,
             "latest_plan": latest_plan,
             "plans": {a: {"ts": e["ts"], "plan": e["plan"]} for a, e in plans.items()},
+            "strategy_plans": [
+                {"ts": e["ts"], "strategy_id": e["strategy_id"], "plan": e["plan"]}
+                for e in strat_plans
+            ],
             "nav_marks": marks,
             "orders": orders,
             "rejections": rejections,

@@ -38,6 +38,7 @@ def desk(srv, tmp_path, monkeypatch):
     effective_halt = srv.effective_halt
     monkeypatch.setattr(srv, "effective_halt", lambda journal_dir, root: effective_halt(journal_dir, tmp_path))
     monkeypatch.setattr(srv, "APPROVALS", data / "approvals.json")
+    monkeypatch.setattr(srv, "DATA_DIR", data)
     monkeypatch.setattr(srv, "_git_push_approvals", lambda message: (False, "git disabled in test"))
     monkeypatch.setattr(srv, "_git_push_paths", lambda message, paths: (False, "git disabled in test"))
     return tmp_path

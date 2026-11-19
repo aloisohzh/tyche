@@ -5,8 +5,22 @@ const $ = (sel) => document.querySelector(sel);
 const esc = (s) => String(s ?? "").replace(/[—–]/g, "-").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const hy = (s) => String(s ?? "").replace(/[—–]/g, "-");
 
-const VERSION = "0.3.0";
+const VERSION = "0.4.0";
 const CHANGELOG = [
+  {
+    version: "0.4.0", date: "2026-11-20", title: "Plain-English desk: live broker feed, real orderbook, expandable trades",
+    items: [
+      "Overview leads with the Moomoo account value (total assets including cash held for resting orders) and the last broker reading; the next-run countdown and feed line are gone.",
+      "Jargon retired: 'marks' are now readings, regime checks are labelled rows (pass/fail), and chart points name their source and time.",
+      "Strategy is one expandable table - symbol, playbook, intent, stop, target, max loss and a check count per idea; expand for the five checks and the journal evidence.",
+      "Order history rebuilt around the trade: playbook, entry/exit intent, stop, max loss and notes, with the broker order id on hover.",
+      "New risk-limits panel maps every docs/risk-card.md guard to its cap and current reading, with explicit gaps where the desk cannot measure a limit.",
+      "'CLEAR' renamed to 'Released'; the allocation donut is larger and square; type scale raised across the desk.",
+      "Controls groups operator-only settings behind an unlock zone; Data sources and Known limitations read as rows, and Telegram status uses the site's status pill.",
+      "Account selector shows the real account title and masked id, so the challenge account is recognisable at a glance.",
+      "Automation renamed Orchestration; schedules render as a table with live countdowns.",
+    ],
+  },
   {
     version: "0.3.0", date: "2026-11-19", title: "Trader-first overview + hosted operator console",
     items: [
@@ -90,7 +104,7 @@ function setTheme(t) {
 
 /* ---------------- view routing ---------------- */
 const VIEWS = ["overview", "strategy", "risk", "automation", "controls"];
-const VIEW_LABEL = { overview: "Overview", strategy: "Strategy", risk: "Risk & Execution", automation: "Automation", controls: "Controls" };
+const VIEW_LABEL = { overview: "Overview", strategy: "Strategy", risk: "Risk & Execution", automation: "Orchestration", controls: "Controls" };
 function showView(name) {
   if (!VIEWS.includes(name)) name = "overview";
   document.querySelectorAll(".view").forEach((v) => v.classList.toggle("active", v.id === "view-" + name));
@@ -217,6 +231,7 @@ const plClass = (n) => n > 0 ? "pos" : n < 0 ? "neg" : "";
 
 /* ---------------- account selection ---------------- */
 function accountList() {
+  if (STATE.accounts && STATE.accounts.length) return STATE.accounts.map((a) => a.account);
   const snaps = STATE.snapshots && Object.keys(STATE.snapshots).length ? STATE.snapshots : null;
   if (snaps) return Object.keys(snaps);
   if (STATE.snapshot) return [STATE.snapshot.account];
@@ -226,16 +241,30 @@ function currentSnap() {
   if (STATE.snapshots && deskAcct && STATE.snapshots[deskAcct]) return STATE.snapshots[deskAcct];
   return STATE.snapshot;
 }
+function accountMeta(a) {
+  return (STATE.accounts || []).find((x) => x.account === a) || null;
+}
+function acctTitle(a) {
+  const meta = accountMeta(a);
+  return meta?.title || (a === STATE.feed?.primary_account ? "Moomoo x Qoder challenge" : "Paper account");
+}
 function acctLabel(a) {
-  const primary = STATE.feed?.primary_account;
-  const kind = a === primary ? "Challenge" : a.startsWith("SIM-") ? "Demo" : "Paper";
-  return `${a} · ${kind}`;
+  const title = acctTitle(a);
+  return title ? `${title} · ${a}` : a;
+}
+function acctShort(a) {
+  const meta = accountMeta(a);
+  if (!meta) return a;
+  if (meta.primary) return "challenge account";
+  const kind = meta.account_type === 1 ? "cash" : meta.account_type === 2 ? "margin" : "paper";
+  return `${kind} account`;
 }
 function renderAccountBar() {
   const sel = $("#account-select");
   const accts = accountList();
   if (!accts.includes(deskAcct)) deskAcct = accts[0] || null;
   sel.innerHTML = accts.map((a) => `<option value="${esc(a)}"${a === deskAcct ? " selected" : ""}>${esc(acctLabel(a))}</option>`).join("");
+  sel.title = deskAcct ? acctLabel(deskAcct) : "";
   setText("#equity-acct-tag", deskAcct ? acctLabel(deskAcct) : "-");
 }
 
@@ -298,35 +327,69 @@ function showToast(msg, isErr = false) {
 }
 
 /* ---------------- desk strip ---------------- */
+function srcLabel(src) {
+  const s = String(src || "");
+  const cap = s.match(/^broker capture\s+(\S+)/i);
+  if (cap) return `broker capture ${cap[1]}`;
+  if (/^live moomoo/i.test(s)) return "live moomoo";
+  return s;
+}
 function renderDesk() {
   const snap = currentSnap();
   const marks = STATE.nav_marks[deskAcct] || [];
-  $("#nav-acct").textContent = snap ? `· ${snap.account} · ${snap.env}` : "";
-  $("#nav-value").textContent = snap ? money(snap.nav) : "-";
+  setText("#nav-acct", deskAcct ? `· ${acctShort(deskAcct)}` : "");
+  setText("#nav-value", snap ? money(snap.nav) : "-");
   const deltaEl = $("#nav-delta");
   if (marks.length >= 2) {
     const d = marks[marks.length - 1].nav - marks[0].nav;
-    deltaEl.textContent = `${signedMoney(d)} (${signedPct(d / marks[0].nav, 3)}) vs first mark`;
+    deltaEl.textContent = `${signedMoney(d)} (${signedPct(d / marks[0].nav, 3)}) since the first reading`;
     deltaEl.className = "desk-delta mono " + (d >= 0 ? "up" : "down");
   } else { deltaEl.textContent = ""; }
   const last = marks[marks.length - 1];
-  $("#nav-src").textContent = last ? `Latest mark: ${last.source} · ${dualTime(last.ts)} · n=${marks.length}` : "";
-  const broker = $("#nav-broker");
-  if (broker) {
-    broker.textContent = snap && snap.broker_total_asset != null
-      ? `Broker total assets ${money(snap.broker_total_asset)} - includes ${money(snap.order_hold)} held for resting orders (what the Moomoo app shows)`
-      : "";
+  $("#nav-src").textContent = last
+    ? `Last reading: ${srcLabel(last.source)} · ${dateLabel(last.ts)} ${etHHMM(last.ts)} ET`
+    : "No reading saved yet";
+  $("#nav-src").title = last ? hy(last.source) : "";
+
+  const brokerVal = $("#broker-value");
+  if (brokerVal) {
+    const total = snap && snap.broker_total_asset != null ? Number(snap.broker_total_asset) : snap?.nav;
+    brokerVal.textContent = total != null ? money(total) : "-";
   }
+  const brokerSrc = $("#broker-src");
+  if (brokerSrc) {
+    if (!snap) {
+      brokerSrc.textContent = "No broker reading yet";
+    } else {
+      const hold = Number(snap.order_hold || 0);
+      const when = snap.as_of ? `${dateLabel(snap.as_of)} ${etHHMM(snap.as_of)} ET` : "time unknown";
+      const head = snap.live ? "Live from moomoo" : `Broker reading · ${when}`;
+      const tail = snap.live && snap.as_of ? ` · ${when}` : "";
+      brokerSrc.textContent = head + tail + (hold > 0 ? ` · ${money(hold)} held for resting orders` : "");
+      brokerSrc.title = hy(snap.source || "");
+    }
+  }
+
   $("#cash-value").textContent = snap ? money(snap.cash) : "-";
   $("#cash-weight").textContent = snap ? pct(snap.cash_weight) + " of NAV · min " + pct(STATE.risk.min_cash_weight, 0) : "-";
   $("#gross-value").textContent = snap ? pct(snap.gross_weight) : "-";
   $("#gross-cap").textContent = "Cap " + pct(STATE.risk.max_gross_exposure, 0);
+
   const checks = STATE.latest_plan?.regime_checks || {};
-  const labels = { equity_trend: "Equity trend", credit_trend: "Credit trend", golden_cross: "Golden cross", vol_calm: "Vol calm" };
-  $("#regime-checks").innerHTML = Object.entries(checks).map(([k, v]) =>
-    `<span class="check-dot ${v ? "on" : "off"}" data-label="${esc(labels[k] || k)}: ${v ? "pass" : "fail"}"></span>`).join("");
+  const labels = { equity_trend: "Equity trend up", credit_trend: "Credit trend calm", golden_cross: "Golden cross", vol_calm: "Volatility calm" };
+  const entries = Object.entries(checks);
+  $("#regime-checks").innerHTML = entries.length
+    ? entries.map(([k, v]) =>
+      `<div class="check-row"><span class="check-mark ${v ? "on" : "off"}">${v ? "✓" : "✕"}</span><span class="check-name">${esc(labels[k] || humanize(k))}</span><span class="check-state">${v ? "pass" : "fail"}</span></div>`).join("")
+    : '<p class="check-gap">No regime check journaled yet - the next planner run records it.</p>';
+  const passed = entries.filter(([, v]) => v).length;
+  setText("#regime-score", entries.length ? `${passed} of ${entries.length} pass` : "-");
+
   const plan = STATE.latest_plan;
-  $("#vol-note").textContent = plan ? `Portfolio vol ${pct(plan.portfolio_vol)} · scale ${plan.vol_scale.toFixed(2)}` : "-";
+  $("#vol-note").textContent = plan
+    ? `Portfolio vol ${plan.portfolio_vol != null ? pct(plan.portfolio_vol) : "-"} · size scale ${plan.vol_scale != null ? Number(plan.vol_scale).toFixed(2) : "-"}`
+    : "-";
+
   const start = Date.UTC(2026, 10, 17), end = Date.UTC(2026, 10, 28);
   const now = Date.now();
   const frac = Math.min(1, Math.max(0, (now - start) / (end - start)));
@@ -371,7 +434,7 @@ function renderScorecard() {
 
   const tiles = [
     scoreTile("Total P&L", total != null ? signedMoney(total) : "-",
-      total != null ? `${signedPct(totalPct, 2)} vs first mark` : "needs a starting mark", plClass(total)),
+      total != null ? `${signedPct(totalPct, 2)} since the first reading` : "needs a starting reading", plClass(total)),
     scoreTile("Open P&L", hasPos ? signedMoney(open) : "-",
       hasPos ? `unrealized · ${snap.positions.length} position${snap.positions.length === 1 ? "" : "s"}` : "no open positions", plClass(open)),
     scoreTile("Realized (net)", e.pnl_net != null ? signedMoney(e.pnl_net) : "-",
@@ -381,67 +444,106 @@ function renderScorecard() {
     scoreTile("Expectancy", e.expectancy_r != null ? e.expectancy_r.toFixed(2) + " R" : "-",
       e.expectancy_r != null ? "average edge per trade" : "needs wins and losses", plClass(e.expectancy_r)),
     scoreTile("Sharpe", sharpe != null ? sharpe.toFixed(2) : "-",
-      sharpe != null ? "per mark · provisional" : "needs 3+ marks", ""),
+      sharpe != null ? "per reading · provisional" : "needs 3+ readings", ""),
     scoreTile("Max drawdown", marks.length ? pct(dd, 2) : "-",
-      marks.length ? `from ${marks.length} mark${marks.length === 1 ? "" : "s"}` : "no marks yet", dd > 0 ? "neg" : ""),
+      marks.length ? `from ${marks.length} saved reading${marks.length === 1 ? "" : "s"}` : "no readings yet", dd > 0 ? "neg" : ""),
   ];
   grid.innerHTML = tiles.join("");
-  setText("#score-note", "Sharpe is measured between NAV marks (not annualized) and stays blank until there are at least three. Realized P&L is net of modeled fees from closed trades. Every figure is provisional while the sample is small - the journal is the only truth.");
+  setText("#score-note", "Sharpe is measured between saved readings (not annualized) and stays blank until there are at least three. Realized P&L is net of modeled fees from closed trades. Every figure is provisional while the sample is small - the journal is the only truth.");
 }
 
-/* ---------------- pipeline ---------------- */
-function trackHtml(card, nowIdx = -1) {
-  return `<div class="track">` + STAGES.map((s, i) => {
-    const st = card.stages[s.key]?.state || "gap";
-    return `<i class="${st}${i === nowIdx ? " now" : ""}" title="${esc(s.name)}: ${st}"></i>`;
-  }).join("") + `</div>`;
+/* ---------------- strategy - expandable trade table ---------------- */
+let tradeFilter = "all";
+
+function tradeKind(status) {
+  if (["filled", "submitted", "part-filled", "requested", "approved"].includes(status)) return "active";
+  if (["halt-skipped", "blocked", "broker-rejected", "cancelled"].includes(status)) return "skipped";
+  return "planned";
 }
 
-function cardHtml(card, nowIdx = -1) {
-  const status = card.status;
-  const label = STATUS_LABEL[status] || status;
-  const trip = card.round_trip != null ? `<span class="round-trip">${signedMoney(card.round_trip)} round-trip</span>` : "";
-  const dry = card.dry_run ? `<span class="chip dry">Dry run</span>` : "";
-  return `<article class="tcard side-${card.side}" tabindex="0" role="button" data-card="${esc(card.id)}" aria-label="Open ${esc(sym(card.symbol))} trade detail">
-    <div class="tcard-top">
-      <span class="sym">${esc(sym(card.symbol))}</span>
-      <span class="side ${card.side}">${card.side.toUpperCase()}</span>
-      ${dry}
-      ${card.contract ? ring(card.contract.completeness, 26, 3) : ""}
-      <span class="acct-tag">${esc(card.account)}</span>
-    </div>
-    <div class="tcard-qty">${card.quantity} @ ${money(card.limit_price)} · ${money(card.notional, 0)}</div>
-    ${trackHtml(card, nowIdx)}
-    <div class="tcard-foot">
-      <span class="chip status-${status}">${esc(label)}</span>
-      ${trip || `<span class="stage-now">${card.band === "execution" ? "execution band" : "stage 4 · vehicle & edge"}</span>`}
-    </div>
-  </article>`;
+function stageText(key, st) {
+  if (!st) return "";
+  if (key === "thesis") return st.text || "";
+  if (key === "multifactor") {
+    const bits = [];
+    if (st.score != null) bits.push(`score ${st.score}`);
+    if (typeof st.momentum === "number" || typeof st.momentum === "string") bits.push(`momentum ${st.momentum}`);
+    if (typeof st.volatility === "number" || typeof st.volatility === "string") bits.push(`volatility ${st.volatility}`);
+    if (st.selected != null) bits.push(st.selected ? "selected by the scan" : "not selected by the scan");
+    return bits.length ? bits.join(" · ") : (st.note || "");
+  }
+  if (key === "outlook") return st.mapped ? `${st.mapped}${st.regime ? ` (regime: ${st.regime})` : ""}` : (st.gap || "");
+  if (key === "vehicle") return [st.type, st.rationale].filter(Boolean).join(" · ");
+  if (key === "edge") return [st.expected, st.realized != null ? `realized ${signedMoney(st.realized)}` : null].filter(Boolean).join(" · ") || (st.gap || "");
+  return "";
 }
 
 function renderPipeline() {
-  const cards = STATE.cards || [];
-  const grid = $("#stage-grid");
-  grid.innerHTML = STAGES.map((stage, i) => {
-    const inStage = cards.filter((c) => c.band === "stage" + (i + 1));
-    const body = inStage.length
-      ? inStage.map((c) => cardHtml(c, i)).join("")
-      : `<div class="stage-empty">${esc(stage.empty)}<br><span class="chip gap-chip">Instrumentation pending</span></div>`;
-    return `<div class="stage-col">
-      <div class="stage-col-head"><span class="stage-num">${i + 1}</span><div><strong>${esc(stage.name)}</strong><span>${esc(stage.sub)}</span></div></div>
-      ${body}
-    </div>`;
-  }).join("");
-  const band = cards.filter((c) => c.band === "execution")
-    .sort((a, b) => (STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9));
-  $("#band-cards").innerHTML = band.map((c) => cardHtml(c)).join("");
-  grid.querySelectorAll(".tcard").forEach(bindCard);
-  $("#band-cards").querySelectorAll(".tcard").forEach(bindCard);
-}
+  const rows = $("#trade-rows");
+  if (!rows) return;
+  const cards = (STATE.cards || []).slice().sort((a, b) => String(b.as_of || "").localeCompare(String(a.as_of || "")));
+  const filt = $("#trade-filters");
+  if (filt) {
+    const kinds = [["all", "All"], ["planned", "Planned"], ["active", "Active"], ["skipped", "Skipped"]];
+    filt.innerHTML = kinds.map(([k, label]) => {
+      const n = k === "all" ? cards.length : cards.filter((c) => tradeKind(c.status) === k).length;
+      return `<button class="fchip${tradeFilter === k ? " on" : ""}" data-trade-kind="${k}">${label} ${n}</button>`;
+    }).join("");
+    filt.querySelectorAll("button").forEach((b) =>
+      b.addEventListener("click", () => { tradeFilter = b.dataset.tradeKind; renderPipeline(); }));
+  }
+  setText("#strategy-count", `· ${cards.length}`);
+  const shown = cards.filter((c) => tradeFilter === "all" || tradeKind(c.status) === tradeFilter);
+  rows.innerHTML = shown.length ? shown.map((c) => {
+    const st = c.stages || {};
+    const done = STAGES.filter((s) => (st[s.key]?.state || "gap") === "ok").length;
+    const label = STATUS_LABEL[c.status] || c.status;
+    const fill = c.status === "filled" && c.order?.fill_price != null ? money(c.order.fill_price) : null;
+    return `<tr class="trade-row" data-card="${esc(c.id)}" tabindex="0" aria-expanded="false" title="Click to expand the five checks">
+      <td class="exp-col"><span class="expander">▸</span></td>
+      <td><strong>${esc(sym(c.symbol))}</strong><div class="dim mono">${esc(c.as_of || "")}</div></td>
+      <td>${esc(c.strategy || "Desk playbook")}</td>
+      <td>${esc(c.intent || "-")}</td>
+      <td><span class="side ${c.side}">${esc((c.side || "").toUpperCase())}</span></td>
+      <td class="num">${c.quantity}</td>
+      <td class="num">${c.limit_price != null ? money(c.limit_price) : "market"}</td>
+      <td class="num">${c.stop_price != null ? money(c.stop_price) : "-"}</td>
+      <td class="num">${c.target != null ? money(c.target) : "-"}</td>
+      <td class="num">${c.max_loss != null ? money(c.max_loss) : "-"}</td>
+      <td><span class="chip status-${c.status}">${esc(label)}</span>${fill ? `<div class="dim mono">fill ${fill}</div>` : ""}</td>
+      <td class="num"><span class="check-count ${done === 5 ? "full" : done >= 3 ? "part" : "low"}">${done}/5</span></td>
+    </tr>
+    <tr class="trade-detail" hidden><td colspan="12">
+      <div class="trade-detail-grid">
+        ${STAGES.map((s) => {
+          const stt = st[s.key] || { state: "gap" };
+          return `<div class="td-stage ${stt.state || "gap"}">
+            <div class="td-stage-head"><i class="sw ${stt.state || "gap"}"></i><strong>${esc(s.name)}</strong><span class="td-state">${esc(stt.state || "gap")}</span></div>
+            <p>${esc(stageText(s.key, stt) || "not instrumented")}</p>
+          </div>`;
+        }).join("")}
+      </div>
+      <div class="trade-detail-foot">
+        <span class="td-meta">${esc(c.account || "-")} · ${esc(c.strategy || "Desk playbook")}${c.dry_run ? " · dry run" : ""}${c.contract ? ` · contract ${Math.round(c.contract.completeness * 100)}%` : ""}</span>
+        <button class="btn btn-sm" type="button" data-open="${esc(c.id)}">Open full detail</button>
+      </div>
+    </td></tr>`;
+  }).join("") : '<tr><td colspan="12" class="empty-row">No trade ideas in this filter yet.</td></tr>';
 
-function bindCard(el) {
-  el.addEventListener("click", () => openDrawer(el.dataset.card));
-  el.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openDrawer(el.dataset.card); } });
+  rows.querySelectorAll(".trade-row").forEach((tr) => {
+    const detail = tr.nextElementSibling;
+    if (!detail || !detail.classList.contains("trade-detail")) return;
+    const toggle = () => {
+      const open = detail.hidden;
+      detail.hidden = !open;
+      tr.classList.toggle("open", open);
+      tr.setAttribute("aria-expanded", String(open));
+    };
+    tr.addEventListener("click", toggle);
+    tr.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } });
+  });
+  rows.querySelectorAll("[data-open]").forEach((b) =>
+    b.addEventListener("click", (e) => { e.stopPropagation(); openDrawer(b.dataset.open); }));
 }
 
 /* ---------------- drawer ---------------- */
@@ -574,8 +676,9 @@ function renderKill() {
   }).join("");
   $("#kill-card").innerHTML = `
     <span class="card-kicker">Kill-switch</span>
-    <div class="kill-state ${halted ? "armed" : "clear"}"><span class="kill-lamp ${halted ? "armed" : "clear"}"></span><strong>${halted ? "ARMED" : "CLEAR"}</strong></div>
-    <div class="kill-meta">${esc(STATE.halt.reason || "")} · ${dualTime(STATE.halt.ts)}</div>
+    <div class="kill-state ${halted ? "armed" : "clear"}"><span class="kill-lamp ${halted ? "armed" : "clear"}"></span><strong>${halted ? "ARMED" : "RELEASED"}</strong></div>
+    <div class="kill-sub">${halted ? "New buys are blocked everywhere. De-risking sells still pass." : "Buys are allowed - no active halt."}</div>
+    <div class="kill-meta">${esc(STATE.halt.reason || "")}${STATE.halt.ts ? ` · ${dualTime(STATE.halt.ts)}` : ""}</div>
     ${drill.pass ? `<span class="drill-badge">✓ kill-switch drill PASS · 2026-11-18</span>` : ""}
     <ul class="kill-timeline">${items}</ul>`;
 }
@@ -744,9 +847,27 @@ async function fetchOperatorStatus() {
   renderOperator();
 }
 
+function renderAdminZone() {
+  const zone = $("#admin-zone");
+  if (!zone) return;
+  const can = controlsEnabled();
+  zone.dataset.locked = String(!can);
+  const locked = $("#admin-locked");
+  if (locked) locked.hidden = can;
+  const state = $("#admin-state");
+  if (state) {
+    state.className = "pill " + (can ? "live-pill live" : "cached");
+    const label = state.querySelector("span");
+    if (label) label.textContent = can ? (LIVE ? "Unlocked" : "Unlocked - local desk") : "Locked";
+  }
+  const jump = $("#admin-jump");
+  if (jump) jump.hidden = !LIVE || operatorConfigured === false;
+}
+
 function renderOperator() {
   const card = $("#operator-card");
   if (!card) return;
+  renderAdminZone();
   if (!LIVE) { card.hidden = true; return; }
   card.hidden = false;
   const state = $("#operator-state");
@@ -759,6 +880,7 @@ function renderOperator() {
     state.querySelector("span").textContent = "Not configured";
     sub.textContent = "Operator controls are disabled on this hosted desk until the owner adds TYCHE_OPERATOR_PASSPHRASE and TYCHE_GITHUB_PAT in Sites Settings. Everyone can still refresh and view every figure.";
     icon.classList.remove("ok");
+    renderAdminZone();
     return;
   }
   if (operatorKey) {
@@ -776,6 +898,7 @@ function renderOperator() {
     sub.textContent = "This desk is shared read-only. Unlock with your operator passphrase to change the trading mode or the kill-switch. The passphrase is held in memory only and never stored.";
     icon.classList.remove("ok");
   }
+  renderAdminZone();
 }
 
 function lockOperator() {
@@ -861,12 +984,13 @@ function renderKillControl() {
   const canControl = controlsEnabled();
   const srcTag = STATE.halt.source === "repo" ? " · shared cloud flag" : "";
   wrap.innerHTML = `
-    <div class="kill-state ${halted ? "armed" : "clear"}"><span class="kill-lamp ${halted ? "armed" : "clear"}"></span><strong>${halted ? "ARMED" : "CLEAR"}</strong></div>
-    <div class="kill-meta">${esc(STATE.halt.reason || "")} · ${dualTime(STATE.halt.ts)}${srcTag}</div>
+    <div class="kill-state ${halted ? "armed" : "clear"}"><span class="kill-lamp ${halted ? "armed" : "clear"}"></span><strong>${halted ? "ARMED" : "RELEASED"}</strong></div>
+    <div class="kill-sub">${halted ? "New buys are blocked everywhere." : "Buys are allowed - no active halt."}</div>
+    <div class="kill-meta">${esc(STATE.halt.reason || "")}${STATE.halt.ts ? ` · ${dualTime(STATE.halt.ts)}` : ""}${srcTag}</div>
     ${canControl ? `
       ${halted ? "" : '<input type="text" id="halt-reason" class="search halt-reason" maxlength="200" placeholder="Reason for halting (journaled)" aria-label="Halt reason">'}
       <button class="btn ${halted ? "btn-primary" : "disarm-btn"} kill-btn" id="kill-toggle">${halted ? "Release kill-switch" : "Engage kill-switch"}</button>
-      <p class="table-note" style="padding:10px 0 0">${halted ? "Release resumes buys after your review. The change is journaled and reaches the cloud desk." : "Engaging blocks new buys everywhere immediately; de-risking sells still pass. The change is journaled and reaches the cloud desk."}</p>
+      <p class="table-note" style="padding:10px 0 0">${halted ? "Releasing lets buys through again after your review. The change is journaled and reaches the cloud desk." : "Engaging blocks new buys everywhere immediately; de-risking sells still pass. The change is journaled and reaches the cloud desk."}</p>
     ` : `<p class="table-note" style="padding:10px 0 0">${LIVE ? "View-only - unlock the operator console above to operate the kill-switch." : "Read-only snapshot - the kill-switch is operated from the live desk."}</p>`}`;
   const btn = $("#kill-toggle");
   if (btn) btn.addEventListener("click", () => toggleHalt(!halted));
@@ -916,12 +1040,105 @@ function renderGauges() {
     ${gauge("Cash weight", snap?.cash_weight || 0, risk.min_cash_weight, pct(risk.min_cash_weight, 0) + " min", "min")}
     ${gauge(`Largest position · ${maxPosSym}`, maxPos, risk.max_position_weight, pct(risk.max_position_weight, 0) + " cap")}
     ${gauge("Order attempts today", ordersToday / risk.max_orders_per_day, 1, "daily cap", null, `${ordersToday}/${risk.max_orders_per_day}`)}
-    <span class="card-kicker" style="margin-top:6px">Drawdown ladder · current DD ${pct(dd, 2)} <em>(n=${marks.length} marks)</em></span>
+    <span class="card-kicker" style="margin-top:6px">Drawdown ladder · current DD ${pct(dd, 2)} <em>(${marks.length} saved reading${marks.length === 1 ? "" : "s"})</em></span>
     <div class="ladder">
       ${ddRung("alert", risk.soft_drawdown_pct)}
       ${ddRung("auto-halt", risk.hard_drawdown_pct)}
       ${ddRung("daily stop", risk.daily_loss_limit_pct)}
     </div>`;
+}
+
+function renderRiskGuards() {
+  const wrap = $("#guard-rows");
+  if (!wrap) return;
+  const snap = currentSnap();
+  const risk = STATE.risk || {};
+  const orders = (STATE.orders || []).filter((o) => !deskAcct || o.account === deskAcct);
+  const nav = snap?.nav || 0;
+  const positions = snap?.positions || [];
+  const today = etDateStr(new Date().toISOString());
+  const todays = orders.filter((o) => etDateStr(o.requested_ts) === today);
+  const notional = (o) => (o.limit_price != null ? o.limit_price : (o.fill_price || 0)) * (o.quantity || 0);
+  const maxOrder = todays.length ? Math.max(...todays.map(notional)) : null;
+  const minOrder = todays.length ? Math.min(...todays.map(notional)) : null;
+  const maxCardLoss = Math.max(...(STATE.cards || []).map((c) => c.max_loss || 0), 0);
+  const minPrice = positions.length ? Math.min(...positions.map((p) => p.last_price)) : null;
+  const shorts = positions.filter((p) => p.quantity < 0).length;
+  const maxPos = positions.length ? Math.max(...positions.map((p) => p.weight)) : null;
+  const maxPosSym = positions.length ? positions.slice().sort((a, b) => b.weight - a.weight)[0].symbol : null;
+  const turnover = nav ? todays.reduce((a, o) => a + notional(o), 0) / nav : null;
+  const marks = STATE.nav_marks[deskAcct] || [];
+  let peak = -Infinity, dd = 0;
+  for (const m of marks) { peak = Math.max(peak, m.nav); dd = Math.max(dd, (peak - m.nav) / peak); }
+  const meta = accountMeta(deskAcct) || {};
+  const acctType = snap?.account_type ?? meta.account_type;
+  const marketId = snap?.market_id ?? meta.market_id;
+  const simTypes = risk.sim_account_types || [1, 2];
+  const simMarket = risk.sim_market_id ?? 100;
+  const priced = todays.filter((o) => o.limit_price != null && positions.some((p) => p.symbol === o.symbol && p.last_price));
+  const limitDev = priced.length
+    ? Math.max(...priced.map((o) => {
+      const last = positions.find((p) => p.symbol === o.symbol).last_price;
+      return Math.abs(o.limit_price / last - 1);
+    }))
+    : null;
+  const maxState = (v, cap) => v == null ? "gap" : v > cap ? "breach" : v > cap * 0.85 ? "warn" : "ok";
+  const minState = (v, floor) => v == null ? "gap" : v < floor ? "breach" : v < floor * 1.15 ? "warn" : "ok";
+
+  const tiles = [];
+  const T = (name, value, cap, state, note) => tiles.push({ name, value, cap, state, note });
+  T("Account type", acctType != null ? `type ${acctType}` : "-", `types ${simTypes.join(" / ")}`,
+    acctType != null && simTypes.includes(acctType) ? "ok" : "gap", "paper simulator only - no live or crypto tools mounted");
+  T("Market", marketId != null ? `market ${marketId}` : "-", `US = ${simMarket}`,
+    marketId === simMarket ? "ok" : "gap", "US equities only");
+  T("Minimum price", minPrice != null ? money(minPrice) : "-", money(risk.min_price ?? 1),
+    minState(minPrice, risk.min_price ?? 1), "cheapest holding must clear the price floor");
+  T("Limit near market", limitDev != null ? pct(limitDev, 2) : "not measured", `max ${pct(risk.max_limit_deviation_pct, 0)}`,
+    maxState(limitDev, risk.max_limit_deviation_pct), limitDev != null
+      ? "largest limit-vs-last gap among today's priced orders"
+      : "checked at submit - no priced orders in this session");
+  T("Per-order budget", maxOrder != null && nav ? pct(maxOrder / nav, 1) : "-", `${pct(risk.max_order_notional_pct, 0)} NAV`,
+    maxState(maxOrder != null && nav ? maxOrder / nav : null, risk.max_order_notional_pct), "largest single order notional today");
+  T("Per-trade risk", maxCardLoss && nav ? pct(maxCardLoss / nav, 2) : "-", `${pct(risk.risk_per_trade_pct, 1)} NAV`,
+    maxState(maxCardLoss && nav ? maxCardLoss / nav : null, risk.risk_per_trade_pct), "max loss (qty x stop distance) on a journaled idea");
+  T("Minimum order size", minOrder != null ? money(minOrder, 0) : "-", money(risk.min_order_notional ?? 500, 0),
+    minState(minOrder, risk.min_order_notional ?? 500), "smallest order today - fee drag guard");
+  T("No naked shorts", shorts ? `${shorts} short` : "none", "0 allowed", shorts ? "breach" : "ok", "inventory-first only; no new shorting");
+  T("Position count", positions.length, `max ${risk.max_positions ?? 100}`,
+    maxState(positions.length, risk.max_positions ?? 100), "held names");
+  T("Largest position", maxPos != null ? `${sym(maxPosSym)} ${pct(maxPos)}` : "-", `max ${pct(risk.max_position_weight, 0)}`,
+    maxState(maxPos, risk.max_position_weight), "single-name concentration");
+  T("Gross exposure", snap?.gross_weight != null ? pct(snap.gross_weight) : "-", `max ${pct(risk.max_gross_exposure, 0)}`,
+    maxState(snap?.gross_weight, risk.max_gross_exposure), "sum of positions over NAV");
+  T("Cash reserve", snap?.cash_weight != null ? pct(snap.cash_weight) : "-", `min ${pct(risk.min_cash_weight, 0)}`,
+    minState(snap?.cash_weight, risk.min_cash_weight), "cash weight floor");
+  T("Orders today", todays.length, `max ${risk.max_orders_per_day ?? 120}`,
+    maxState(todays.length, risk.max_orders_per_day ?? 120), "buys and sells both count");
+  T("Turnover today", turnover != null ? pct(turnover) : "-", `max ${pct(risk.max_daily_turnover_pct, 0)}`,
+    maxState(turnover, risk.max_daily_turnover_pct), "notional traded over NAV");
+  T("Drawdown alert", marks.length ? pct(dd, 2) : "-", `alert ${pct(risk.soft_drawdown_pct, 0)}`,
+    marks.length ? (dd >= risk.hard_drawdown_pct ? "breach" : dd >= risk.soft_drawdown_pct ? "warn" : "ok") : "gap",
+    "from the saved readings, high-water reading basis");
+  T("Hard drawdown stop", marks.length ? pct(dd, 2) : "-", `stop ${pct(risk.hard_drawdown_pct, 0)}`,
+    marks.length ? (dd >= risk.hard_drawdown_pct ? "breach" : "ok") : "gap", "the desk halts new buys at this level");
+  T("Kill-switch", STATE.halt.halted ? "armed" : "released", "blocks buys", STATE.halt.halted ? "warn" : "ok",
+    STATE.halt.halted ? "new buys are blocked everywhere" : "buys pass; de-risking sells always pass");
+  T("Fee model", "modeled", "per fill", "ok", "fees estimated from the journal; reconciliation in the daily report");
+
+  const counts = tiles.reduce((a, t) => { a[t.state] = (a[t.state] || 0) + 1; return a; }, {});
+  const summary = $("#guard-summary");
+  if (summary) {
+    summary.innerHTML =
+      `<span class="chip ok-chip">${counts.ok || 0} passing</span>` +
+      (counts.warn ? `<span class="chip provisional">${counts.warn} near</span>` : "") +
+      (counts.breach ? `<span class="chip halt-chip">${counts.breach} over</span>` : "") +
+      (counts.gap ? `<span class="chip">${counts.gap} not measurable</span>` : "");
+  }
+  wrap.innerHTML = tiles.map((t) => `<div class="guard-tile ${t.state}">
+    <div class="guard-top"><span class="guard-name">${esc(t.name)}</span><span class="guard-flag">${t.state === "gap" ? "n/a" : t.state === "ok" ? "ok" : t.state === "warn" ? "near" : "over"}</span></div>
+    <div class="guard-val mono">${esc(t.value)}${t.cap ? `<span class="guard-cap"> / ${esc(t.cap)}</span>` : ""}</div>
+    <div class="guard-note">${esc(t.note)}</div>
+  </div>`).join("");
 }
 
 function renderDonut() {
@@ -958,7 +1175,7 @@ function renderDonut() {
   const legend = segs.map((s) => `<li><i style="background:${s.hue}"></i>${esc(s.label)}<span class="mono">${pct(frac(s.value))}</span></li>`).join("");
   const summary = segs.map((s) => `${s.label} ${pct(frac(s.value))}`).join(", ");
   wrap.innerHTML = `
-    <svg viewBox="0 0 140 140" width="150" height="150" role="img" aria-label="Allocation by market value: ${esc(summary)}">
+    <svg viewBox="0 0 140 140" width="200" height="200" role="img" aria-label="Allocation by market value: ${esc(summary)}">
       <circle r="${r}" cx="70" cy="70" fill="none" style="stroke:var(--surface2)" stroke-width="17"/>
       ${arcs.join("")}
       ${chips.join("")}
@@ -1000,22 +1217,30 @@ function renderPositions() {
 }
 
 function renderOrders() {
-  const orders = (STATE.orders || []).filter((o) => !deskAcct || o.account === deskAcct);
-  const working = orders.filter((o) => ["requested", "submitted"].includes(o.status)).length;
+  const all = (STATE.orders || []).filter((o) => !deskAcct || o.account === deskAcct);
+  const working = all.filter((o) => ["requested", "submitted"].includes(o.status)).length;
   const el = $("#working-orders");
   el.textContent = working === 0 ? "0 working orders - all terminal" : `${working} working`;
   el.className = "chip " + (working === 0 ? "ok-chip" : "provisional");
-  $("#order-rows").innerHTML = orders.map((o) => `<tr>
-    <td class="mono">${esc(o.order_id || "-")}</td>
-    <td class="mono" style="font-size:10.5px;color:var(--muted)">${esc(o.remark || "-")}</td>
-    <td class="mono acct-cell">${esc(o.account || "-")}</td>
-    <td><span class="side ${o.side}">${o.side.toUpperCase()}</span></td>
-    <td class="num">${o.quantity}</td>
-    <td class="num">${o.limit_price != null ? money(o.limit_price) : "market"}</td>
-    <td><span class="chip status-${o.status}">${esc(STATUS_LABEL[o.status] || o.status)}</span></td>
-    <td class="num">${o.fill_price != null ? money(o.fill_price) : "-"}</td>
-    <td class="mono" style="font-size:10.5px"><div>${etHHMM(o.requested_ts)} → ${o.submitted_ts ? etHHMM(o.submitted_ts) : "-"} ET</div><div class="dim">${sgtHHMM(o.requested_ts)} → ${o.submitted_ts ? sgtHHMM(o.submitted_ts) : "-"} SGT</div></td>
-  </tr>`).join("");
+  const orders = all.slice().reverse();
+  $("#order-rows").innerHTML = orders.map((o) => {
+    const note = [o.reason, o.authorization && o.authorization !== "manual" ? `${o.authorization} authorization` : ""]
+      .filter(Boolean).join(" · ");
+    const hover = `Order ${o.order_id || "not created"} · ${o.account || "-"}${o.request_id ? ` · request ${o.request_id}` : ""}`;
+    return `<tr title="${esc(hover)}">
+      <td class="mono nowrap">${o.requested_ts ? dualCell(o.requested_ts) : "-"}</td>
+      <td><strong>${esc(sym(o.symbol))}</strong></td>
+      <td>${esc(o.strategy || "Desk playbook")}</td>
+      <td>${o.intent ? `<span class="intent ${esc(String(o.intent).toLowerCase())}">${esc(o.intent)}</span>` : "-"}</td>
+      <td><span class="side ${o.side}">${esc((o.side || "").toUpperCase())}</span></td>
+      <td class="num">${o.quantity}</td>
+      <td class="num">${o.limit_price != null ? money(o.limit_price) : "market"}</td>
+      <td class="num">${o.fill_price != null ? money(o.fill_price) : "-"}</td>
+      <td class="num">${o.max_loss != null ? money(o.max_loss) : "-"}</td>
+      <td><span class="chip status-${o.status}">${esc(STATUS_LABEL[o.status] || o.status)}</span>${o.order_id ? "" : '<div class="dim mono">no broker id</div>'}</td>
+      <td class="notes-cell" title="${esc(note)}">${esc(note || "-")}</td>
+    </tr>`;
+  }).join("") || '<tr><td colspan="11" class="empty-row">No orders for this account yet.</td></tr>';
 }
 
 function renderRejections() {
@@ -1044,12 +1269,25 @@ function renderRejections() {
 }
 
 /* ---------------- equity ---------------- */
+function shortSrc(src) {
+  const s = String(src || "");
+  if (/^broker capture/i.test(s)) return "Broker capture";
+  if (/^live moomoo/i.test(s)) return "Live moomoo";
+  const cloud = s.match(/^cloud:(\d{4}-\d{2}-\d{2})-([a-z0-9_]+)$/i) || s.match(/^cloud run\s+(\d{4}-\d{2}-\d{2})-([a-z0-9_]+)/i);
+  if (cloud) {
+    const phase = cloud[2].replace(/_/g, " ").replace(/(\d+)$/, " $1").trim();
+    return "Cloud " + phase;
+  }
+  if (/^plan\.created/i.test(s)) return "Journal plan";
+  if (/^snapshot/i.test(s)) return "Broker snapshot";
+  return s.length > 24 ? s.slice(0, 23) + "..." : s;
+}
 function renderEquity() {
   const marks = STATE.nav_marks[deskAcct] || [];
   const stats = $("#equity-stats");
   if (!marks.length) {
     stats.innerHTML = "";
-    $("#equity-chart").innerHTML = '<p class="table-note">No NAV marks for this account yet.</p>';
+    $("#equity-chart").innerHTML = '<p class="table-note">No saved readings for this account yet.</p>';
     $("#returns-bars").innerHTML = "";
     return;
   }
@@ -1057,18 +1295,18 @@ function renderEquity() {
   const delta = last.nav - first.nav;
   let peak = -Infinity, dd = 0;
   for (const m of marks) { peak = Math.max(peak, m.nav); dd = Math.max(dd, (peak - m.nav) / peak); }
-  const nMarks = marks.reduce((a, m) => a + (m.count || 1), 0);
+  const nReadings = marks.reduce((a, m) => a + (m.count || 1), 0);
   const nextFriday = (() => {
     const d = new Date();
     const add = (5 - d.getUTCDay() + 7) % 7 || 7;
     return new Date(d.getTime() + add * 86400000);
   })();
   stats.innerHTML = `
-    <div class="estat"><span class="desk-label">Latest NAV</span><b>${money(last.nav)}</b></div>
-    <div class="estat"><span class="desk-label">Δ vs first mark</span><b class="${plClass(delta)}">${signedMoney(delta)} · ${signedPct(delta / first.nav, 3)}</b></div>
+    <div class="estat"><span class="desk-label">Latest value</span><b>${money(last.nav)}</b></div>
+    <div class="estat"><span class="desk-label">Change since first reading</span><b class="${plClass(delta)}">${signedMoney(delta)} · ${signedPct(delta / first.nav, 3)}</b></div>
     <div class="estat"><span class="desk-label">Max drawdown</span><b>${pct(dd, 2)}</b></div>
-    <div class="estat"><span class="desk-label">Marks</span><b>${nMarks}</b> <span class="chip provisional">provisional</span></div>
-    <div class="estat"><span class="desk-label">Next Friday mark</span><b>${dateLabel(nextFriday.toISOString())}</b></div>`;
+    <div class="estat"><span class="desk-label">Saved readings</span><b>${nReadings}</b> <span class="chip provisional">provisional</span></div>
+    <div class="estat"><span class="desk-label">Next weekly reading</span><b>${dateLabel(nextFriday.toISOString())}</b></div>`;
 
   const W = 1000, H = 270, L = 92, R = 34, T = 30, B = 44;
   const navs = marks.map((m) => m.nav);
@@ -1082,7 +1320,7 @@ function renderEquity() {
     const v = yMin + (g / 3) * (yMax - yMin);
     const yy = y(v);
     grid += `<line x1="${L}" x2="${W - R}" y1="${yy}" y2="${yy}" style="stroke:var(--line-soft)" stroke-width="1"/>
-      <text x="${L - 10}" y="${yy + 4}" text-anchor="end" style="fill:var(--faint)" font-size="11" font-family="IBM Plex Mono, monospace">$${Math.round(v).toLocaleString()}</text>`;
+      <text x="${L - 10}" y="${yy + 4}" text-anchor="end" style="fill:var(--faint)" font-size="11.5" font-family="IBM Plex Mono, monospace">$${Math.round(v).toLocaleString()}</text>`;
   }
   const pts = marks.map((m, i) => [x(i), y(m.nav)]);
   const linePath = pts.map((p, i) => (i ? "L" : "M") + p[0].toFixed(1) + " " + p[1].toFixed(1)).join(" ");
@@ -1092,12 +1330,12 @@ function renderEquity() {
     const above = i % 2 === 0 || marks.length === 1;
     return `<circle cx="${cx}" cy="${cy}" r="6" style="fill:var(--bg1);stroke:var(--green)" stroke-width="2.5">
         <title>${esc(m.source)} · ${dualTime(m.ts)} · ${money(m.nav)}</title></circle>
-      <text x="${cx}" y="${above ? cy - 16 : cy + 26}" text-anchor="middle" style="fill:var(--ink)" font-size="12.5" font-weight="600" font-family="IBM Plex Mono, monospace">${money(m.nav, 0)}</text>
-      <text x="${cx}" y="${H - B + 18}" text-anchor="middle" style="fill:var(--muted)" font-size="10.5">${esc(m.source)}${m.count > 1 ? " ×" + m.count : ""}</text>
-      <text x="${cx}" y="${H - B + 32}" text-anchor="middle" style="fill:var(--faint)" font-size="9.5" font-family="IBM Plex Mono, monospace">${dateLabel(m.ts)} ${etHHMM(m.ts)} ET</text>`;
+      <text x="${cx}" y="${above ? cy - 16 : cy + 26}" text-anchor="middle" style="fill:var(--ink)" font-size="13" font-weight="600" font-family="IBM Plex Mono, monospace">${money(m.nav, 0)}</text>
+      <text x="${cx}" y="${H - B + 18}" text-anchor="middle" style="fill:var(--label-2)" font-size="11">${esc(shortSrc(m.source))}${m.count > 1 ? " x" + m.count : ""}</text>
+      <text x="${cx}" y="${H - B + 33}" text-anchor="middle" style="fill:var(--label-4)" font-size="10" font-family="IBM Plex Mono, monospace">${dateLabel(m.ts)} ${etHHMM(m.ts)} ET</text>`;
   }).join("");
   $("#equity-chart").innerHTML = `
-    <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="NAV marks chart">
+    <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Saved account value readings over time">
       <defs>
         <linearGradient id="eqArea" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" style="stop-color:var(--green)" stop-opacity=".22"/><stop offset="1" style="stop-color:var(--green)" stop-opacity="0"/>
@@ -1115,37 +1353,11 @@ function renderEquity() {
   const maxAbs = Math.max(...rets.map((d) => Math.abs(d.r)), 1e-9);
   $("#returns-bars").innerHTML = rets.length
     ? rets.map((d) => `<div class="rbar ${d.r >= 0 ? "up" : "down"}"><b class="${plClass(d.r)}">${signedPct(d.r, 3)}</b><i style="height:${Math.max(4, Math.abs(d.r) / maxAbs * 40)}px"></i><span>${d.label} ET</span></div>`).join("")
-    : '<p class="table-note" style="padding:0">Single mark - no inter-mark return yet. The fee-net daily series arrives with the EOD performance generator.</p>';
+    : '<p class="table-note" style="padding:0">Only one reading so far - no change to show yet. The fee-net daily series arrives with the EOD performance generator.</p>';
 }
 
 /* ---------------- automation ---------------- */
-function nextRunInfo() {
-  const now = Date.now();
-  let best = null;
-  for (const s of AUTO?.schedules || []) {
-    for (const ts of s.trigger_policy?.upcoming_runs_at || []) {
-      const t = Date.parse(ts);
-      if (t > now && (!best || t < best.t)) best = { t, name: s.name };
-    }
-  }
-  if (!best && AUTO?.calendar?.next_run) {
-    const t = Date.parse(AUTO.calendar.next_run.utc);
-    if (t > now) best = { t, name: AUTO.calendar.next_run.name };
-  }
-  return best;
-}
-
 function tickCountdowns() {
-  const info = nextRunInfo();
-  const el = $("#next-run");
-  if (info) {
-    el.textContent = fmtCountdown(info.t - Date.now());
-    const iso = new Date(info.t).toISOString();
-    $("#next-run-name").textContent = `${info.name} · ${etHHMM(iso)} ET · ${sgtHHMM(iso)} SGT`;
-  } else {
-    el.textContent = "-";
-    $("#next-run-name").textContent = "No upcoming runs";
-  }
   document.querySelectorAll("[data-countdown]").forEach((b) => {
     b.textContent = fmtCountdown(Number(b.dataset.countdown) - Date.now());
   });
@@ -1322,17 +1534,19 @@ function renderAutomation() {
     const nb = (b.trigger_policy?.upcoming_runs_at || ["9999"])[0];
     return na.localeCompare(nb);
   });
-  $("#sched-grid").innerHTML = scheds.map((s) => {
+  setText("#sched-count", allScheds.length ? `${activeScheds} active / ${allScheds.length}` : "-");
+  $("#sched-rows").innerHTML = scheds.map((s) => {
     const next = (s.trigger_policy?.upcoming_runs_at || [])[0];
     const nextT = next ? Date.parse(next) : null;
-    return `<div class="card sched-card">
-      <div class="sched-name"><span class="sched-status${s.status === "active" ? "" : " paused"}"></span>${esc(s.name)}</div>
-      <p class="sched-desc">${esc(s.description || "")}</p>
-      <span class="sched-cron mono">${esc(s.trigger_policy?.expression || "-")} · ${esc(s.trigger_policy?.timezone || "UTC")}</span>
-      <div class="sched-next">${nextT && nextT > Date.now() ? `Next run <b data-countdown="${nextT}">${fmtCountdown(nextT - Date.now())}</b> · ${dateLabel(next)} ${etHHMM(next)} ET · ${sgtHHMM(next)} SGT` : "No upcoming runs in the cached window - refresh for live Forward data"}</div>
-      <div class="sched-pin">Pinned prompt v${esc(s.initial_events_version ?? "?")} · ${esc(s.status)}</div>
-    </div>`;
-  }).join("");
+    return `<tr class="${s.status === "active" ? "" : "is-paused"}">
+      <td><strong>${esc(s.name)}</strong><div class="dim">${esc(s.description || "")}</div></td>
+      <td><span class="cal-cron mono">${esc(s.trigger_policy?.expression || "-")}</span><div class="dim mono">${esc(s.trigger_policy?.timezone || "UTC")}</div></td>
+      <td><span class="sched-pill ${s.status === "active" ? "active" : "paused"}"><i></i>${esc(s.status || "unknown")}</span></td>
+      <td>${nextT && nextT > Date.now()
+        ? `<b class="mono" data-countdown="${nextT}">${fmtCountdown(nextT - Date.now())}</b><div class="dim mono">${dateLabel(next)} ${etHHMM(next)} ET · ${sgtHHMM(next)} SGT</div>`
+        : '<span class="dim">No upcoming run in this window</span>'}</td>
+    </tr>`;
+  }).join("") || '<tr><td colspan="4" class="empty-row">No schedules returned - Forward may be unreachable; the cached export carries the last known set.</td></tr>';
   const sessions = AUTO.sessions || [];
   const credits = sessions.reduce((a, s) => a + (s.usage?.total_credits || 0), 0);
   $("#credits-total").textContent = `Σ ${credits.toFixed(1)} credits`;
@@ -1376,24 +1590,22 @@ function renderInstrumentation() {
 
 /* ---------------- controls footer ---------------- */
 function renderFooter() {
-  $("#divergence-list").innerHTML = STATE.divergences.map((d) => `<li>${esc(d)}</li>`).join("");
+  const list = $("#divergence-list");
+  if (list) {
+    list.innerHTML = (STATE.divergences || []).map((d, i) =>
+      `<div class="info-row"><span class="info-k">Gap ${i + 1}</span><span class="info-v">${esc(d)}</span></div>`).join("")
+      || '<div class="info-row"><span class="info-v">No open gaps recorded.</span></div>';
+  }
   const chain = $("#chain-row");
   if (chain) {
     chain.innerHTML = STATE.chain.ok
-      ? `<strong>Journal integrity:</strong> chain verified - ${STATE.chain.count} events (plans, orders, halts, rejections - every journaled event, not just fills)`
-      : `<strong>Journal integrity:</strong> <span class="halt-note">CHAIN BROKEN - ${esc(STATE.chain.error || "verification failed")}</span>`;
+      ? `<span class="info-k">Journal integrity</span><span class="info-v">Chain verified - ${STATE.chain.count} events (plans, orders, halts, rejections - every journaled event, not just fills).</span>`
+      : `<span class="info-k">Journal integrity</span><span class="info-v halt-note">CHAIN BROKEN - ${esc(STATE.chain.error || "verification failed")}</span>`;
   }
 }
 
 /* ---------------- overview extras ---------------- */
 function renderOverview() {
-  const feed = STATE.feed;
-  const fn = $("#feed-note");
-  if (fn) {
-    fn.innerHTML = feed && feed.primary_account
-      ? `Main feed: <strong>${esc(feed.primary_account)}</strong> · ${feed.run ? `latest cloud run ${esc(feed.run)}` : "local broker snapshot"} · ${feed.cloud_runs || 0} cloud run${feed.cloud_runs === 1 ? "" : "s"} synced`
-      : "";
-  }
   const a = STATE.approvals;
   const ov = $("#ov-approval");
   if (ov && a) {
@@ -1406,7 +1618,7 @@ function renderOverview() {
   if (kill) {
     const halted = STATE.halt.halted;
     kill.className = "brief-kill " + (halted ? "armed" : "clear");
-    kill.innerHTML = `<span class="kill-lamp ${halted ? "armed" : "clear"}"></span><strong>${halted ? "ARMED" : "CLEAR"}</strong><span>${esc(STATE.halt.reason || (halted ? "" : "no active halt"))}</span>`;
+    kill.innerHTML = `<span class="kill-lamp ${halted ? "armed" : "clear"}"></span><strong>${halted ? "ARMED" : "RELEASED"}</strong><span>${esc(STATE.halt.reason || (halted ? "" : "buys are allowed"))}</span>`;
   }
 }
 
@@ -1426,6 +1638,7 @@ function renderAll() {
   safeRender("approval", renderApproval);
   safeRender("killControl", renderKillControl);
   safeRender("gauges", renderGauges);
+  safeRender("riskGuards", renderRiskGuards);
   safeRender("donut", renderDonut);
   safeRender("positions", renderPositions);
   safeRender("orders", renderOrders);
@@ -1455,7 +1668,12 @@ function setup() {
   document.querySelectorAll(".theme-btn").forEach((b) => b.addEventListener("click", () => setTheme(b.dataset.themeSet)));
   document.querySelectorAll("#ins-toggle button").forEach((b) => b.addEventListener("click", () => { insView = b.dataset.ins; renderInstrumentation(); }));
   $("#refresh-btn").addEventListener("click", () => fetchAll(true));
-  $("#controls-refresh").addEventListener("click", () => fetchAll(true));
+  const adminJump = $("#admin-jump");
+  if (adminJump) adminJump.addEventListener("click", () => {
+    const pass = $("#operator-pass");
+    if (pass && !pass.closest("[hidden]")) pass.focus();
+    else showToast("Operator login is not configured on this desk", true);
+  });
   const unlockBtn = $("#operator-unlock");
   if (unlockBtn) unlockBtn.addEventListener("click", unlockOperator);
   const passInput = $("#operator-pass");

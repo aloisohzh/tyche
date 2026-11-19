@@ -1,0 +1,13 @@
+{
+  "as_of": "2026-11-19",
+  "approved_at": "2026-11-19T16:45:00Z",
+  "approved_by": "operator",
+  "max_orders": 4,
+  "orders": [
+    {"symbol": "US.SPY", "side": "sell", "max_qty": 21, "limit_min": 722.00},
+    {"symbol": "US.EFA", "side": "sell", "max_qty": 92, "limit_min": 98.50},
+    {"symbol": "US.NVDA", "side": "buy", "max_qty": 129, "limit_max": 153.80, "setup_hash": "f4a446b33d7f9d48ce78f50b2da6432680fed707813417e5e67e53fb782868c5"},
+    {"symbol": "US.NVDA", "side": "sell", "max_qty": 129, "limit_min": 1.00, "setup_hash": "f4a446b33d7f9d48ce78f50b2da6432680fed707813417e5e67e53fb782868c5"}
+  ],
+  "note": "ETF de-risking sells plus one bounded NVDA intraday long, armed on operator approval 2026-11-19. NVDA exit line authorizes the protective sell for the same setup."
+}
