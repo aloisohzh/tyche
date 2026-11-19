@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
+
+import pytest
 
 from tyche.config import load_config
 from tyche.models import AccountSnapshot, OrderIntent, Regime, RiskVerdict, Side
@@ -40,6 +43,22 @@ def test_rules_hash_is_stable_and_config_sensitive(tmp_path: Path) -> None:
     (fake / "strategies" / "pb-001.yaml").write_bytes(b"lookbacks: [63]\n")
     (fake / "universe.yaml").write_bytes(b"assets: []\n")
     assert rules_hash(tmp_path, "PB-001") != first
+
+
+@pytest.mark.parametrize("strategy_newline", [b"\n", b"\r\n"])
+@pytest.mark.parametrize("universe_newline", [b"\n", b"\r\n"])
+def test_rules_hash_ignores_checkout_line_endings(tmp_path: Path, strategy_newline, universe_newline) -> None:
+    fake = tmp_path / "config"
+    (fake / "strategies").mkdir(parents=True)
+    strategy = b"id: PB-001\nlookbacks: [63]\n"
+    universe = b"assets:\n  - US.SPY\n"
+    strategy_path = fake / "strategies" / "pb-001.yaml"
+    strategy_path.write_bytes(strategy.replace(b"\n", strategy_newline))
+    (fake / "universe.yaml").write_bytes(universe.replace(b"\n", universe_newline))
+    expected = hashlib.sha256(strategy + universe).hexdigest()[:12]
+    assert rules_hash(tmp_path, "PB-001") == expected
+    strategy_path.write_bytes(strategy.replace(b"63", b"64").replace(b"\n", strategy_newline))
+    assert rules_hash(tmp_path, "PB-001") != expected
 
 
 def test_rules_hash_isolated_per_strategy(tmp_path: Path) -> None:

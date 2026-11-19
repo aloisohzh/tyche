@@ -1,4 +1,4 @@
-"""Lifecycle CLI: preview/approve, monitor, reserve, reconcile. Never submits orders."""
+"""Paper lifecycle approvals, monitoring and explicitly enabled one-shot exits."""
 from __future__ import annotations
 
 import json
@@ -12,8 +12,10 @@ import typer
 from pydantic import ValidationError
 
 from tyche.broker.mcp_json import build_snapshot, extract_nav
+from tyche.broker.moomoo_http import MoomooPaperHttp, PaperApiError, complete_order_rows
 from tyche.config import load_config
-from tyche.journal import append_event, verify_chain
+from tyche.execution_state import combined_usage, unresolved_symbols
+from tyche.journal import append_locked, journal_lock, read_events, verify_chain
 from tyche.lifecycle import (
     Approval,
     BrokerOrder,
@@ -29,7 +31,7 @@ from tyche.lifecycle import (
 )
 from tyche.market_calendar import ET, regular_close
 
-app = typer.Typer(help="Complete paper trade lifecycles; no broker writes.")
+app = typer.Typer(help="Paper lifecycles; only execute-exit --submit can send an approved exit.")
 
 
 def emit(value: dict) -> None:
@@ -247,24 +249,48 @@ def reserve(
     try:
         if not journal.is_file():
             raise ValueError("persistent journal missing; restore and reconcile before submission")
-        valid, _, reason = verify_chain(journal)
-        if not valid:
-            raise ValueError("journal integrity: " + str(reason))
-        now = now_utc()
-        with locked_state(state) as ledger:
+        if not state.is_file():
+            raise ValueError("persistent lifecycle state missing; restore before submission")
+        with journal_lock(journal), locked_state(state) as ledger:
+            valid, _, reason = verify_chain(journal)
+            if not valid:
+                raise ValueError("journal integrity: " + str(reason))
+            events = read_events(journal)
+            check_execution_journal(events, ledger)
+            now = now_utc()
             inputs, gaps = monitoring_book(book, now)
             quotes = load(MarketSnapshot, market)
-            from tyche.halt import is_halted
-            quotes.halted = quotes.halted or is_halted(journal.parent)
-            report = tick(inputs, quotes, ledger, load_config(config_root), now)
+            config = load_config(config_root)
+            from tyche.halt import effective_halt
+            quotes.halted = quotes.halted or effective_halt(journal.parent, config_root)["halted"]
+            if abs(quotes.snapshot.nav - quotes.broker_nav) > max(1.0, quotes.broker_nav * 0.001):
+                raise ValueError("broker cash, positions and NAV do not reconcile")
+            report = tick(inputs, quotes, ledger, config, now)
             decision = next(d for d in report["decisions"]
                             if d["plan_id"] == plan_id and d["plan_hash"] == plan_hash)
             if not decision["authorized"] or decision["action"] not in {"buy", "sell"}:
                 save(state, ledger)  # preserve reconciliation and any detected trigger
                 raise ValueError(decision["reason"])
-            contract = next(a.contract for a in ledger.approvals
+            approval = next(a for a in ledger.approvals
                             if a.plan_hash == plan_hash and not a.revoked
                             and a.account_hash == account_hash(quotes.snapshot.account_id))
+            contract = approval.contract
+            rows = [{"order_id": o.order_id, "symbol": o.symbol, "side": 1 if o.side == "buy" else 2,
+                     "qty": o.quantity, "cum_qty": o.filled_quantity, "status": o.status,
+                     "price": o.limit_price, "text": o.remark,
+                     "create_time": int(o.created_at.timestamp() * 1_000_000)} for o in quotes.orders]
+            if contract.symbol in unresolved_symbols(events, rows):
+                raise ValueError("unresolved journal order for this symbol; no further submission")
+            count, _ = combined_usage(events, rows, now.astimezone(ET).date(), {})
+            if count >= config.risk.competition_order_cap:
+                raise ValueError("competition daily order ceiling reached across execution lanes")
+            if decision["action"] == "sell":
+                owned = approval.adopted_quantity + sum(
+                    r.filled_quantity * (1 if r.side == "buy" else -1) for r in ledger.reservations
+                    if r.account_hash == approval.account_hash and r.plan_hash == plan_hash
+                )
+                if decision["quantity"] != owned:
+                    raise ValueError("full attributed position unavailable; reconcile before exit")
             quote = next(q for q in quotes.quotes if q.symbol == contract.symbol)
             close = datetime.combine(now.astimezone(ET).date(),
                                      regular_close(now.astimezone(ET).date()), ET)
@@ -288,7 +314,7 @@ def reserve(
             )
             ledger.reservations.append(request)
             save(state, ledger)  # MUST succeed before telling the executor it may submit
-            append_event(journal, "order.requested", {
+            append_locked(journal, "order.requested", {
                 **request.model_dump(mode="json"),
                 "authorization": {"mode": "lifecycle", "plan_hash": request.plan_hash},
             })  # Failure leaves the reservation blocked; no authorization is emitted.
@@ -298,6 +324,183 @@ def reserve(
                               "Submit strictly before submit_before; otherwise stop and request operator review."})
     except (OSError, ValueError, RuntimeError, StopIteration) as exc:
         fail(exc)
+
+
+def check_execution_journal(events: list[dict], ledger: LifecycleState) -> None:
+    requests = [e["payload"] for e in events if e.get("type") == "order.requested"]
+    ids = [r.get("request_id") for r in requests]
+    if any(not key for key in ids) or len(ids) != len(set(ids)):
+        raise PaperApiError("unclassified or duplicate journal request; operator review required")
+    reservations = {r.request_id: r for r in ledger.reservations}
+    journal_requests = {r["request_id"]: r for r in requests}
+    for row in requests:
+        if (row.get("authorization", {}).get("mode") in {"lifecycle", "lifecycle_exit"}
+                and row["request_id"] not in reservations):
+            raise PaperApiError("journal reservation missing from lifecycle state; restore and reconcile")
+    for request in ledger.reservations:
+        row = journal_requests.get(request.request_id)
+        if row is None or any(row.get(field) != getattr(request, field) for field in (
+            "plan_hash", "account_hash", "symbol", "side", "quantity", "limit_price"
+        )):
+            raise PaperApiError("lifecycle reservation differs from journal; restore and reconcile")
+
+
+@app.command("execute-exit")
+def execute_exit(
+    book: Path = typer.Option(...), market: Path = typer.Option(...),
+    state: Path = typer.Option(...), plan_id: str = typer.Option(...),
+    plan_hash: str = typer.Option(..., "--hash"),
+    config_root: Path = typer.Option(Path.cwd()),
+    journal: Path = typer.Option(Path("journal/events.jsonl")),
+    submit: bool = typer.Option(False, "--submit", help="Execute an already-approved paper exit once."),
+) -> None:
+    """Refresh broker data and check one exact approved exit; read-only by default."""
+    attempted, acknowledged = False, False
+    request = None
+    try:
+        if not journal.is_file() or not state.is_file():
+            raise PaperApiError("persistent journal/state missing; restore before execution")
+        with journal_lock(journal), locked_state(state) as ledger:
+            valid, _, _ = verify_chain(journal)
+            if not valid:
+                raise PaperApiError("journal integrity failed; no execution permitted")
+            events = read_events(journal)
+            check_execution_journal(events, ledger)
+            config, context = load_config(config_root), load(MarketSnapshot, market)
+            account = context.snapshot
+            key = account_hash(account.account_id)
+            if (account.env != "paper" or account.source != "sim_list" or account.market_id != 100
+                    or account.account_type not in config.risk.sim_account_types
+                    or account.account_id not in config.risk.account_allowlist):
+                raise PaperApiError("unverified or non-allowlisted US paper account")
+            approval = next((a for a in ledger.approvals if a.plan_hash == plan_hash
+                             and a.contract.plan_id == plan_id and a.account_hash == key
+                             and not a.revoked and a.approved_at <= now_utc()), None)
+            if approval is None:
+                raise PaperApiError("exact lifecycle requires prior operator approval")
+            contract = approval.contract
+            broker = MoomooPaperHttp.from_env()
+            closes = {q.symbol: {"close": q.close, "close_at": q.close_at}
+                      for q in context.quotes if q.close is not None}
+
+            def refresh():
+                payloads = broker.read(account.account_id, contract.symbol,
+                                       config.risk.sim_account_types, clock=now_utc)
+                fresh_market = captured_market(
+                    account.account_id, payloads, context.prior_close_nav, context.high_water_nav,
+                    context.regime, context.conviction, closes,
+                )
+                from tyche.halt import is_halted
+                fresh_market.halted = is_halted(journal.parent) or context.halted
+                validate_market(fresh_market, config, now_utc())
+                if abs(fresh_market.snapshot.nav - fresh_market.broker_nav) > max(
+                    1.0, fresh_market.broker_nav * 0.001
+                ):
+                    raise PaperApiError("broker cash, positions and NAV do not reconcile")
+                return fresh_market, payloads["orders"]
+
+            quotes, rows = refresh()
+            now = now_utc()
+            inputs, gaps = monitoring_book(book, now)
+            report = tick(inputs, quotes, ledger, config, now)
+            if submit:
+                save(state, ledger)
+            decision = next((d for d in report["decisions"]
+                             if d["plan_id"] == plan_id and d["plan_hash"] == plan_hash), None)
+            if decision is not None and decision["action"] == "buy":
+                decision["authorized"] = False
+                decision["reason"] = "exit-only routine cannot authorize an entry"
+            if decision is None or not decision["authorized"] or decision["action"] != "sell":
+                emit({"ok": True, "submitted": False, "attempted": False,
+                      "reason": decision["reason"] if decision else "no approved exit available",
+                      "decision": decision, "warnings": report["gaps"] + gaps})
+                return
+            if contract.symbol in unresolved_symbols(events, rows):
+                raise PaperApiError("unresolved journal order for this symbol; no further submission")
+            count, _ = combined_usage(events, rows, now.astimezone(ET).date(), {})
+            if count >= config.risk.competition_order_cap:
+                raise PaperApiError("competition daily order ceiling reached across execution lanes")
+            owned = approval.adopted_quantity + sum(
+                r.filled_quantity * (1 if r.side == "buy" else -1) for r in ledger.reservations
+                if r.account_hash == key and r.plan_hash == plan_hash
+            )
+            if decision["quantity"] != owned:
+                raise PaperApiError("full attributed position unavailable; reconcile before exit")
+            if not submit:
+                emit({"ok": True, "submitted": False, "attempted": False,
+                      "decision": decision, "warnings": report["gaps"] + gaps, "dry_run": True})
+                return
+            quote = next(q for q in quotes.quotes if q.symbol == contract.symbol)
+            close = datetime.combine(now.astimezone(ET).date(),
+                                     regular_close(now.astimezone(ET).date()), ET)
+            deadline = min(now + timedelta(seconds=60), close,
+                           quotes.observed_at + timedelta(seconds=120),
+                           quote.at + timedelta(seconds=contract.quote_max_age_seconds))
+            request = Reservation(
+                request_id="tyche-lc-" + uuid.uuid4().hex, plan_hash=plan_hash, account_hash=key,
+                symbol=contract.symbol, side="sell", quantity=decision["quantity"],
+                limit_price=decision["limit_price"], reason=decision["reason"], reserved_at=now,
+            )
+            ledger.reservations.append(request)
+            save(state, ledger)
+            append_locked(journal, "order.requested", {
+                **request.model_dump(mode="json"),
+                "authorization": {"mode": "lifecycle_exit", "plan_hash": plan_hash,
+                                  "as_of": now.astimezone(ET).date().isoformat()},
+            })
+            if now_utc() >= deadline:
+                raise PaperApiError("submission window expired; reservation retained")
+            attempted = True
+            failure = None
+            try:
+                request.order_id = broker.submit_exit(account.account_id, request,
+                                                       deadline=deadline, clock=now_utc)
+                acknowledged = True
+            except (OSError, ValueError) as exc:
+                # The broker may have accepted the order even when its reply was lost.
+                failure = type(exc).__name__
+            save(state, ledger)
+            append_locked(journal, "order.submitted" if acknowledged else "order.unknown", {
+                "request_id": request.request_id, "order_id": request.order_id,
+                "plan_hash": plan_hash, "account_hash": key, "failure": failure,
+            })
+            after, _ = refresh()
+            from tyche.lifecycle import reconcile
+            reconcile(ledger, after)
+            before_held = quotes.snapshot.position(contract.symbol)
+            after_held = after.snapshot.position(contract.symbol)
+            if (after_held.quantity if after_held else 0) != before_held.quantity - request.filled_quantity:
+                raise PaperApiError("fills and holdings disagree; reconcile before further execution")
+            matched = any(o.order_id == request.order_id for o in after.orders)
+            if request.order_id and not acknowledged:
+                append_locked(journal, "order.submitted", {
+                    "request_id": request.request_id, "order_id": request.order_id,
+                    "plan_hash": plan_hash, "account_hash": key,
+                })
+            acknowledged = acknowledged or request.order_id is not None
+            save(state, ledger)
+            append_locked(journal, "order.reconciled", {
+                **request.model_dump(mode="json"), "observed_at": after.observed_at.isoformat(),
+            })
+            emit({"ok": matched, "attempted": True,
+                  "submitted": True if acknowledged else None, "filled": request.complete,
+                  "request_id": request.request_id,
+                  "outcome": "filled" if request.complete else "pending" if matched else "unknown",
+                  "warnings": report["gaps"] + gaps,
+                  "retry_permitted": False})
+            if not matched:
+                raise typer.Exit(1)
+    except typer.Exit:
+        raise
+    except (OSError, ValueError, RuntimeError, KeyError, TypeError, OverflowError) as exc:
+        reason = str(exc) if isinstance(exc, PaperApiError) else (
+            "broker, journal or lifecycle check failed; operator review required ("
+            + type(exc).__name__ + ")"
+        )
+        emit({"ok": False, "reason": reason, "attempted": attempted,
+              "submitted": True if acknowledged else None if attempted else False,
+              "request_id": request.request_id if request else None, "retry_permitted": False})
+        raise typer.Exit(1) from None
 
 
 @app.command()
@@ -330,6 +533,44 @@ def raw(path: Path) -> dict:
     return payload
 
 
+def captured_market(account_id, payloads, prior_close_nav, high_water_nav,
+                    regime, conviction, closes) -> MarketSnapshot:
+    orders = []
+    for row in payloads["orders"]:
+        if row["side"] not in (1, 2):
+            raise ValueError("unsupported broker order side")
+        orders.append(BrokerOrder(
+            order_id=str(row["order_id"]), symbol="US." + row["symbol"],
+            side="buy" if row["side"] == 1 else "sell", quantity=whole(row["qty"]),
+            filled_quantity=whole(row["cum_qty"]), status=row["status"],
+            limit_price=float(row["price"]), remark=row.get("text") or "",
+            created_at=datetime.fromtimestamp(int(row["create_time"]) / 1_000_000, UTC),
+        ))
+    available = {}
+    for row in payloads["positions"]["data"]["positions"]:
+        if row["pstn_type"] != 0:
+            raise ValueError("short/unsupported position: cannot automate this account")
+        whole(row["qty"])
+        available["US." + row["symbol"]] = whole(row["qty_avbl"])
+    quotes = []
+    for row in payloads["quotes"]["data"]["quote_list"]:
+        close = closes.get(row["code"], {})
+        quotes.append(Quote(
+            symbol=row["code"], last=row["last_price"],
+            at=datetime.fromtimestamp(int(row["data_time"]) / 1000, UTC),
+            tradable=row.get("sec_status") == "NORMAL" and row.get("suspension") is False,
+            close=close.get("close"), close_at=close.get("close_at"),
+        ))
+    return MarketSnapshot(
+        observed_at=payloads["observed_at"], snapshot=build_snapshot(
+            account_id, payloads["accounts"], payloads["cash"], payloads["positions"],
+            captured_at=payloads["observed_at"],
+        ), regime=regime, conviction=conviction, broker_nav=extract_nav(payloads["cash"]),
+        prior_close_nav=prior_close_nav, high_water_nav=high_water_nav, available=available,
+        quotes=quotes, orders=orders, orders_complete=True,
+    )
+
+
 @app.command()
 def capture(
     directory: Path = typer.Option(..., "--dir"), account_id: str = typer.Option(...),
@@ -359,47 +600,13 @@ def capture(
         else:
             order_paths = [directory / "orders.json"]
         pages = [raw(path) for path in order_paths]
-        if any(type(p.get("pagination", {}).get("has_more")) is not bool for p in pages):
-            raise ValueError("explicit broker pagination completeness required")
-        if pages[-1]["pagination"]["has_more"]:
-            raise ValueError("order history incomplete; fetch all pages")
-        if any(not p["pagination"]["has_more"] for p in pages[:-1]):
-            raise ValueError("unexpected order pagination sequence")
-        orders = []
-        for page in pages:
-            for row in page["data"]["orders"]:
-                if row["side"] not in (1, 2):
-                    raise ValueError("unsupported broker order side")
-                orders.append(BrokerOrder(
-                    order_id=str(row["order_id"]), symbol="US." + row["symbol"],
-                    side="buy" if row["side"] == 1 else "sell", quantity=whole(row["qty"]),
-                    filled_quantity=whole(row["cum_qty"]), status=row["status"],
-                    limit_price=float(row["price"]), remark=row.get("text") or "",
-                    created_at=datetime.fromtimestamp(int(row["create_time"]) / 1_000_000, UTC),
-                ))
-        available = {}
-        for row in positions["data"]["positions"]:
-            if row["pstn_type"] != 0:
-                raise ValueError("short/unsupported position: cannot automate this account")
-            whole(row["qty"])
-            available["US." + row["symbol"]] = whole(row["qty_avbl"])
         closes_path = directory / "closes.json"
         closes = json.loads(closes_path.read_text()) if closes_path.exists() else {}
-        normalized_quotes = []
-        for row in quotes["data"]["quote_list"]:
-            close = closes.get(row["code"], {})
-            normalized_quotes.append(Quote(
-                symbol=row["code"], last=row["last_price"],
-                at=datetime.fromtimestamp(int(row["data_time"]) / 1000, UTC),
-                tradable=row.get("sec_status") == "NORMAL" and row.get("suspension") is False,
-                close=close.get("close"), close_at=close.get("close_at"),
-            ))
-        result = MarketSnapshot(
-            observed_at=now_utc(observed_at), snapshot=build_snapshot(
-                account_id, accounts, cash, positions, captured_at=now_utc(observed_at)
-            ), regime=regime, conviction=conviction, broker_nav=extract_nav(cash), prior_close_nav=prior_close_nav,
-            high_water_nav=high_water_nav, available=available, quotes=normalized_quotes,
-            orders=orders, orders_complete=True,
+        result = captured_market(
+            account_id, {"accounts": accounts, "cash": cash, "positions": positions,
+                         "quotes": quotes, "orders": complete_order_rows(pages),
+                         "observed_at": now_utc(observed_at)},
+            prior_close_nav, high_water_nav, regime, conviction, closes,
         )
         save(out, result)
         emit({"captured": True, "path": str(out), "submitted": False})

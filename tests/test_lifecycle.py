@@ -90,6 +90,53 @@ def test_fresh_new_entry_authorized():
     assert 99 <= result["limit_price"] <= 101
 
 
+@pytest.mark.parametrize("exposure", ["held", "pending", "reserved"])
+def test_entry_respects_whole_ballast_allocation(exposure):
+    case = setup_case(held=0)
+    _, _, market, state, config = case
+    config.strategies[0].allocation_cap = 0.02
+    if exposure == "held":
+        market.snapshot.positions = [Position(symbol="US.EFA", quantity=15, avg_cost=100, last_price=100)]
+        market.snapshot.cash -= 1500
+        market.available["US.EFA"] = 15
+    elif exposure == "pending":
+        market.orders = [BrokerOrder(order_id="pending-efa", symbol="US.EFA", side="buy",
+                                    quantity=15, filled_quantity=0, status=2,
+                                    limit_price=100, created_at=NOW)]
+    else:
+        contract = case[0].model_copy(update={"symbol": "US.EFA", "plan_id": "efa", "quantity": 15})
+        state.approvals.append(Approval(
+            plan_hash=contract.fingerprint(), contract=contract, account_hash=account_hash(ACCOUNT),
+            approved_at=NOW, operator_ref="synthetic", auditor_ref="synthetic"))
+        state.reservations.append(Reservation(
+            request_id="reserved-efa", plan_hash=contract.fingerprint(), account_hash=account_hash(ACCOUNT),
+            symbol="US.EFA", side="buy", quantity=15, limit_price=100,
+            reason="synthetic", reserved_at=NOW))
+    result = decision(case)
+    assert not result["authorized"]
+    assert result["reason"] == "risk gate: strategy allocation cap"
+
+
+@pytest.mark.parametrize("cap", ["strategy", "asset"])
+def test_entry_respects_strategy_name_caps(cap):
+    case = setup_case(held=0)
+    if cap == "strategy":
+        case[4].strategies[0].max_weight = 0.005
+    else:
+        case[4].universe.by_symbol()["US.SPY"].max_weight = 0.005
+    result = decision(case)
+    assert not result["authorized"]
+    assert result["reason"] == "risk gate: strategy asset cap"
+
+
+def test_allocation_breach_does_not_block_protective_exit():
+    case = setup_case(price=94)
+    case[4].strategies[0].allocation_cap = 0.001
+    case[4].strategies[0].max_weight = 0.001
+    result = decision(case)
+    assert result["authorized"] and result["action"] == "sell"
+
+
 @pytest.mark.parametrize("mutation,expected", [
     ("stale_review", "review"), ("missing_review", "review"),
     ("news_down", "review"), ("uncertain", "review"), ("invalidated", "blocked"),
@@ -407,7 +454,8 @@ def test_cli_reserve_is_one_shot_and_receipt_is_not_fill(tmp_path, monkeypatch):
 def test_reservation_permission_expires_with_entry_contract(tmp_path, monkeypatch):
     monkeypatch.setattr("tyche.lifecycle_cli.now_utc", lambda at="": NOW)
     case = setup_case(held=0)
-    plan, book, _, state, _ = case
+    plan, book, market, state, _ = case
+    market.snapshot.cash = market.broker_nav
     plan.entry_expires_at = NOW + timedelta(seconds=10)
     book.reviews[0].plan_hash = plan.fingerprint()
     state.approvals[0].plan_hash = plan.fingerprint()
@@ -562,7 +610,7 @@ def test_cli_journal_failure_retains_reservation_without_emitting_permission(tmp
     def broken(*args, **kwargs):
         raise OSError("journal unavailable")
 
-    monkeypatch.setattr("tyche.lifecycle_cli.append_event", broken)
+    monkeypatch.setattr("tyche.lifecycle_cli.append_locked", broken)
     result = CliRunner().invoke(app, ["lifecycle", "reserve", "--book", paths["book"],
                                     "--market", paths["market"], "--state", paths["state"],
                                     "--plan-id", "test-spy", "--hash", case[0].fingerprint(),

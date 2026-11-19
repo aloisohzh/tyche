@@ -518,6 +518,7 @@ def decide(plan: LifecyclePlan, book: LifecycleBook, market: MarketSnapshot,
                         and r.reserved_at.astimezone(ET).date() == now.astimezone(ET).date()
                         and r.order_id not in broker_ids)
     intent = OrderIntent(symbol=plan.symbol, side=Side(result.action), quantity=result.quantity,
+                         strategy_id=plan.strategy_id,
                          limit_price=result.limit_price, stop_price=(
                              plan.stop.price if result.action == "buy" else None
                          ), reason=result.reason)
@@ -548,6 +549,21 @@ def decide(plan: LifecyclePlan, book: LifecycleBook, market: MarketSnapshot,
                                and r.order_id not in broker_ids
                                and r.reserved_at.astimezone(ET).date() == now.astimezone(ET).date()
                            ))
+    if result.action == "buy":
+        strategy = config.strategy_by_id(plan.strategy_id)
+        symbols = set(config.universe.by_symbol())
+        held_notional = sum(p.market_value for p in market.snapshot.positions if p.underlying in symbols)
+        pending_notional = sum(o.notional for o in pending_intents if o.side == Side.BUY and o.underlying in symbols)
+        if held_notional + pending_notional + intent.notional > strategy.allocation_cap * market.broker_nav:
+            result.action, result.reason = "blocked", "risk gate: strategy allocation cap"
+            return result
+        asset = config.universe.by_symbol().get(plan.symbol)
+        if asset is not None:
+            name_notional = sum(p.market_value for p in market.snapshot.positions if p.underlying == plan.symbol)
+            name_notional += sum(o.notional for o in pending_intents if o.side == Side.BUY and o.underlying == plan.symbol)
+            if name_notional + intent.notional > min(strategy.max_weight, asset.max_weight) * market.broker_nav:
+                result.action, result.reason = "blocked", "risk gate: strategy asset cap"
+                return result
     policy = config.risk
     if result.action == "buy" and gate.strategy.event_caution:
         policy = policy.model_copy(update={

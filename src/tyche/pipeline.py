@@ -48,7 +48,8 @@ def rules_hash(config_root: Path, strategy_id: str) -> str:
         config_root / "config" / "universe.yaml",
     )
     for path in paths:
-        digest.update(path.read_bytes())
+        # Git checkout newline conversion must not change approval identity.
+        digest.update(path.read_bytes().replace(b"\r\n", b"\n"))
     return digest.hexdigest()[:12]
 
 
