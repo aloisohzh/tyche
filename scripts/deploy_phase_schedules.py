@@ -21,9 +21,9 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "scripts"))
 
-import forward  # noqa: E402
+import forward
 
-from tyche.market_calendar import generate_schedules  # noqa: E402
+from tyche.market_calendar import generate_schedules
 
 TEMPLATE_ID = "tmpl_004fa008901a6c256bd0ed3f"
 ENVIRONMENT_ID = "env_00vtsfiylf7czjlt4b82"
