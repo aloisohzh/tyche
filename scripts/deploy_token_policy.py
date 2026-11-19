@@ -49,12 +49,7 @@ RESEARCH_ALLOW = [
     "quote_unusual_technical",
 ]
 
-EXECUTOR_DROP = [
-    "quote_rt_data",
-    "quote_cur_kline",
-    "quote_market_state",
-    "quote_order_book",
-]
+EXECUTOR_DROP = ["quote_rt_data"]
 
 
 def mcp_toolset(template: dict) -> dict:
@@ -97,8 +92,6 @@ def update_template(template_id: str, body: dict, apply: bool, label: str) -> No
         have_tools = {c["name"] for c in actual.get("configs") or [] if c.get("enabled")}
         if have_policy != want_policy or have_tools != want_tools:
             raise SystemExit(f"{label}: tools update did not take effect")
-    if body.get("model") and verified.get("model", {}).get("effort") != body["model"]["effort"]:
-        raise SystemExit(f"{label}: model update did not take effect")
     print(f"updated {label}")
 
 
@@ -114,7 +107,6 @@ def main() -> None:
     e_tool = mcp_toolset(executor)
     r_new = desired_researcher(r_tool)
     e_new = desired_executor(e_tool)
-    r_model = {**researcher.get("model", {}), "effort": "medium"}
     e_model = executor.get("model", {})
 
     enabled_now = sum(1 for c in e_tool.get("configs") or [] if c.get("enabled"))
@@ -123,7 +115,7 @@ def main() -> None:
         "researcher:",
         (r_tool.get("permission_policy") or {}).get("type", "always_allow"),
         "-> always_deny;",
-        f"{len(RESEARCH_ALLOW)} tools allowed; effort {researcher.get('model', {}).get('effort')} -> medium",
+        f"{len(RESEARCH_ALLOW)} tools allowed; effort {researcher.get('model', {}).get('effort')} (unchanged)",
     )
     print(
         "executor:",
@@ -134,8 +126,7 @@ def main() -> None:
 
     update_template(
         RESEARCHER_ID,
-        {"tools": [r_new if t.get("type") == "mcp_toolset" else t for t in researcher["tools"]],
-         "model": r_model},
+        {"tools": [r_new if t.get("type") == "mcp_toolset" else t for t in researcher["tools"]]},
         args.apply,
         "researcher template",
     )

@@ -176,6 +176,11 @@ drive/schedule tools; each prompt refuses standalone operation outside the desk.
 
 Advisor model: `qmodel_latest` (was `ultimate` until 2026-11-19). Member models:
 `qmodel_latest`; effort high except executor **low** (2026-11-19 credit tiering).
+
+**Superseded 2026-11-19 15:36 UTC** (see final amendment): live roster pins 16/6/15;
+models desk `qmodel_latest` 0.4x high, researcher `qmodel_latest_preview` 0.1x high,
+auditor `qmodel_latest` 0.4x high, executor `qfmodel` 0.04x medium, advisor
+`qmodel_38max` 0.2x default. The pin table above is the 2026-11-18 snapshot.
 Live (`trading_order_*`) and crypto order tools are denied/disabled everywhere.
 
 Rollback: the pre-conversion standalone agents (`agent_00vtsgocscef4hvsj7y0`,
@@ -339,6 +344,48 @@ first on the tiered config; verify via that session's effective config.
 Effective per-token pricing: executor unchanged model (0.4x) at low effort;
 advisor 2.0x→0.4x. No dynamic routing added (Forward resolves models from
 pinned templates; coordinator routes tasks to roles only).
+
+Amendment 2026-11-19 15:36 UTC (static role tiering for cost, operator-directed via
+console, connector-verified): live models changed. Researcher
+`qmodel_latest`→**`qmodel_latest_preview`** high, context 400000 (compiled v14→**v16**);
+auditor unchanged `qmodel_latest` high (v6, judgment gate kept); executor
+`qmodel_latest` low→**`qfmodel`** (Qwen3.8-Flash) **medium**, context 200000
+(v13→**v15**, see tools fix below); advisor roster `qmodel_latest`→**`qmodel_38max`**
+(default effort medium). Desk `qmodel_latest` high / 400000 unchanged. Price factors
+from `list_models`: desk 0.4x, researcher **0.1x** (was 0.4x), auditor 0.4x, executor
+**0.04x** (was 0.4x), advisor **0.2x** (was 0.4x). No dynamic routing; pins still
+resolve models at session creation, so the next scheduled run is the first on this
+config.
+
+Executor tools-only fix (operator-approved after the classifier blocked the first attempt
+as a restated `always_allow` grant): `quote_order_book`, `quote_market_state` and
+`quote_cur_kline` re-enabled. They had been disabled while the prompt's BROKER CAPTURE /
+LIFECYCLE CAPTURE sections still mandate them, and `quote_stock_quote` carries no bid/ask,
+so capture could not meet the kernel's two-sided-quote contract. `quote_rt_data` stays
+disabled; per-tool policies are byte-identical ({`sim_trade_input_order`: always_allow
+under the reservation + audit contract, `cancel`/`modify`: always_ask}); prompt, model,
+vault and env preserved. Compile v14→**v15**.
+
+Console Save had stripped the roster version pins; re-applied via the hybrid
+`{"type":"agent","template_id":...,"version":N}` shape (update response verified,
+desk system/tools/vault/env/model preserved verbatim). Live pins researcher **16** /
+auditor **6** / executor **15** + advisor `qmodel_38max`.
+
+`scripts/deploy_token_policy.py` updated: no longer forces researcher effort `medium`
+(invalid for `qmodel_latest_preview`, whose efforts are high/low/xhigh) and no longer
+disables the three capture tools; its executor drop list is now only `quote_rt_data`.
+Check mode verified: researcher 24 tools, effort unchanged; executor 11/11 enabled.
+This also removes the conflict where a `--apply` would have re-disabled the tools fixed
+above.
+
+Residual risk: `qmodel_latest_preview` is a preview id; if it is retired mid-window,
+session creation fails. One-line rollback: researcher back to `qmodel_latest` high
+(0.4x) or `qmodel_38max` medium (0.2x), then re-pin the compile. Full model rollback:
+researcher `qmodel_latest` high, executor `qmodel_latest` low, advisor `qmodel_latest`,
+re-pin the roster to the resulting versions; keep the tools fix either way.
+Validation: confirm the first post-change session's effective `agent` block shows
+preview/high (researcher), `qmodel_latest`/high (auditor), `qfmodel`/medium (executor)
+and advisor `qmodel_38max`.
 
 ## API quirks observed (connector)
 
