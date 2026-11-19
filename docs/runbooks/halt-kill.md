@@ -1,15 +1,23 @@
 # Halt / kill-switch runbook
 
 The kill-switch blocks buys but always allows de-risking sells. Every transition is
-journaled. The flag is `journal/halt.json`, written only by the CLI — never by hand.
+journaled. `tyche halt` writes both flags, never edit them by hand:
+
+- `journal/halt.json` - desk-local, persisted on Drive.
+- `data/halt.json` - shared, committed so cloud sessions see it through the git mount.
+
+Either flag halts. Agents and operators should read the merged state with
+`tyche halt-status --json` rather than opening one file.
 
 ## Commands
 
 ```bash
 tyche halt --reason "stale feed / drawdown / operator veto"
 tyche resume
+tyche halt-status --json
 ```
 
+- `halt-status` prints the effective halt (`halted`, `reason`, `ts`, `source`).
 - `plan` reads the flag and sets `RiskState.halted`, so buys are blocked at planning.
 - `execute` reads the flag and withholds buys (journaling `halt.skip`), submitting only
   approved sells. A halted plan with no sells submits nothing.

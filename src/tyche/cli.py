@@ -854,6 +854,24 @@ def resume(
     console.print("Resumed: buys permitted again.")
 
 
+@app.command("halt-status")
+def halt_status(
+    journal_path: Path = typer.Option(Path("journal/events.jsonl"), "--journal"),
+    as_json: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
+) -> None:
+    """Report the effective kill-switch state across the journal and shared flags."""
+    state = effective_halt(journal_path.parent, journal_path.resolve().parent.parent)
+    if as_json:
+        print(json.dumps(state))
+        return
+    if state.get("halted"):
+        console.print(
+            f"HALTED: {state.get('reason', '')} (source={state.get('source')}, ts={state.get('ts')})"
+        )
+    else:
+        console.print("Not halted: buys permitted.")
+
+
 @app.command("record-order")
 def record_order(
     event: str = typer.Argument(

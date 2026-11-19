@@ -208,23 +208,23 @@ def test_generate_hourly_match_calendar():
     assert len(schedules) == 1
     s = schedules[0]
     assert s.name == "tyche-hourly"
-    assert s.cron == "5 13-22 18-20,23-25,27 11 *"
+    assert s.cron == "5 13-15,17,20-21 18-20,23-25,27 11 *"
     assert s.days == 7 and s.phase is None and s.activity == "gate-routed"
     assert s.timezone == "UTC"
-    assert s.et_time == "08:05-17:05" and s.sgt_time == "21:05-06:05 (+1d)"
+    assert s.et_time == "08:05-16:05" and s.sgt_time == "21:05-05:05 (+1d)"
     # Thanksgiving (26) and the weekend (21, 22) appear in no day list.
     days = s.cron.split()[2]
     assert "26" not in days and "21" not in days and "22" not in days
 
 
 def test_generate_hourly_dst_split():
-    # DST ends 1 Nov 2026: EDT days fire 12-21 UTC, EST days 13-22 UTC.
+    # DST ends 1 Nov 2026: EDT days fire on 12-14/16/19-20 UTC, EST days on 13-15/17/20-21 UTC.
     schedules = generate_hourly_schedules(date(2026, 10, 30), date(2026, 11, 3))
     by_cron = {s.cron: s for s in schedules}
-    assert by_cron["5 12-21 30 10 *"].days == 1  # Fri Oct 30 (EDT)
-    assert by_cron["5 13-22 2-3 11 *"].days == 2  # Mon/Tue Nov 2-3 (EST)
-    assert by_cron["5 12-21 30 10 *"].sgt_time == "20:05-05:05 (+1d)"
-    assert by_cron["5 13-22 2-3 11 *"].sgt_time == "21:05-06:05 (+1d)"
+    assert by_cron["5 12-14,16,19-20 30 10 *"].days == 1  # Fri Oct 30 (EDT)
+    assert by_cron["5 13-15,17,20-21 2-3 11 *"].days == 2  # Mon/Tue Nov 2-3 (EST)
+    assert by_cron["5 12-14,16,19-20 30 10 *"].sgt_time == "20:05-04:05 (+1d)"
+    assert by_cron["5 13-15,17,20-21 2-3 11 *"].sgt_time == "21:05-05:05 (+1d)"
 
 
 def test_generate_hourly_rejects_bad_range():
@@ -233,7 +233,7 @@ def test_generate_hourly_rejects_bad_range():
 
 
 def test_next_run_skips_holiday():
-    # After the Nov 25 17:05 ET run, the next session is Nov 27 (26 = Thanksgiving).
+    # After the Nov 25 16:05 ET run, the next session is Nov 27 (26 = Thanksgiving).
     nr = next_run(utc(2026, 11, 25, 23, 0))
     assert nr is not None
     assert nr.utc == utc(2026, 11, 27, 13, 5)
@@ -250,10 +250,10 @@ def test_next_run_intraday():
 
 
 def test_next_run_half_day_routes_after_hours():
-    # Nov 27 12:30 ET (closing drive) -> next fire 13:05 ET is after the 13:00 close.
+    # Nov 27 12:30 ET (closing drive) -> next fire 15:05 ET is after the 13:00 close.
     nr = next_run(utc(2026, 11, 27, 17, 30))
     assert nr is not None
-    assert nr.utc == utc(2026, 11, 27, 18, 5)
+    assert nr.utc == utc(2026, 11, 27, 20, 5)
     assert nr.phase is SessionPhase.AFTER_HOURS
 
 

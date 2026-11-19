@@ -22,11 +22,12 @@ from pydantic import AwareDatetime, BaseModel, Field, model_validator
 ET = ZoneInfo("America/New_York")
 SGT = ZoneInfo("Asia/Singapore")  # operator's home clock; display-only, cron stays UTC
 
-# Hourly desk cadence: one cron, gate-routed by live session phase. :05 aligns
-# 09:05 pre-market plan (after 08:30 macro data), 10:05 opening drive, 12:05
-# midday, 15:05 closing drive, 17:05 EOD reconcile.
-HOURLY_FIRST = time(8, 5)
-HOURLY_LAST = time(17, 5)
+# Six-run desk cadence: one cron, gate-routed by live session phase. :05 aligns
+# 08:05 pre-market scout, 09:05 quote refresh, 10:05 opening drive, 12:05
+# midday, 15:05 closing drive, 16:05 EOD reconcile.
+HOURLY_ET_HOURS = (8, 9, 10, 12, 15, 16)
+HOURLY_FIRST = time(HOURLY_ET_HOURS[0], 5)
+HOURLY_LAST = time(HOURLY_ET_HOURS[-1], 5)
 
 PRE_OPEN = time(4, 0)
 REGULAR_OPEN = time(9, 30)
@@ -432,11 +433,12 @@ def generate_schedules(start: date, end: date) -> list[ScheduleDef]:
 
 
 def generate_hourly_schedules(start: date, end: date) -> list[ScheduleDef]:
-    """Emit the hourly desk cron (UTC) firing only on trading days.
+    """Emit the six-run desk cron (UTC) firing only on trading days.
 
-    One schedule, 08:05-17:05 ET at :05; the evaluate() gate routes each run by
-    live phase (plan / active / monitor / reconcile), half days included. Days
-    sharing the same UTC hour set are grouped, so DST transitions split cleanly.
+    One schedule, 08:05-16:05 ET at :05 on the hours in ``HOURLY_ET_HOURS``; the
+    evaluate() gate routes each run by live phase (plan / active / monitor /
+    reconcile), half days included. Days sharing the same UTC hour set are
+    grouped, so DST transitions split cleanly.
     """
     if end < start:
         raise ValueError("end must be on or after start")
@@ -447,7 +449,7 @@ def generate_hourly_schedules(start: date, end: date) -> list[ScheduleDef]:
         if is_trading_day(day):
             fires = [
                 datetime.combine(day, time(h, HOURLY_FIRST.minute), tzinfo=ET).astimezone(UTC)
-                for h in range(HOURLY_FIRST.hour, HOURLY_LAST.hour + 1)
+                for h in HOURLY_ET_HOURS
             ]
             key = (fires[0].month, tuple(sorted(f.hour for f in fires)))
             grouped.setdefault(key, []).append(day.day)
@@ -461,7 +463,7 @@ def generate_hourly_schedules(start: date, end: date) -> list[ScheduleDef]:
             et_time=f"{HOURLY_FIRST:%H:%M}-{HOURLY_LAST:%H:%M}",
             sgt_time=_sgt_span(*spans[(month, hours)]),
             scope="all", activity="gate-routed", days=len(days),
-            note="hourly gate-routed: plan pre-market, active drives, monitor midday, reconcile after close",
+            note="six-run gate-routed: plan pre-market, active drives, monitor midday, reconcile after close",
         ))
     return schedules
 
@@ -472,7 +474,7 @@ def next_run(now: datetime) -> NextRun | None:
         d = local.date() + timedelta(days=offset)
         if not is_trading_day(d):
             continue
-        for h in range(HOURLY_FIRST.hour, HOURLY_LAST.hour + 1):
+        for h in HOURLY_ET_HOURS:
             fire_et = datetime.combine(d, time(h, HOURLY_FIRST.minute), tzinfo=ET)
             fire_utc = fire_et.astimezone(UTC)
             if fire_utc <= now.astimezone(UTC):

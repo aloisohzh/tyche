@@ -65,7 +65,7 @@ ceilings we stay well inside.
 | Min price | $1.00 | $1.00 | `min_price` |
 | Single asset | ≤ 40% | ≤ 40% hard, target ≤ 38% | `max_position_weight` + strategy sizing |
 | Positions | ≤ 100 | ≤ 100 | `max_positions` |
-| Executed orders/day | ≤ 200 | ≤ 6 | `max_orders_per_day` |
+| Executed orders/day | ≤ 200 | ≤ 40 | `max_orders_per_day` |
 | Min market cap | $500M | $500M | `universe.min_market_cap_usd` (research-stage gate) |
 
 The market-cap gate is applied when the universe is built (the kernel has no

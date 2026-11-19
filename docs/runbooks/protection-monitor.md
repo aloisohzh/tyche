@@ -46,7 +46,7 @@ for the initial long-stock/ETF implementation only. It does not enable options.
 
 - Check once per hour using the existing `tyche-hourly` schedule; do not add a
   parallel five-minute or one-minute schedule. Retain one concurrent run and
-  one attempt. Current window: 08:05–17:05 ET on the configured challenge dates,
+  one attempt. Current window: six fires at :05 ET, 08:05–16:05, on the configured challenge dates,
   ending 2026-11-28 UTC. It is not an around-the-clock monitor.
 - Approve a complete lifecycle once: account, symbol, quantity, entry bounds,
   stop and its basis, profit target and its basis, entry expiry, holding deadline,

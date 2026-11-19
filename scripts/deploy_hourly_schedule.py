@@ -1,6 +1,6 @@
 """Deploy the hourly gate-routed desk schedule and retire the phase anchors.
 
-Creates tyche-hourly (08:05-17:05 ET at :05, computed trading days, DST-safe)
+Creates tyche-hourly (six fires at :05 ET, 08:05-16:05, computed trading days, DST-safe)
 with a unified phase playbook + watchlist monitor contract, pauses the seven
 phase schedules (reversible: POST /schedules/{id}/resume), and updates the desk
 template's DAILY FLOW to the hourly cadence. The Telegram delivery contract is
@@ -11,6 +11,7 @@ Run: MSYS_NO_PATHCONV=1 .venv/Scripts/python.exe scripts/deploy_hourly_schedule.
 """
 from __future__ import annotations
 
+import argparse
 import sys
 from datetime import date
 from pathlib import Path
@@ -36,15 +37,17 @@ PHASE_SCHEDULES = [
 ]
 
 GATE_AND_WORK = (
-    "MARKET GATE (run first): bootstrap mount-first (clone fallback), `pip install -e . --no-deps` "
-    "if tyche is missing, then `tyche journal-verify`. Run `tyche calendar --json` (no --phase: "
-    "hourly cadence, the live phase decides) — exit 0 means run, exit 1 means skip. If it skips "
+    "MARKET GATE (run first): bootstrap mount-first (clone fallback), `pip install -e . -c "
+    "constraints.txt` if tyche is missing, then `tyche journal-verify` and `tyche halt-status "
+    "--json` (halted=true blocks buys; approved de-risking sells may still run). Run `tyche "
+    "calendar --json` (no --phase: hourly cadence, the live phase decides) — exit 0 means run, "
+    "exit 1 means skip. If it skips "
     "(run=false): journal a run.skip with the returned reason, send a one-line Telegram skip "
     "notice (TYCHE HOURLY SKIP — <date>, <reason>), and STOP: no research, no plan, no orders. "
     "If run=true: follow the playbook for the returned phase and honor the strategy directive "
     "(activity, sleeves, new_entries, max_orders; on event days event_caution halves the order "
     "count and size). "
-    "SCHEDULED HOURLY DESK RUN (challenge window, 08:05-17:05 ET at :05, trading days only). "
+    "SCHEDULED HOURLY DESK RUN (six fires at :05 ET, 08:05-16:05, trading days only). "
     "Run `date -u` yourself for today's UTC date and clock; paste HH:MM UTC into every "
     "delegation message (members have no clock tool). "
     "WATCHLIST CONTRACT: the scout's shortlist persists at /data/drive/tyche-raw/watchlist.json "
@@ -84,7 +87,7 @@ GATE_AND_WORK = (
 )
 
 NEW_DAILY_FLOW = (
-    "DAILY FLOW (hourly cadence, gate-routed): the tyche-hourly schedule fires 08:05-17:05 ET "
+    "DAILY FLOW (hourly cadence, gate-routed): the tyche-hourly schedule fires six times at :05 ET "
     "at :05 on computed trading days; 'tyche calendar --json' returns the live phase and "
     "strategy directive — obey it (activity, sleeves, new_entries, max_orders, event_caution). "
     "(1) pre_market (plan): delegate research (report + data/prices.csv kline handoff) and the "
@@ -109,6 +112,11 @@ NEW_DAILY_FLOW = (
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--check", action="store_true", help="Report planned changes without mutating.")
+    args = parser.parse_args()
+    check = args.check
+
     live = forward.req("GET", "/schedules?limit=50").get("data") or []
     by_name = {s["name"]: s for s in live}
 
@@ -127,12 +135,29 @@ def main() -> None:
     spec = specs[0]
 
     if "tyche-hourly" in by_name:
-        print("tyche-hourly already exists:", by_name["tyche-hourly"]["id"], "— skipping create")
+        existing = by_name["tyche-hourly"]
+        live_cron = (existing.get("trigger_policy") or {}).get("expression")
+        if live_cron == spec.cron:
+            print("tyche-hourly cron already current:", spec.cron)
+        elif check:
+            print(f"would update tyche-hourly cron: {live_cron} -> {spec.cron}")
+        else:
+            policy = dict(existing.get("trigger_policy") or {})
+            policy["expression"] = spec.cron
+            forward.req("POST", f"/schedules/{existing['id']}", {"trigger_policy": policy})
+            check_policy = (forward.req("GET", f"/schedules/{existing['id']}").get("trigger_policy") or {})
+            if check_policy.get("expression") != spec.cron:
+                raise SystemExit("cron update did not take effect")
+            print("updated tyche-hourly cron:", spec.cron)
+        if existing.get("status") == "paused":
+            print("note: tyche-hourly is paused; the cadence applies when the operator resumes it")
+    elif check:
+        print("would create tyche-hourly with cron:", spec.cron)
     else:
         body = {
             "name": "tyche-hourly",
             "description": (
-                "Tyche hourly desk run (08:05-17:05 ET at :05, trading days only). "
+                "Tyche hourly desk run (six fires at :05 ET, 08:05-16:05, trading days only). "
                 "Gate-routed by live session phase: plan pre-market, active drives, monitor "
                 "midday, reconcile after close (once/day). Watchlist monitored intraday; "
                 "orders require per-order operator confirmation via executor always_ask."
@@ -160,7 +185,7 @@ def main() -> None:
         result = forward.req("POST", "/schedules", body)
         print("created tyche-hourly:", result.get("id"), "cron:", spec.cron)
 
-    paused, already = [], []
+    paused, already, would_pause = [], [], []
     for name in PHASE_SCHEDULES:
         sched = by_name.get(name)
         if not sched:
@@ -168,18 +193,24 @@ def main() -> None:
         if sched.get("status") == "paused":
             already.append(name)
             continue
+        if check:
+            would_pause.append(name)
+            continue
         forward.req("POST", f"/schedules/{sched['id']}/pause", {})
-        check = forward.req("GET", f"/schedules/{sched['id']}")
-        if check.get("status") != "paused":
+        verified = forward.req("GET", f"/schedules/{sched['id']}")
+        if verified.get("status") != "paused":
             raise SystemExit(f"pause did not take effect for {name} — stopping")
         paused.append(name)
     print("paused:", paused)
+    print("would pause:", would_pause)
     print("already paused:", already)
 
     template = forward.req("GET", f"/templates/{TEMPLATE_ID}")
     system = template.get("system") or ""
     if WATCHLIST_MARKER in system:
         print("desk template DAILY FLOW already updated — skipping")
+    elif check:
+        print("would update desk template DAILY FLOW to hourly cadence + watchlist contract")
     else:
         start = system.find("DAILY FLOW")
         end = system.find("HARD RULES:")
@@ -187,8 +218,8 @@ def main() -> None:
             raise SystemExit("DAILY FLOW / HARD RULES markers not found in desk template")
         new_system = system[:start] + NEW_DAILY_FLOW + system[end:]
         forward.req("POST", f"/templates/{TEMPLATE_ID}", {"system": new_system})
-        check = forward.req("GET", f"/templates/{TEMPLATE_ID}")
-        if WATCHLIST_MARKER not in (check.get("system") or ""):
+        verified = forward.req("GET", f"/templates/{TEMPLATE_ID}")
+        if WATCHLIST_MARKER not in (verified.get("system") or ""):
             raise SystemExit("template update did not take effect")
         print("desk template DAILY FLOW updated to hourly cadence + watchlist contract")
 

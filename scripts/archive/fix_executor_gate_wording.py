@@ -1,3 +1,4 @@
+# ARCHIVED 2026-11-19: one-shot live-prompt patch; do not run.
 """Correct the executor path-B wording for always_allow (no platform pause).
 
 After the envelope deploy, sim_trade_input_order is always_allow: calling it

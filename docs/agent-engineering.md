@@ -60,11 +60,14 @@ withholds new non-defensive entries at low conviction; sells and defensive entri
 
 ## Schedules (EST November; regular 14:30–21:00 UTC)
 
-- Pre-market plan: ~13:45 UTC (08:45 ET). New session each run; self-contained instructions.
-- Intraday monitor: every 1–2 min **during the regular session only**, with an end time; short tasks
-  (concurrency 1); dedupe by stable order/trade id. Design contract: [ADR 0013](adr/0013-protection-monitor.md)
-  + [protection-monitor runbook](runbooks/protection-monitor.md) (draft; prerequisite for options).
-- EOD reconcile + report + **persist**: after 21:00 UTC; on the 27 Nov half day, after 18:00 UTC.
+- One `tyche-hourly` cron, six fires at :05 ET on trading days: 08:05 pre-market scout,
+  09:05 quote refresh, 10:05 opening drive, 12:05 midday, 15:05 closing drive, 16:05 EOD
+  reconcile. New session each run, gate-routed by `tyche calendar --json`; `max_attempts` 1,
+  timeout 1h, concurrency 1.
+- Halt is checked with `tyche halt-status --json`; a halted run submits no buys.
+- The 1–2 min protection monitor remains a draft prerequisite for the options lane
+  ([ADR 0013](adr/0013-protection-monitor.md) + [protection-monitor runbook](runbooks/protection-monitor.md));
+  it is not deployed.
 - Skip holidays; window-bound; archive after the deadline.
 
 ## Persistence (every run)
@@ -83,3 +86,8 @@ Log decisions **and rejections** as first-class artifacts.
 
 `templates/` holds the reference prompts. The live cloud config export (pinned versions, permission
 matrix, schedule ids) lands here before submission. No credentials in the export.
+
+Change control: `scripts/deploy_hourly_schedule.py --check` and
+`scripts/deploy_token_policy.py` print the live diff without mutating. The researcher MCP is
+deny-by-default with the 24 documented research tools; the executor keeps 11 order/account/quote
+tools. Apply only after review, then resume the schedule.

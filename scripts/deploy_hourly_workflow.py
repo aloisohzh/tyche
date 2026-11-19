@@ -107,6 +107,12 @@ def transform(text: str, role: str, release: str) -> str:
     if "HOURLY VALIDATION MODE (2026-11-19)" in text:
         if release not in text:
             raise ValueError("already migrated against a different release")
+        if role in ("desk", "executor"):
+            expected = 2 if role == "executor" else 1
+            if text.count("RESERVATION CONTRACT:") != expected:
+                raise ValueError(f"unexpected contract paragraph count for {role}")
+            text = re.sub(r"(?m)^RESERVATION CONTRACT:[^\n]*(?:\n(?!\n)[^\n]+)*",
+                          lambda _: CONTRACT, text)
         return text
     text = paragraph(text, "SCOPE AND ROLLOUT:", MODE + "\n\n" + CADENCE)
     text = paragraph(text, "PINNED ENGINE:", engine(release))

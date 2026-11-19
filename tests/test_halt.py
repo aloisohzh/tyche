@@ -107,6 +107,18 @@ def test_effective_halt_both_released_clears(tmp_path: Path) -> None:
     assert eff["halted"] is False and eff["source"] == "repo"
 
 
+def test_halt_status_reports_effective_flag(tmp_path: Path) -> None:
+    journal = tmp_path / "journal" / "events.jsonl"
+    journal.parent.mkdir()
+    clear = CliRunner().invoke(app, ["halt-status", "--json", "--journal", str(journal)])
+    assert clear.exit_code == 0
+    assert json.loads(clear.stdout) == {"halted": False}
+    CliRunner().invoke(app, ["halt", "--reason", "drill", "--journal", str(journal)])
+    engaged = CliRunner().invoke(app, ["halt-status", "--json", "--journal", str(journal)])
+    payload = json.loads(engaged.stdout)
+    assert payload["halted"] is True and payload["reason"] == "drill"
+
+
 def test_cli_halt_writes_shared_repo_flag(tmp_path: Path) -> None:
     journal = tmp_path / "journal" / "events.jsonl"
     journal.parent.mkdir()

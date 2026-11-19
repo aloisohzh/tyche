@@ -10,6 +10,9 @@ max_positions: 100
 cap_tolerance_pct: 0.0025
 min_cash_weight: 0.05
 max_order_notional_pct: 0.30
+# Competition-lane caps. Raised from 6 orders/50% turnover when the tactical
+# lane landed (7f61baf); sells count toward the daily total, so a full ETF
+# rotation can exceed 6. The 200/day competition ceiling remains the hard stop.
 max_daily_turnover_pct: 1.50
 max_orders_per_day: 40
 competition_order_cap: 200

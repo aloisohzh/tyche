@@ -10,6 +10,11 @@ Version 0.1, 18 November 2026. Paper trading only.
 > lifted: the window trades **stocks + defined-risk options**. The competition contract lives in
 > [docs/competition/rules.md](docs/competition/rules.md). v0.2 will fold these in; until then read this
 > file as the safety-core reference, not the current trading plan.
+>
+> **Current runtime values (2026-11-19):** `config/risk.yaml` is authoritative: 40 orders/day,
+> 150% buy-side turnover, $1.00 minimum price, account allowlist guard. `config/tactical.yaml`
+> gates the options/intraday lane (`execution_enabled: false`). Where this document and config
+> disagree, config and the ADRs win.
 
 ## 1. Thesis
 

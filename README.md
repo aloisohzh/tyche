@@ -57,10 +57,13 @@ and order intents; everything downstream is shared.
 
 ## Quick start (no Moomoo account needed)
 
+Use Python 3.13 (see `.python-version`). `.venv` is the only supported kernel
+environment; the optional research venv is regenerable and never used by the kernel.
+
 ```bash
 python -m venv .venv
 source .venv/Scripts/activate        # Windows Git Bash
-pip install -e ".[dev]"
+pip install -e ".[dev]" -c constraints.txt
 
 python scripts/make_demo_data.py
 tyche doctor
@@ -83,6 +86,7 @@ blocked orders, and appends a hash-chained event to `journal/events.jsonl`.
 | `tyche accounts` | List simulated Moomoo accounts |
 | `tyche quote US.SPY US.QQQ` | Read-only quotes through the Moomoo CLI |
 | `tyche journal-verify` | Verify the audit journal hash chain |
+| `tyche halt-status --json` | Report the effective kill-switch state across both flags |
 
 ## Layout
 
@@ -109,13 +113,14 @@ docs/            competition contract, scoring map, reviews, ADRs, playbooks,
   sources `account_type ∈ {1,2}` ∧ `market_id == 100` verified against the sim account list.
 - Shorting is disabled and oversells are rejected.
 - Hard caps: 95% gross, 40% per position (target ≤38%), 100 positions, 5% minimum cash, 30% per order,
-  $1.00 minimum price. Internal order budget is 6/day (competition ceiling 200).
+  $1.00 minimum price. Internal order budget is 40/day (competition ceiling 200).
 - Drawdown control: 4% soft (buy quantities halved), 6% hard (buys blocked).
-- Daily loss limit 2.5%; daily turnover 50% of NAV on the buy side.
+- Daily loss limit 2.5%; daily turnover 150% of NAV on the buy side.
 - Every verdict, plan, and execution is appended to the audit journal.
 
-See [DESIGN.md](DESIGN.md) for the full policy and [docs/runbooks/operations.md](docs/runbooks/operations.md)
-for setup and the daily runbook.
+See [config/risk.yaml](config/risk.yaml), [config/universe.yaml](config/universe.yaml), and the
+[ADRs](docs/adr/) for the current policy, and [docs/runbooks/operations.md](docs/runbooks/operations.md)
+for setup and the daily runbook. [DESIGN.md](DESIGN.md) is the v0.1 baseline.
 
 ## Status
 

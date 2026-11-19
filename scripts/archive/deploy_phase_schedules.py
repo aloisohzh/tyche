@@ -1,3 +1,4 @@
+# ARCHIVED 2026-11-19: superseded by the six-run hourly desk; do not run.
 """Deploy the session-phase schedules and wire the market gate into every run.
 
 Creates the four new phase schedules (opening-drive, midday-monitor,
