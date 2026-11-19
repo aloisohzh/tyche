@@ -28,6 +28,7 @@ dist/
 .env
 .telegram-bridge.json
 *.qoder.site
+.cloud-release/
 
 # OS / editor
 .DS_Store
