@@ -60,7 +60,26 @@ bound IM channel); delivery lives in the run instructions instead.
 - `scripts/telegram.py chat-id` — derive chat id from `getUpdates`.
 - `scripts/telegram.py send "<text>"` — connection check / manual alert / digest.
   Normalizes Markdown or HTML to Telegram HTML (`parse_mode=HTML`), masks account
-  ids, caps length. Works locally (`.env`) and in the cloud desk (session env vars).
+  ids, caps length, appends a stable content ref (`ref: <8 hex>`, sha256 of the
+  input digest). Works locally (`.env`) and in the cloud desk (session env vars).
+
+## Delivery semantics (hardened 2026-11-19)
+
+Delivery is **at-least-once**: the schedule protocol retries once after 5 s on a
+non-ok response, and a read timeout cannot distinguish "delivered, response
+lost" from "never delivered". Incident: the 18 Nov 22:05 UTC skip notice
+(`srun_19b685d96db900f5cb3ee663`) timed out on both attempts yet both copies
+reached Telegram — the operator saw a duplicate. Hardening in the helper:
+
+- Socket timeout raised 40 s → **60 s** (`SEND_TIMEOUT`) to cut false timeouts.
+- Every digest carries a **content ref footer**; a retry of the same digest
+  produces the same ref, so duplicates are recognizable at a glance.
+- Exit codes: `0` sent (message_id + ref printed); `2` **UNCONFIRMED**
+  (timeout/socket error — may have been delivered; a retry duplicates it, ref
+  unchanged); `1` definitive failure (missing token, Telegram API error).
+- The Bot API has no sent-message history, so true dedupe is impossible; the
+  ref makes duplicates harmless instead of mysterious. Delivery never blocks
+  risk work.
 - `scripts/forward.py get|post|delete|env-set|qr|poll` — Forward API client (PAT from
   `.env`; `MSYS_NO_PATHCONV=1` in Git Bash).
 

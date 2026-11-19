@@ -7,6 +7,7 @@ It NEVER auto-approves; only the allowlisted chat can drive it.
 """
 from __future__ import annotations
 
+import hashlib
 import html
 import json
 import os
@@ -31,6 +32,7 @@ ASK_EVENTS = {"agent.tool_use", "agent.mcp_tool_use"}
 RESOLUTION_EVENTS = {"user.tool_confirmation", "agent.tool_result", "agent.mcp_tool_result"}
 MAX_PREVIEW = 1500
 MAX_MESSAGE = 3900
+SEND_TIMEOUT = 60
 
 
 def env() -> dict:
@@ -57,7 +59,7 @@ def api(method: str, params: dict) -> dict:
         data=urllib.parse.urlencode(params).encode(),
         method="POST",
     )
-    with urllib.request.urlopen(request, timeout=40) as response:
+    with urllib.request.urlopen(request, timeout=SEND_TIMEOUT) as response:
         payload = json.loads(response.read())
     if not payload.get("ok"):
         raise SystemExit(f"telegram error: {payload.get('description')}")
@@ -153,6 +155,35 @@ def to_telegram_html(text: str) -> str:
         out.append(_inline(line))
         i += 1
     return "\n".join(out)
+
+
+def digest_ref(text: str) -> str:
+    """Stable content ref: identical digests carry the same ref, so a
+    retry-after-timeout duplicate is recognizable at a glance."""
+    return hashlib.sha256(text.encode()).hexdigest()[:8]
+
+
+def send(text: str, chat_id: str) -> None:
+    ref = digest_ref(text)
+    html_text = to_telegram_html(mask_ids(text))
+    if len(html_text) > MAX_MESSAGE:
+        html_text = html_text[:MAX_MESSAGE] + "\n... (truncated)"
+    html_text += f"\n<i>ref: {ref}</i>"
+    try:
+        result = api(
+            "sendMessage",
+            {"chat_id": chat_id, "text": html_text, "parse_mode": "HTML"},
+        )["result"]
+    except (OSError, ValueError) as error:
+        # A read timeout cannot distinguish "delivered, response lost" from
+        # "never delivered"; the retry protocol may duplicate. Same ref both copies.
+        print(
+            f"send UNCONFIRMED ({error}); message may have been delivered - "
+            f"a retry duplicates it (ref {ref} unchanged)",
+            flush=True,
+        )
+        raise SystemExit(2)
+    print("sent message_id", result["message_id"], "ref", ref)
 
 
 def load_state() -> dict:
@@ -517,14 +548,7 @@ def main() -> None:
         chat_id = env().get("TELEGRAM_CHAT_ID")
         if not chat_id:
             raise SystemExit("TELEGRAM_CHAT_ID missing from .env; run chat-id first")
-        text = to_telegram_html(mask_ids(sys.argv[2]))
-        if len(text) > MAX_MESSAGE:
-            text = text[:MAX_MESSAGE] + "\n... (truncated)"
-        result = api(
-            "sendMessage",
-            {"chat_id": chat_id, "text": text, "parse_mode": "HTML"},
-        )["result"]
-        print("sent message_id", result["message_id"])
+        send(sys.argv[2], chat_id)
     elif command == "listen":
         listen()
     else:

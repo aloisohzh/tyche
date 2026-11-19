@@ -3,6 +3,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
 import telegram as bridge
@@ -137,3 +139,76 @@ def test_mixed_html_header_and_markdown_table() -> None:
     out = bridge.to_telegram_html(md)
     assert "<b>Orders</b>" in out
     assert "<pre>" in out and "|" not in out
+
+
+def test_digest_ref_stable_and_distinct() -> None:
+    assert bridge.digest_ref("TYCHE SKIP") == bridge.digest_ref("TYCHE SKIP")
+    assert bridge.digest_ref("TYCHE SKIP") != bridge.digest_ref("TYCHE SKIP 2")
+    assert len(bridge.digest_ref("x")) == 8
+
+
+def test_send_appends_ref_footer(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured = {}
+
+    def fake_api(method: str, params: dict) -> dict:
+        captured.update(method=method, params=params)
+        return {"result": {"message_id": 42}}
+
+    monkeypatch.setattr(bridge, "api", fake_api)
+    bridge.send("hello **world**", "123")
+    ref = bridge.digest_ref("hello **world**")
+    assert captured["method"] == "sendMessage"
+    assert captured["params"]["chat_id"] == "123"
+    assert captured["params"]["parse_mode"] == "HTML"
+    assert captured["params"]["text"].endswith(f"<i>ref: {ref}</i>")
+    assert "<b>world</b>" in captured["params"]["text"]
+
+
+def test_send_masks_account_ids(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured = {}
+    monkeypatch.setattr(
+        bridge, "api",
+        lambda method, params: captured.update(params=params) or {"result": {"message_id": 1}},
+    )
+    bridge.send("account 1234567 nav 99914.93", "123")
+    assert "1234567" not in captured["params"]["text"]
+    assert "...567" in captured["params"]["text"]
+    assert "99914.93" in captured["params"]["text"]
+
+
+def test_send_timeout_exits_unconfirmed(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture) -> None:
+    def timeout_api(method: str, params: dict) -> dict:
+        raise OSError("read timed out")
+
+    monkeypatch.setattr(bridge, "api", timeout_api)
+    with pytest.raises(SystemExit) as exc:
+        bridge.send("digest", "123")
+    assert exc.value.code == 2
+    out = capsys.readouterr().out
+    assert "UNCONFIRMED" in out
+    assert bridge.digest_ref("digest") in out
+
+
+def test_send_api_error_is_definitive_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    def error_api(method: str, params: dict) -> dict:
+        raise SystemExit("telegram error: Bad Request")
+
+    monkeypatch.setattr(bridge, "api", error_api)
+    with pytest.raises(SystemExit) as exc:
+        bridge.send("digest", "123")
+    # Definitive API errors propagate untouched (string code -> process exit 1),
+    # never converted to the exit-2 unconfirmed path.
+    assert exc.value.code == "telegram error: Bad Request"
+
+
+def test_send_truncates_long_digest_but_keeps_ref(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured = {}
+    monkeypatch.setattr(
+        bridge, "api",
+        lambda method, params: captured.update(params=params) or {"result": {"message_id": 1}},
+    )
+    bridge.send("x" * 5000, "123")
+    text = captured["params"]["text"]
+    assert len(text) <= bridge.MAX_MESSAGE + 40
+    assert len(text) < 4096
+    assert text.endswith(f"<i>ref: {bridge.digest_ref('x' * 5000)}</i>")
