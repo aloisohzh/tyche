@@ -1,0 +1,74 @@
+{
+  "kind": "event_discovery_proposals",
+  "note": "PROPOSALS ONLY. Researcher never writes config/events.yaml; Desk Head validates and pins. Fields follow DiscoveredEvent shape in src/tyche/market_calendar.py (date/name/kind/time_et/symbols/source) plus added_at and materiality. added_at is a labeled estimate (no independent clock), anchored to last verified MCP feed timestamps ~13:16:36Z. All fetched news treated as untrusted data.",
+  "as_of": "2026-11-19",
+  "window": "2026-11-19 through 2026-12-03 (next 10 trading days, incl. Nov 26 closure / Nov 27 half day)",
+  "proposals": [
+    {
+      "date": "2026-11-19",
+      "name": "US Initial Jobless Claims (week ending Nov 14)",
+      "kind": "macro",
+      "time_et": "08:30",
+      "symbols": ["US.SPY", "US.QQQ", "US.IWM", "US.TLT", "US.IEF"],
+      "source": "MCP quote_economic_calendar_hot 20261119, indicatorId 294; previous 198K, consensus 200K (payload ref mcp_economic_calendar_hot_20261119, fetched ~13:10Z)",
+      "added_at": "2026-11-19T13:17:00Z",
+      "materiality": "Prints 13:30Z, 60 min before RTH open and before the 14:05Z hourly check; in a ~96%-priced Dec hike regime a hot labor print lifts the 50bp tail (~3-4% now; ~12.7% spike = hawkish-surprise signal) and hits duration + equities; blocks entries within 30 min and forces post-event revalidation of all pre-market proposals."
+    },
+    {
+      "date": "2026-11-19",
+      "name": "Philadelphia Fed Manufacturing Index (November)",
+      "kind": "macro",
+      "time_et": "08:30",
+      "symbols": ["US.SPY", "US.IWM", "US.SMH"],
+      "source": "MCP quote_economic_calendar_hot 20261119, indicatorId 236; previous 20.6, consensus 20.9 (payload ref mcp_economic_calendar_hot_20261119)",
+      "added_at": "2026-11-19T13:17:00Z",
+      "materiality": "Same 13:30Z slot as claims; prices-paid component feeds the hawkish-hike narrative; a large miss/beep moves rate-sensitive small caps and the semi tape into the open; joint post-event review required with claims."
+    },
+    {
+      "date": "2026-11-19",
+      "name": "US Leading Economic Index (October)",
+      "kind": "macro",
+      "time_et": "10:00",
+      "symbols": ["US.SPY", "US.IWM"],
+      "source": "MCP quote_economic_calendar_hot 20261119, indicatorId 1968; previous 0.0%, consensus 0.0% (payload ref mcp_economic_calendar_hot_20261119)",
+      "added_at": "2026-11-19T13:17:00Z",
+      "materiality": "15:00Z release lands 5 min before the 15:05Z hourly check; low expected surprise (flat consensus) but a sharp negative print would reinforce weak-breadth regime and pressure tactical long entries mid-session."
+    },
+    {
+      "date": "2026-11-20",
+      "name": "PBoC Loan Prime Rate fixing (1Y/5Y)",
+      "kind": "macro",
+      "time_et": "20:15",
+      "time_et_note": "09:15 Beijing Nov 20 = 01:15Z Nov 20 = 20:15 ET Nov 19; date field uses Beijing/UTC calendar date Nov 20. Desk Head should normalize per calendar conventions.",
+      "symbols": ["US.EFA", "US.EEM"],
+      "source": "jin10 calendar item 235457 via news_search (payload ref mcp_news_search_macro_calendar, fetched ~13:11Z)",
+      "added_at": "2026-11-19T13:17:00Z",
+      "materiality": "LPR cut/hold signals China easing stance; moves EM/international flow and USD, directly relevant to the held EFA sleeve and EEM ballast candidate; overnight event, review at next pre-market check."
+    },
+    {
+      "date": "2026-11-21",
+      "name": "LA/Long Beach port labor action risk (conditional/tentative)",
+      "kind": "macro",
+      "time_et": null,
+      "symbols": ["US.SPY", "US.IWM", "US.DBC"],
+      "source": "jin10 news item 7 via news_search (payload ref mcp_news_search_macro_calendar, fetched ~13:11Z); status tentative, not confirmed strike authorization",
+      "added_at": "2026-11-19T13:17:00Z",
+      "materiality": "TENTATIVE: a confirmed port shutdown would hit supply chains and goods inflation into the Dec 9 FOMC, reinforcing the hawkish-hike tail; pin only if Desk Head verifies confirmation; unconfirmed rumor — flagged conditional, not tradeable."
+    }
+  ],
+  "covered_by_static_anchors_no_repin": [
+    {"date": "2026-11-19", "name": "ANT Nasdaq IPO debut", "anchor": "market_calendar.py EVENTS_2026 (pinned; $83 above range, ~$81.3B raise, ~$1.5T FDV, first trade may start well after 09:30 ET)"},
+    {"date": "2026-11-25", "name": "PCE price index 08:30 ET", "anchor": "market_calendar.py EVENTS_2026"},
+    {"date": "2026-11-25", "name": "Fed Beige Book 14:00 ET", "anchor": "market_calendar.py EVENTS_2026"},
+    {"date": "2026-11-26", "name": "Thanksgiving — market closed", "anchor": "market_calendar.py HOLIDAYS"},
+    {"date": "2026-11-27", "name": "Early close 13:00 ET", "anchor": "market_calendar.py HALF_DAYS"},
+    {"date": "2026-12-04", "name": "ANT index inclusion (outside 10-day window edge; already anchored)", "anchor": "market_calendar.py EVENTS_2026"},
+    {"date": "2026-12-09", "name": "FOMC decision (outside window; already anchored)", "anchor": "market_calendar.py EVENTS_2026"}
+  ],
+  "rejected_noise": [
+    {"name": "FBLLU SPAC listing Nov 20", "reason": "SPAC, not challenge-qualified universe; no materiality to configured symbols"},
+    {"name": "SNDK 1:8 split Nov 20", "reason": "not in universe.yaml/tactical.yaml; mechanical split, no flow thesis"},
+    {"name": "WMT/BABA/ROST/PANW earnings this window", "reason": "not configured symbols; no direct universe read-through strong enough to pin"},
+    {"name": "YNTE listing Nov 30", "reason": "outside 10-trading-day window and not configured"}
+  ]
+}

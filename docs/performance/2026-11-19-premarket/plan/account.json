@@ -1,0 +1,35 @@
+{
+ "account_id": "[REDACTED]",
+ "cash": 65244.61,
+ "frozen_cash": 0.0,
+ "broker_nav": 100193.13,
+ "prior_close_nav": 99914.93,
+ "high_water_nav": 100000.0,
+ "captured_at": "2026-11-19T13:10:45Z",
+ "positions": [
+  {
+   "symbol": "US.EFA",
+   "option": null,
+   "quantity": 142,
+   "available_quantity": 142,
+   "avg_cost": 100.495,
+   "last_price": 100.26,
+   "market_value": 14236.92
+  },
+  {
+   "symbol": "US.SPY",
+   "option": null,
+   "quantity": 28,
+   "available_quantity": 28,
+   "avg_cost": 731.54,
+   "last_price": 739.7,
+   "market_value": 20711.600000000002
+  }
+ ],
+ "env": "paper",
+ "account_type": 2,
+ "market_id": 100,
+ "source": "sim_list",
+ "gross_exposure": 34948.520000000004,
+ "nav": 100193.13
+}

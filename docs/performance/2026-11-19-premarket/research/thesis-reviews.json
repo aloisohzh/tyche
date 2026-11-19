@@ -1,0 +1,73 @@
+{
+  "kind": "thesis_reviews",
+  "note": "THESIS reviews for existing PB-001 ballast holdings only. NOT plan-hash Reviews: no approved LifecyclePlan hashes exist for SPY/EFA as of this run. reviewed_at/news_checked_at are labeled estimates anchored to the last verified MCP feed timestamps (last ticks 13:16:36Z; snapshots 13:15:46-13:15:55Z); this agent has no independent clock tool. valid_until <= 60 minutes per desk rule. No approval, no order, no liquidation authority implied.",
+  "as_of": "2026-11-19",
+  "delegation_run": "2026-11-19-premarket-1305",
+  "phase": "pre_market",
+  "reviews": [
+    {
+      "symbol": "US.SPY",
+      "held_quantity": 28,
+      "strategy": "PB-001",
+      "review_type": "thesis",
+      "plan_hash": null,
+      "reviewed_at": "2026-11-19T13:17:00Z",
+      "reviewed_at_note": "estimate; anchored to last verified quote_rt_ticker tick 2026-11-19T13:16:36Z",
+      "valid_until": "2026-11-19T14:17:00Z",
+      "news_checked_at": "2026-11-19T13:15:00Z",
+      "news_checked_at_note": "estimate; news_search completed during 13:09-13:16Z tool sequence",
+      "news_feed_ok": true,
+      "verdict": "valid",
+      "reason": "Ballast thesis intact: broad-US beta anchor with no confirmed invalidation. Nov 18 was a narrow AI-led bounce with weak breadth (Dow third consecutive >1% drop, first since Oct 2008 per wallstreetcn), yet SPY main-force flow turned positive Nov 18 (+194M) against a negative 5-day cumulative flow, and technical-unusual scan flags oversold-rebound conditions. Hawkish Fed hike regime (Dec 25bp ~96% priced, 10y ~5.07%) caps upside but does not invalidate a diversified ballast holding. Pre-market SPY modestly higher on the ANT IPO halo; no issuer-specific or index-level adverse event found in checked sources.",
+      "evidence": [
+        {"source": "wallstreetcn macro wrap", "url": "https://wallstreetcn.com/articles/3785261", "published_at": "2026-11-19T06:01:16Z", "claim": "Dow 3rd consecutive >1% drop (first since Oct 2008); gold -3.2%, silver -4.94%; narrow AI-led tape"},
+        {"source": "cftime US market wrap", "url": "https://www.cftime.com/news/20261119-005739", "published_at": "2026-11-19T00:57:39Z", "claim": "Nov 18 close: SPY +0.31%, Nasdaq led by semis; breadth weak"},
+        {"source": "zhitong US close", "url": "https://www.zhitongcaijing.com/content/detail/1524999.html", "published_at": "2026-11-19T00:37:07Z", "claim": "Nov 18 indices mixed-close; NVDA -2.89% post-earnings fade"},
+        {"source": "investingcube Fed/rates", "url": "https://www.investingcube.com/fed-december-hike-odds/", "published_at": "2026-11-19T09:11:05Z", "claim": "Dec 9 FOMC 25bp hike ~96% priced; 50bp tail ~3-4%; 10y ~5.07%, 2y ~4.83%, DXY 103.70"},
+        {"source": "MCP quote_capital_flow_history US.SPY (DAY, Nov 12-18)", "url": null, "published_at": "2026-11-19T13:14:00Z", "claim": "Nov 18 main inflow +194M; 5-day cumulative net outflow; payload ref mcp_capital_flow_history_SPY"},
+        {"source": "MCP quote_unusual_technical US.SPY (7d)", "url": null, "published_at": "2026-11-19T13:14:30Z", "claim": "oversold-rebound signals (RSI/KDJ) in 7-day window; payload ref mcp_unusual_technical_SPY"},
+        {"source": "MCP quote_rt_ticker US.SPY", "url": null, "published_at": "2026-11-19T13:16:36Z", "claim": "last pre-market tick 13:16:36Z; fresh feed"}
+      ],
+      "acknowledged_events": [],
+      "protection_notes": [
+        "Combined SPY+EFA ~34.9% NAV exceeds the 25% PB-001 sleeve ceiling: existing holdings only; NO adds to PB-001 ETFs; over-cap is NOT liquidation permission for this role.",
+        "No approved LifecyclePlan exists for SPY: stop/target/holding-deadline gap must be closed by desk head via adopt_position contract; this thesis review is not a substitute.",
+        "13:30Z jobless claims + Philly Fed prints land before the 14:05Z check: post-event revalidation required; an imminent material event within 30 minutes blocks new entries."
+      ]
+    },
+    {
+      "symbol": "US.EFA",
+      "held_quantity": 142,
+      "strategy": "PB-001",
+      "review_type": "thesis",
+      "plan_hash": null,
+      "reviewed_at": "2026-11-19T13:17:00Z",
+      "reviewed_at_note": "estimate; anchored to last verified MCP feed timestamps; last EFA tick 2026-11-19T13:11:17Z (thin pre-market)",
+      "valid_until": "2026-11-19T14:17:00Z",
+      "news_checked_at": "2026-11-19T13:15:00Z",
+      "news_checked_at_note": "estimate; news_search completed during 13:09-13:16Z tool sequence",
+      "news_feed_ok": true,
+      "verdict": "valid",
+      "reason": "International developed-market diversifier thesis intact. EFA fell -1.08% Nov 18 on USD strength (DXY 103.70, 19-month high) — a known headwind for the sleeve, not an invalidation of the diversification rationale. Nov 18 super-large-order flow +62.8M inflow suggests institutional accumulation into weakness. Europe mixed (Stoxx50 +0.42% per Gelonghui wrap). Pre-market flat ~100.26 on only 48 shares with last tick 13:11:17Z: thin price discovery, quote-age risk at any future execution, but no adverse confirmed event. PBoC LPR Nov 20 01:15Z is a watch item for international flow, not an EFA-specific invalidator.",
+      "evidence": [
+        {"source": "Gelonghui global markets wrap", "url": "https://www.gelonghui.com/live/2769801", "published_at": "2026-11-19T12:30:57Z", "claim": "Europe mixed; Stoxx50 +0.42%; DXY strength persists"},
+        {"source": "Benzinga FX/rates note", "url": "https://www.benzinga.com/markets/26/11/46745102", "published_at": "2026-11-19T09:49:52Z", "claim": "DXY 103.70 19-month high; dollar strength headwind for international equities"},
+        {"source": "MCP quote_capital_flow_history US.EFA (DAY, Nov 12-18)", "url": null, "published_at": "2026-11-19T13:14:10Z", "claim": "Nov 18 super-large inflow +62.8M; payload ref mcp_capital_flow_history_EFA"},
+        {"source": "MCP quote_market_snapshot US.EFA", "url": null, "published_at": "2026-11-19T13:15:50Z", "claim": "pre-market last ~100.26 flat vs prior close; -1.08% Nov 18"},
+        {"source": "MCP quote_rt_ticker US.EFA", "url": null, "published_at": "2026-11-19T13:11:17Z", "claim": "last tick 13:11:17Z, cumulative pre-market volume ~48 shares: thin, quote-age risk"}
+      ],
+      "acknowledged_events": [],
+      "protection_notes": [
+        "Same PB-001 sleeve over-cap condition as SPY (~34.9% vs 25%): no adds; no liquidation authority in this role.",
+        "No approved LifecyclePlan for EFA: stop/target/deadline gap for desk head adopt_position workflow.",
+        "EFA pre-market liquidity extremely thin (48 shares, last tick 13:11:17Z): any future execution must re-verify executable quotes <=60s at RTH; do not treat pre-market last as executable.",
+        "quote_unusual_technical not fetched for EFA this run: coverage gap recorded, not inferred."
+      ]
+    }
+  ],
+  "coverage_gaps": [
+    "No independent clock: reviewed_at/news_checked_at are labeled estimates anchored to verified feed timestamps.",
+    "EFA unusual_technical not fetched; short_interest/daily_short_volume not fetched for holdings (not required for ETF thesis).",
+    "Fed-speaker calendar for Nov 19 not exhaustively verified in checked sources; absence of hits is not proof of no speakers."
+  ]
+}
