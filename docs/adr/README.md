@@ -18,6 +18,7 @@ One decision per file. Format: context → decision → consequences → status.
 | [0012](0012-options-protection.md) | Defined-risk options leg groups + synthetic protection | accepted |
 | [0013](0013-protection-monitor.md) | Intraday protection monitor (watchlist, cadence, heartbeat) | proposed (design draft) |
 | [0014](0014-per-strategy-isolation.md) | Per-strategy isolation (config, hash, code entry per playbook) | accepted (implemented 2026-11-19) |
+| [0015](0015-external-research-perimeter.md) | External research perimeter: local LEAN validation lane + journaled charting | accepted (amended: hosted QC MCP needs paid node) |
 
 Parked decisions (post-window) are listed in the
 [2026-11-18 review](../reviews/2026-11-18-design-review.md), not written as ADRs yet.

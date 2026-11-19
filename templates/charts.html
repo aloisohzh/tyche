@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tyche charts — journaled evidence</title>
+<script src="vendor/lightweight-charts-4.2.0.standalone.production.js"></script>
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; background: #0d1117; color: #c9d1d9;
+         font: 14px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  header { padding: 16px 20px 8px; display: flex; flex-wrap: wrap; gap: 12px;
+           align-items: baseline; justify-content: space-between; }
+  h1 { font-size: 16px; margin: 0; color: #e6edf3; }
+  h1 span { color: #8b949e; font-weight: normal; }
+  select { background: #161b22; color: #c9d1d9; border: 1px solid #30363d;
+           border-radius: 6px; padding: 4px 8px; font: inherit; }
+  main { padding: 0 20px 20px; }
+  .chart { width: 100%; height: 420px; }
+  #nav-chart { width: 100%; height: 180px; margin-top: 16px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 16px; margin: 10px 0 4px;
+            color: #8b949e; font-size: 12px; }
+  .swatch { display: inline-block; width: 10px; height: 10px; margin-right: 5px;
+            border-radius: 2px; vertical-align: baseline; }
+  .note { color: #8b949e; font-size: 12px; margin: 6px 0; }
+  footer { padding: 12px 20px 24px; color: #8b949e; font-size: 12px;
+           border-top: 1px solid #21262d; margin-top: 16px; }
+  a { color: #58a6ff; }
+  h2 { font-size: 13px; color: #8b949e; margin: 18px 0 4px; font-weight: normal; }
+</style>
+</head>
+<body>
+<header>
+  <h1>tyche charts <span>· journaled evidence, paper trading only</span></h1>
+  <label>symbol <select id="symbol"></select></label>
+</header>
+<main>
+  <div class="legend">
+    <span><span class="swatch" style="background:rgba(38,166,154,0.45)"></span>risk_on</span>
+    <span><span class="swatch" style="background:rgba(139,148,158,0.45)"></span>neutral</span>
+    <span><span class="swatch" style="background:rgba(239,83,80,0.45)"></span>risk_off</span>
+    <span><span class="swatch" style="background:#26a69a"></span>buy marker</span>
+    <span><span class="swatch" style="background:#ef5350"></span>sell marker</span>
+  </div>
+  <div id="price-chart" class="chart"></div>
+  <p class="note" id="marker-note"></p>
+  <h2>NAV at plan marks (journaled plan.created)</h2>
+  <div id="nav-chart"></div>
+  <p class="note" id="provenance"></p>
+</main>
+<footer>
+  Close-only line series from the pinned price CSV — no fabricated OHLC.
+  Markers: journal order.submitted; regime strip and NAV: journal plan.created,
+  filtered to one account (id not embedded).
+  Charts powered by <a href="https://www.tradingview.com/lightweight-charts/">TradingView Lightweight Charts™</a> v4.2.0 (Apache-2.0).
+  Not investment advice.
+</footer>
+<script>
+const DATA = __PAYLOAD__;
+const base = {
+  layout: { background: { color: "#0d1117" }, textColor: "#8b949e" },
+  grid: { vertLines: { color: "#161b22" }, horzLines: { color: "#161b22" } },
+  rightPriceScale: { borderColor: "#30363d" },
+  timeScale: { borderColor: "#30363d" },
+  crosshair: { mode: 0 },
+};
+const priceChart = LightweightCharts.createChart(document.getElementById("price-chart"), base);
+const navChart = LightweightCharts.createChart(document.getElementById("nav-chart"), base);
+const navSeries = navChart.addLineSeries({ color: "#d29922", lineWidth: 2 });
+navSeries.setData(DATA.nav);
+navChart.timeScale().fitContent();
+
+let priceSeries = null, stripSeries = null;
+function render(symbol) {
+  if (priceSeries) { priceChart.removeSeries(priceSeries); priceChart.removeSeries(stripSeries); }
+  priceSeries = priceChart.addLineSeries({ color: "#58a6ff", lineWidth: 2 });
+  priceSeries.setData(DATA.symbols[symbol]);
+  priceSeries.setMarkers(DATA.markers[symbol] || []);
+  stripSeries = priceChart.addHistogramSeries({
+    priceScaleId: "regime", lastValueVisible: false, priceLineVisible: false,
+  });
+  stripSeries.setData(DATA.regime_strip);
+  priceChart.priceScale("regime").applyOptions({ scaleMargins: { top: 0.86, bottom: 0 }, visible: false });
+  priceChart.timeScale().fitContent();
+  const n = (DATA.markers[symbol] || []).length;
+  document.getElementById("marker-note").textContent =
+    n + " journaled submission marker(s) on " + symbol +
+    (DATA.omitted_markers ? " · " + DATA.omitted_markers + " marker(s) outside the price range omitted" : "");
+}
+const select = document.getElementById("symbol");
+for (const symbol of Object.keys(DATA.symbols).sort()) {
+  const option = document.createElement("option");
+  option.value = symbol; option.textContent = symbol;
+  select.appendChild(option);
+}
+select.addEventListener("change", () => render(select.value));
+render(select.value);
+document.getElementById("provenance").textContent =
+  "account: " + DATA.account_label + " · price input sha256 " + DATA.prices_sha256 + " · " +
+  DATA.nav.length + " NAV mark(s) · " + DATA.regimes.length + " regime mark(s)";
+function resize() {
+  priceChart.applyOptions({ width: document.getElementById("price-chart").clientWidth });
+  navChart.applyOptions({ width: document.getElementById("nav-chart").clientWidth });
+}
+window.addEventListener("resize", resize);
+resize();
+</script>
+</body>
+</html>

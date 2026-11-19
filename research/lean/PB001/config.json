@@ -1,0 +1,7 @@
+{
+    "algorithm-language": "Python",
+    "parameters": {},
+    "data-folder": "../data",
+    "description": "PB-001 research reference (ADR 0015 local LEAN lane); not the trading kernel",
+    "local-id": 837330174
+}

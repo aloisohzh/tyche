@@ -12,6 +12,14 @@ matched null, 30-trade checkpoints). So:
   is unavailable via MCP.
 - A re-tuned rule is a **new hypothesis** on data it has already seen — new hash, new playbook.
 
+## Local LEAN lane (ADR 0015)
+
+Hypotheses may also be sanity-checked on the local LEAN engine (research-only,
+never a kernel input). Notes must state venue, engine version, data source and
+fill/cost model. First run:
+[2026-11-19 LEAN lane smoke + PB-001](2026-11-19-lean-pb001-smoke.md) — lane
+PASS, hypothesis NO-GO as alpha (sanity-checked).
+
 ## NO-GO ledger (carried from fortuna, reference only)
 
 | Setup | Verdict | Why |

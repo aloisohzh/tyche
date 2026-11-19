@@ -2,6 +2,7 @@
 __pycache__/
 *.py[cod]
 .venv/
+.venv-lean/
 *.egg-info/
 .pytest_cache/
 .ruff_cache/
@@ -19,6 +20,10 @@ dist/
 /journal/
 /plans/
 /reports/
+/data/research/
+/research/lean/data/
+/research/lean/PB001/backtests/
+/research/youtube/raw/
 .env
 .telegram-bridge.json
 *.qoder.site

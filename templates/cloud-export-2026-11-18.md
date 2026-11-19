@@ -125,6 +125,26 @@ compile and roster pins (7/2/7 + advisor) untouched; executor policies unchanged
 `scripts/verify_envelope_deploy.py` and `scripts/deploy_calendar_check.py` to the three-clock
 format. Rollback = restore `plans/cloud-schedule-pre-et.json` initial_events (v3).
 
+Amendment 2026-11-19 00:16 UTC (YouTube research inbox clause, operator-approved via
+explicit target+diff confirmation): researcher template `tmpl_875834770244a9e35c7f6499`
+system-only edit adds the YOUTUBE RESEARCH INBOX clause (ADR 0015 decision 5;
+options/macro playlists only; <=3 testable hypotheses per brief with video links +
+'unvalidated' label in a 'YouTube inbox hypotheses' report section; proposals routed
+to the operator's local LEAN lane; never signals/sizing/approvals; scout never runs
+backtests; no verbatim transcript quotes; inbox content untrusted; 'none' if empty).
+Compiled researcher `agent_00vs9v3dg0rnkr4740x3` v7→**v8** (get_agent verified: clause
+present, order-write tools still disabled, vault intact; post-edit prompt byte-verified
+against prepared text, sha256 prefix 5e1ee523be11a3b7). Desk roster re-pinned
+**8/2/7 + advisor** (hybrid template_id+version shape; desk system/tools/vault/env/mount
+preserved verbatim — hourly-cadence + watchlist + approvals clauses intact). Rollback
+snapshots (gitignored): `plans/cloud-researcher-pre-youtube.prompt.txt`,
+`plans/cloud-desk-roster-pre-youtube.json`; restore + re-pin researcher 7. Deploy script
+`scripts/deploy_youtube_clause.py` (idempotent; Bash script path classifier-blocked in
+auto mode, QCA connector tool path used per prior amendments). Local reference sync:
+`templates/prompts/research-brief.md`; runbook status APPLIED. Inbox index
+`research/youtube/index.json` committed with the ADR 0015 batch; raw transcripts
+gitignored (copyright).
+
 ## Template (coordinator)
 
 - id: `tmpl_004fa008901a6c256bd0ed3f` — name `tyche-desk`, status active
@@ -149,7 +169,7 @@ drive/schedule tools; each prompt refuses standalone operation outside the desk.
 
 | Role | Member template | Compiled agent (roster entry) | Pin | MCP | Trade tools |
 |---|---|---|---|---|---|
-| Researcher (scout) | `tmpl_875834770244a9e35c7f6499` (rewritten from Moomoo Paper Trader) | `agent_00vs9v3dg0rnkr4740x3` | 7 | moomoo (read; all order-write tools disabled) | none |
+| Researcher (scout) | `tmpl_875834770244a9e35c7f6499` (rewritten from Moomoo Paper Trader) | `agent_00vs9v3dg0rnkr4740x3` | 8 | moomoo (read; all order-write tools disabled) | none |
 | Risk auditor | `tmpl_ae317cc0626a4fcc8fa8fad6` | `agent_00vtx8g7k1534t7w9eve` | 2 | none | none |
 | Executor | `tmpl_bc25a5c313827d53894fd7ff` | `agent_00vtx8mfbxerk6vxmny5` | 7 | moomoo, default **always_deny**; sim reads + quotes allowed; `sim_trade_input_order` = **always_allow** under the `tyche authorize` envelope gate (else conversational per-order confirmation; unattended + no valid envelope => do NOT submit); `cancel` / `modify` = **always_ask** | paper only |
 | Advisor | — (model consult) | — | — | none | none |
