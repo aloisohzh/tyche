@@ -1,0 +1,72 @@
+{
+  "date": "2026-11-18",
+  "account": "[REDACTED]",
+  "observed": {
+    "cash_balance": 57360.28,
+    "frozen": 7884.33,
+    "cash_incl_frozen": 65244.61,
+    "nav_total_asset": 99914.93,
+    "mv": 34670.32
+  },
+  "fills": [
+    {
+      "symbol": "US.SPY",
+      "qty": 28,
+      "price": 731.54,
+      "broker_order_id": "3116580"
+    },
+    {
+      "symbol": "US.EFA",
+      "qty": 142,
+      "price": 100.495,
+      "broker_order_id": "3116594"
+    }
+  ],
+  "fees_modeled": [
+    {
+      "order_id": "3116580",
+      "symbol": "US.SPY",
+      "side": "buy",
+      "quantity": 28,
+      "price": 731.54,
+      "asset_class": "stock",
+      "components": {
+        "platform": 0.99
+      },
+      "total": 0.99,
+      "source": "model"
+    },
+    {
+      "order_id": "3116594",
+      "symbol": "US.EFA",
+      "side": "buy",
+      "quantity": 142,
+      "price": 100.495,
+      "asset_class": "stock",
+      "components": {
+        "platform": 0.99
+      },
+      "total": 0.99,
+      "source": "model"
+    }
+  ],
+  "fees_modeled_total": 1.98,
+  "fees_implied": 1.98,
+  "note": "VNQ order 3116597 still resting (status 2, cum_qty 0); frozen 7884.33 NOT released. Primary reconcile uses cash_after=balance+hold since freeze is still account cash; balance-only variant shown for transparency.",
+  "reconciliation": {
+    "expected_cash_delta": -34755.39,
+    "actual_cash_delta": -34755.39,
+    "fee_total": 1.98,
+    "residual": 0.0,
+    "tolerance": 1.0,
+    "ok": true
+  },
+  "reconciliation_balance_only": {
+    "expected_cash_delta": -34755.39,
+    "actual_cash_delta": -42639.72,
+    "fee_total": 1.98,
+    "residual": -7884.33,
+    "tolerance": 1.0,
+    "ok": false
+  }
+}

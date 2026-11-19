@@ -1,0 +1,18 @@
+{
+  "request": {
+    "acc_id": "[REDACTED]",
+    "market": 100,
+    "symbol": "US.SPY",
+    "order_type": 1,
+    "order_side": 1,
+    "qty": "28",
+    "price": "733.17",
+    "order_trade_time_type": 1,
+    "text": "tyche 2026-11-18 rebalance 30% SPY, plan f11456df"
+  },
+  "receipt": {"ret_code": 0, "ret_msg": "success", "data": {"order_id": "3116580"}},
+  "plan_path": "plans/2026-11-17-plan.json",
+  "plan_sha256": "f11456dfafe83dfa6fd55de15fca7b8742cca4a20d809e407289c806b7016931",
+  "submitted_at_utc": "2026-11-18T17:35Z",
+  "preflight": {"last_price": 733.75, "limit_deviation_pct": -0.079, "quote_time_utc": "2026-11-18T17:33:47Z", "pass": true}
+}
