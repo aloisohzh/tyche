@@ -10,8 +10,11 @@ max_positions: 100
 cap_tolerance_pct: 0.0025
 min_cash_weight: 0.05
 max_order_notional_pct: 0.30
-max_daily_turnover_pct: 0.50
-max_orders_per_day: 6
+max_daily_turnover_pct: 1.50
+max_orders_per_day: 40
+competition_order_cap: 200
+option_risk_per_trade_pct: 0.0075
+max_option_premium_pct: 0.25
 max_limit_deviation_pct: 0.03
 min_order_notional: 500.0
 min_price: 1.00

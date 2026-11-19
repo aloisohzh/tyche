@@ -1,5 +1,7 @@
 id: PB-001
 enabled: true
+# Ballast remains in the arsenal; tactical strategies own the other allocations.
+allocation_cap: 0.25
 playbook: docs/playbooks/PB-001-etf-rotation-ballast.md
 
 lookbacks: [63, 126, 252]

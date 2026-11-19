@@ -11,7 +11,7 @@ from pydantic import ValidationError
 from rich.console import Console
 from rich.table import Table
 
-from tyche.approvals import ApprovalBatch, authorize_order, envelope_usage
+from tyche.approvals import ApprovalBatch, authorize_order, envelope_totals, envelope_usage
 from tyche.broker import (
     MoomooCli,
     MoomooCliError,
@@ -21,8 +21,10 @@ from tyche.broker import (
     snapshot_from_dir,
 )
 from tyche.config import load_config
+from tyche.execution_state import daily_usage
 from tyche.halt import is_halted, set_halt
-from tyche.journal import append_event, verify_chain
+from tyche.journal import append_event, read_events, verify_chain
+from tyche.lifecycle_cli import app as lifecycle_app
 from tyche.market_calendar import (
     ET,
     SessionPhase,
@@ -36,9 +38,12 @@ from tyche.persist import persist_run
 from tyche.pipeline import build_order_pipeline, build_plan_pipeline
 from tyche.risk import RiskState, evaluate_intent
 from tyche.strategies import build_intents, fit_turnover_budget, rotation_targets
+from tyche.tactical_cli import app as tactical_app
 from tyche.watchlist import Watchlist
 
 app = typer.Typer(add_completion=False, help="Regime-aware ETF rotation agent.")
+app.add_typer(lifecycle_app, name="lifecycle")
+app.add_typer(tactical_app, name="tactical")
 console = Console()
 
 
@@ -288,7 +293,12 @@ def plan(
     intents = build_intents(result, snapshot, last_prices, config, strategy)
     intents = fit_turnover_budget(intents, snapshot.nav, config.risk.max_daily_turnover_pct)
 
+    valid, _, error = verify_chain(journal_path)
+    if not valid:
+        raise typer.BadParameter(f"journal integrity: {error}")
+    used_orders, used_notional = daily_usage(read_events(journal_path), as_of_date)
     state = RiskState(
+        orders_today=used_orders, traded_notional_today=used_notional,
         nav=snapshot.nav,
         prior_close_nav=prior_close if prior_close is not None else snapshot.nav,
         high_water_nav=high_water if high_water is not None else snapshot.nav,
@@ -494,6 +504,15 @@ def execute(
     if account_id not in config.risk.account_allowlist:
         console.print(
             f"Refusing {account_id}: not in the paper account allowlist."
+        )
+        raise typer.Exit(2)
+
+    # Real paper accounts must use the complete-lifecycle gate. This older
+    # standalone path has no durable ownership, revalidation or exit contract.
+    if account_id not in {"SIM-DEMO-US", "SIM-TEST"}:
+        console.print(
+            "Legacy execution disabled for broker accounts: use lifecycle preview/approve, "
+            "then lifecycle reserve and the paper MCP executor. --yes cannot bypass this gate."
         )
         raise typer.Exit(2)
 
@@ -1060,9 +1079,18 @@ def authorize(
         batch = ApprovalBatch.model_validate_json(path.read_text(encoding="utf-8"))
     except ValidationError as exc:
         deny(f"envelope invalid: {exc.errors()[0]['msg']}")
+    valid, _, error = verify_chain(journal_path)
+    if not valid:
+        deny(f"journal integrity: {error}")
     used = envelope_usage(journal_path, today)
+    used_qty, used_notional = envelope_totals(read_events(journal_path), today, symbol, side)
+    # Legacy envelope checks are stock-only; options use the exact-contract tactical gate.
+    from tyche.models import looks_like_option
+    if looks_like_option(symbol):
+        deny("option requires a verified contract and tactical reservation")
     authorized, reason = authorize_order(
-        batch, symbol=symbol, side=side, qty=qty, limit=limit, today=today, used=used
+        batch, symbol=symbol, side=side, qty=qty, limit=limit, today=today, used=used,
+        used_qty=used_qty, used_notional=used_notional,
     )
     console.print_json(json.dumps({
         "authorized": authorized, "reason": reason, "used": used,

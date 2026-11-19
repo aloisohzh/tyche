@@ -266,7 +266,7 @@ def rotation_targets(
         else 1.0
     )
     weights = {symbol: weight * scale for symbol, weight in weights.items()}
-    max_invested = 1.0 - strategy.min_cash_weight
+    max_invested = min(strategy.allocation_cap, 1.0 - strategy.min_cash_weight)
     weights = _cap_sleeves(
         weights,
         config.universe,
@@ -315,8 +315,10 @@ def build_intents(
     if nav <= 0:
         return []
     cash_symbol = config.universe.cash_symbol
-    positions = {position.symbol: position for position in snapshot.positions}
-    symbols = set(result.targets) | set(positions)
+    # A rebalance owns ONLY its universe; never liquidate another strategy's holdings.
+    positions = {position.symbol: position for position in snapshot.positions
+                 if position.symbol in config.universe.by_symbol() and position.option is None}
+    symbols = (set(result.targets) | set(positions)) & (set(config.universe.by_symbol()) | {cash_symbol})
 
     intents: list[OrderIntent] = []
     minimum_trade = max(strategy.min_trade_notional, 0.005 * nav)

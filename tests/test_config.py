@@ -36,6 +36,31 @@ def test_load_repo_config() -> None:
         config.strategy_by_id("PB-999")
 
 
+def test_paper_allocation_profile_preserves_risk_limits() -> None:
+    config = load_config(ROOT)
+    ballast = sum(strategy.allocation_cap for strategy in config.enabled_strategies())
+    assert ballast == pytest.approx(0.25)
+    assert config.tactical.stock_allocation_cap == pytest.approx(0.45)
+    assert config.risk.max_option_premium_pct == pytest.approx(0.25)
+    assert ballast + config.tactical.stock_allocation_cap + config.risk.max_option_premium_pct == pytest.approx(0.95)
+    assert config.risk.max_gross_exposure == pytest.approx(0.95)
+    assert config.risk.min_cash_weight == pytest.approx(0.05)
+    assert config.risk.option_risk_per_trade_pct == pytest.approx(0.0075)
+    assert config.risk.risk_per_trade_pct == pytest.approx(0.01)
+    assert config.risk.daily_loss_limit_pct == pytest.approx(0.025)
+    assert config.risk.soft_drawdown_pct == pytest.approx(0.04)
+    assert config.risk.hard_drawdown_pct == pytest.approx(0.06)
+    assert config.tactical.enabled and config.tactical.options_enabled
+    assert not config.tactical.execution_enabled
+    assert not config.risk.allow_short
+
+
+def test_option_allocation_ceiling_is_bounded() -> None:
+    assert RiskPolicy(max_option_premium_pct=0.25).max_option_premium_pct == 0.25
+    with pytest.raises(ValidationError):
+        RiskPolicy(max_option_premium_pct=0.2501)
+
+
 def test_account_allowlist_merges_env_ids(monkeypatch) -> None:
     monkeypatch.setenv("TYCHE_ALLOWED_ACCOUNT_IDS", "9000001, 9000002")
     config = load_config(ROOT)

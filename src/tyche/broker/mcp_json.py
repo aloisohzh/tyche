@@ -11,11 +11,12 @@ Submission stays with the executor; this module only reads and reconciles.
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from tyche.broker.moomoo_cli import _walk
-from tyche.models import AccountSnapshot, Position
+from tyche.models import AccountSnapshot, OptionContract, Position
 
 MARKET_PREFIX = {100: "US", 1: "HK", 14: "SG", 16: "JP", 102: "KR"}
 
@@ -85,27 +86,45 @@ def _find_position_list(payload: Any) -> list[dict]:
     return max(candidates, key=len) if candidates else []
 
 
-def extract_positions(payload: Any, market_prefix: str = "US") -> list[Position]:
+def extract_positions(
+    payload: Any, market_prefix: str = "US",
+    contracts: dict[str, OptionContract] | None = None,
+) -> list[Position]:
     positions: list[Position] = []
-    for item in _find_position_list(payload):
+    if isinstance(payload, dict) and "data" in payload:
+        rows = payload["data"].get("positions")
+        if not isinstance(rows, list):
+            raise ValueError("positions array missing; cannot assume flat")
+    else:
+        rows = _find_position_list(payload)
+    for item in rows:
         if item.get("pstn_type") not in (0, None):
-            continue
+            raise ValueError("unsupported short/unknown position; cannot omit exposure")
         raw_symbol = item.get("symbol") or item.get("code")
         if not raw_symbol:
-            continue
+            raise ValueError("position is missing symbol")
         symbol = str(raw_symbol)
         if "." not in symbol:
             symbol = f"{market_prefix}.{symbol}"
-        try:
-            quantity = int(float(item.get("qty", item.get("quantity", 0))))
-        except (TypeError, ValueError):
-            continue
-        if quantity <= 0:
+        raw_qty = float(item.get("qty", item.get("quantity", 0)))
+        if raw_qty < 0 or not raw_qty.is_integer():
+            raise ValueError("unsupported position quantity")
+        quantity = int(raw_qty)
+        if quantity == 0:
             continue
         cost = _first_float(item, ("cost_price", "buy_avg_price", "avg_cost")) or 0.0
-        last = _first_float(item, ("cur_price", "last_price", "price")) or cost
+        last = _first_float(item, ("cur_price", "last_price", "price"))
+        if last is None:
+            last = cost
+        available = float(item["qty_avbl"]) if item.get("qty_avbl") is not None else None
+        if available is not None and (not available.is_integer() or not 0 <= available <= quantity):
+            raise ValueError("invalid broker available quantity")
         positions.append(
-            Position(symbol=symbol, quantity=quantity, avg_cost=cost, last_price=last)
+            Position(
+                symbol=symbol, quantity=quantity, avg_cost=cost, last_price=last,
+                option=(contracts or {}).get(symbol),
+                available_quantity=int(available) if available is not None else None,
+            )
         )
     return positions
 
@@ -119,15 +138,25 @@ def build_snapshot(
     env: str = "paper",
     source: str = "sim_list",
     market_prefix: str = "US",
+    contracts: dict[str, OptionContract] | None = None,
+    captured_at: datetime | None = None,
 ) -> AccountSnapshot:
+    for payload in (accounts_payload, cash_payload, positions_payload):
+        if isinstance(payload, dict) and payload.get("ret_code", 0) != 0:
+            raise ValueError("broker read failed; cannot construct a snapshot")
     meta = account_meta(accounts_payload, account_id)
     cash = extract_cash(cash_payload)
+    frozen = next((_first_float(node, ("hold", "frozen_cash")) for node in _walk(cash_payload)
+                   if isinstance(node, dict) and ("hold" in node or "frozen_cash" in node)), 0.0)
     if cash is None:
         raise ValueError("no cash balance found in the funds payload")
     return AccountSnapshot(
         account_id=str(account_id),
         cash=cash,
-        positions=extract_positions(positions_payload, market_prefix),
+        frozen_cash=frozen or 0.0,
+        broker_nav=extract_nav(cash_payload),
+        captured_at=captured_at,
+        positions=extract_positions(positions_payload, market_prefix, contracts),
         env=env,
         account_type=meta.get("account_type") if meta else None,
         market_id=meta.get("market_id") if meta else None,
@@ -142,11 +171,21 @@ def snapshot_from_dir(
     env: str = "paper",
     source: str = "sim_list",
     market_prefix: str = "US",
+    contracts: dict[str, OptionContract] | None = None,
+    captured_at: datetime | None = None,
 ) -> AccountSnapshot:
     directory = Path(directory)
     accounts = json.loads((directory / "accounts.json").read_text(encoding="utf-8"))
     cash = json.loads((directory / "cash.json").read_text(encoding="utf-8"))
     positions = json.loads((directory / "positions.json").read_text(encoding="utf-8"))
+    contract_path = directory / "contracts.json"
+    if contracts is None and contract_path.is_file():
+        contracts = {symbol: OptionContract.model_validate(value)
+                     for symbol, value in json.loads(contract_path.read_text(encoding="utf-8")).items()}
+    # Never make old broker files look fresh merely by rebuilding the snapshot.
+    captured_at = captured_at or datetime.fromtimestamp(
+        min((directory / name).stat().st_mtime for name in ("accounts.json", "cash.json", "positions.json")), UTC
+    )
     return build_snapshot(
         account_id,
         accounts,
@@ -155,4 +194,6 @@ def snapshot_from_dir(
         env=env,
         source=source,
         market_prefix=market_prefix,
+        contracts=contracts,
+        captured_at=captured_at,
     )

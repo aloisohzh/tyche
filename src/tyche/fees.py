@@ -97,15 +97,23 @@ class CashReconciliation(BaseModel):
 def reconcile_cash(
     cash_before: float,
     cash_after: float,
-    fills: list[tuple[int, float]],
+    fills: list[tuple[int, float] | tuple[int, float, int]],
     fees: list[FeeRecord],
     tolerance: float = 1.0,
 ) -> CashReconciliation:
     """Compare modeled fill+fee cash impact against the observed cash delta.
 
-    ``fills`` are (signed quantity, fill price) pairs; a buy is positive.
+    ``fills`` are (signed quantity, price[, multiplier]); a buy is positive.
+    Compare TOTAL cash (available + frozen), not free cash alone, when orders rest.
+    Options must carry their verified contract multiplier.
     """
-    fill_delta = sum(-signed * price for signed, price in fills)
+    fill_delta = 0.0
+    for fill in fills:
+        signed, price = fill[:2]
+        multiplier = fill[2] if len(fill) == 3 else 1
+        if multiplier not in (1, 100):
+            raise ValueError("only stock shares or standard 100-share options supported")
+        fill_delta -= signed * price * multiplier
     fee_total = sum(fee.total for fee in fees)
     expected = fill_delta - fee_total
     actual = cash_after - cash_before

@@ -1,6 +1,7 @@
 """Per-trade risk budget and R-multiple expectancy accounting (ADR 0016).
 
-Initial R is fixed at plan time by the protective stop: R = entry - stop.
+Stock R uses the planned protective stop. Long-option R is full debit plus entry fees,
+not a hypothetical option stop fill; all cash/P&L uses the verified multiplier.
 Realized R is computed fee-net from FIFO round trips over ``order.filled``
 journal events. Fills that cannot be attributed (missing side, no matching
 entry lot, no plan stop) are counted and surfaced, never guessed.
@@ -8,12 +9,14 @@ entry lot, no plan stop) are counted and surfaced, never guessed.
 
 from __future__ import annotations
 
+import math
 from collections import deque
 from typing import Any
 
 from pydantic import BaseModel, Field
 
 from tyche.fees import estimate_fees
+from tyche.models import OptionContract, looks_like_option
 
 FORMULA = "(Win% × AvgWin) − (Loss% × AvgLoss)"
 PROVISIONAL_BELOW_N = 30
@@ -23,6 +26,7 @@ class ClosedTrade(BaseModel):
     symbol: str
     sleeve: str
     quantity: int
+    multiplier: int = 1
     entry_price: float
     exit_price: float
     stop_price: float | None = None
@@ -54,6 +58,7 @@ class OpenLot(BaseModel):
     symbol: str
     sleeve: str
     quantity: int
+    multiplier: int = 1
     entry_price: float
     stop_price: float | None = None
     initial_risk_usd: float | None = None
@@ -82,7 +87,8 @@ class ExpectancyReport(BaseModel):
 
 class _Lot:
     def __init__(self, qty: int, price: float, stop: float | None, planned_distance: float | None,
-                 nav: float | None, ts: str, fee: float) -> None:
+                 nav: float | None, ts: str, fee: float, multiplier: int = 1) -> None:
+        self.multiplier = multiplier
         self.qty = qty
         self.price = price
         self.stop = stop
@@ -91,6 +97,9 @@ class _Lot:
         self.ts = ts
         distance = price - stop if stop is not None and price > stop else planned_distance
         self.initial_risk = qty * distance if distance else None
+        if multiplier == 100:
+            self.stop = None
+            self.initial_risk = qty * price * multiplier + fee
 
 
 def _normalize(symbol: str, sleeves: dict[str, str]) -> str:
@@ -177,27 +186,50 @@ def compute_expectancy(
         ts = event.get("ts", "")
         symbol = _normalize(str(payload.get("symbol", "")), sleeve_by_symbol)
         side = payload.get("side")
-        qty = int(payload.get("quantity") or 0)
-        price = float(payload.get("price") or payload.get("avg_fill_price") or 0.0)
-        if side not in ("buy", "sell") or qty <= 0 or price <= 0 or not symbol:
+        try:
+            raw_qty = float(payload.get("quantity") or 0)
+            price = float(payload.get("price") or payload.get("avg_fill_price") or 0.0)
+            if not raw_qty.is_integer():
+                raise ValueError("fractional fill")
+            qty = int(raw_qty)
+        except (ValueError, TypeError, OverflowError):
             unattributed += 1
             continue
-        sleeve = sleeve_by_symbol.get(symbol, "other")
+        if side not in ("buy", "sell") or qty <= 0 or not math.isfinite(price) or price <= 0 or not symbol:
+            unattributed += 1
+            continue
+        multiplier = 1
+        contract = None
+        if payload.get("option") or looks_like_option(symbol):
+            try:
+                contract = OptionContract.model_validate(payload.get("option"))
+                normalized = symbol if symbol.startswith("US.") else f"US.{symbol}"
+                if not contract.matches(normalized):
+                    raise ValueError("contract mismatch")
+                symbol = normalized
+                multiplier = contract.multiplier
+            except (ValueError, TypeError):
+                unattributed += 1
+                continue
+        asset_class = "option" if contract else "stock"
+        sleeve = sleeve_by_symbol.get(contract.underlying if contract else symbol, "other")
         if side == "buy":
             stop, distance, nav = _stop_for(symbol, ts, plans)
-            fee = estimate_fees(symbol, "buy", qty, price).total
+            fee = estimate_fees(symbol, "buy", qty, price, asset_class).total
             lots.setdefault(symbol, deque()).append(
-                _Lot(qty, price, stop, distance, nav, ts, fee)
+                _Lot(qty, price, stop, distance, nav, ts, fee, multiplier)
             )
             continue
-        fee_sell = estimate_fees(symbol, "sell", qty, price).total
+        fee_sell = estimate_fees(symbol, "sell", qty, price, asset_class).total
         remaining = qty
         queue = lots.get(symbol)
         while remaining > 0 and queue:
             lot = queue[0]
+            if lot.multiplier != multiplier:
+                break
             taken = min(remaining, lot.qty)
             fraction = taken / lot.qty
-            pnl_gross = (price - lot.price) * taken
+            pnl_gross = (price - lot.price) * taken * lot.multiplier
             fees = lot.fee * fraction + fee_sell * (taken / qty)
             pnl_net = pnl_gross - fees
             initial_risk = lot.initial_risk * fraction if lot.initial_risk else None
@@ -206,6 +238,7 @@ def compute_expectancy(
                     symbol=symbol,
                     sleeve=sleeve,
                     quantity=taken,
+                    multiplier=lot.multiplier,
                     entry_price=lot.price,
                     exit_price=price,
                     stop_price=lot.stop,
@@ -257,6 +290,7 @@ def compute_expectancy(
                     symbol=symbol,
                     sleeve=sleeve_by_symbol.get(symbol, "other"),
                     quantity=lot.qty,
+                    multiplier=lot.multiplier,
                     entry_price=lot.price,
                     stop_price=lot.stop,
                     initial_risk_usd=round(lot.initial_risk, 4) if lot.initial_risk else None,
