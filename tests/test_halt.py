@@ -7,7 +7,14 @@ from typer.testing import CliRunner
 
 from tyche.cli import app
 from tyche.config import RiskPolicy
-from tyche.halt import effective_halt, is_halted, read_halt, read_repo_halt, repo_halt_path, set_halt
+from tyche.halt import (
+    effective_halt,
+    is_halted,
+    read_halt,
+    read_repo_halt,
+    repo_halt_path,
+    set_halt,
+)
 from tyche.journal import read_events, verify_chain
 from tyche.models import AccountSnapshot, OrderIntent, Position, Side
 from tyche.risk import RiskState, evaluate_intent

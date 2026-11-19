@@ -16,7 +16,7 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validato
 
 from tyche.config import AppConfig
 from tyche.market_calendar import ET, SessionPhase, evaluate, is_trading_day, regular_close
-from tyche.models import AccountSnapshot, OrderIntent, Regime, Side
+from tyche.models import AccountSnapshot, Instrument, OrderIntent, Regime, Side
 from tyche.risk import RiskState, evaluate_intent
 
 RTH = {SessionPhase.OPENING_DRIVE, SessionPhase.MIDDAY, SessionPhase.CLOSING_DRIVE}
@@ -133,9 +133,8 @@ class Quote(StrictModel):
         return self
 
 
-class BrokerOrder(StrictModel):
+class BrokerOrder(Instrument, StrictModel):
     order_id: str
-    symbol: str
     side: Literal["buy", "sell"]
     quantity: int = Field(gt=0)
     filled_quantity: int = Field(ge=0)
@@ -527,7 +526,7 @@ def decide(plan: LifecyclePlan, book: LifecycleBook, market: MarketSnapshot,
         for order in market.orders:
             if not order.complete:
                 pending_intents.append(OrderIntent(
-                    symbol=order.symbol, side=Side(order.side),
+                    symbol=order.symbol, option=order.option, side=Side(order.side),
                     quantity=max(1, order.quantity - order.filled_quantity),
                     limit_price=order.limit_price, reason="unresolved broker exposure",
                 ))
@@ -542,7 +541,7 @@ def decide(plan: LifecyclePlan, book: LifecycleBook, market: MarketSnapshot,
                            orders_today=orders_today + unknown_today,
                            pending_orders=pending_intents,
                            traded_notional_today=sum(
-                               o.quantity * o.limit_price for o in today_orders if o.side == "buy"
+                               o.quantity * o.limit_price * o.multiplier for o in today_orders if o.side == "buy"
                            ) + sum(
                                r.quantity * r.limit_price for r in state.reservations
                                if r.side == "buy" and r.account_hash == key

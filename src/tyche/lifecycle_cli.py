@@ -30,6 +30,7 @@ from tyche.lifecycle import (
     validate_market,
 )
 from tyche.market_calendar import ET, regular_close
+from tyche.models import OptionContract
 
 app = typer.Typer(help="Paper lifecycles; only execute-exit --submit can send an approved exit.")
 
@@ -281,7 +282,8 @@ def reserve(
                      "create_time": int(o.created_at.timestamp() * 1_000_000)} for o in quotes.orders]
             if contract.symbol in unresolved_symbols(events, rows):
                 raise ValueError("unresolved journal order for this symbol; no further submission")
-            count, _ = combined_usage(events, rows, now.astimezone(ET).date(), {})
+            contracts = {o.symbol: o.option for o in quotes.orders if o.option is not None}
+            count, _ = combined_usage(events, rows, now.astimezone(ET).date(), contracts)
             if count >= config.risk.competition_order_cap:
                 raise ValueError("competition daily order ceiling reached across execution lanes")
             if decision["action"] == "sell":
@@ -382,13 +384,15 @@ def execute_exit(
             broker = MoomooPaperHttp.from_env()
             closes = {q.symbol: {"close": q.close, "close_at": q.close_at}
                       for q in context.quotes if q.close is not None}
+            contracts = {item.symbol: item.option for item in [*account.positions, *context.orders]
+                         if item.option is not None}
 
             def refresh():
                 payloads = broker.read(account.account_id, contract.symbol,
                                        config.risk.sim_account_types, clock=now_utc)
                 fresh_market = captured_market(
                     account.account_id, payloads, context.prior_close_nav, context.high_water_nav,
-                    context.regime, context.conviction, closes,
+                    context.regime, context.conviction, closes, contracts,
                 )
                 from tyche.halt import is_halted
                 fresh_market.halted = is_halted(journal.parent) or context.halted
@@ -417,7 +421,7 @@ def execute_exit(
                 return
             if contract.symbol in unresolved_symbols(events, rows):
                 raise PaperApiError("unresolved journal order for this symbol; no further submission")
-            count, _ = combined_usage(events, rows, now.astimezone(ET).date(), {})
+            count, _ = combined_usage(events, rows, now.astimezone(ET).date(), contracts)
             if count >= config.risk.competition_order_cap:
                 raise PaperApiError("competition daily order ceiling reached across execution lanes")
             owned = approval.adopted_quantity + sum(
@@ -534,13 +538,15 @@ def raw(path: Path) -> dict:
 
 
 def captured_market(account_id, payloads, prior_close_nav, high_water_nav,
-                    regime, conviction, closes) -> MarketSnapshot:
+                    regime, conviction, closes, contracts=None) -> MarketSnapshot:
+    contracts = contracts or {}
     orders = []
     for row in payloads["orders"]:
         if row["side"] not in (1, 2):
             raise ValueError("unsupported broker order side")
         orders.append(BrokerOrder(
             order_id=str(row["order_id"]), symbol="US." + row["symbol"],
+            option=contracts.get("US." + row["symbol"]),
             side="buy" if row["side"] == 1 else "sell", quantity=whole(row["qty"]),
             filled_quantity=whole(row["cum_qty"]), status=row["status"],
             limit_price=float(row["price"]), remark=row.get("text") or "",
@@ -564,7 +570,7 @@ def captured_market(account_id, payloads, prior_close_nav, high_water_nav,
     return MarketSnapshot(
         observed_at=payloads["observed_at"], snapshot=build_snapshot(
             account_id, payloads["accounts"], payloads["cash"], payloads["positions"],
-            captured_at=payloads["observed_at"],
+            captured_at=payloads["observed_at"], contracts=contracts,
         ), regime=regime, conviction=conviction, broker_nav=extract_nav(payloads["cash"]),
         prior_close_nav=prior_close_nav, high_water_nav=high_water_nav, available=available,
         quotes=quotes, orders=orders, orders_complete=True,
@@ -602,11 +608,14 @@ def capture(
         pages = [raw(path) for path in order_paths]
         closes_path = directory / "closes.json"
         closes = json.loads(closes_path.read_text()) if closes_path.exists() else {}
+        contract_path = directory / "contracts.json"
+        contracts = {symbol: OptionContract.model_validate(value) for symbol, value in
+                     json.loads(contract_path.read_text()).items()} if contract_path.is_file() else {}
         result = captured_market(
             account_id, {"accounts": accounts, "cash": cash, "positions": positions,
                          "quotes": quotes, "orders": complete_order_rows(pages),
                          "observed_at": now_utc(observed_at)},
-            prior_close_nav, high_water_nav, regime, conviction, closes,
+            prior_close_nav, high_water_nav, regime, conviction, closes, contracts,
         )
         save(out, result)
         emit({"captured": True, "path": str(out), "submitted": False})

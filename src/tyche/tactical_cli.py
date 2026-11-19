@@ -224,7 +224,7 @@ def rollout_check(config_root: Path = typer.Option(Path.cwd())) -> None:
           "target_monitor_interval_seconds": config.tactical.monitor_interval_seconds,
           "blockers": ["Publish tested source to the existing cloud repository mount.",
                        "Use one durable writer for journal and BOTH strategy lanes; file locks are not distributed locks.",
-                       "Validate lightweight 120-second Qoder-native monitoring, expiry exit and missed-heartbeat alerts.",
+                       "Validate configured-cadence monitoring, exits before the next scheduled check and missed-heartbeat alerts.",
                        "Verify option submission/partial fills/cancel/expiry behavior in an authorized paper drill.",
                        "Restore protected setups, journal and complete broker history before every run.",
                        "Obtain exact setup-bound operator envelopes and auditor approval; then enable the rollout gate."],

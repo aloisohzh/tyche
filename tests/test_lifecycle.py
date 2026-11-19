@@ -27,7 +27,7 @@ from tyche.lifecycle import (
     tick,
 )
 from tyche.lifecycle_cli import locked_state
-from tyche.models import AccountSnapshot, Position
+from tyche.models import AccountSnapshot, OptionContract, Position
 from tyche.pipeline import rules_hash
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -88,6 +88,32 @@ def test_fresh_new_entry_authorized():
     result = decision(setup_case(held=0))
     assert result["action"] == "buy" and result["authorized"]
     assert 99 <= result["limit_price"] <= 101
+
+
+def test_lifecycle_turnover_includes_full_option_debit():
+    case = setup_case(held=0)
+    case[4].risk.max_daily_turnover_pct = 0.01
+    case[2].orders = [BrokerOrder(
+        order_id="option-filled", symbol="US.NVDA261127C150000", side="buy",
+        option=OptionContract(underlying="US.NVDA", expiry="2026-11-27", right="call", strike=150),
+        quantity=1, filled_quantity=1, status=4, limit_price=6, created_at=NOW,
+    )]
+    result = decision(case)
+    assert not result["authorized"]
+    assert "turnover" in result["reason"]
+
+
+def test_lifecycle_exit_retains_unrelated_option_positions():
+    case = setup_case(price=94)
+    option = Position(symbol="US.NVDA261127C150000", quantity=1, available_quantity=1,
+                      avg_cost=6, last_price=6, option=OptionContract(
+                          underlying="US.NVDA", expiry="2026-11-27", right="call", strike=150))
+    case[2].snapshot.positions.append(option)
+    case[2].snapshot.cash -= 600
+    case[2].available[option.symbol] = 1
+    result = decision(case)
+    assert result["authorized"] and result["action"] == "sell"
+    assert result["symbol"] == "US.SPY"
 
 
 @pytest.mark.parametrize("exposure", ["held", "pending", "reserved"])
@@ -691,6 +717,41 @@ def capture_args(tmp_path):
             "--observed-at", NOW.isoformat(), "--prior-close-nav", "100000",
             "--high-water-nav", "100000", "--regime", "neutral", "--conviction", "medium",
             "--out", str(tmp_path / "market.json")]
+
+
+@pytest.mark.parametrize("metadata", ["valid", "missing", "wrong"])
+def test_lifecycle_capture_preserves_option_exposure(tmp_path, metadata):
+    payloads = capture_files(tmp_path)
+    symbol = "US.NVDA261127C150000"
+    payloads["positions"]["data"]["positions"].append({
+        "symbol": symbol[3:], "pstn_type": 0, "qty": "1", "qty_avbl": "1",
+        "cost_price": 6, "cur_price": 6,
+    })
+    payloads["orders"]["data"]["orders"].append({
+        "order_id": "option-entry", "symbol": symbol[3:], "side": 1,
+        "qty": "1", "cum_qty": "0", "status": 2, "price": 6,
+        "create_time": int(NOW.timestamp() * 1_000_000), "text": "option-request",
+    })
+    payloads["cash"]["data"]["total_asset"] += 600
+    for name, payload in payloads.items():
+        (tmp_path / f"{name}.json").write_text(json.dumps({"ret_code": 0, **payload}))
+    if metadata != "missing":
+        (tmp_path / "contracts.json").write_text(json.dumps({symbol: {
+            "underlying": "US.NVDA", "expiry": "2026-11-27", "right": "call",
+            "strike": 150 if metadata == "valid" else 155, "multiplier": 100,
+        }}))
+    result = CliRunner().invoke(app, capture_args(tmp_path))
+    if metadata != "valid":
+        assert result.exit_code == 1, result.output
+        assert not (tmp_path / "market.json").exists()
+        return
+    assert result.exit_code == 0, result.output
+    market = MarketSnapshot.model_validate_json((tmp_path / "market.json").read_text())
+    assert market.snapshot.position(symbol).market_value == 600
+    assert market.snapshot.nav == market.broker_nav == 100600
+    assert market.orders[-1].multiplier == 100
+    assert not market.orders[-1].complete
+    assert market.available[symbol] == 1
 
 
 def test_capture_uses_broker_times_quantities_and_pagination(tmp_path):

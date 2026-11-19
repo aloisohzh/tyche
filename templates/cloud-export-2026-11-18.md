@@ -171,10 +171,11 @@ drive/schedule tools; each prompt refuses standalone operation outside the desk.
 |---|---|---|---|---|---|
 | Researcher (scout) | `tmpl_875834770244a9e35c7f6499` (rewritten from Moomoo Paper Trader) | `agent_00vs9v3dg0rnkr4740x3` | 8 | moomoo (read; all order-write tools disabled) | none |
 | Risk auditor | `tmpl_ae317cc0626a4fcc8fa8fad6` | `agent_00vtx8g7k1534t7w9eve` | 2 | none | none |
-| Executor | `tmpl_bc25a5c313827d53894fd7ff` | `agent_00vtx8mfbxerk6vxmny5` | 7 | moomoo, default **always_deny**; sim reads + quotes allowed; `sim_trade_input_order` = **always_allow** under the `tyche authorize` envelope gate (else conversational per-order confirmation; unattended + no valid envelope => do NOT submit); `cancel` / `modify` = **always_ask** | paper only |
+| Executor | `tmpl_bc25a5c313827d53894fd7ff` | `agent_00vtx8mfbxerk6vxmny5` | 8 | moomoo, default **always_deny**; sim reads + quotes allowed; `sim_trade_input_order` = **always_allow** under the `tyche authorize` envelope gate (else conversational per-order confirmation; unattended + no valid envelope => do NOT submit); `cancel` / `modify` = **always_ask** | paper only |
 | Advisor | — (model consult) | — | — | none | none |
 
-Advisor model: `ultimate`. All member models: `qmodel_latest`, effort high.
+Advisor model: `qmodel_latest` (was `ultimate` until 2026-11-19). Member models:
+`qmodel_latest`; effort high except executor **low** (2026-11-19 credit tiering).
 Live (`trading_order_*`) and crypto order tools are denied/disabled everywhere.
 
 Rollback: the pre-conversion standalone agents (`agent_00vtsgocscef4hvsj7y0`,
@@ -309,6 +310,35 @@ withheld + journaled (halt.skip); operator-authorized sell 3115472 filled 10 @73
 while halted; broker day-history shows no drill buys; resume + journal-verify OK
 (20 events). Record: docs/validation/2026-11-18-kill-switch-drill.md. Planning
 inputs were a labeled synthetic fixture (disclosed in the record); broker state real.
+
+Amendment 2026-11-19 02:52 UTC (pre-change export, credit-tiering, operator-approved):
+live templates retrieved via `get_forward_template`. Executor
+`tmpl_bc25a5c313827d53894fd7ff` (updated 2026-11-19T02:00+08): model
+`qmodel_latest` effort **high**; tools/policies unchanged (input_order
+always_allow under envelope gate, cancel/modify always_ask, default
+always_deny). Desk `tmpl_004fa008901a6c256bd0ed3f` (updated
+2026-11-19T08:15+08): model `qmodel_latest` effort high, context 400000;
+roster pins researcher **8** / auditor **2** / executor **7**, advisor model
+**`ultimate`** (price factor 2.0). Planned change (static role tiering, no
+dynamic routing): executor effort high→**low** (mechanical verbatim submission
++ snapshot/journal work; keep Qwen4-Max for tool-use reliability), advisor
+`ultimate`→**`qmodel_latest`** (advisory-only, non-blocking). Researcher,
+auditor, coordinator unchanged (judgment-heavy roles). Expected: executor
+compile v7→v8, roster re-pin executor 7→8; desk prompt untouched. Rollback:
+executor effort back to high + re-pin 7; advisor back to `ultimate`.
+
+Amendment 2026-11-19 03:00 UTC (credit-tiering APPLIED, operator-approved via
+explicit roster-change confirmation after a classifier block on the first
+attempt): executor template updated (name + model only; prompt, tools,
+always_allow/always_ask policies, vault, env preserved — verified in response
+and via get_agent). Compiled executor `agent_00vtx8mfbxerk6vxmny5` now **v8**,
+effort low. Desk roster re-pinned **8/2/8 + advisor `qmodel_latest`** (update
+response verified; desk system prompt preserved verbatim, desk model/context
+unchanged). Pins resolve at session creation — the next scheduled run is the
+first on the tiered config; verify via that session's effective config.
+Effective per-token pricing: executor unchanged model (0.4x) at low effort;
+advisor 2.0x→0.4x. No dynamic routing added (Forward resolves models from
+pinned templates; coordinator routes tasks to roles only).
 
 ## API quirks observed (connector)
 

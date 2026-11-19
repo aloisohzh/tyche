@@ -31,6 +31,7 @@ CONTRACT = OptionContract(underlying="US.NVDA", expiry=date(2026, 11, 27), right
 
 def case(option=False, held=False):
     config = load_config(ROOT)
+    config.tactical.monitor_interval_seconds = 120
     snapshot = AccountSnapshot(account_id="SIM-TEST", cash=100000, captured_at=NOW,
                                source="sim_list", account_type=2, market_id=100,
                                prior_close_nav=100000, high_water_nav=100000)
@@ -114,6 +115,63 @@ def test_option_allocation_cap_includes_held_and_pending_premiums(pending_premiu
         assert {breach.rule for breach in verdict.breaches} == {"option.premium_cap"}
     else:
         assert verdict.allowed, verdict.breaches
+
+
+@pytest.mark.parametrize("option", [False, True])
+def test_hourly_confirmations_require_current_quotes_and_review(option):
+    args = case(option)
+    args[7].tactical.monitor_interval_seconds = 3600
+    assert not run(args)["orders"]
+    now = NOW + timedelta(hours=1)
+    advance(args, now)
+    args[0].entries[0].reviewed_at = now
+    result = run(args, now)
+    assert len(result["orders"]) == 1, result
+    assert "heartbeat gap" not in " ".join(result["alerts"])
+
+
+@pytest.mark.parametrize("stale", ["quote", "review", "heartbeat"])
+def test_hourly_cadence_does_not_relax_data_gates(stale):
+    args = case()
+    args[7].tactical.monitor_interval_seconds = 3600
+    run(args)
+    now = NOW + timedelta(seconds=7201 if stale == "heartbeat" else 3600)
+    advance(args, now)
+    if stale != "review":
+        args[0].entries[0].reviewed_at = now
+    if stale == "quote":
+        args[2][0].at -= timedelta(seconds=61)
+    result = run(args, now)
+    assert not result["orders"], result
+    if stale == "heartbeat":
+        assert "heartbeat gap" in " ".join(result["alerts"])
+
+
+@pytest.mark.parametrize("option", [False, True])
+@pytest.mark.parametrize("half_day", [False, True])
+def test_hourly_exit_precedes_deadline_and_market_close(option, half_day):
+    args = case(option, held=True)
+    args[7].tactical.monitor_interval_seconds = 3600
+    day, hour = (27, 17) if half_day else (19, 20)
+    now = NOW.replace(day=day, hour=hour)
+    args[0].entries[0].exit_at = now.replace(minute=45)
+    args[0].entries[0].expiry = now.date()
+    advance(args, now)
+    result = run(args, now)
+    assert result["orders"][0]["intent"]["side"] == "sell", result
+    assert "expiry" in result["orders"][0]["intent"]["reason"] if option and half_day else (
+        "next scheduled check" in result["orders"][0]["intent"]["reason"])
+
+
+def test_hourly_blocks_entry_without_another_check_before_deadline():
+    args = case()
+    args[7].tactical.monitor_interval_seconds = 3600
+    entry = args[0].entries[0]
+    entry.confirmation_ticks = 1
+    entry.exit_at = NOW + timedelta(minutes=59)
+    result = run(args)
+    assert not result["orders"]
+    assert "next scheduled check" in result["decisions"][0]["reason"]
 
 
 def test_duplicate_quote_does_not_count_as_confirmation():
@@ -296,8 +354,10 @@ def write_cli_case(tmp_path, args):
     return paths
 
 
-def test_tactical_reservation_disabled_by_default(tmp_path, monkeypatch):
+def test_tactical_reservation_respects_disabled_gate(tmp_path, monkeypatch):
     args = case()
+    args[7].tactical.execution_enabled = False
+    monkeypatch.setattr("tyche.tactical_cli.load_config", lambda _: args[7])
     paths = write_cli_case(tmp_path, args)
     journal = tmp_path / "events.jsonl"
     append_event(journal, "test", {})

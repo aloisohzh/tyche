@@ -10,6 +10,7 @@ from tyche.config import (
     RiskPolicy,
     SleeveCaps,
     StrategyConfig,
+    TacticalConfig,
     load_config,
 )
 
@@ -53,6 +54,16 @@ def test_paper_allocation_profile_preserves_risk_limits() -> None:
     assert config.tactical.enabled and config.tactical.options_enabled
     assert not config.tactical.execution_enabled
     assert not config.risk.allow_short
+
+
+def test_hourly_tactical_cadence_keeps_freshness_and_default_gate() -> None:
+    config = load_config(ROOT)
+    assert config.tactical.monitor_interval_seconds == 3600
+    assert config.tactical.max_quote_age_seconds == 60
+    assert config.tactical.max_snapshot_age_seconds == 120
+    assert not TacticalConfig().execution_enabled
+    with pytest.raises(ValidationError):
+        TacticalConfig(monitor_interval_seconds=3601)
 
 
 def test_option_allocation_ceiling_is_bounded() -> None:

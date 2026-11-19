@@ -1,7 +1,7 @@
-# Research produces proposals; this profile never authorizes a broker write.
+# Research produces proposals; a same-day operator envelope + fresh audit + reserve authorizes one bounded paper write.
 enabled: true
 options_enabled: true
-# No order authorization until the single-writer cloud monitor and broker drill pass.
+# Hourly validation mode 2026-11-19: keep the gate closed until the controlled paper drill passes.
 execution_enabled: false
 symbols: [US.NVDA, US.AMD, US.AVGO, US.MU, US.SMH, US.ANT]
 etf_symbols: [US.SMH]
@@ -10,7 +10,7 @@ max_name_weight: 0.20
 min_reward_risk: 1.5
 max_quote_age_seconds: 60
 max_snapshot_age_seconds: 120
-monitor_interval_seconds: 120
+monitor_interval_seconds: 3600
 stock_spread_pct: 0.003
 option_spread_pct: 0.05
 min_option_open_interest: 100

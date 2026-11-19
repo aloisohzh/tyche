@@ -205,9 +205,10 @@ def plan_tick(
             if entry.option and q.bid <= held.avg_cost * 0.60:
                 exit_reason = "option premium drawdown reached 40%"
             deadline = entry.exit_at or close - timedelta(minutes=cfg.session_exit_minutes_before_close)
-            if now >= deadline or today > entry.expiry:
-                exit_reason = "time exit"
-            if entry.option and entry.option.expiry <= today and now >= close - timedelta(minutes=cfg.option_exit_minutes_before_close):
+            next_check = now + timedelta(seconds=cfg.monitor_interval_seconds)
+            if next_check >= deadline or today > entry.expiry:
+                exit_reason = "time exit before next scheduled check"
+            if entry.option and entry.option.expiry <= today and next_check >= close - timedelta(minutes=cfg.option_exit_minutes_before_close):
                 exit_reason = "close before option expiry/exercise"
             if not exit_reason:
                 reject("hold; no exit trigger" if underlying_fresh else "underlying feed stale; protection incomplete")
@@ -248,8 +249,8 @@ def plan_tick(
             if entry.exit_at is None or entry.exit_at > close - timedelta(minutes=cfg.session_exit_minutes_before_close):
                 reject("explicit exit deadline before session close required")
                 continue
-            if now >= entry.exit_at - timedelta(minutes=10):
-                reject("too close to exit deadline for a new entry")
+            if now >= entry.exit_at - timedelta(seconds=max(600, cfg.monitor_interval_seconds)):
+                reject("too close to exit deadline for the next scheduled check")
                 continue
             attempts = sum(1 for e in events if e.get("type") == "order.requested"
                            and e.get("payload", {}).get("setup_id") == key
