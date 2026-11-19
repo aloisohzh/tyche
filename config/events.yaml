@@ -2,4 +2,38 @@
 # validation (tyche events add). Merged into the calendar gate: any event on
 # a date makes it an event day (drive phases halve orders and risk).
 # Static macro/FOMC/earnings anchors live in src/tyche/market_calendar.py.
-events: []
+events:
+- date: '2026-11-19'
+  name: Philadelphia Fed Mfg Index (Nov) 08:30 ET
+  kind: macro
+  time_et: 08:30
+  symbols:
+  - US.SPY
+  - US.IWM
+  - US.SMH
+  source: https://www.philadelphiafed.org/surveys-and-data/regional-economic-analysis/manufacturing-business-outlook-survey
+    (Nov 19 2026 8:30 a.m.); MCP econ calendar indicatorId 236
+  added_at: '2026-11-19T13:30:33.942396Z'
+- date: '2026-11-19'
+  name: US Initial Jobless Claims 08:30 ET
+  kind: macro
+  time_et: 08:30
+  symbols:
+  - US.SPY
+  - US.QQQ
+  - US.IWM
+  - US.TLT
+  - US.IEF
+  source: MCP quote_economic_calendar_hot 20261119 indicatorId 294 (prev 198K cons
+    200K); DOL weekly Thursday schedule
+  added_at: '2026-11-19T13:30:33.508254Z'
+- date: '2026-11-20'
+  name: PBoC LPR fixing 01:15Z (Nov19 20:15 ET)
+  kind: macro
+  time_et: null
+  symbols:
+  - US.EFA
+  - US.EEM
+  source: jin10 calendar item 235457 via MCP news_search; PBoC monthly 20th 09:15
+    Beijing schedule
+  added_at: '2026-11-19T13:30:34.375722Z'

@@ -1,0 +1,9 @@
+{
+  "checked_at": "2026-11-19T13:10:45+00:00",
+  "cadence_minutes": 60,
+  "gaps": [
+    "US.EFA: held position missing a complete lifecycle plan",
+    "US.SPY: held position missing a complete lifecycle plan"
+  ],
+  "decisions": []
+}

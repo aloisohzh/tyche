@@ -1,0 +1,177 @@
+{
+  "observed_at": "2026-11-19T13:10:16Z",
+  "snapshot": {
+    "account_id": "[REDACTED]",
+    "cash": 65244.61,
+    "frozen_cash": 0.0,
+    "broker_nav": 100193.13,
+    "prior_close_nav": null,
+    "high_water_nav": null,
+    "captured_at": "2026-11-19T13:10:16Z",
+    "positions": [
+      {
+        "symbol": "US.EFA",
+        "option": null,
+        "quantity": 142,
+        "available_quantity": 142,
+        "avg_cost": 100.495,
+        "last_price": 100.26,
+        "market_value": 14236.92
+      },
+      {
+        "symbol": "US.SPY",
+        "option": null,
+        "quantity": 28,
+        "available_quantity": 28,
+        "avg_cost": 731.54,
+        "last_price": 739.7,
+        "market_value": 20711.600000000002
+      }
+    ],
+    "env": "paper",
+    "account_type": 2,
+    "market_id": 100,
+    "source": "sim_list",
+    "gross_exposure": 34948.520000000004,
+    "nav": 100193.13
+  },
+  "regime": "risk_off",
+  "conviction": "low",
+  "broker_nav": 100193.13,
+  "prior_close_nav": 99914.93,
+  "high_water_nav": 100000.0,
+  "available": {
+    "US.EFA": 142,
+    "US.SPY": 28
+  },
+  "quotes": [
+    {
+      "symbol": "US.SPY",
+      "last": 730.2,
+      "at": "2026-11-18T21:00:00.268000Z",
+      "tradable": true,
+      "close": null,
+      "close_at": null
+    },
+    {
+      "symbol": "US.EFA",
+      "last": 100.26,
+      "at": "2026-11-18T21:00:00Z",
+      "tradable": true,
+      "close": null,
+      "close_at": null
+    },
+    {
+      "symbol": "US.QQQ",
+      "last": 659.51,
+      "at": "2026-11-18T21:00:00.427000Z",
+      "tradable": true,
+      "close": null,
+      "close_at": null
+    },
+    {
+      "symbol": "US.IWM",
+      "last": 270.12,
+      "at": "2026-11-18T21:00:00Z",
+      "tradable": true,
+      "close": null,
+      "close_at": null
+    },
+    {
+      "symbol": "US.EEM",
+      "last": 57.88,
+      "at": "2026-11-18T21:00:00.556000Z",
+      "tradable": true,
+      "close": null,
+      "close_at": null
+    },
+    {
+      "symbol": "US.TLT",
+      "last": 80.22,
+      "at": "2026-11-18T21:00:00.613000Z",
+      "tradable": true,
+      "close": null,
+      "close_at": null
+    },
+    {
+      "symbol": "US.IEF",
+      "last": 90.67,
+      "at": "2026-11-18T21:00:00.469000Z",
+      "tradable": true,
+      "close": null,
+      "close_at": null
+    },
+    {
+      "symbol": "US.GLD",
+      "last": 341.19,
+      "at": "2026-11-18T21:00:00.187000Z",
+      "tradable": true,
+      "close": null,
+      "close_at": null
+    },
+    {
+      "symbol": "US.DBC",
+      "last": 29.51,
+      "at": "2026-11-18T20:59:59.966000Z",
+      "tradable": true,
+      "close": null,
+      "close_at": null
+    },
+    {
+      "symbol": "US.VNQ",
+      "last": 95.18,
+      "at": "2026-11-18T21:00:00.050000Z",
+      "tradable": true,
+      "close": null,
+      "close_at": null
+    },
+    {
+      "symbol": "US.HYG",
+      "last": 76.65,
+      "at": "2026-11-18T21:00:00.121000Z",
+      "tradable": true,
+      "close": null,
+      "close_at": null
+    }
+  ],
+  "orders": [
+    {
+      "symbol": "US.VNQ",
+      "option": null,
+      "order_id": "3116597",
+      "side": "buy",
+      "quantity": 83,
+      "filled_quantity": 0,
+      "status": 5,
+      "created_at": "2026-11-18T17:53:07Z",
+      "limit_price": 94.98,
+      "remark": "tyche 2026-11-18 rebalance 11% VNQ, plan f11456df"
+    },
+    {
+      "symbol": "US.EFA",
+      "option": null,
+      "order_id": "3116594",
+      "side": "buy",
+      "quantity": 142,
+      "filled_quantity": 142,
+      "status": 4,
+      "created_at": "2026-11-18T17:49:36Z",
+      "limit_price": 101.45,
+      "remark": "tyche 2026-11-18 rebalance 20% EFA, plan f11456df"
+    },
+    {
+      "symbol": "US.SPY",
+      "option": null,
+      "order_id": "3116580",
+      "side": "buy",
+      "quantity": 28,
+      "filled_quantity": 28,
+      "status": 4,
+      "created_at": "2026-11-18T17:44:56Z",
+      "limit_price": 733.17,
+      "remark": "tyche 2026-11-18 rebalance 30% SPY, plan f11456df"
+    }
+  ],
+  "orders_complete": true,
+  "halted": false
+}
