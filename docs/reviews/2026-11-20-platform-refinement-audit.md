@@ -226,6 +226,43 @@ Not bookkeeping items - both directly affect the playbook/strategy work requeste
   `4105d7a680a3`. The freeze hash no longer proves the rules it froze, and no test asserts it does.
   Any playbook-format change made without closing this leaves the pre-registration contract broken.
 
+**Status after P0 items 2-3 landed (2026-11-20):** L-029 applied (PB-004 stays the live scalp, the
+planned sleeve became PB-006); L-030 partially applied - the playbook now declares the real hash and
+`test_docs_consistency.py` asserts it, but no `rules.refrozen` producer exists (L-035).
+
+### 3.8 The per-strategy freeze contract only covers one of three live lanes
+
+Found while starting P0 #4. `config/strategies/` contains `pb-001.yaml` and nothing else, but every
+running lane stamps a playbook id onto its intents:
+
+| Lane | Ids stamped in code | `config/strategies/<id>.yaml` |
+|---|---|---|
+| Ballast rotation (`pipeline.py`) | `PB-001` | exists |
+| Tactical (`tactical.py:243,345`) | `PB-002` stock / `PB-003` option | missing |
+| Scalp (`scalp.py:163,215`) | `PB-004` | missing |
+
+`rules_hash()` reads that path unconditionally, so for the other lanes it raises
+`FileNotFoundError` rather than returning a hash. Verified: PB-001 → `4105d7a680a3`; PB-002/003/004 →
+`FileNotFoundError`. Two consequences, in ascending order of seriousness:
+
+- **The runtime guard is inert but fail-safe.** `lifecycle.decide()` calls `rules_hash()` at
+  `lifecycle.py:477`; the `except (ValueError, OSError, KeyError)` at `:621` turns it into
+  `action="blocked"`, "invalid lifecycle inputs or unavailable strategy; operator review required".
+  So a PB-004 plan can never have its frozen rules verified - and can never be approved to run.
+- **The operator approval path raises.** `lifecycle_cli.py:166` calls the same function outside any
+  handler, so approving a tactical or scalp lifecycle plan surfaces a traceback instead of the
+  intended `ValueError`.
+
+This is why P0 #4 is not cosmetic. Toggling a strategy off from the dashboard, and binding an
+approval to the rules that were approved, both need a config object per lane that actually exists.
+The fix is a design choice, not a mechanical one: either the lane configs move under
+`config/strategies/` (which means `load_config`'s `StrategyConfig` validation and the
+file-stem-must-equal-id check have to accept three different parameter shapes), or `rules_hash()`
+resolves each id to the file that genuinely defines it (`config/tactical.yaml`,
+`config/scalp.yaml`). The second keeps PB-001's bytes - and therefore `4105d7a680a3` - untouched,
+which matters because that hash was only just reconciled. It also means `PB-002` and `PB-003` share
+one hash source, which reflects today's reality: they are one parameter file. Recorded as L-036.
+
 ---
 
 ## 4. Stocks-and-options-only scope
@@ -340,7 +377,7 @@ own warnings against spending the window on machinery.
 | 1 | Repoint the two dangling refs at the archived draft (labelled superseded) and add `docs/agent-rules.md`: hard rules + lessons-review-before-significant-work. **Do not** restore `.qoder/cloud-agent.md` - it is an archived stale draft (§3.1) | live cloud system prompts for the rule text; `docs/lessons/` as the required reading list | none in repo; binding it to the agents needs a prompt pin → P2 #12 |
 | 2 | Close L-030: reconcile PB-001 rules hash, journal `rules.refrozen`, add playbook-hash assertion test | `pipeline.rules_hash()`, `test_docs_consistency.py` | low - a red test until the re-freeze is recorded |
 | 3 | Close L-029: settle the PB-004 id | playbook README table, `strategy_ledger` keys | **medium** - changes attribution keys in the ledger and journal; needs an operator decision |
-| 4 | Normalise scalp/tactical into the strategy-config contract | `config.py:StrategyConfig`, `enabled_strategies()` | low if `enabled` defaults are preserved; verify via `test_config.py` |
+| 4 | Normalise scalp/tactical into the strategy-config contract (§3.8: without a config object per lane, `rules_hash()` cannot run, so 2 of 3 lanes have an inert freeze guard and approval raises) | `config.py:StrategyConfig`, `enabled_strategies()` | medium - approval identity changes; hold until the operator picks the hash-source shape |
 
 Dependencies: 0 gates everything after it - there is no point building on a validation signal the
 pipeline is not actually running. 4 depends on nothing; 3 should precede 5 (classification is filed
