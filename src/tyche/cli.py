@@ -39,7 +39,8 @@ from tyche.persist import persist_run
 from tyche.pipeline import build_order_pipeline, build_plan_pipeline
 from tyche.risk import RiskState, evaluate_intent
 from tyche.strategies import build_intents, fit_turnover_budget, rotation_targets
-from tyche.strategy_ledger import StrategyPolicy, score as score_strategy
+from tyche.strategy_ledger import StrategyPolicy
+from tyche.strategy_ledger import score as score_strategy
 from tyche.tactical_cli import app as tactical_app
 from tyche.trade_risk import compute_expectancy
 from tyche.watchlist import Watchlist
