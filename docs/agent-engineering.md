@@ -77,6 +77,20 @@ generation time by `is_trading_day` (L-019). Live cards: `dep_00vzb9h4ezawwl4thn
 - The hourly and six-fire cadences are **cut** (L-019, L-020). Their `tyche-hourly` and phase schedules
   remain in the platform as `paused` objects, and the deploy scripts that used to drive them are in
   [../archive/MANIFEST.md](../archive/MANIFEST.md).
+- **The live card is operator-switchable from the desk, not from the hosted page.** Controls reads the card
+  that owns today (`scripts/cloud_api.py:119` selects by its `metadata.window`, because two monthly cards
+  overlap at a rollover and pausing the wrong one would look like success), and `POST /api/schedule/control`
+  pauses, resumes or fires one run. Every action is journaled and the pause is **re-read** from the platform
+  before the desk calls it done (`verified`). Fire times and timezone are shown read-only on purpose: they
+  live in the card's cron and again in its prompt, so retuning them means rebuilding the card
+  (`scripts/deploy_two_fire_automation.py`) and re-pinning the cadence doc in the same commit. The hosted
+  Sites Function publishes `/schedule` from the desk's snapshot and holds no cadence write path.
+- **Scout can also be started by hand.** `POST /api/scout/run` opens a researcher session directly
+  (`cloud_api.start_scout_run`) rather than through the card, with no executor, auditor or envelope in
+  reach. The session has no repository mount, so the desk puts everything it needs in the message: the
+  clock, the calendar phase, and the live playbook ids with their frozen rules hashes - and no numeric
+  caps, because agent-rules forbids restating them anywhere a prompt could drift (L-033). A run already in
+  flight is refused, and the request is journaled as `scout.requested`.
 - **Gap:** the calendar drift check is alert-only and is carried in a *paused* schedule's
   `initial_events`, so on the card path it does not run. `scripts/deploy_calendar_check.py` builds it;
   wiring it to a live trigger is open work.

@@ -370,13 +370,13 @@
         <div class="page-heading">
           <div>
             <h1>Orchestration</h1>
-            <p>The desk trades on a schedule in the cloud, even when your PC is off. Every order is either confirmed by you or inside a pre-approved envelope. Schedule and session status below is read live from Qoder Forward; the access token stays server-side.</p>
+            <p>The desk trades on a schedule in the cloud, even when your PC is off. Every order is either confirmed by you or inside a pre-approved envelope. The cadence that owns today - its times, its switch, its run history - is the Scheduled daily checks card on Controls; the Forward schedules below are the retired hourly design, still listed because they still exist in the platform. Session status is read live from Qoder Forward; the access token stays server-side.</p>
           </div>
           <div class="heading-aside"><span class="pill live-pill" id="automation-source"><i class="dot"></i><span>Connecting…</span></span></div>
         </div>
 
         <div class="evidence-strip">
-          <div class="card evidence-card"><span class="ev-num mono" id="ov-sched-count">-</span><span class="ev-label">Active schedules</span><span class="ev-sub">Pre-market · intraday · EOD</span></div>
+          <div class="card evidence-card"><span class="ev-num mono" id="ov-sched-count">-</span><span class="ev-label">Legacy schedules live</span><span class="ev-sub">retired hourly design</span></div>
           <div class="card evidence-card"><span class="ev-num mono" id="ov-sessions">-</span><span class="ev-label">Desk sessions</span><span class="ev-sub">Coordinator + children</span></div>
           <div class="card evidence-card"><span class="ev-num mono" id="ov-credits">-</span><span class="ev-label">Credits consumed</span><span class="ev-sub">Forward run usage</span></div>
           <div class="card evidence-card"><span class="ev-num mono" id="ov-chain">-</span><span class="ev-label">Journal events ✓</span><span class="ev-sub">Hash-chain verified</span></div>
@@ -431,7 +431,7 @@
 
         <div class="card table-card sched-card">
           <div class="table-head">
-            <span class="card-kicker">Schedules · forward</span>
+            <span class="card-kicker">Legacy schedules · Forward</span>
             <span class="chip" id="sched-count">-</span>
           </div>
           <div class="tbl-scroll">
@@ -440,7 +440,7 @@
               <tbody id="sched-rows"></tbody>
             </table>
           </div>
-          <p class="table-note">Paused schedules stay listed so you can see what the desk intends to run. Each row carries the schedule's description from Forward; the next run is counted from the cron expression in your browser.</p>
+          <p class="table-note">None of these drives the desk any more: the cadence that fires is the automation card on the Controls page. They stay listed because they still exist in the platform, and a schedule that is paused but visible is harder to forget than one that is deleted.</p>
         </div>
         <div class="auto-grid">
           <div class="card table-card sessions-card">
@@ -479,7 +479,7 @@
         <div class="page-heading">
           <div>
             <h1>Controls</h1>
-            <p>Operator settings in one place. The approval envelope, the strategy switches and the kill-switch are grouped below and stay locked for visitors - unlock with the operator passphrase to change them. Data sources and known gaps are listed underneath for everyone.</p>
+            <p>Operator settings in one place. The approval envelope, the strategy switches, the scheduled checks, Scout and the kill-switch are grouped below and stay locked for visitors - unlock with the operator passphrase to change them. Data sources and known gaps are listed underneath for everyone.</p>
           </div>
         </div>
 
@@ -533,6 +533,30 @@
                 <div class="ctl-side" id="strategy-side"></div>
               </div>
 
+              <div class="card control-card row-card wide" id="schedule-control-card">
+                <span class="ctl-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 2h6"/></svg>
+                </span>
+                <div class="ctl-main">
+                  <h3>Scheduled daily checks</h3>
+                  <p class="control-sub">The desk runs itself in the cloud - pre-market, a midday watch and the close - even when this PC is off. Here is the cadence that owns today, what it last did, and the switch for it.</p>
+                  <div id="schedule-body"></div>
+                </div>
+                <div class="ctl-side" id="schedule-side"></div>
+              </div>
+
+              <div class="card control-card row-card wide" id="scout-control-card">
+                <span class="ctl-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 19l7-7M13.5 4.5l6 6L10 20l-4 1 1-4z"/><path d="M15 3l6 6"/></svg>
+                </span>
+                <div class="ctl-main">
+                  <h3>Run Scout</h3>
+                  <p class="control-sub">Starts the researcher on its own, right now, over the playbooks that are live. It reads sources and writes trade ideas for you to review - it cannot size, approve or submit an order, and nothing it says reaches the broker without going through the audit and approval path.</p>
+                  <div id="scout-body"></div>
+                </div>
+                <div class="ctl-side" id="scout-side"></div>
+              </div>
+
               <div class="card control-card row-card wide" id="kill-control-card">
                 <span class="ctl-icon danger" aria-hidden="true">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/><path d="M9 9l6 6M15 9l-6 6"/></svg>
@@ -556,7 +580,7 @@
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10.5" width="15" height="10" rx="2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/><circle cx="12" cy="15.5" r="1.4"/></svg>
                 </span>
                 <strong>Read-only for visitors</strong>
-                <p>The approval envelope, the strategy switches and the kill-switch cannot be changed while locked. Unlock above to make changes; viewing always stays open.</p>
+                <p>The approval envelope, the strategy switches, the daily checks, Scout and the kill-switch cannot be changed while locked. Unlock above to make changes; viewing always stays open.</p>
                 <button class="btn" id="admin-jump" type="button">Go to unlock</button>
               </div>
             </div>
@@ -627,7 +651,7 @@
 </aside>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
-<script>window.TYCHE_LIVE={"state_url": "/functions/v1/app/state", "automation_url": "/functions/v1/app/automation", "control_url": "/functions/v1/app/control", "control_status_url": "/functions/v1/app/control/status", "state_fallback": "data/state.json", "automation_fallback": "data/automation.json"};</script>
+<script>window.TYCHE_LIVE={"state_url": "/functions/v1/app/state", "automation_url": "/functions/v1/app/automation", "schedule_url": "/functions/v1/app/schedule", "control_url": "/functions/v1/app/control", "control_status_url": "/functions/v1/app/control/status", "state_fallback": "data/state.json", "automation_fallback": "data/automation.json", "schedule_fallback": "data/schedule.json"};</script>
 <script src="app.js"></script>
 </body>
 </html>

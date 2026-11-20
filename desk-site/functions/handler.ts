@@ -5,6 +5,9 @@
 // /automation -> live Forward schedule/session health via a server-side PAT, overlaid on the
 //               committed deterministic calendar; degrades to the committed export when the
 //               secret is absent or Forward is unreachable.
+// /schedule   -> the cloud automation card the local desk last published (cadence, next runs, run
+//               history). Read-only here: pausing or firing a card needs the cloud token, which stays
+//               on the operator's machine, and two write paths to one switch is how cadence drifts.
 // /control    -> POST operator console (passphrase-gated): arm/disarm the approval envelope
 //               and engage/release the kill-switch by committing data/approvals.json and
 //               data/halt.json through the GitHub contents API. GET /control/status reports
@@ -154,6 +157,17 @@ async function handleAutomation(): Promise<Response> {
       source: "Forward API unreachable - committed export",
       fetched_at: new Date().toISOString(),
     });
+  }
+}
+
+// The cadence card is cloud state that only the local desk holds a token for, so the hosted page serves
+// the snapshot that desk published and marks it read-only in the UI. `fetched_at` inside the payload says
+// how old the view is; inventing a second write path here would put two hands on one switch.
+async function handleSchedule(): Promise<Response> {
+  try {
+    return json(await fetchJson(REPO_RAW + "/schedule.json"));
+  } catch {
+    return json({ ok: false, card: null, cards: [], runs: [], problem: "committed cadence export unreachable" }, 502);
   }
 }
 
@@ -360,8 +374,13 @@ export async function handleRequest(req: Request): Promise<Response> {
   if (req.method !== "GET") return json({ error: "method_not_allowed" }, 405);
   if (path.endsWith("/state")) return handleState();
   if (path.endsWith("/automation")) return handleAutomation();
+  if (path.endsWith("/schedule")) return handleSchedule();
   if (path === "" || path.endsWith("/app") || path.endsWith("/health")) {
-    return json({ ok: true, service: "tyche-desk-adapter", endpoints: ["/state", "/automation", "/control"] });
+    return json({
+      ok: true,
+      service: "tyche-desk-adapter",
+      endpoints: ["/state", "/automation", "/schedule", "/control"],
+    });
   }
   return json({ error: "not_found" }, 404);
 }

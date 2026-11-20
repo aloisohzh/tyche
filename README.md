@@ -15,7 +15,7 @@ writes the daily narrative. The LLM never sizes or submits an order.
 
 > **Current state (20 Nov 2026):** the paper desk is running end to end - deterministic kernel, MCP
 > execution behind the paper-only allowlist, hash-chained journal, Telegram sentinel, and four pinned
-> Qoder Cloud Agents (desk, researcher, executor, risk auditor). 470 tests pass. What is real, partial
+> Qoder Cloud Agents (desk, researcher, executor, risk auditor). 496 tests pass. What is real, partial
 > and planned is itemised in the [refinement audit](docs/reviews/2026-11-20-platform-refinement-audit.md)
 > and the [playbook roster](playbook/INDEX.yaml); the live rules are in
 > [docs/agent-rules.md](docs/agent-rules.md). Known open defects are tracked as lessons, not hidden:

@@ -127,12 +127,12 @@ These are requirements in the strict sense: a change that breaks one is not a re
 
 | Capability | Status | Evidence | Gap / note |
 |---|---|---|---|
-| Local desk with overview/strategy/risk/automation/controls views | implemented | `dashboard/static/index.html`, `server.py:1501-1673` | version + changelog in `app.js:8`, currently `0.6.0` |
-| Halt and envelope arm/disarm from the desk | implemented | `server.py:1900,1821,1860`; routes `server.py:2050-2062` | path-limited commit + push; the kill switch and envelope keep one intent path each |
+| Local desk with overview/strategy/risk/automation/controls views | implemented | `dashboard/static/index.html`, `server.py:1505` (`build_state`), routes `server.py:2338-2400` | version + changelog in `app.js:8`, currently `0.7.1` |
+| Halt and envelope arm/disarm from the desk | implemented | `server.py:1902` (`halt_control`), `1862`/`1823` (arm/disarm); routes `server.py:2368-2386` | path-limited commit + push; the kill switch and envelope keep one intent path each |
 | Hosted desk snapshot + control proxy | implemented | `desk-site/`, `scripts/export_dashboard.py`, `handler.ts` | `functions/` is authored inside the export target; refresh-on-load, no polling (L-022) |
-| Per-strategy enable/disable control in the UI | implemented | `src/tyche/lanes.py`, `server.py:1919,1964`, `handler.ts` `action === "strategy"`, `data/strategies.json` | local and hosted desks both write the same unhashed switch file; a toggle blocks entries but never an exit, and moves no rules hash (L-037) |
-| "Run Scout" trigger in the UI | **planned** | no `/api/scout/run` route exists | Phase 4; must reuse the existing card workflow |
-| Schedule configuration in the UI | **planned** | automation view is read-only (`app.js:1502-1514`) | Phase 4; manual trigger must work with the schedule off |
+| Per-strategy enable/disable control in the UI | implemented | `src/tyche/lanes.py:82` (`set_enabled`), `server.py:1966` (`toggle_strategy`) + route `2386`, `handler.ts:298` (`action === "strategy"`), `data/strategies.json` | local and hosted desks both write the same unhashed switch file; a toggle blocks entries but never an exit, and moves no rules hash (L-037) |
+| Scheduled daily checks: see the cadence, switch it, fire one now | implemented (times read-only by decision) | `server.py:2047` (`build_schedule`), `2102` (`schedule_control`), routes `2338`/`2392`; `scripts/cloud_api.py:119,135,143,148`; `app.js:1179,1237` | pause/resume/run-now are journaled and the pause is re-read from the platform before it is reported as done; fire times and timezone are shown but not editable, because they live in the card's cron and again in its prompt (operator decision, Phase 4b) |
+| "Run Scout" trigger in the UI | implemented | `server.py:2155` (`scout_brief`), `2265` (`start_scout`), routes `2344`/`2398`; `scripts/cloud_api.py:209,231`; `app.js:1270,1313` | starts the researcher session alone - no executor, no auditor, no envelope, nothing that can submit; a second concurrent run is refused and the start is journaled as `scout.requested`. The session has no repo mount, so the brief carries the clock, the live lane ids and their hashes |
 | Daily brief / pre-trade critique / EOD narrative | implemented | card prompts, `reports/*` | journaled; advisory only |
 
 ### 5.6 Agents and automation
@@ -143,10 +143,10 @@ These are requirements in the strict sense: a change that breaks one is not a re
 | Monthly trading-day-gated card, 08:05 / 12:05 watch-only / 15:05 | implemented | `scripts/deploy_two_fire_automation.py:53-63` | name says "two fire", prompt says three; script is truth |
 | Least-privilege tool grants (deny-by-default MCP allowlists) | implemented | `deploy_token_policy.py`; live: researcher 24 enabled, executor 14 + `quote_rt_data` disabled | assert the allowlist after every re-pin (L-023) |
 | Independent per-order risk audit | implemented | auditor v6, `reports/<date>-audit.md` | auditor has no clock or shell: its times/hashes are desk-head claims (L-024) |
-| Scout (idea generation) | partial | researcher role + premarket fire; `watchlist.py`, `reports/*-research.md` | scheduled discovery works; **no manual trigger**; the live id set is now readable (`tyche strategies --json`, `data/strategies.json` on the mount) but the researcher prompt does not consult it yet, and that is a re-pin needing operator approval |
+| Scout (idea generation) | partial | researcher role + premarket fire; manual trigger `server.py:2265`; `watchlist.py`, `reports/*-research.md` | scheduled and manual discovery both work; the researcher prompt still does not consult the live lane id set, and changing that prompt is a re-pin needing operator approval. The manual run starts the researcher alone, so it can propose nothing that reaches a broker |
 | Ideas consumed downstream | partial | `tyche events add` → `config/events.yaml` → gate halves budget | operator triage is the link; nothing auto-promotes an idea into a plan |
 | Telegram sentinel | implemented (outbound only) | `scripts/telegram.py`, runbook | at-least-once semantics; no inbound approvals (L-003/L-006) |
-| CI (ruff + pytest) | implemented | `.github/workflows/ci.yml` | 470 tests; a red pipeline blocks every later phase (L-034) |
+| CI (ruff + pytest) | implemented | `.github/workflows/ci.yml` | 496 tests; a red pipeline blocks every later phase (L-034) |
 
 ## 6. Non-functional requirements
 
@@ -197,10 +197,15 @@ Named here so the desk's next steps are auditable; the first bullet is now part 
 
 - **Phase 4 (dashboard controls).** Landed in v1.2: per-strategy enable/disable persisted to
   `data/strategies.json` (git-synced, outside the freeze), on both the local and hosted desk, with the
-  rules hash shown next to each lane. Still open: Scout honoring the live id set in the researcher
-  prompt (a re-pin, so it needs operator approval), a "Run Scout" action that triggers the existing card
-  workflow with status, history and duplicate-run protection, and a scheduled-daily-check toggle with
-  time/timezone, next-run and previous runs, plus a manual trigger that works with the schedule off.
+  rules hash shown next to each lane. Landed in v1.3: the Controls view now shows the cloud cadence card
+  that owns today - fire times, next runs, recent runs with their errors - and can pause it, resume it and
+  fire one check immediately, plus a **Run Scout** button that starts the researcher alone with today's
+  live lane ids in its brief, refuses a second concurrent run, and journals the request. Fire times and
+  timezone are deliberately read-only (operator decision): they live in the card's cron and again in its
+  prompt, so retuning them is a card rebuild, not a setting. Still open: Scout honoring the live id set in
+  the researcher prompt (a re-pin, so it needs operator approval), and giving the hosted desk a cadence
+  write path - it reads the published snapshot only, because the Sites Function holds no verified cloud
+  token for deployments and two write paths to one switch is how cadence drifts.
   Each change bumps `app.js` `VERSION` and adds a `CHANGELOG` entry.
 - **Phase 5 (validation).** End-to-end rehearsal of the new controls, honest status re-audit, and a
   residual-debt list folded into this file's §7.
@@ -215,8 +220,8 @@ Named here so the desk's next steps are auditable; the first bullet is now part 
 | v0.2 | 2026-11-18/19 | Window scope lifted to stocks + defined-risk options (L-001 cut), MCP execution path (ADR 0008), tactical and scalp lanes, envelope and lifecycle gates, persistence split, four-agent topology, hosted desk. Never written up as a PRD - the gap this document closes. |
 | **v1.0** | 2026-11-20 | First PRD. Written from an audit of the code and the live platform rather than from the README: capability statuses, the §7 defect list, and an updated architecture in [architecture.md](architecture.md). Simultaneously: `playbook/` became the strategy library, `archive/` became the only superseded-work dump, the per-lane freeze source was fixed (L-036/L-037), and five superseded cadence scripts were retired. |
 | **v1.1** | 2026-11-20 | Hosted-desk claims corrected after checking what the exporter actually does: `desk-site/` is not uniformly generated (the Sites Function and the tracked data feed are load-bearing), and a full export used to delete assets it cannot rebuild (L-039, fixed). Capability statuses are now asserted against the vocabulary in [README.md](README.md) by `test_prd_capability_statuses_use_the_fixed_vocabulary`. |
-
 | **v1.2** | 2026-11-20 | Phase 4a: operator strategy switches. `src/tyche/lanes.py` owns `data/strategies.json`, the kernel resolves enablement through it after the freeze check, `tyche strategies` prints it, and both desks can flip a lane (desk v0.6.0). A toggle is deliberately not a rules change: no hash moves, no lineage entry, and exits keep running while entries block (L-037). Scout honoring the live set is still open because it is a prompt change, hence a re-pin. |
+| **v1.3** | 2026-11-21 | Phase 4b: scheduled daily checks and Run Scout (desk v0.7.0-v0.7.1). `scripts/cloud_api.py` is a whitelisting cloud client - it drops `environment_variables`, `initial_events`, mounts and vault ids before anything reaches a browser (L-038) - and the desk reads the cadence card that owns a date, pauses and resumes it and fires one run, with the pause re-read from the platform before it is reported. Run Scout starts the researcher session alone; no envelope, halt or approval path is touched. Two defects this increment found and fixed: `evaluate()` was handed a `date` where it needs a `datetime`, and a raw newline inside a JS string made the whole desk fail to parse while every Python test stayed green (L-040, now a test). |
 
 **Maintenance rule.** A change to a capability's status, a new lane, a new agent or a new external
 integration is a PRD edit with a version bump and a [CHANGELOG.md](CHANGELOG.md) row, landed in the same

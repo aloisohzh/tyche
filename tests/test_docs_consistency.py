@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import importlib.util
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -263,6 +265,39 @@ def test_prd_capability_statuses_use_the_fixed_vocabulary() -> None:
     assert not offenders, (
         f"PRD status cell(s) outside {sorted(vocabulary)}:\n" + "\n".join(offenders)
     )
+
+
+def test_every_feed_file_the_hosted_function_reads_is_published() -> None:
+    """A data file the Function reads but the publisher never stages serves the last publish forever.
+
+    `schedule.json` joined the feed as a route, not as a publish path, and nothing noticed: the hosted
+    cadence card would have shown a snapshot that never refreshed. The Function's own read list is the
+    source of truth here, so adding a route without adding it to the feed fails this test.
+    """
+    handler = (ROOT / "desk-site" / "functions" / "handler.ts").read_text(encoding="utf-8")
+    reads = set(re.findall(r'REPO_RAW\s*\+\s*"/([\w.-]+\.json)"', handler))
+    assert reads, "the hosted Function no longer names its data files - update this guard with it"
+    spec = importlib.util.spec_from_file_location("publish_desk_data_guard", ROOT / "scripts" / "publish_desk_data.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    missing = sorted(reads - set(module.FEED))
+    assert not missing, f"publish_desk_data.FEED does not stage {missing}, which the Function reads"
+
+
+def test_desk_script_parses_as_javascript() -> None:
+    """A JavaScript syntax error blanks the entire desk and every Python test stays green.
+
+    One raw newline inside a quoted string in a confirm() message was enough: the browser reports it once,
+    at parse time, and then no handler is attached anywhere, so the page looks loaded and does nothing.
+    `node --check` is the parser here; a machine without node skips rather than silently passing.
+    """
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("node is not installed, so the desk script cannot be syntax-checked here")
+    for name in ("dashboard/static/app.js", "desk-site/web/app.js"):
+        path = ROOT / name
+        res = subprocess.run([node, "--check", str(path)], capture_output=True, text=True, check=False)
+        assert res.returncode == 0, f"{name} is not valid JavaScript:\n{(res.stderr or res.stdout)[:700]}"
 
 
 def test_hosted_desk_assets_have_sources_that_survive_a_full_export() -> None:

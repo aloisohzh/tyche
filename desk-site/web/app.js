@@ -1,12 +1,27 @@
-/* Tyche desk dashboard - renders journal-derived state + live Forward automation. */
+/* Tyche desk dashboard - renders journal-derived state + live Forward automation + cloud cadence. */
 "use strict";
 
 const $ = (sel) => document.querySelector(sel);
 const esc = (s) => String(s ?? "").replace(/[—–]/g, "-").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const hy = (s) => String(s ?? "").replace(/[—–]/g, "-");
 
-const VERSION = "0.6.0";
+const VERSION = "0.7.1";
 const CHANGELOG = [
+  {
+    version: "0.7.1", date: "2026-11-21", title: "Open the desk on one panel",
+    items: [
+      "#controls, #strategy, #risk, #automation and #overview deep-link to that view, so a bookmark or a screenshot of one card stays reproducible; without a hash the desk still reopens on the last view you used.",
+    ],
+  },
+  {
+    version: "0.7.0", date: "2026-11-21", title: "Scheduled daily checks: see the cadence, switch it, fire it now",
+    items: [
+      "Controls gained a Scheduled daily checks card: the automation card that owns today, its fire times and timezone, its next runs, and what each recent run did or failed to do.",
+      "The desk can switch the cadence off and back on and fire one run immediately; every action is journaled and the pause is re-read from the platform before it is reported as done.",
+      "Fire times and timezone are shown read-only, with the reason: they live in the card's cron and again in its prompt, so retuning them is a card rebuild, not a setting.",
+      "Run Scout starts the researcher on its own with today's live playbook ids in the brief - ideas only, nothing that sizes, approves or submits an order.",
+    ],
+  },
   {
     version: "0.6.0", date: "2026-11-21", title: "Strategy switches: turn a playbook on or off from the desk",
     items: [
@@ -98,6 +113,9 @@ const DESK_CONTRACT = "Tyche v" + VERSION + " - read-only desk - order entry liv
 
 let STATE = null;
 let AUTO = null;
+let SCHEDULE = null;
+let SCOUT = null;
+let CLOUD_VIEW_ACTIVE = false;
 const SNAPSHOT = window.TYCHE_SNAPSHOT || null;
 const LIVE = window.TYCHE_LIVE || null;
 let posSort = { key: "market_value", dir: -1 };
@@ -110,6 +128,10 @@ let insView = "all";
 let operatorKey = null;
 let operatorConfigured = null;
 const controlsEnabled = () => (!LIVE && !SNAPSHOT) || (!!LIVE && !!operatorKey);
+// A card is cloud state, not a repo file. The hosted function publishes the cadence for reading but
+// has no verified write path to the automation API, so the switch stays on the local desk: one control
+// surface for cadence, rather than a button that might half-work from the browser.
+const scheduleControllable = () => !LIVE && !SNAPSHOT;
 const CONTROL_URL = LIVE ? (LIVE.control_url || "/functions/v1/app/control") : null;
 const CONTROL_STATUS_URL = LIVE ? (LIVE.control_status_url || "/functions/v1/app/control/status") : null;
 
@@ -127,6 +149,7 @@ const VIEWS = ["overview", "strategy", "risk", "automation", "controls"];
 const VIEW_LABEL = { overview: "Overview", strategy: "Strategy", risk: "Risk & Execution", automation: "Orchestration", controls: "Controls" };
 function showView(name) {
   if (!VIEWS.includes(name)) name = "overview";
+  CLOUD_VIEW_ACTIVE = name === "controls";
   document.querySelectorAll(".view").forEach((v) => v.classList.toggle("active", v.id === "view-" + name));
   document.querySelectorAll(".nav-item").forEach((n) => {
     const on = n.dataset.view === name;
@@ -136,6 +159,8 @@ function showView(name) {
   const crumb = $("#crumb-view");
   if (crumb) crumb.textContent = VIEW_LABEL[name];
   try { localStorage.setItem("tyche-view", name); } catch (e) {}
+  if (CLOUD_VIEW_ACTIVE && STATE) fetchCloud();
+  try { if (location.hash !== "#" + name) history.replaceState(null, "", "#" + name); } catch (e) {}
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 const setText = (sel, v) => { const el = $(sel); if (el) el.textContent = v; };
@@ -305,6 +330,29 @@ async function fetchJson(url, fallback) {
   }
 }
 
+async function fetchCloud() {
+  // Each feed degrades on its own: a dead Scout lane must not blank the cadence card, and neither
+  // may blank the desk.
+  const schedUrl = SNAPSHOT ? SNAPSHOT.schedule_url : (LIVE ? LIVE.schedule_url : "/api/schedule");
+  const scoutUrl = SNAPSHOT ? SNAPSHOT.scout_url : (LIVE ? LIVE.scout_url : "/api/scout");
+  if (schedUrl) {
+    try {
+      SCHEDULE = await fetchJson(schedUrl, LIVE ? LIVE.schedule_fallback : null);
+    } catch (err) {
+      SCHEDULE = { ok: false, card: null, cards: [], runs: [], problem: err.message };
+    }
+  }
+  if (scoutUrl && scheduleControllable()) {
+    try {
+      SCOUT = await fetchJson(scoutUrl, LIVE ? LIVE.scout_fallback : null);
+    } catch (err) {
+      SCOUT = { ok: false, running: null, history: [], problem: err.message };
+    }
+  }
+  renderSchedule();
+  renderScout();
+}
+
 async function fetchAll(manual = false) {
   const btn = $("#refresh-btn");
   if (btn) btn.classList.add("spinning");
@@ -322,6 +370,10 @@ async function fetchAll(manual = false) {
   } catch (err) {
     if (!AUTO) AUTO = { ok: false, live: false, schedules: [], sessions: [], calendar: null, source: "unreachable", error: err.message };
   }
+  // The two cloud feeds belong to the Controls page. Each /sessions read carries the agent definition
+  // with every row, so they are pulled when that page is in view (and once at startup) rather than
+  // polled with the desk figures.
+  if (CLOUD_VIEW_ACTIVE || !SCHEDULE) await fetchCloud();
   if (STATE) {
     renderAll();
     setText("#updated-stamp", stampText());
@@ -1115,6 +1167,170 @@ New entries stop; exits, stops and targets keep running. Scout will stop proposi
   }
 }
 
+/* ---------------- scheduled daily checks ---------------- */
+function scheduleRunRow(run) {
+  const trigger = run.trigger === "schedule" ? "scheduled fire" : (hy(run.trigger || "run"));
+  const outcome = run.error
+    ? `<span class="sched-err">${esc(String(run.error).slice(0, 140))}</span>`
+    : "no error reported";
+  return `<tr><td class="mono">${esc(dualTime(run.at))}</td><td>${esc(trigger)}</td><td>${outcome}</td></tr>`;
+}
+
+function renderSchedule() {
+  const body = $("#schedule-body");
+  const side = $("#schedule-side");
+  if (!body) return;
+  const view = SCHEDULE;
+  const card = view && view.ok ? view.card : null;
+  if (!view) {
+    body.innerHTML = '<p class="table-note">Cadence not loaded yet.</p>';
+    if (side) side.innerHTML = "";
+    return;
+  }
+  if (!view.ok) {
+    body.innerHTML = `<p class="table-note">The automation API could not be read just now: ${esc(view.problem || "unknown error")}. This says nothing about the card itself - only that the desk is blind at this moment.</p>`;
+    if (side) side.innerHTML = `<span class="pill cached"><i class="dot"></i><span>unavailable</span></span>`;
+    return;
+  }
+  if (!card) {
+    body.innerHTML = `<p class="table-note">${view.orphan_date
+      ? `No automation card owns ${esc(view.today_et)}, so nothing fires on this date. The desk waits for the next card to be built.`
+      : "No automation card was returned."}</p>`;
+    if (side) side.innerHTML = `<span class="pill cached"><i class="dot"></i><span>no card</span></span>`;
+    return;
+  }
+  const on = !card.paused;
+  const times = (view.fire_times || []).join(" · ") || "not stated";
+  const next = (view.next_runs || []).filter((iso) => Date.parse(iso) > Date.now()).slice(0, 4)
+    .map((iso) => `<li>${esc(dualTime(iso))}</li>`).join("") || '<li class="sched-none">none listed</li>';
+  const runs = (view.runs || []).slice(0, 4).map(scheduleRunRow).join("")
+    || '<tr><td colspan="3" class="sched-none">This card has not run yet.</td></tr>';
+  body.innerHTML = `
+    <div class="sched-line">
+      <span class="pill live-pill ${on ? "live" : "cached"}"><i class="dot"></i><span>${on ? "running on schedule" : "paused"}</span></span>
+      <span class="sched-times mono">${esc(times)}</span>
+      <span class="sched-tz">${esc(view.timezone || "")}</span>
+    </div>
+    <ul class="kill-facts">
+      <li><span>Card</span>${esc(card.name)} - window ${esc(card.window || "?")}</li>
+      <li><span>Runs</span>the desk agent (v${esc(card.agent && card.agent.version)}) at each fire; the card's own prompt says what a fire may do - pre-market plans, midday watches and shouts only, close reconciles</li>
+      <li><span>Last fire</span>${esc(dualTime(card.last_run))}${card.paused && card.paused_reason ? " · " + esc(card.paused_reason) : ""}</li>
+    </ul>
+    <div class="sched-cols">
+      <div><h4>Next runs</h4><ul class="sched-next">${next}</ul></div>
+      <div><h4>Recent runs</h4><table class="tbl sched-runs"><tbody>${runs}</tbody></table></div>
+    </div>`;
+  const can = scheduleControllable() && controlsEnabled();
+  const note = `<div class="strat-meta sched-edit-note">${esc(view.edit_note || "")}</div>`;
+  if (side) {
+    side.innerHTML = (can
+      ? `<button class="btn ${on ? "strat-off" : "btn-primary"}" type="button" id="schedule-pause">${on ? "Pause cadence" : "Resume cadence"}</button>
+         <button class="btn" type="button" id="schedule-run">Run a check now</button>`
+      : `<span class="pill cached"><i class="dot"></i><span>${LIVE ? "read-only here" : "local desk only"}</span></span>`) + note;
+    const pauseBtn = $("#schedule-pause");
+    const runBtn = $("#schedule-run");
+    if (pauseBtn) pauseBtn.addEventListener("click", () => scheduleControl(on ? "pause" : "resume", card));
+    if (runBtn) runBtn.addEventListener("click", () => scheduleControl("run_now", card));
+  }
+}
+
+async function scheduleControl(action, card) {
+  const pauseMsg = `Pause the scheduled checks?
+
+Nothing fires until you resume - not the pre-market plan, not the midday protection watch, not the close reconciliation. Positions keep their existing stops, but no run reviews them while this is off.`;
+  const resumeMsg = `Resume the scheduled checks?
+
+The desk fires again at each scheduled time in the card window (${hy(card.window || "")}) and trades paper orders through the normal gates.`;
+  const runMsg = `Fire one desk run now?
+
+This starts the same session a scheduled fire would: calendar check, reconciliation, planning and paper orders through the existing approval path. It arms no gate and lifts no halt.${card.paused ? "\n\nThe card is PAUSED - you are asking for one manual run anyway." : ""}`;
+  const msg = action === "pause" ? pauseMsg : action === "resume" ? resumeMsg : runMsg;
+  if (!confirm(msg)) return;
+  const btn = $(action === "run_now" ? "#schedule-run" : "#schedule-pause");
+  const label = btn ? btn.textContent : "";
+  if (btn) { btn.disabled = true; btn.textContent = action === "run_now" ? "Firing…" : "Working…"; }
+  try {
+    const j = await controlPost("/api/schedule/control", "schedule", { action });
+    if (action === "run_now") {
+      showToast("Desk run requested - it appears in Recent runs when the platform starts it");
+    } else if (j.verified) {
+      showToast(action === "pause" ? "Cadence paused - journaled and confirmed on the platform" : "Cadence resumed - journaled and confirmed on the platform");
+    } else {
+      showToast("The platform did not confirm the change - re-read the card before trusting it", true);
+    }
+    await fetchAll(true);
+  } catch (e) {
+    showToast("Schedule control failed: " + e.message, true);
+    if (btn) { btn.disabled = false; btn.textContent = label; }
+    await fetchAll(true);
+  }
+}
+
+/* ---------------- Run Scout ---------------- */
+function renderScout() {
+  const body = $("#scout-body");
+  const side = $("#scout-side");
+  if (!body) return;
+  if (!scheduleControllable()) {
+    body.innerHTML = '<p class="table-note">Scout is started from the local desk, which holds the cloud token. The scheduled fires still run the researcher as their first phase.</p>';
+    if (side) side.innerHTML = '<span class="pill cached"><i class="dot"></i><span>local desk only</span></span>';
+    return;
+  }
+  const view = SCOUT;
+  if (!view) {
+    body.innerHTML = '<p class="table-note">Scout status not loaded yet.</p>';
+    if (side) side.innerHTML = "";
+    return;
+  }
+  if (!view.ok) {
+    body.innerHTML = `<p class="table-note">The automation API could not be read: ${esc(view.problem || "unknown error")}.</p>`;
+    if (side) side.innerHTML = '<span class="pill cached"><i class="dot"></i><span>unavailable</span></span>';
+    return;
+  }
+  const running = view.running;
+  const brief = view.brief || {};
+  const history = (view.history || []).slice(0, 4).map((row) => `<li>${esc(dualTime(row.created_at))} - ${esc(row.status || "?")} <span class="mono">${esc(row.id || "")}</span></li>`).join("");
+  body.innerHTML = `
+    <div class="sched-line">
+      <span class="pill live-pill ${running ? "cached" : "live"}"><i class="dot"></i><span>${running ? "a run is in flight" : "idle - ready"}</span></span>
+      <span class="sched-tz">${running ? esc(running.id || "") : (brief.live || []).length + " playbook(s) live"}</span>
+    </div>
+    ${view.stale ? `<p class="table-note sched-warn">A Scout session older than two hours never finished (${esc(view.stale.id)}). It is reported, not treated as a block.</p>` : ""}
+    <details class="scout-brief">
+      <summary>The brief it would send now</summary>
+      <pre>${esc(brief.brief || "unavailable")}</pre>
+    </details>
+    ${history ? `<ul class="sched-next scout-history">${history}</ul>` : '<p class="table-note">No Scout run started from the desk yet.</p>'}`;
+  if (side) {
+    side.innerHTML = running
+      ? '<span class="pill cached"><i class="dot"></i><span>wait for the current run</span></span>'
+      : '<button class="btn btn-primary" type="button" id="scout-run">Run Scout</button>';
+    const btn = $("#scout-run");
+    if (btn) btn.addEventListener("click", runScout);
+  }
+}
+
+async function runScout() {
+  const brief = (SCOUT && SCOUT.brief) || {};
+  if (!brief.brief) { showToast("No brief composed - refresh Controls before starting Scout", true); return; }
+  const msg = `Start a Scout run now?
+
+It starts one researcher session in the cloud - research and ideas only, no sizing, no approval, no order.
+It cannot see the repository, so the brief below is everything it gets.
+
+${brief.brief}`;
+  if (!confirm(msg)) return;
+  const btn = $("#scout-run");
+  if (btn) { btn.disabled = true; btn.textContent = "Starting…"; }
+  try {
+    await controlPost("/api/scout/run", "scout", { confirmed: true });
+    showToast("Scout started - the session answers in Qoder; its run appears in the history");
+  } catch (e) {
+    showToast("Scout could not start: " + e.message, true);
+  }
+  await fetchCloud();
+}
+
 function gauge(label, value, cap, capLabel, mode, valueLabel) {
   const frac = Math.min(1, value / cap);
   const cls = mode === "min" ? (value >= cap ? "g-ok" : "g-hot") : frac < 0.6 ? "g-ok" : frac < 0.85 ? "g-warn" : "g-hot";
@@ -1739,6 +1955,8 @@ function renderAll() {
   safeRender("approval", renderApproval);
   safeRender("killControl", renderKillControl);
   safeRender("strategies", renderStrategies);
+  safeRender("schedule", renderSchedule);
+  safeRender("scout", renderScout);
   safeRender("gauges", renderGauges);
   safeRender("riskGuards", renderRiskGuards);
   safeRender("donut", renderDonut);
@@ -1811,7 +2029,9 @@ function setup() {
   document.querySelectorAll(".nav-item").forEach((n) => n.addEventListener("click", () => showView(n.dataset.view)));
   let savedView = "overview";
   try { savedView = localStorage.getItem("tyche-view") || "overview"; } catch (e) {}
-  showView(savedView);
+  // A #view link wins over the last-used view, so a bookmark or a screenshot of one panel stays reproducible.
+  const fromHash = (location.hash || "").replace(/^#\/?/, "");
+  showView(VIEWS.includes(fromHash) ? fromHash : savedView);
   renderOperator();
   fetchOperatorStatus();
 }

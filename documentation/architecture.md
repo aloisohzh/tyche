@@ -139,32 +139,48 @@ worthless as evidence if it is not written out. Account ids are masked at journa
 
 ### 6. Desk and hosting
 
-`dashboard/server.py` is a stdlib `ThreadingHTTPServer` on `127.0.0.1:8765` with three reads and three
+`dashboard/server.py` is a stdlib `ThreadingHTTPServer` on `127.0.0.1:8765` with five reads and five
 writes:
-read-only `GET /api/state`, `GET /api/automation` and `GET /api/strategies`, and `POST /api/halt`,
-`POST /api/approvals/arm|disarm` and `POST /api/strategies/toggle`. A write commits the specific JSON
+read-only `GET /api/state`, `GET /api/automation`, `GET /api/strategies`, `GET /api/schedule` and
+`GET /api/scout`, and `POST /api/halt`, `POST /api/approvals/arm|disarm`, `POST /api/strategies/toggle`,
+`POST /api/schedule/control` and `POST /api/scout/run`. A write either commits the specific JSON
 path and pushes (`_git_push_paths`), which is how the cloud mount sees operator intent without a shared
-database. The strategy switch lands in `data/strategies.json` (`src/tyche/lanes.py`) rather than in a
-lane's rules file precisely because it is an operator decision, not a rule: the kernel consults it after
-the freeze check, so flipping a lane blocks new entries without moving any `rules_hash` (L-037). UI
-state in the browser is `localStorage` theme/view only; the operator passphrase is in memory.
-`app.js:8` carries `VERSION` plus a `CHANGELOG`, and any control change must bump both.
+database, or calls the cloud API through `scripts/cloud_api.py`. The strategy switch lands in
+`data/strategies.json` (`src/tyche/lanes.py`) rather than in a lane's rules file precisely because it is
+an operator decision, not a rule: the kernel consults it after the freeze check, so flipping a lane blocks
+new entries without moving any `rules_hash` (L-037).
+
+`scripts/cloud_api.py` is the only thing in the desk that talks to `/api/v1/cloud`, and it returns
+whitelisted views rather than upstream bodies: deployments and sessions carry `environment_variables`
+(plaintext Telegram credentials and account ids), `initial_events` (the whole prompt), `resources` (mounts)
+and `vault_ids`, and `card_view`/`session_view` drop all of them before anything reaches a browser (L-038).
+A cadence write is journaled and then **re-read**: `schedule_control` reports `verified: false` when the
+platform did not actually apply the pause, because a switch that only looks flipped is worse than one that
+was refused. A manual Scout run starts the researcher session alone - no executor, no auditor, no envelope -
+and its brief states the live lane ids, because that session has no repository mount to read them from.
+UI state in the browser is `localStorage` theme/view only (a `#view` hash overrides it); the operator
+passphrase is in memory. `app.js:8` carries `VERSION` plus a `CHANGELOG`, and any control change must bump both.
 
 `scripts/export_dashboard.py` regenerates `desk-site/` from `dashboard/` (it imports the same builders,
 so the hosted view cannot drift in logic, only in freshness) and refuses to write if a secret, a full
-account id or a PAT appears in the output. `desk-site/web/` holds three different provenances, and the
+account id or a PAT appears in the output. `desk-site/web/` holds four different provenances, and the
 difference matters before editing anything there:
 
 | Path | Provenance | Who writes it |
 |---|---|---|
 | `index.html`, `app.js`, `style.css`, `vendor/` | derived copies | `export_dashboard.py`, which deletes `web/` first |
 | `charts.html` | derived, different generator | `scripts/export_charts.py`; the full export carries the bytes across its own wipe because it cannot rebuild them |
-| `data/{state,automation}.json` | the hosted **data feed**, read by the Sites Function from the repo | `scripts/publish_desk_data.py` (export `--data-only`, then commit + push these two paths) |
+| `data/{state,automation,schedule}.json` | the hosted **data feed**, read by the Sites Function from the repo | `scripts/publish_desk_data.py` (export `--data-only`, then commit + push exactly the files the Function reads) |
 | `functions/*.ts` | authored in place | nobody regenerates it |
 
-So the feed is tracked because publishing depends on it, not by accident, and `data/*.json` in a clone is
+The hosted Function serves `/schedule` from that published snapshot and has no cadence write path: it holds
+no verified cloud token for deployments, and two write paths to one switch is how cadence drifts. So the
+feed is tracked because publishing depends on it, not by accident, and `data/*.json` in a clone is
 a snapshot of whenever it last ran. `test_hosted_desk_assets_have_sources_that_survive_a_full_export`
-fails if a derived copy diverges from its source or the vendored library loses its home.
+fails if a derived copy diverges from its source or the vendored library loses its home,
+`test_every_feed_file_the_hosted_function_reads_is_published` fails if a route reads a file the publisher
+does not stage, and `test_desk_script_parses_as_javascript` runs `node --check` on the desk script because a
+JS parse error blanks the whole page while every Python test stays green (L-040).
 
 ### 7. Market context and calendar
 

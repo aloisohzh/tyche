@@ -1,7 +1,7 @@
 """Bake the tyche desk dashboard into a redacted static Qoder Site.
 
 Reuses dashboard/server.py's builders (journal-derived state + live Forward
-automation + market calendar), scrubs full account ids, and writes a
+automation + cloud cadence + market calendar), scrubs full account ids, and writes a
 self-contained static site under desk-site/web/ that app.js renders in snapshot
 mode (window.TYCHE_SNAPSHOT). A hard secret guard refuses to write if any PAT,
 Telegram credential, signing secret or full account id appears in the output.
@@ -88,9 +88,25 @@ def main() -> None:
     automation = srv.scrub(srv.build_automation())
     built_at = datetime.now(UTC).isoformat()
 
+    # The cadence card is cloud state, and this export runs where the cloud token lives. If the API is
+    # unreadable right now, the last known good card is republished rather than a blank one: an operator
+    # who cannot reach the cloud while exporting should not be shown "no card exists".
+    sched_path = web / "data" / "schedule.json"
+    previous_schedule = sched_path.read_text(encoding="utf-8") if sched_path.is_file() else None
+    schedule = srv.scrub(srv.build_schedule(force=True))
+    sched_json = json.dumps(schedule, ensure_ascii=False, default=str)
+    if not schedule.get("ok") and previous_schedule:
+        try:
+            carried_schedule = json.loads(previous_schedule)
+        except json.JSONDecodeError:
+            carried_schedule = None
+        if carried_schedule and carried_schedule.get("ok"):
+            schedule, sched_json = carried_schedule, previous_schedule
+            print("cadence unreadable at export time - republishing the last known good card snapshot")
+
     state_json = json.dumps(state, ensure_ascii=False, default=str)
     auto_json = json.dumps(automation, ensure_ascii=False, default=str)
-    assert_no_secrets(state_json + auto_json, srv, env)
+    assert_no_secrets(state_json + auto_json + sched_json, srv, env)
 
     # charts.html belongs to scripts/export_charts.py but lives in this directory, and the wipe below
     # deletes everything in it: carry the bytes over rather than destroy an asset this script cannot
@@ -102,6 +118,7 @@ def main() -> None:
     (web / "data").mkdir(parents=True, exist_ok=True)
     (web / "data" / "state.json").write_text(state_json, encoding="utf-8")
     (web / "data" / "automation.json").write_text(auto_json, encoding="utf-8")
+    (web / "data" / "schedule.json").write_text(sched_json, encoding="utf-8")
 
     cal = automation.get("calendar") or {}
     if data_only:
@@ -124,14 +141,17 @@ def main() -> None:
         live_cfg = {
             "state_url": "/functions/v1/app/state",
             "automation_url": "/functions/v1/app/automation",
+            "schedule_url": "/functions/v1/app/schedule",
             "control_url": "/functions/v1/app/control",
             "control_status_url": "/functions/v1/app/control/status",
             "state_fallback": "data/state.json",
             "automation_fallback": "data/automation.json",
+            "schedule_fallback": "data/schedule.json",
         }
         inject = "<script>window.TYCHE_LIVE=" + json.dumps(live_cfg) + ";</script>\n"
     else:
-        snapshot = {"built_at": built_at, "state_url": "data/state.json", "automation_url": "data/automation.json"}
+        snapshot = {"built_at": built_at, "state_url": "data/state.json", "automation_url": "data/automation.json",
+                    "schedule_url": "data/schedule.json"}
         inject = "<script>window.TYCHE_SNAPSHOT=" + json.dumps(snapshot) + ";</script>\n"
     html = (STATIC / "index.html").read_text(encoding="utf-8")
     html = html.replace('<script src="app.js"></script>', inject + '<script src="app.js"></script>')
