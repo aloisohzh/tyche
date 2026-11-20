@@ -15,7 +15,7 @@ writes the daily narrative. The LLM never sizes or submits an order.
 
 > **Current state (20 Nov 2026):** the paper desk is running end to end - deterministic kernel, MCP
 > execution behind the paper-only allowlist, hash-chained journal, Telegram sentinel, and four pinned
-> Qoder Cloud Agents (desk, researcher, executor, risk auditor). 447 tests pass. What is real, partial
+> Qoder Cloud Agents (desk, researcher, executor, risk auditor). 470 tests pass. What is real, partial
 > and planned is itemised in the [refinement audit](docs/reviews/2026-11-20-platform-refinement-audit.md)
 > and the [playbook roster](playbook/INDEX.yaml); the live rules are in
 > [docs/agent-rules.md](docs/agent-rules.md). Known open defects are tracked as lessons, not hidden:
@@ -92,6 +92,7 @@ blocked orders, and appends a hash-chained event to `journal/events.jsonl`.
 | `tyche quote US.SPY US.QQQ` | Read-only quotes through the Moomoo CLI |
 | `tyche journal-verify` | Verify the audit journal hash chain |
 | `tyche halt-status --json` | Report the effective kill-switch state across both flags |
+| `tyche strategies [--json]` | Show which playbook lanes are live, what decides each one, and its frozen rules hash |
 | `python dashboard/server.py` | Local operator desk on <http://127.0.0.1:8765> (loopback only, no auth) |
 
 ## Layout

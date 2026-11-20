@@ -5,8 +5,17 @@ const $ = (sel) => document.querySelector(sel);
 const esc = (s) => String(s ?? "").replace(/[—–]/g, "-").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const hy = (s) => String(s ?? "").replace(/[—–]/g, "-");
 
-const VERSION = "0.5.0";
+const VERSION = "0.6.0";
 const CHANGELOG = [
+  {
+    version: "0.6.0", date: "2026-11-21", title: "Strategy switches: turn a playbook on or off from the desk",
+    items: [
+      "Controls now lists every playbook the config claims with its lane, its frozen rules hash and its roster status, and each one can be switched without editing a config file.",
+      "A switch is an operator override in data/strategies.json, journaled as strategy.enabled / strategy.disabled and pushed to the cloud mount like the kill-switch flag, so a toggle never re-freezes a strategy (L-037).",
+      "Turning a lane off stops new entries; exits, stops and targets keep running. A lane with no registered thesis file says so before you switch it on.",
+      "A corrupt switch file falls back to the lane configs and the desk reports the problem instead of guessing what is live.",
+    ],
+  },
   {
     version: "0.5.0", date: "2026-11-20", title: "Per-trade thesis on every card; exits retry until the broker takes them",
     items: [
@@ -1038,6 +1047,74 @@ async function toggleHalt(halted) {
   }
 }
 
+function strategyRow(row, canControl) {
+  const meta = [row.strategy_id, row.lane, row.rules_hash ? "frozen " + row.rules_hash : "no rules file"].join(" · ");
+  const decided = row.source === "data/strategies.json"
+    ? "set by the switch file"
+    : "lane config default";
+  const unrostered = row.roster_status !== "live"
+    ? `<span class="pill cached strat-warn">no registered thesis</span>`
+    : "";
+  const control = canControl
+    ? `<button class="btn ${row.enabled ? "strat-off" : "btn-primary"}" type="button" data-strat="${esc(row.strategy_id)}" data-enabled="${row.enabled ? "0" : "1"}">${row.enabled ? "Turn off" : "Turn on"}</button>`
+    : `<span class="pill kill ${row.enabled ? "clear" : "armed"}"><i class="dot"></i><span>${row.enabled ? "on" : "off"}</span></span>`;
+  return `<div class="strategy-row" data-live="${row.enabled ? "1" : "0"}">
+    <div class="strat-name"><strong>${esc(row.name)}</strong>${unrostered}</div>
+    <div class="strat-meta">${esc(meta)}</div>
+    <div class="strat-note">${esc(decided)}${row.rules_file_problem ? " · " + esc(row.rules_file_problem) : ""}</div>
+    <div class="strat-ctl">${control}</div>
+  </div>`;
+}
+
+function renderStrategies() {
+  const wrap = $("#strategy-list");
+  if (!wrap) return;
+  const view = STATE.strategies;
+  if (!view || view.error) {
+    wrap.innerHTML = `<p class="table-note">${view ? esc(view.error) : "Strategy switches unavailable."}</p>`;
+    setText("#strategy-side", "");
+    return;
+  }
+  const canControl = controlsEnabled();
+  wrap.innerHTML = view.strategies.map((row) => strategyRow(row, canControl)).join("");
+  wrap.querySelectorAll("[data-strat]").forEach((btn) => btn.addEventListener("click", () => {
+    toggleStrategy(btn.dataset.strat, btn.dataset.enabled === "1");
+  }));
+  const file = view.switch_file || {};
+  const problem = view.problem ? `<div class="strat-problem">${esc(view.problem)}</div>` : "";
+  setText("#strategy-side", "");
+  $("#strategy-side").innerHTML = `${problem}
+    <div class="strat-live">${view.live.length ? "Live now: " + esc(view.live.join(", ")) : "No strategy is live."}</div>
+    <div class="strat-meta">${file.present
+      ? `Switch file updated ${esc(dualTime(file.updated_at))} by ${esc(file.updated_by || "operator")}`
+      : "No operator override yet - each lane's own config decides."}</div>
+    <div class="strat-meta">Turned off at the lane config:${view.strategies.filter((r) => !r.lane_config_enabled).map((r) => " " + r.strategy_id).join(",") || " none"}</div>`;
+}
+
+async function toggleStrategy(strategyId, enabled) {
+  const row = (STATE.strategies.strategies || []).find((s) => s.strategy_id === strategyId);
+  const unrostered = row && row.roster_status !== "live";
+  const msg = enabled
+    ? `Turn ${strategyId} on?
+
+New entries in this lane become tradeable again${unrostered ? ", and it has NO registered thesis file (pre-registration discipline says write one first)" : ""}.`
+    : `Turn ${strategyId} off?
+
+New entries stop; exits, stops and targets keep running. Scout will stop proposing for it.`;
+  if (!confirm(msg)) return;
+  const btn = document.querySelector(`[data-strat="${strategyId}"]`);
+  if (btn) { btn.disabled = true; btn.textContent = enabled ? "Turning on…" : "Turning off…"; }
+  try {
+    const j = await controlPost("/api/strategies/toggle", "strategy", { strategy_id: strategyId, enabled });
+    showToast(`${strategyId} ${enabled ? "enabled" : "disabled"} - journaled${j.pushed ? " and pushed to the cloud mount" : ""}`);
+    if (j.git_error) showToast("Switch saved locally but the push failed: " + j.git_error, true);
+    await fetchAll(true);
+  } catch (e) {
+    showToast("Strategy switch failed: " + e.message, true);
+    if (btn) { btn.disabled = false; btn.textContent = enabled ? "Turn on" : "Turn off"; }
+  }
+}
+
 function gauge(label, value, cap, capLabel, mode, valueLabel) {
   const frac = Math.min(1, value / cap);
   const cls = mode === "min" ? (value >= cap ? "g-ok" : "g-hot") : frac < 0.6 ? "g-ok" : frac < 0.85 ? "g-warn" : "g-hot";
@@ -1661,6 +1738,7 @@ function renderAll() {
   safeRender("kill", renderKill);
   safeRender("approval", renderApproval);
   safeRender("killControl", renderKillControl);
+  safeRender("strategies", renderStrategies);
   safeRender("gauges", renderGauges);
   safeRender("riskGuards", renderRiskGuards);
   safeRender("donut", renderDonut);

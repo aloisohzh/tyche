@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -88,6 +89,27 @@ def test_fresh_new_entry_authorized():
     result = decision(setup_case(held=0))
     assert result["action"] == "buy" and result["authorized"]
     assert 99 <= result["limit_price"] <= 101
+
+
+def test_a_switched_off_lane_blocks_entries_but_never_an_exit(tmp_path):
+    """The operator switch is an entry gate: turning a lane off must not strand a position it owns."""
+    shutil.copytree(ROOT / "config", tmp_path / "config")
+    (tmp_path / "data").mkdir()
+    (tmp_path / "data" / "strategies.json").write_text(
+        json.dumps({"enabled": {"PB-001": False}}), encoding="utf-8"
+    )
+    config = load_config(ROOT).model_copy(update={"root": tmp_path})
+    assert config.strategy_enabled("PB-001") is False
+
+    entry = list(setup_case(held=0))
+    entry[4] = config
+    result = decision(entry)
+    assert result["action"] == "blocked" and result["reason"] == "strategy disabled"
+
+    held = list(setup_case(held=10, price=94.0))
+    held[4] = config
+    exit_result = decision(held)
+    assert exit_result["action"] == "sell" and exit_result["reason"] == "stop_loss"
 
 
 def test_lifecycle_turnover_includes_full_option_debit():

@@ -22,7 +22,8 @@ without the auditor's approval."* Auditor runs in a separate thread so it cannot
 - What the coordinator keeps: journal write, submit decision, halt, final narrative.
 - **File ownership** (shared filesystem): each child writes only its own paths.
 - Every delegation message is **self-contained**: date/session clock, plan path + hash, config hash,
-  caps snapshot, output path. Children do not inherit context.
+  caps snapshot, the playbook ids live for this run (`tyche strategies --json`), output path. Children
+  do not inherit context.
 - Selecting agents does not force delegation — the prompt does.
 
 ## Snapshot file contract (executor → deterministic core)

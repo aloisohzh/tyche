@@ -7,6 +7,8 @@ from typing import Literal
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from tyche.lanes import SOURCE_LABEL, effective
+
 Sleeve = Literal["equity", "defensive", "real_asset", "credit"]
 RegimeKey = Literal["risk_on", "neutral", "risk_off"]
 
@@ -262,7 +264,7 @@ class AppConfig(BaseModel):
         """The file whose bytes freeze this playbook id (see PLAYBOOK_LANES)."""
         return rules_path_for(self.root, strategy_id)
 
-    def strategy_enabled(self, strategy_id: str) -> bool:
+    def _lane_enabled(self, strategy_id: str) -> bool:
         """Whether the lane owning this id is on, across all three config shapes."""
         lane = PLAYBOOK_LANES.get(strategy_id, (None, "rotation"))[1]
         if lane == "rotation":
@@ -275,10 +277,38 @@ class AppConfig(BaseModel):
             return self.scalp.enabled
         raise ValueError(f"{strategy_id}: unknown lane {lane}")
 
+    def strategy_switch(self, strategy_id: str) -> tuple[bool, str, str | None]:
+        """(enabled, what decided it, switch-file problem) - the operator override wins over the lane."""
+        return effective(strategy_id, self._lane_enabled(strategy_id), self.root)
+
+    def strategy_enabled(self, strategy_id: str) -> bool:
+        """Effective enablement: the desk's switch file if it names this id, else the lane config."""
+        return self.strategy_switch(strategy_id)[0]
+
+    def playbook_switches(self) -> list[dict]:
+        """Every claimable playbook id with what the desk and Scout should treat as live (L-036)."""
+        claimed = sorted({strategy.id for strategy in self.strategies} | set(PLAYBOOK_LANES))
+        rows = []
+        for strategy_id in claimed:
+            lane_default = self._lane_enabled(strategy_id)
+            enabled, source, problem = self.strategy_switch(strategy_id)
+            rows.append(
+                {
+                    "strategy_id": strategy_id,
+                    "lane": PLAYBOOK_LANES.get(strategy_id, (None, "rotation"))[1],
+                    "rules_file": self.rules_path(strategy_id).relative_to(self.root).as_posix(),
+                    "lane_config_enabled": lane_default,
+                    "operator_override": enabled if source == SOURCE_LABEL else None,
+                    "enabled": enabled,
+                    "source": source,
+                    "switch_file_problem": problem,
+                }
+            )
+        return rows
+
     def enabled_playbook_ids(self) -> list[str]:
         """What Scout and the desk should treat as live right now (L-036)."""
-        claimed = {strategy.id for strategy in self.strategies} | set(PLAYBOOK_LANES)
-        return sorted(pid for pid in claimed if self.strategy_enabled(pid))
+        return sorted(row["strategy_id"] for row in self.playbook_switches() if row["enabled"])
 
     def enabled_strategies(self) -> list[StrategyConfig]:
         return [strategy for strategy in self.strategies if strategy.enabled]

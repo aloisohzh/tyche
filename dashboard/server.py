@@ -30,8 +30,10 @@ sys.path.insert(0, str(ROOT / "scripts"))
 import yaml  # noqa: E402
 
 from tyche.approvals import ApprovalBatch, envelope_usage  # noqa: E402
+from tyche.config import load_config  # noqa: E402
 from tyche.halt import effective_halt, set_halt  # noqa: E402
 from tyche.journal import append_event, read_events, verify_chain  # noqa: E402
+from tyche.lanes import read_state, set_enabled  # noqa: E402
 from tyche.market_calendar import (
     ET,
     SessionPhase,
@@ -1595,6 +1597,10 @@ def build_state() -> dict:
         {"ts": ev["ts"], "type": ev["type"], "payload": ev["payload"]}
         for ev in EVENTS if ev["type"] == "protection.gap"
     ][-20:]
+    try:
+        strategies_view = build_strategies()
+    except Exception as exc:  # noqa: BLE001 - an unreadable switch file must not blank the whole desk
+        strategies_view = {"error": f"strategy switches unreadable: {str(exc)[:160]}"}
     return scrub(
         {
             "generated_at": datetime.now(UTC).isoformat(),
@@ -1669,6 +1675,7 @@ def build_state() -> dict:
                 {"field": "macro / sentiment / seasonality", "state": "partial", "note": "researcher child designed, not yet in plan artifacts"},
             ],
             "sentinel_fallback": sentinel_fallback(),
+            "strategies": strategies_view,
         }
     )
 
@@ -1909,6 +1916,86 @@ def halt_control(body: dict) -> dict:
     return {"ok": True, "halt": state, "pushed": pushed, "git_error": git_error, "approvals": build_approvals()}
 
 
+def build_strategies() -> dict:
+    """Every playbook the config claims, with the switch that decides whether it trades today.
+
+    The rules hash rides along because the whole point of the switch file is that toggling a lane does
+    not re-register its hypothesis (L-037); an operator can see the hash is the one in the playbook.
+    """
+    config = load_config(ROOT)
+    roster = {}
+    index_path = ROOT / "playbook" / "INDEX.yaml"
+    if index_path.is_file():
+        for entry in (yaml.safe_load(index_path.read_text(encoding="utf-8")) or {}).get("playbooks", []):
+            roster[str(entry.get("id"))] = entry
+    rows = []
+    for switch in config.playbook_switches():
+        sid = switch["strategy_id"]
+        entry = roster.get(sid, {})
+        problem = None
+        try:
+            frozen = rules_hash(ROOT, sid)
+        except (FileNotFoundError, ValueError) as exc:  # a lane with no resolvable rules file (L-036)
+            frozen, problem = None, str(exc)[:160]
+        rows.append(
+            {
+                **switch,
+                "rules_file_problem": problem,
+                "name": strategy_label(sid),
+                "thesis_file": entry.get("file"),
+                "roster_status": entry.get("status", "unrostered"),
+                "rules_hash": frozen,
+            }
+        )
+    state = read_state(ROOT)
+    return {
+        "strategies": rows,
+        "live": sorted(row["strategy_id"] for row in rows if row["enabled"]),
+        "switch_file": {
+            "path": "data/strategies.json",
+            "present": bool(state),
+            "updated_at": state.get("updated_at"),
+            "updated_by": state.get("updated_by"),
+        },
+        "problem": next((row["switch_file_problem"] for row in rows if row["switch_file_problem"]), None),
+    }
+
+
+def toggle_strategy(body: dict) -> dict:
+    """Operator switch for one playbook: writes the shared file, journals it, pushes it to the mount.
+
+    Disabling blocks new entries on that lane (lifecycle.decide); exits, stops and targets keep running,
+    so a toggle can never strand a position.
+    """
+    strategy_id = str(body.get("strategy_id") or "").strip().upper()
+    enabled = body.get("enabled")
+    if not isinstance(enabled, bool):
+        return {"ok": False, "error": "enabled must be a boolean"}
+    known = {row["strategy_id"] for row in build_strategies()["strategies"]}
+    if strategy_id not in known:
+        return {"ok": False, "error": f"{strategy_id} is not a playbook this config claims"}
+    try:
+        set_enabled(ROOT, strategy_id, enabled, actor="operator (dashboard)")
+    except (TypeError, ValueError) as exc:
+        # A switch file the desk cannot parse safely would be clobbered by a write: refuse and say why.
+        return {"ok": False, "error": f"Switch file refused the write: {str(exc)[:200]}"}
+    append_event(
+        JOURNAL,
+        "strategy.enabled" if enabled else "strategy.disabled",
+        {"strategy_id": strategy_id, "enabled": enabled, "set_by": "operator (dashboard)"},
+    )
+    pushed, git_error = _git_push_paths(
+        f"{'Enable' if enabled else 'Disable'} {strategy_id} (operator via dashboard)",
+        ["data/strategies.json"],
+    )
+    return {
+        "ok": True,
+        "pushed": pushed,
+        "git_error": git_error,
+        "strategies": build_strategies(),
+    }
+
+
 class Handler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(STATIC), **kwargs)
@@ -1935,6 +2022,12 @@ class Handler(SimpleHTTPRequestHandler):
             return
         if path == "/api/automation":
             self._json(build_automation())
+            return
+        if path == "/api/strategies":
+            try:
+                self._json(build_strategies())
+            except Exception as exc:  # noqa: BLE001
+                self._json({"error": str(exc)}, 500)
             return
         if path.startswith("/api/"):
             self._json({"error": "not found"}, 404)
@@ -1969,6 +2062,12 @@ class Handler(SimpleHTTPRequestHandler):
         if path == "/api/halt":
             try:
                 self._json(halt_control(self._body()))
+            except Exception as exc:  # noqa: BLE001
+                self._json({"error": str(exc)}, 400)
+            return
+        if path == "/api/strategies/toggle":
+            try:
+                self._json(toggle_strategy(self._body()))
             except Exception as exc:  # noqa: BLE001
                 self._json({"error": str(exc)}, 400)
             return

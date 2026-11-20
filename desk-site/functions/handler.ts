@@ -15,6 +15,7 @@
 // upstream bodies or exception text.
 
 const REPO_RAW = "https://raw.githubusercontent.com/aloisohzh/tyche/main/desk-site/web/data";
+const REPO_ROOT_RAW = REPO_RAW.replace("/desk-site/web/data", "");
 const FORWARD_BASE = "https://api.qoder.com/api/v1/forward";
 const GH_REPO = "aloisohzh/tyche";
 const TIMEOUT_MS = 8000;
@@ -80,11 +81,37 @@ function slimSession(d: Json): Json {
 }
 
 async function handleState(): Promise<Response> {
+  let base: Json;
   try {
-    return json(await fetchJson(REPO_RAW + "/state.json"));
+    base = await fetchJson(REPO_RAW + "/state.json");
   } catch {
     return json({ error: "state_unavailable" }, 502);
   }
+  // state.json is a published snapshot, but a strategy switch is something the operator just moved:
+  // overlay the live switch file so the console cannot show a stale answer for a fresh decision.
+  try {
+    const sw = await fetchJson(REPO_ROOT_RAW + "/data/strategies.json");
+    const view = base.strategies as Json | undefined;
+    if (!view || !Array.isArray(view.strategies)) return json(base);
+    const rows = view.strategies as Json[];
+    const enabled = (sw.enabled && typeof sw.enabled === "object") ? sw.enabled as Json : {};
+    for (const row of rows) {
+      const value = enabled[String(row.strategy_id)];
+      if (typeof value === "boolean") {
+        row.enabled = value;
+        row.operator_override = value;
+        row.source = "data/strategies.json";
+      }
+    }
+    view.live = rows.filter((r) => r.enabled === true).map((r) => r.strategy_id);
+    view.switch_file = {
+      path: "data/strategies.json", present: true,
+      updated_at: sw.updated_at ?? null, updated_by: sw.updated_by ?? null,
+    };
+  } catch {
+    // no switch file yet, or it is unreachable: the snapshot's own answer stands
+  }
+  return json(base);
 }
 
 async function handleAutomation(): Promise<Response> {
@@ -252,6 +279,30 @@ async function handleControl(req: Request): Promise<Response> {
       const cur = await ghRead("data/halt.json", pat);
       await ghCommit("data/halt.json", pat, body.halted ? "Engage kill-switch (operator via hosted desk)" : "Release kill-switch (operator via hosted desk)", JSON.stringify(state, null, 2), cur.sha);
       return json({ ok: true, pushed: true, halt: state });
+    }
+
+    if (action === "strategy") {
+      const id = String(body.strategy_id || "").trim().toUpperCase();
+      if (!/^PB-\d{3}$/.test(id)) return json({ ok: false, error: "strategy_id must look like PB-000" }, 400);
+      if (typeof body.enabled !== "boolean") return json({ ok: false, error: "enabled must be a boolean" }, 400);
+      const cur = await ghRead("data/strategies.json", pat);
+      let state: Json = { enabled: {} };
+      if (cur.text) {
+        try {
+          state = JSON.parse(cur.text) as Json;
+        } catch {
+          return json({ ok: false, error: "data/strategies.json is unreadable - refusing to overwrite it" }, 409);
+        }
+      }
+      const switches = (state.enabled && typeof state.enabled === "object") ? state.enabled as Json : {};
+      switches[id] = body.enabled;
+      state.enabled = switches;
+      state.updated_at = new Date().toISOString();
+      state.updated_by = "operator (hosted desk)";
+      await ghCommit("data/strategies.json", pat,
+        `${body.enabled ? "Enable" : "Disable"} ${id} (operator via hosted desk)`,
+        JSON.stringify(state, null, 2), cur.sha);
+      return json({ ok: true, pushed: true, strategy_id: id, enabled: body.enabled });
     }
 
     if (action === "disarm") {

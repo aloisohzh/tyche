@@ -5,7 +5,8 @@
 #
 # Deliberately NOT duplicated here:
 #   - the four classification dimensions live in each file's YAML front matter (one source);
-#   - `enabled` lives in the strategy config, because a toggle is a rule change, not a doc change;
+#   - `enabled` lives in the lane's own config as its default, with the operator's override in
+#     `data/strategies.json` (src/tyche/lanes.py); neither is a doc change, so this roster claims neither;
 #   - the rules hash lives in the playbook body and is computed by the kernel, never hand-written.
 #
 # `tests/test_docs_consistency.py` asserts this roster, the front matter and the config files agree.

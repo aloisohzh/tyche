@@ -13,11 +13,12 @@ dist/
 # docs/performance/<date>/{reports,plans,journal,data} are NOT shadowed)
 /data/*.csv
 /data/*.json
-# Operator input, not runtime artifacts: the pre-approved order envelope and the
-# shared kill-switch flag must reach the cloud mount via git (cloud push-back is 403).
+# Operator input, not runtime artifacts: the pre-approved order envelope, the shared kill-switch flag
+# and the strategy switches must reach the cloud mount via git (cloud push-back is 403).
 !/data/approvals.json
 !/data/approvals.example.json
 !/data/halt.json
+!/data/strategies.json
 /journal/
 /plans/
 /reports/

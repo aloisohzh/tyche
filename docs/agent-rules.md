@@ -107,6 +107,10 @@ Stop the run, journal the failure, and tell the operator. Do not improvise past 
   playbook hash in the same commit, and assert it (L-029, L-030).
 - Changing a cap is not done until the config change is journaled with effective time and old/new
   values, and the prompts that quote caps are re-checked (L-032).
+- **Switching a strategy on or off is not a rules change.** It goes in `data/strategies.json`, which the
+  kernel reads after the freeze check; editing `enabled:` inside a lane's rules file would re-freeze a
+  strategy that did not change (L-037). Scout proposes only for ids the switch reports live, and a
+  disabled lane still runs exits, stops and targets.
 
 ## 5. Scope boundary for this refinement
 

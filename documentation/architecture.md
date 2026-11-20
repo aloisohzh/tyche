@@ -22,7 +22,7 @@ one-way boundary rather than a loop.
   |  08:05 plan | 12:05 watch-only | 15:05   |        +-----------------+-------------------+
   +-----+------------------------------------+                          |
         | delegates                                          GET /api/state, /api/automation
-        v                                          POST /api/halt, /api/approvals/arm|disarm
+        v                                POST /api/halt, /api/approvals/arm|disarm, /api/strategies/toggle
   +-------------------------------------------------------+  +-------------------------------+
   | LLM PERIMETER  (Qoder Cloud Agents, no order sizing)  |  | Local desk                    |
   |  tyche-desk v28        coordinator, narrative         |  |  dashboard/server.py          |
@@ -139,11 +139,14 @@ worthless as evidence if it is not written out. Account ids are masked at journa
 
 ### 6. Desk and hosting
 
-`dashboard/server.py` is a stdlib `ThreadingHTTPServer` on `127.0.0.1:8765` with four API routes and
-static files:
-read-only `GET /api/state` and `GET /api/automation`, and `POST /api/halt` and
-`POST /api/approvals/arm|disarm` as the only writes. A write commits the specific JSON path and pushes
-(`_git_push_paths`), which is how the cloud mount sees operator intent without a shared database. UI
+`dashboard/server.py` is a stdlib `ThreadingHTTPServer` on `127.0.0.1:8765` with three reads and three
+writes:
+read-only `GET /api/state`, `GET /api/automation` and `GET /api/strategies`, and `POST /api/halt`,
+`POST /api/approvals/arm|disarm` and `POST /api/strategies/toggle`. A write commits the specific JSON
+path and pushes (`_git_push_paths`), which is how the cloud mount sees operator intent without a shared
+database. The strategy switch lands in `data/strategies.json` (`src/tyche/lanes.py`) rather than in a
+lane's rules file precisely because it is an operator decision, not a rule: the kernel consults it after
+the freeze check, so flipping a lane blocks new entries without moving any `rules_hash` (L-037). UI
 state in the browser is `localStorage` theme/view only; the operator passphrase is in memory.
 `app.js:8` carries `VERSION` plus a `CHANGELOG`, and any control change must bump both.
 

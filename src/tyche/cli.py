@@ -25,6 +25,7 @@ from tyche.events_cli import app as events_app
 from tyche.execution_state import daily_usage
 from tyche.halt import effective_halt, repo_halt_path, set_halt
 from tyche.journal import append_event, read_events, verify_chain
+from tyche.lanes import read_state
 from tyche.lifecycle_cli import app as lifecycle_app
 from tyche.market_calendar import (
     ET,
@@ -1224,6 +1225,40 @@ def authorize(
         "today": today.isoformat(),
     }))
     raise typer.Exit(0 if authorized else 1)
+
+
+@app.command("strategies")
+def strategies_cmd(
+    config_root: Path = typer.Option(Path("."), "--config-root"),
+    as_json: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
+) -> None:
+    """Report which playbooks are live: lane config, overridden by the desk switch file."""
+    config = load_config(config_root)
+    rows = config.playbook_switches()
+    if as_json:
+        print(json.dumps({"strategies": rows, "switch_file": read_state(config.root)}, default=str))
+        return
+    table = Table(title="Playbook switches")
+    table.add_column("id")
+    table.add_column("lane")
+    table.add_column("live", justify="center")
+    table.add_column("decided by")
+    table.add_column("rules file")
+    for row in rows:
+        table.add_row(
+            row["strategy_id"],
+            row["lane"],
+            "yes" if row["enabled"] else "no",
+            row["source"],
+            row["rules_file"],
+        )
+    console.print(table)
+    problem = next((row["switch_file_problem"] for row in rows if row["switch_file_problem"]), None)
+    if problem:
+        console.print(f"[red]switch file ignored:[/red] {problem}")
+    console.print(
+        "Live for this run: " + (", ".join(config.enabled_playbook_ids()) or "none")
+    )
 
 
 @app.command("strategy-score")
