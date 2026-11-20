@@ -7,6 +7,7 @@ Two layers: **living source-of-truth md files** (version-controlled) and **gener
 
 | Path | What | Lifecycle |
 |---|---|---|
+| [../documentation/](../documentation/PRD.md) | Product description: PRD with per-capability status, current-state architecture, changelog | versioned; status changes are edits here |
 | [competition/rules.md](competition/rules.md) | Distilled competition contract (numbers, fees, limits, judging) | living; verify vs official |
 | [competition/scoring-map.md](competition/scoring-map.md) | Criterion → artifact → evidence → status | living |
 | [reviews/](reviews/) | Dated design/product reviews (e.g. 2026-11-18 adversarial review) | append-only snapshots |

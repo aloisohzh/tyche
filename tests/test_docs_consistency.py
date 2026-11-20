@@ -217,3 +217,49 @@ def test_playbook_instruments_are_stocks_and_options_only() -> None:
         instruments = (_front_matter(path).get("classification") or {}).get("instruments")
         assert isinstance(instruments, list) and instruments, f"{path.name}: instruments must be a list"
         assert set(instruments) <= {"Stocks", "Options"}, f"{path.name}: {instruments}"
+
+
+_VOCAB_ROW = re.compile(r"^\|\s*\*\*(\w+)\*\*\s*\|", re.MULTILINE)
+_LEADING_WORD = re.compile(r"[A-Za-z]+")
+
+
+def _status_vocabulary() -> set[str]:
+    """The vocabulary lives in documentation/README.md, not in this test, so it cannot fork."""
+    section = _doc("documentation/README.md").split("## Status vocabulary (fixed)", 1)[1]
+    words = set(_VOCAB_ROW.findall(section.split("\n## ", 1)[0]))
+    assert words, "documentation/README.md lost its status vocabulary"
+    return words
+
+
+def _prd_status_cells(prd: str) -> list[tuple[str, str]]:
+    """(capability, status) for every row of a PRD table whose second column is headed "Status"."""
+    rows: list[tuple[str, str]] = []
+    in_table = False
+    for line in prd.splitlines():
+        if not line.lstrip().startswith("|"):
+            in_table = False
+            continue
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if len(cells) < 2:
+            in_table = False
+            continue
+        if cells[1] == "Status":
+            in_table = True
+        elif in_table and set(cells[1]) - set("-: "):
+            rows.append((cells[0], cells[1]))
+    return rows
+
+
+def test_prd_capability_statuses_use_the_fixed_vocabulary() -> None:
+    """A PRD may only describe state with the agreed words; prose tense is not a status."""
+    vocabulary = _status_vocabulary()
+    cells = _prd_status_cells(_doc("documentation/PRD.md"))
+    assert cells, "documentation/PRD.md has no capability table with a Status column"
+    offenders = []
+    for capability, status in cells:
+        match = _LEADING_WORD.search(status.lstrip("*` "))
+        if match is None or match.group().lower() not in vocabulary:
+            offenders.append(f"{capability[:52]!r} -> {status!r}")
+    assert not offenders, (
+        f"PRD status cell(s) outside {sorted(vocabulary)}:\n" + "\n".join(offenders)
+    )

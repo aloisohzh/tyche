@@ -96,6 +96,7 @@ blocked orders, and appends a hash-chained event to `journal/events.jsonl`.
 ## Layout
 
 ```text
+documentation/   the product description: PRD (status per capability), architecture, changelog
 config/          universe, risk policy and the tactical/scalp lanes (YAML);
                  strategies/ holds one frozen yaml per playbook id
 playbook/        one thesis file per setup + INDEX.yaml roster; agent-loadable
@@ -129,6 +130,8 @@ runs/  journal/  plans/  reports/    runtime evidence and scratch, gitignored
 - Daily loss limit 2.5%; daily turnover 300% of NAV on the buy side.
 - Every verdict, plan, and execution is appended to the audit journal.
 
+Product scope, per-capability status and the open defect list are in [documentation/PRD.md](documentation/PRD.md); how the system is wired is in [documentation/architecture.md](documentation/architecture.md).
+
 See [config/risk.yaml](config/risk.yaml), [config/universe.yaml](config/universe.yaml), and the
 [ADRs](docs/adr/) for the current policy, and [docs/runbooks/operations.md](docs/runbooks/operations.md)
 for setup and the daily runbook. [DESIGN.md](DESIGN.md) is the v0.1 baseline.
@@ -145,6 +148,6 @@ for setup and the daily runbook. [DESIGN.md](DESIGN.md) is the v0.1 baseline.
 - [x] Order execution with pre-flight revalidation and receipts
 - [x] Price fetch through `moomoo kline`
 - [x] Cloud Agent prompt templates and deployment spec
-- [ ] Cloud Agent deployment in the Qoder workspace
+- [x] Cloud Agent roster deployed and pinned (desk, researcher, executor, risk auditor)
 - [ ] Backtest harness with costs and walk-forward validation
 - [ ] Strategy protocol and strategy-agnostic plan schema
