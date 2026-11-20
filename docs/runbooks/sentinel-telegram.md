@@ -118,11 +118,18 @@ is the compatibility path once the formatting instruction is installed, until th
 renderer is published. The reusable instruction is saved at
 `templates/prompts/sentinel-telegram.txt`.
 
-Rollout status (2026-11-20): the November deployment update was blocked by the tool
-permission check; no further cloud writes were attempted. Neither active card has
-received this formatting update. Apply the saved instruction in an authorized
-session, preserving all existing run instructions and non-presentation settings.
-No schedules, trades or Telegram test messages were triggered for verification.
+Rollout status (applied 2026-11-20): the contract is installed on both active Managed cards -
+`dep_00vzb9h4ezawwl4thnva` (Nov, window 2026-11-19..2026-11-30) and `dep_00vzd8d5rdfr4w0denqh`
+(Dec, window 2026-12-01..2026-12-31) - with
+`scripts/deploy_two_fire_automation.py --apply-update <deployment_id> --month <YYYY-MM>`, which stays
+the card's source of truth; `prompt_markers` now also asserts `has_sentinel_format_v1` and
+`has_renderer_path`. Only the `TELEGRAM` section changed (6913 -> 9403 characters, one hunk); cron,
+agent pin v28, environment, resources and metadata were untouched, and both cards re-read as `active`
+with every marker true. GitHub `main` carries the renderer commit, so `render-digest`, `send-digest`
+and `templates/sentinel-digest.example.json` exist in the cloud repo mount: the structured renderer is
+the live path and the explicit-HTML route above is a fallback only. The example renders correctly
+offline. No schedule ran, no trade was placed and no Telegram message was sent for this rollout - the
+first real proof is the next card fire's digest arriving formatted.
 
 ## Delivery semantics (hardened 2026-11-19)
 

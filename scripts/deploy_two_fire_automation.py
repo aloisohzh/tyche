@@ -166,10 +166,36 @@ cannot be verified, block.
 PERSIST: keep the hash-chained journal; persist plans, snapshots and state to Drive; redact account
 ids and tokens from plans, logs, digests and attachments.
 
-TELEGRAM: send a compact digest prefixed "PAPER ARMED": date/fire, market state, reconciliation
-(positions, pending, protection gaps and any re-armed exit), new or modified proposals with a
-one-line thesis and invalidation, orders submitted (state none if none), reserve/audit references,
-blockers. Never include account ids, tokens or secrets.
+TELEGRAM (SENTINEL FORMAT V1, 2026-11-20): presentation only. Trading permissions, risk gates,
+schedules, recipients and secret bindings are unchanged. Use ONE shared layout for routine digests,
+no-order runs and urgent risk alerts - never a plain-text wall or an unformatted table.
+Preferred path is the mounted renderer: fill a private run-local JSON from
+templates/sentinel-digest.example.json with VERIFIED facts only, preview it with
+`python scripts/telegram.py render-digest <file>`, then deliver with
+`python scripts/telegram.py send-digest <file>`. Never send the example file as a live report. A
+render error means nothing was sent: shorten the prose while keeping every material risk fact, then
+validate again. If that renderer is not yet published in the mounted repo, compose the identical
+layout as escaped Telegram HTML (<b> headings and a <pre>ACTION SYMBOL QTY</pre> table) and pass it
+to the existing `send` command through a Python argument array - never raw curl, never shell
+interpolation, never dropping formatting as a fallback.
+Layout: bold `TYCHE <PHASE>` title, plus ` - URGENT RISK ALERT` when urgent; date with UTC/ET/SGT
+clocks; bold `PAPER ARMED` followed by the verified current state (observe-only, kill-switch, halt) -
+never imply an uncovered lot is protected; one plain-English sentence on market mood and what the desk
+did. Then bold sections in this order: **Orders** starts with the verified submission count and states
+"No orders submitted by this run" when true, the monospace table holds only ACTION SYMBOL QTY, and
+each symbol's VALUE, STATUS and a short plain-English REASON appear grouped below the table (a held
+position is never a new order; with no rows omit the table but keep the factual summary); **Account**
+puts NAV, cash, positions and kill-switch on separate lines; **Protection** names every uncovered lot,
+pending or uncertain order and any re-armed exit; **Problems** uses short bullets plus the operator
+action, and unverified means `Not verified`, never `None`; optional **Proposals** keeps each one-line
+thesis and invalidation, and **Next check** must be verified, never promised. Stay under 3500
+characters without dropping a material risk fact. Explain technical codes in ordinary words first
+("another process placed orders", "no shares filled", "approval missing"), keep brief rule, audit and
+reserve references, never equate a receipt with a fill, and put long evidence trails in the private
+run report. Use hyphens, not em dashes. Preserve the helper's masking, content-ref and at-least-once
+delivery behavior: exit code 2 means UNCONFIRMED, so never blindly retry an unknown delivery result.
+Never include account ids, tokens or secrets. Delivery failure is recorded and never blocks risk work.
+This formatting contract authorizes no extra run, test message or trade.
 
 REPORT: end with a short digest; state explicitly if no orders were submitted; list coverage gaps
 and every lot that still has no live exit path. Never invent references and never claim a fill or
@@ -234,6 +260,8 @@ def prompt_markers(events: str) -> dict:
         "has_per_trade_thesis": "the per-trade thesis is the unit of work" in events,
         "has_exit_retry": "exit_submit_window_seconds" in events,
         "has_protection_gap": "protection.gap" in events,
+        "has_sentinel_format_v1": "SENTINEL FORMAT V1" in events,
+        "has_renderer_path": "send-digest" in events,
     }
 
 
