@@ -7,10 +7,10 @@ auditor and executor roles and calls the lifecycle commands directly. The `tyche
 schedule and the other seven Forward schedules are paused and must stay paused. The old
 release pin `1e902cf57c26599b69c49496e81b7a493ae5bc49` (still written in
 `plans/deploy_lifecycle_hourly.py`) is deprecated: it is **not an ancestor of `main`**, and
-`scripts/deploy_hourly_workflow.py` tells later builds not to use it. Each card mounts
+`archive/deploy_hourly_workflow.py` (moved 2026-11-20) tells later builds not to use it. Each card mounts
 `https://github.com/aloisohzh/tyche` at `/data/workspace/tyche` with no release pin, so
 confirm the revision a run actually checked out before relying on a code path.
-Compiled member pins: researcher 10, auditor 4, executor 10. Trading permissions,
+Compiled member pins are not restated here: they drift the moment an agent is re-pinned (L-033). `docs/agent-rules.md` carries the desk's current set, and `list_agents` is the only authority. Trading permissions,
 models, credentials, mounts and concurrency/attempt limits are
 unchanged. Existing tactical rollout holds remain in force; no faster schedule
 was activated. No production lifecycle approval or broker order was created.

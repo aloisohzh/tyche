@@ -11,10 +11,12 @@ Version 0.1, 18 November 2026. Paper trading only.
 > [docs/competition/rules.md](docs/competition/rules.md). v0.2 will fold these in; until then read this
 > file as the safety-core reference, not the current trading plan.
 >
-> **Current runtime values (2026-11-19):** `config/risk.yaml` is authoritative: 40 orders/day,
-> 150% buy-side turnover, $1.00 minimum price, account allowlist guard. `config/tactical.yaml`
-> gates the options/intraday lane (`execution_enabled: false`). Where this document and config
-> disagree, config and the ADRs win.
+> **Live values are not quoted here.** This banner used to restate them ("40 orders/day, 150%
+> buy-side turnover") and was wrong within two days of being written, which is exactly the failure
+> [docs/lessons/LESSONS.md](docs/lessons/LESSONS.md) L-033 records. `config/risk.yaml` is the only
+> authority, [docs/risk-card.md](docs/risk-card.md) is the asserted human view of it, and
+> `config/tactical.yaml` gates the options/intraday lane. Where this document and config disagree,
+> config and the ADRs win.
 
 ## 1. Thesis
 

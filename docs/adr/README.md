@@ -17,7 +17,7 @@ One decision per file. Format: context → decision → consequences → status.
 | [0011](0011-topology.md) | 3-role topology + delegation + version pins | accepted |
 | [0012](0012-options-protection.md) | Defined-risk options leg groups + synthetic protection | accepted |
 | [0013](0013-protection-monitor.md) | Intraday protection monitor (watchlist, cadence, heartbeat) | proposed (design draft) |
-| [0014](0014-per-strategy-isolation.md) | Per-strategy isolation (config, hash, code entry per playbook) | accepted (implemented 2026-11-19) |
+| [0014](0014-per-strategy-isolation.md) | Per-strategy isolation (config, hash, code entry per playbook) | accepted (implemented 2026-11-19; freeze source corrected 2026-11-20, provenance writer still open) |
 | [0015](0015-external-research-perimeter.md) | External research perimeter: local LEAN validation lane + journaled charting | accepted (amended: hosted QC MCP needs paid node) |
 | [0016](0016-per-trade-risk-budget.md) | Per-trade risk budget (1% NAV) + R-multiple expectancy; Kelly deferred | accepted (implemented 2026-11-18) |
 
