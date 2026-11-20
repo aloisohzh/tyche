@@ -92,6 +92,7 @@ blocked orders, and appends a hash-chained event to `journal/events.jsonl`.
 | `tyche quote US.SPY US.QQQ` | Read-only quotes through the Moomoo CLI |
 | `tyche journal-verify` | Verify the audit journal hash chain |
 | `tyche halt-status --json` | Report the effective kill-switch state across both flags |
+| `python dashboard/server.py` | Local operator desk on <http://127.0.0.1:8765> (loopback only, no auth) |
 
 ## Layout
 
@@ -109,7 +110,8 @@ src/tyche/
   broker/        broker protocol, in-memory paper broker, Moomoo CLI + MCP adapters
   cli.py         Typer entry point
 dashboard/       local desk server + static UI (the authored copy)
-desk-site/       generated site export of the desk; rebuilt by scripts/export_dashboard.py
+desk-site/       the hosted site: web/ is exported from dashboard/ by scripts/export_dashboard.py,
+                 functions/ is authored here, and web/data/*.json is the feed the site serves (L-039)
 scripts/         cloud agent deploys, price/feed fetches, dashboard and site exports
 tests/           unit and end-to-end tests
 docs/            ADRs, lessons, runbooks, validation, performance, competition, reviews

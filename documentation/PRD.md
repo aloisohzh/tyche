@@ -186,8 +186,10 @@ Ordered by how much they can cost, not by effort.
    reads as live state to anyone who finds it in a clone.
 7. **Calendar drift checking is not wired to a live trigger**; the code and CLI exist.
 8. **Duplicate domain names** (`Outlook` enum vs model) invite the wrong import.
-9. **No launch command documented for the desk server** in README or runbooks; only the audit references
-   it, so a new operator cannot start it from the docs.
+
+Closed during this refinement and kept off the list: the desk server had no documented launch command
+(it is in the README command table now) and the site export deleted hosted assets it could not rebuild
+(L-039).
 
 ## 8. Roadmap
 
