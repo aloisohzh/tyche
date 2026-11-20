@@ -263,3 +263,26 @@ def test_prd_capability_statuses_use_the_fixed_vocabulary() -> None:
     assert not offenders, (
         f"PRD status cell(s) outside {sorted(vocabulary)}:\n" + "\n".join(offenders)
     )
+
+
+def test_hosted_desk_assets_have_sources_that_survive_a_full_export() -> None:
+    """A full export deletes desk-site/web/ wholesale (L-039), so every hosted asset needs a source.
+
+    The copies are byte-compared modulo line endings: CRLF drift is noise, a stale publish is not.
+    """
+    for name in ("app.js", "style.css"):
+        source = (ROOT / "dashboard" / "static" / name).read_bytes().replace(b"\r\n", b"\n")
+        hosted = (ROOT / "desk-site" / "web" / name).read_bytes().replace(b"\r\n", b"\n")
+        assert source == hosted, (
+            f"desk-site/web/{name} no longer matches dashboard/static/{name}; "
+            "run scripts/export_dashboard.py before publishing"
+        )
+    vendor = ROOT / "dashboard" / "static" / "vendor"
+    assert vendor.is_dir() and list(vendor.glob("*.js")), (
+        "the vendored chart library needs a source under dashboard/static/vendor/, "
+        "not a copy inside the directory the exporter deletes"
+    )
+    assert list((ROOT / "desk-site" / "web" / "vendor").glob("*.js")), "hosted desk is missing its chart library"
+    assert (ROOT / "desk-site" / "web" / "charts.html").is_file(), (
+        "desk-site/web/charts.html vanished: export_dashboard.py must carry it across the wipe"
+    )

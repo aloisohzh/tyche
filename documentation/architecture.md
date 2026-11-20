@@ -149,9 +149,19 @@ state in the browser is `localStorage` theme/view only; the operator passphrase 
 
 `scripts/export_dashboard.py` regenerates `desk-site/` from `dashboard/` (it imports the same builders,
 so the hosted view cannot drift in logic, only in freshness) and refuses to write if a secret, a full
-account id or a PAT appears in the output. `desk-site/web/data/*.json` is refreshed by
-`scripts/publish_desk_data.py`; the hosted function serves `/state`, `/automation`, `/control` and
-`/control/status`. `desk-site/` is generated output: author in `dashboard/`, never in place.
+account id or a PAT appears in the output. `desk-site/web/` holds three different provenances, and the
+difference matters before editing anything there:
+
+| Path | Provenance | Who writes it |
+|---|---|---|
+| `index.html`, `app.js`, `style.css`, `vendor/` | derived copies | `export_dashboard.py`, which deletes `web/` first |
+| `charts.html` | derived, different generator | `scripts/export_charts.py`; the full export carries the bytes across its own wipe because it cannot rebuild them |
+| `data/{state,automation}.json` | the hosted **data feed**, read by the Sites Function from the repo | `scripts/publish_desk_data.py` (export `--data-only`, then commit + push these two paths) |
+| `functions/*.ts` | authored in place | nobody regenerates it |
+
+So the feed is tracked because publishing depends on it, not by accident, and `data/*.json` in a clone is
+a snapshot of whenever it last ran. `test_hosted_desk_assets_have_sources_that_survive_a_full_export`
+fails if a derived copy diverges from its source or the vendored library loses its home.
 
 ### 7. Market context and calendar
 
@@ -207,6 +217,8 @@ failure, so a retry cannot silently duplicate (L-004), and there is no inbound p
   `docs/dashboard.md` still describes the MCP path as prompt-honored. The doc understates the kernel.
 - **No `rules.refrozen` producer** exists, so a re-registration is provable in CI (declared hash ==
   kernel hash) but not journaled at the moment it happens (L-035).
-- **`desk-site/` is generated but tracked**, so a hand-edit there is silently overwritten on the next
-  export. Decide: track the export as a release artifact with a "do not edit" header, or ignore it and
-  publish from the pipeline.
+- **One generated directory, four provenances.** `desk-site/web/` mixes exporter output, another script's
+  output (`charts.html`), the published data feed and hand-authored functions, so "it is all generated" is
+  false and "never edit in place" is false for `functions/`. The provenance table above is the current
+  mitigation; the structural fix would be to publish into a build directory the repo does not also use as
+  a source tree.

@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Version** | 1.0 |
+| **Version** | 1.1 |
 | **Last revised** | 2026-11-20 |
 | **Supersedes** | [../DESIGN.md](../DESIGN.md) §2/§11 as the statement of current scope (DESIGN.md stays as the v0.1 baseline) |
 | **How it is built** | [architecture.md](architecture.md) |
@@ -129,7 +129,7 @@ These are requirements in the strict sense: a change that breaks one is not a re
 |---|---|---|---|
 | Local desk with overview/strategy/risk/automation/controls views | implemented | `dashboard/static/index.html`, `server.py:1501-1673` | version + changelog in `app.js:8`, currently `0.5.0` |
 | Halt and envelope arm/disarm from the desk | implemented | `server.py:1957-1974` | the only two write actions; path-limited commit + push |
-| Hosted desk snapshot + control proxy | implemented | `desk-site/`, `scripts/export_dashboard.py`, `handler.ts` | generated output; refresh-on-load, no polling (L-022) |
+| Hosted desk snapshot + control proxy | implemented | `desk-site/`, `scripts/export_dashboard.py`, `handler.ts` | `functions/` is authored inside the export target; refresh-on-load, no polling (L-022) |
 | Per-strategy enable/disable control in the UI | **planned** | toggling means editing YAML and committing | Phase 4 |
 | "Run Scout" trigger in the UI | **planned** | no `/api/scout/run` route exists | Phase 4; must reuse the existing card workflow |
 | Schedule configuration in the UI | **planned** | automation view is read-only (`app.js:1502-1514`) | Phase 4; manual trigger must work with the schedule off |
@@ -180,7 +180,10 @@ Ordered by how much they can cost, not by effort.
    intended - but the underlying mismatch is real.
 5. **`REGISTRY` is aspirational.** The strategy-agnostic dispatch the README implies does not exist; the
    CLI calls the rotation function directly.
-6. **`desk-site/` is tracked generated output**, so it can look authored and be overwritten later.
+6. **`desk-site/` is one directory with four provenances** (exporter output, another script's output, the
+   published data feed, hand-authored functions). Nothing destructive remains - a full export preserves
+   what it cannot rebuild (L-039) - but the tracked `data/*.json` is a snapshot of the last publish, which
+   reads as live state to anyone who finds it in a clone.
 7. **Calendar drift checking is not wired to a live trigger**; the code and CLI exist.
 8. **Duplicate domain names** (`Outlook` enum vs model) invite the wrong import.
 9. **No launch command documented for the desk server** in README or runbooks; only the audit references
@@ -208,6 +211,7 @@ Named here so the desk's next steps are auditable; none of it is code yet.
 | v0.1 | 2026-11-16 | `DESIGN.md` written as the v0.1 baseline: rotation strategy, risk caps, LLM perimeter, journal. Still the reference for the safety core; §2/§11 no longer describe the platform. |
 | v0.2 | 2026-11-18/19 | Window scope lifted to stocks + defined-risk options (L-001 cut), MCP execution path (ADR 0008), tactical and scalp lanes, envelope and lifecycle gates, persistence split, four-agent topology, hosted desk. Never written up as a PRD - the gap this document closes. |
 | **v1.0** | 2026-11-20 | First PRD. Written from an audit of the code and the live platform rather than from the README: capability statuses, the §7 defect list, and an updated architecture in [architecture.md](architecture.md). Simultaneously: `playbook/` became the strategy library, `archive/` became the only superseded-work dump, the per-lane freeze source was fixed (L-036/L-037), and five superseded cadence scripts were retired. |
+| **v1.1** | 2026-11-20 | Hosted-desk claims corrected after checking what the exporter actually does: `desk-site/` is not uniformly generated (the Sites Function and the tracked data feed are load-bearing), and a full export used to delete assets it cannot rebuild (L-039, fixed). Capability statuses are now asserted against the vocabulary in [README.md](README.md) by `test_prd_capability_statuses_use_the_fixed_vocabulary`. |
 
 **Maintenance rule.** A change to a capability's status, a new lane, a new agent or a new external
 integration is a PRD edit with a version bump and a [CHANGELOG.md](CHANGELOG.md) row, landed in the same

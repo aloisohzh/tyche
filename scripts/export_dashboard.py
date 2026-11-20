@@ -8,6 +8,10 @@ Telegram credential, signing secret or full account id appears in the output.
 
 The local dashboard is untouched; only the baked copy carries the snapshot flag.
 
+A full export deletes the output web/ and rebuilds it, so an asset this script cannot regenerate is
+carried over rather than destroyed: style/app/index/vendor come from dashboard/static/, and charts.html
+(which scripts/export_charts.py owns) survives the wipe byte-for-byte.
+
 Run: .venv/Scripts/python.exe scripts/export_dashboard.py [output-dir] [--live] [--data-only]
 
 Modes:
@@ -88,6 +92,11 @@ def main() -> None:
     auto_json = json.dumps(automation, ensure_ascii=False, default=str)
     assert_no_secrets(state_json + auto_json, srv, env)
 
+    # charts.html belongs to scripts/export_charts.py but lives in this directory, and the wipe below
+    # deletes everything in it: carry the bytes over rather than destroy an asset this script cannot
+    # regenerate (L-039).
+    charts = web / "charts.html"
+    carried = charts.read_bytes() if charts.is_file() else None
     if not data_only and web.exists():
         shutil.rmtree(web)
     (web / "data").mkdir(parents=True, exist_ok=True)
@@ -104,6 +113,12 @@ def main() -> None:
 
     shutil.copy2(STATIC / "style.css", web / "style.css")
     shutil.copy2(STATIC / "app.js", web / "app.js")
+    # web/ was just deleted wholesale, so anything the site needs that this script does not
+    # synthesize has to be carried over from dashboard/static/ or it silently disappears.
+    if (STATIC / "vendor").is_dir():
+        shutil.copytree(STATIC / "vendor", web / "vendor")
+    if carried is not None:
+        (web / "charts.html").write_bytes(carried)
 
     if live:
         live_cfg = {
