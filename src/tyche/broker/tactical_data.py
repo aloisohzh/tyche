@@ -13,6 +13,27 @@ def successful(payload: dict):
     return payload["data"]
 
 
+def consolidate_book(books: list[dict]) -> tuple[float, float, datetime] | None:
+    """NBBO across the venue books in one MCP row.
+
+    The best bid can come from one venue and the best ask from another; that is
+    a single consolidated top of book, not an ambiguous choice. The timestamp is
+    the oldest contributing venue so consolidation never masks a stale side.
+    """
+    bids, asks, stamps = [], [], []
+    for book in books:
+        v_bids = [r["price"] for r in book["bid_list"] if r["volume"] > 0 and r["price"] > 0]
+        v_asks = [r["price"] for r in book["ask_list"] if r["volume"] > 0 and r["price"] > 0]
+        if not v_bids or not v_asks:
+            continue
+        bids.append(max(v_bids))
+        asks.append(min(v_asks))
+        stamps.append(int(book["exchange_data_time_ms"]))
+    if not bids or not asks:
+        return None  # no executable two-sided market on any venue
+    return max(bids), min(asks), datetime.fromtimestamp(min(stamps) / 1000, UTC)
+
+
 def normalize_quotes(quote_payload: dict, book_payloads: list[dict], chain_payloads: list[dict]) -> list[MarketQuote]:
     books = {}
     for payload in book_payloads:
@@ -20,16 +41,10 @@ def normalize_quotes(quote_payload: dict, book_payloads: list[dict], chain_paylo
             code = row["code"]
             if code in books:
                 raise ValueError("duplicate order book")
-            candidates = row["books"]
-            if len(candidates) != 1:
-                raise ValueError("ambiguous exchange books; choose a verified consolidated book")
-            book = candidates[0]
-            bids = [r for r in book["bid_list"] if r["volume"] > 0 and r["price"] > 0]
-            asks = [r for r in book["ask_list"] if r["volume"] > 0 and r["price"] > 0]
-            if not bids or not asks:
-                continue  # no executable two-sided market
-            books[code] = (max(r["price"] for r in bids), min(r["price"] for r in asks),
-                           datetime.fromtimestamp(int(book["exchange_data_time_ms"]) / 1000, UTC))
+            consolidated = consolidate_book(row["books"])
+            if consolidated is None:
+                continue
+            books[code] = consolidated
     contracts = {}
     for payload in chain_payloads:
         for row in successful(payload)["option_chain"]:

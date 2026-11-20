@@ -11,10 +11,11 @@ cap_tolerance_pct: 0.0025
 min_cash_weight: 0.05
 max_order_notional_pct: 0.30
 # Competition-lane caps. Raised from 6 orders/50% turnover when the tactical
-# lane landed (7f61baf); sells count toward the daily total, so a full ETF
-# rotation can exceed 6. The 200/day competition ceiling remains the hard stop.
-max_daily_turnover_pct: 1.50
-max_orders_per_day: 40
+# lane landed (7f61baf); raised again for PB-004 scalp at 50 round trips/day.
+# Sells count toward the daily total, so a full scalp day needs ~100 orders.
+# The 200/day competition ceiling remains the hard stop.
+max_daily_turnover_pct: 3.00
+max_orders_per_day: 120
 competition_order_cap: 200
 option_risk_per_trade_pct: 0.0075
 max_option_premium_pct: 0.25

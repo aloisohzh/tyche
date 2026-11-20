@@ -15,6 +15,7 @@ Two layers: **living source-of-truth md files** (version-controlled) and **gener
 | [risk-card.md](risk-card.md) | Every cap keyed + asserted by a test | living; doc-as-test |
 | [runbooks/](runbooks/) | Operations, daily routine, halt/kill, EOD reconcile, incident | living |
 | [validation/](validation/) | Pre-registration convention, NO-GO ledger, parked gauntlet | append-only verdicts |
+| [lessons/](lessons/) | Engineering dead ends: failed integrations, deprecated guardrails, reverted mechanisms | append-only rows, evidence-linked |
 | [performance/](performance/) | Generated metrics: equity, Sharpe, DD, scorecards, fee reconcile | generated from journal |
 | [agent-engineering.md](agent-engineering.md) | Topology, delegation contract, permissions, version pins, eval loop | living |
 | [dashboard.md](dashboard.md) | Pipeline-as-spine dashboard framework, per-trade contract, panels, API plumbing | living |
@@ -29,6 +30,8 @@ Top level: [DESIGN.md](../DESIGN.md) (v0.1 baseline, partially superseded — se
 - Every claim in a report links to evidence: a journal row, a doc section, or a pinned template version.
 - **Pre-register** a setup (freeze rules + hash) before it trades; a re-tuned rule is a new hypothesis.
 - Record **rejections and vetoes with reasons**, not just fills.
+- Engineering dead ends and deprecated guardrails get one row in [lessons/LESSONS.md](lessons/LESSONS.md);
+  strategy verdicts stay in validation, live decisions in ADRs.
 - No credentials, tokens, or full account identifiers in any committed file.
 - Generated artifacts (`performance/`, reports) are readings of the journal; the journal is the truth.
 

@@ -113,9 +113,9 @@ docs/            competition contract, scoring map, reviews, ADRs, playbooks,
   sources `account_type ∈ {1,2}` ∧ `market_id == 100` verified against the sim account list.
 - Shorting is disabled and oversells are rejected.
 - Hard caps: 95% gross, 40% per position (target ≤38%), 100 positions, 5% minimum cash, 30% per order,
-  $1.00 minimum price. Internal order budget is 40/day (competition ceiling 200).
+  $1.00 minimum price. Internal order budget is 120/day (competition ceiling 200).
 - Drawdown control: 4% soft (buy quantities halved), 6% hard (buys blocked).
-- Daily loss limit 2.5%; daily turnover 150% of NAV on the buy side.
+- Daily loss limit 2.5%; daily turnover 300% of NAV on the buy side.
 - Every verdict, plan, and execution is appended to the audit journal.
 
 See [config/risk.yaml](config/risk.yaml), [config/universe.yaml](config/universe.yaml), and the

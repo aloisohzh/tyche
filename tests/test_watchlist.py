@@ -80,3 +80,32 @@ def test_cli_watchlist_invalid(tmp_path):
     path.write_text(json.dumps({"as_of": "2026-11-18", "entries": [entry(stop=99.0)]}, default=str))
     result = CliRunner().invoke(app, ["watchlist", "--path", str(path)])
     assert result.exit_code == 1
+
+
+def test_thesis_carries_factors_and_outlook():
+    book = Watchlist(as_of=date(2026, 11, 18), entries=[WatchlistEntry(**entry(
+        synthesis="Reclaimed 81 on volume", edge="2R to the prior high",
+        bear_case="fails back under 80", invalidation="daily close below 80",
+        horizon="2-4 weeks", thesis_ref="scout-2026-11-18-efa",
+        factors=[{"name": "reclaim", "axis": "technical", "state": "pass",
+                  "why": "closed above 81 on above-average volume"},
+                 {"name": "CPI print", "axis": "macro", "state": "unknown",
+                  "why": "not published yet"}],
+        outlook={"regime": "neutral", "conviction": "medium",
+                 "alignment": {"technical": "bull", "macro": "neutral"}},
+    ))])
+    thesis = book.entries[0]
+    assert thesis.factors[0].state == "pass" and thesis.factors[1].state == "unknown"
+    assert thesis.outlook is not None and thesis.outlook.conviction == "medium"
+    assert thesis.thesis_ref == "scout-2026-11-18-efa"
+
+
+def test_thesis_rejects_unknown_axes_and_states():
+    with pytest.raises(ValidationError):
+        WatchlistEntry(**entry(factors=[{"name": "vibes", "axis": "astrology",
+                                         "state": "pass", "why": "?"}]))
+    with pytest.raises(ValidationError):
+        WatchlistEntry(**entry(factors=[{"name": "breakout", "axis": "technical",
+                                         "state": "maybe", "why": "?"}]))
+    with pytest.raises(ValidationError):
+        WatchlistEntry(**entry(outlook={"regime": "risk_on", "conviction": "certain"}))

@@ -39,6 +39,7 @@ from tyche.persist import persist_run
 from tyche.pipeline import build_order_pipeline, build_plan_pipeline
 from tyche.risk import RiskState, evaluate_intent
 from tyche.strategies import build_intents, fit_turnover_budget, rotation_targets
+from tyche.strategy_ledger import StrategyPolicy, score as score_strategy
 from tyche.tactical_cli import app as tactical_app
 from tyche.trade_risk import compute_expectancy
 from tyche.watchlist import Watchlist
@@ -1222,6 +1223,33 @@ def authorize(
         "today": today.isoformat(),
     }))
     raise typer.Exit(0 if authorized else 1)
+
+
+@app.command("strategy-score")
+def strategy_score(
+    strategy_id: str = typer.Option("PB-004", "--strategy"),
+    sleeve: str = typer.Option("equity", "--sleeve"),
+    journal_path: Path = typer.Option(Path("journal/events.jsonl"), "--journal"),
+    config_root: Path = typer.Option(Path("."), "--config-root"),
+    min_closed: int = typer.Option(30, "--min-closed", min=1),
+    min_expectancy_r: float = typer.Option(0.0, "--min-expectancy-r"),
+    min_profit_factor: float = typer.Option(1.2, "--min-profit-factor"),
+    max_drawdown_pct: float = typer.Option(0.04, "--max-drawdown-pct"),
+    record: bool = typer.Option(False, "--record"),
+) -> None:
+    """Score one strategy from the journal and decide mount/hold/retire."""
+    ok, _, error = verify_chain(journal_path)
+    if not ok:
+        raise typer.BadParameter(f"journal integrity: {error} or journal missing")
+    config = load_config(config_root)
+    sleeves = {asset.symbol: asset.sleeve for asset in config.universe.assets}
+    sleeves.update({symbol: sleeve for symbol in config.scalp.symbols})
+    policy = StrategyPolicy(min_closed=min_closed, min_expectancy_r=min_expectancy_r,
+                            min_profit_factor=min_profit_factor, max_drawdown_pct=max_drawdown_pct)
+    decision = score_strategy(read_events(journal_path), strategy_id, sleeve, sleeves, policy)
+    if record:
+        append_event(journal_path, "strategy.decision", decision.model_dump(mode="json"))
+    console.print_json(decision.model_dump_json())
 
 
 def main() -> None:

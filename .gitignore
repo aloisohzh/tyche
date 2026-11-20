@@ -22,6 +22,11 @@ dist/
 /plans/
 /reports/
 /data/research/
+# Transient broker feeds carry the paper account id in raw payloads; never tracked.
+/data/feed-*/
+/data/work-*/
+/data/capture-*/
+/data/drill/
 /research/lean/data/
 /research/lean/PB001/backtests/
 /research/youtube/raw/

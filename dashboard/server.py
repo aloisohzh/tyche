@@ -69,6 +69,11 @@ UNIVERSE_CFG = yaml.safe_load((ROOT / "config" / "universe.yaml").read_text())
 SLEEVE_BY_SYMBOL = {a["symbol"]: a["sleeve"] for a in UNIVERSE_CFG["assets"]}
 MAXW_BY_SYMBOL = {a["symbol"]: a["max_weight"] for a in UNIVERSE_CFG["assets"]}
 ETF_SYMBOLS = set(SLEEVE_BY_SYMBOL)  # v0.1 universe is all ETFs
+SCALP_CFG = yaml.safe_load((ROOT / "config" / "scalp.yaml").read_text())
+SCALP_SYMBOLS = set(SCALP_CFG.get("symbols", []))
+SCALP_TICKERS = {s.removeprefix("US.") for s in SCALP_SYMBOLS}
+# Scalp symbols are not in the rotation universe; attribute them to their own sleeve.
+SLEEVE_MAP = {**SLEEVE_BY_SYMBOL, **{s: "intraday" for s in SCALP_SYMBOLS}}
 PLAYBOOK = STRATEGY_CFG["id"]
 RULES_HASH = rules_hash(ROOT, PLAYBOOK)
 OUTLOOK_MAP = {"risk_on": "bullish", "neutral": "range", "risk_off": "bearish"}
@@ -120,8 +125,10 @@ def _conviction(score: int, total: int) -> str:
     return "low"
 
 
-def derive_contract(card: dict, plan: dict | None, order_pipeline: dict | None = None) -> dict:
+def derive_contract(card: dict, plan: dict | None, order_pipeline: dict | None = None,
+                    thesis: dict | None = None) -> dict:
     plan = plan or {}
+    thesis = thesis or {}
     plan_pipe = plan.get("pipeline")
     checks = plan.get("regime_checks", {})
     score = sum(1 for v in checks.values() if v)
@@ -132,9 +139,11 @@ def derive_contract(card: dict, plan: dict | None, order_pipeline: dict | None =
         "signals": plan.get("signals", {}),
         "targets": plan.get("targets", {}),
     })
-    sleeve = SLEEVE_BY_SYMBOL.get(card["symbol"], "-")
+    sleeve = SLEEVE_MAP.get(card["symbol"], "-")
     vehicle = "etf" if card["symbol"] in ETF_SYMBOLS else "stock"
     maxw = MAXW_BY_SYMBOL.get(card["symbol"])
+    if maxw is None and card["symbol"].removeprefix("US.") in SCALP_TICKERS:
+        maxw = SCALP_CFG.get("max_notional_pct")
     f: dict[str, dict] = {}
     if plan_pipe:
         f["thesis_ref"] = {
@@ -219,6 +228,32 @@ def derive_contract(card: dict, plan: dict | None, order_pipeline: dict | None =
             "value": "none - ETF/stock leg, no option expiry", "provenance": "derived",
             "note": "No option legs in v0.1. Option leg groups + roll plans are P2.",
         }
+    if thesis:
+        ref = thesis.get("thesis_ref")
+        f["thesis_ref"] = {
+            "value": ref or thesis.get("synthesis") or thesis.get("thesis"),
+            "provenance": "journaled" if ref else "derived",
+            "note": ("Scout record id carried with the plan; the full thesis text lives on the card."
+                     if ref else "Per-trade thesis journaled with the plan (deterministic lane, no scout record)."),
+        }
+        outlook = thesis.get("outlook") or {}
+        alignment = outlook.get("alignment") or {}
+        align_txt = ", ".join(f"{axis} {view}" for axis, view in sorted(alignment.items()))
+        parts = [outlook.get("regime") or "no macro regime", thesis.get("direction"),
+                 f"conviction {outlook['conviction']}" if outlook.get("conviction") else None,
+                 align_txt or None]
+        f["outlook"] = {
+            "value": " · ".join(x for x in parts if x), "provenance": "journaled",
+            "note": "Per-trade outlook: regime, direction and factor alignment from the journaled thesis.",
+        }
+        if thesis.get("edge"):
+            f["expected_edge"] = {"value": thesis["edge"], "provenance": "journaled",
+                                  "note": "Pre-trade edge estimate stated by the per-trade thesis."}
+        if thesis.get("invalidation"):
+            note = "Explicit per-trade invalidation."
+            if thesis.get("bear_case"):
+                note += f" Bear case: {thesis['bear_case']}"
+            f["invalidation"] = {"value": thesis["invalidation"], "provenance": "journaled", "note": note}
     stop = card.get("stop_price")
     nav = plan.get("nav")
     if stop and card.get("side") == "buy" and card.get("limit_price") is not None and card.get("quantity"):
@@ -600,31 +635,67 @@ def build_rejections(events: list[dict], orders: list[dict]) -> list[dict]:
 
 
 def stage_track(plan: dict, symbol: str, realized: float | None,
-                reason: str = "", levels: dict | None = None) -> dict:
+                reason: str = "", levels: dict | None = None,
+                thesis: dict | None = None) -> dict:
     """Five-stage track for a plan order. Regime fields are only claimed when journaled."""
     levels = levels or {}
+    thesis = thesis or {}
     regime = plan.get("regime")
     checks = plan.get("regime_checks") or {}
     passed = sum(1 for v in checks.values() if v)
     signal = (plan.get("signals") or {}).get(symbol, {})
     strategy_id = plan.get("strategy_id")
     label = strategy_label(strategy_id, reason)
-    if checks:
-        thesis_text = f"{label} - {regime}, checks {passed}/{len(checks)}"
-    else:
-        thesis_text = f"{label} setup" + (f" - {reason}" if reason else "")
     stop, target, entry = levels.get("stop"), levels.get("target"), levels.get("limit")
     expected = None
     if stop is not None and target is not None and entry is not None and entry > stop:
         rr = (target - entry) / (entry - stop)
         expected = f"reward {rr:.1f}x risk ({rr:.0f}R) from journaled stop/target"
-    return {
-        "thesis": {
+    if thesis:
+        factors = thesis.get("factors") or []
+        outlook = thesis.get("outlook") or {}
+        known = [x for x in factors if x.get("state") != "unknown"]
+        unknown = [x for x in factors if x.get("state") == "unknown"]
+        thesis_stage = {
+            "state": "ok",
+            "text": thesis.get("thesis") or f"{label} setup",
+            "synthesis": thesis.get("synthesis"),
+            "thesis_ref": thesis.get("thesis_ref"),
+            "direction": thesis.get("direction"),
+            "horizon": thesis.get("horizon"),
+            "bear_case": thesis.get("bear_case"),
+            "invalidation": thesis.get("invalidation"),
+            "source": thesis.get("source"),
+            "gap": None,
+        }
+        multifactor = {
+            "state": "ok" if factors and not unknown else "partial",
+            "factors": factors,
+            "covered": sorted({x.get("axis") for x in known if x.get("axis")}),
+            "missing": [x.get("name") for x in unknown],
+            "momentum": signal.get("momentum"), "score": signal.get("score"),
+            "volatility": signal.get("volatility"), "selected": signal.get("selected"),
+            "note": "Per-trade factor checklist journaled with the plan; unknown axes stay visible.",
+        }
+        outlook_stage = {
+            "state": "ok" if outlook.get("regime") else "partial",
+            "regime": outlook.get("regime"),
+            "mapped": thesis.get("direction") or (REGIME_OUTLOOK.get(regime, regime) if regime else None),
+            "conviction": outlook.get("conviction"),
+            "alignment": outlook.get("alignment") or {},
+            "gap": None if outlook.get("regime") else "no market regime journaled - setup is price-action native",
+        }
+        edge_expected = thesis.get("edge") or expected
+        edge_note = "Pre-trade edge stated by the per-trade thesis."
+    else:
+        thesis_text = (f"{label} - {regime}, checks {passed}/{len(checks)}" if checks
+                       else f"{label} setup" + (f" - {reason}" if reason else ""))
+        thesis_stage = {
             "state": "ok" if reason else "partial",
             "text": thesis_text,
             "gap": None if reason else "per-trade thesis_ref not instrumented",
-        },
-        "multifactor": {
+        }
+        multifactor = {
             "state": "partial" if signal else "gap",
             "momentum": signal.get("momentum"),
             "score": signal.get("score"),
@@ -633,19 +704,26 @@ def stage_track(plan: dict, symbol: str, realized: float | None,
             "covered": ["technical"] if signal else [],
             "missing": ["macro", "sentiment & flow", "seasonality"],
             "note": "fundamental = eligibility filter (cap, price, liquidity)" if signal else "no factor snapshot journaled for this setup",
-        },
-        "outlook": {
+        }
+        outlook_stage = {
             "state": "partial" if regime else "gap",
             "regime": regime,
             "mapped": REGIME_OUTLOOK.get(regime, regime) if regime else None,
             "gap": None if regime else "no market regime journaled - setup is price-action native",
-        },
+        }
+        edge_expected = expected
+        edge_note = "Pre-trade expected edge not instrumented"
+    return {
+        "thesis": thesis_stage,
+        "multifactor": multifactor,
+        "outlook": outlook_stage,
         "vehicle": {"state": "ok", "type": "etf" if symbol in ETF_SYMBOLS else "stock", "rationale": None},
         "edge": {
-            "state": "partial" if expected else ("gap" if realized is None else "partial"),
-            "expected": expected,
+            "state": "ok" if edge_expected else ("gap" if realized is None else "partial"),
+            "expected": edge_expected,
             "realized": realized,
-            "gap": None if expected else "pre-trade expected edge not instrumented",
+            "note": edge_note,
+            "gap": None if edge_expected else "pre-trade expected edge not instrumented",
         },
     }
 
@@ -700,6 +778,7 @@ def build_cards(plans: dict[str, dict], strat_plans: list[dict], orders: list[di
             realized = validation["realized_gross"] if matched and matched["status"] == "filled" else None
             levels = {"stop": intent.get("stop_price"), "target": intent.get("target"),
                       "limit": intent.get("limit_price")}
+            thesis = order.get("thesis") or plan.get("thesis")
             card = {
                 "id": f"plan:{acct}:{symbol}:{intent.get('side')}",
                 "symbol": symbol,
@@ -720,14 +799,14 @@ def build_cards(plans: dict[str, dict], strat_plans: list[dict], orders: list[di
                 "intent": order_intent(dict(intent)),
                 "max_loss": _max_loss(intent.get("side"), intent.get("quantity"),
                                       intent.get("limit_price"), intent.get("stop_price")),
-                "stages": stage_track(plan, symbol, realized, intent.get("reason") or "", levels),
+                "stages": stage_track(plan, symbol, realized, intent.get("reason") or "", levels, thesis),
                 "order": matched,
                 "protection": "synthetic stop monitor (P2) - sim has no broker-native stops",
                 "roll_plan": None,
                 "band": "execution",
             }
             card["stages"]["vehicle"]["rationale"] = intent.get("reason")
-            card["contract"] = derive_contract(card, plan, order.get("pipeline"))
+            card["contract"] = derive_contract(card, plan, order.get("pipeline"), thesis)
             cards.append(card)
     for rec in orders:
         if rec.get("purpose") in ("drill-seed", "drill-seed-resubmit") and rec["side"] == "buy" and rec["status"] == "filled":
@@ -766,6 +845,7 @@ def build_cards(plans: dict[str, dict], strat_plans: list[dict], orders: list[di
             if not intent.get("symbol"):
                 continue
             verdict = order.get("verdict") or {"allowed": True, "breaches": []}
+            thesis = order.get("thesis") or plan.get("thesis")
             card = {
                 "id": f"plan:{acct}:{intent['symbol']}:{intent.get('side')}",
                 "symbol": intent["symbol"],
@@ -786,7 +866,8 @@ def build_cards(plans: dict[str, dict], strat_plans: list[dict], orders: list[di
                 "intent": order_intent(dict(intent)),
                 "max_loss": _max_loss(intent.get("side"), intent.get("quantity"),
                                       intent.get("limit_price"), intent.get("stop_price")),
-                "stages": stage_track(plan, intent["symbol"], None, intent.get("reason") or ""),
+                "stages": stage_track(plan, intent["symbol"], None, intent.get("reason") or "",
+                                      thesis=thesis),
                 "order": None,
                 "protection": "synthetic stop monitor (P2)",
                 "roll_plan": None,
@@ -794,7 +875,7 @@ def build_cards(plans: dict[str, dict], strat_plans: list[dict], orders: list[di
                 "dry_run": True,
             }
             card["stages"]["vehicle"]["rationale"] = intent.get("reason")
-            card["contract"] = derive_contract(card, plan, order.get("pipeline"))
+            card["contract"] = derive_contract(card, plan, order.get("pipeline"), thesis)
             cards.append(card)
     # Account-less strategy plans (PB-004 scalps): one card per journaled plan,
     # tied to the broker submit/fill by request id.
@@ -816,6 +897,7 @@ def build_cards(plans: dict[str, dict], strat_plans: list[dict], orders: list[di
                       "target": intent.get("target"), "limit": intent.get("limit_price")}
             quantity = intent.get("quantity")
             notional = intent.get("notional")
+            thesis = order.get("thesis") or plan.get("thesis")
             if notional is None and intent.get("limit_price") is not None:
                 notional = round(float(intent["limit_price"]) * float(quantity or 0), 2)
             card = {
@@ -840,14 +922,14 @@ def build_cards(plans: dict[str, dict], strat_plans: list[dict], orders: list[di
                 "max_loss": _max_loss(intent.get("side"), quantity, intent.get("limit_price"), levels["stop"]),
                 "stages": stage_track(plan, symbol,
                                       None if not matched else validation["realized_gross"],
-                                      intent.get("reason") or "", levels),
+                                      intent.get("reason") or "", levels, thesis),
                 "order": matched,
                 "protection": "intraday timeout + synthetic stop monitor",
                 "roll_plan": None,
                 "band": "execution",
             }
             card["stages"]["vehicle"]["rationale"] = intent.get("reason")
-            card["contract"] = derive_contract(card, plan)
+            card["contract"] = derive_contract(card, plan, thesis=thesis)
             cards.append(card)
     return cards
 
@@ -1419,7 +1501,7 @@ def build_approvals() -> dict:
 def build_state() -> dict:
     global EVENTS
     EVENTS = read_events(JOURNAL)
-    exp_report = compute_expectancy(EVENTS, SLEEVE_BY_SYMBOL)
+    exp_report = compute_expectancy(EVENTS, SLEEVE_MAP)
     sleeve_report = {s.sleeve: s for s in exp_report.sleeves}
     ok, count, error = verify_chain(JOURNAL)
     halt = effective_halt(JOURNAL.parent, ROOT)
@@ -1509,6 +1591,10 @@ def build_state() -> dict:
         for ev in EVENTS
         if ev["type"] in ("halt.engaged", "halt.skip", "halt.released")
     ]
+    protection_gaps = [
+        {"ts": ev["ts"], "type": ev["type"], "payload": ev["payload"]}
+        for ev in EVENTS if ev["type"] == "protection.gap"
+    ][-20:]
     return scrub(
         {
             "generated_at": datetime.now(UTC).isoformat(),
@@ -1516,6 +1602,7 @@ def build_state() -> dict:
             "halt": halt,
             "approvals": build_approvals(),
             "halt_timeline": halt_timeline,
+            "protection_gaps": protection_gaps,
             "risk": risk,
             "feed": feed,
             "accounts": accounts,

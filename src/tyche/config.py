@@ -156,7 +156,7 @@ class TacticalConfig(BaseModel):
     min_reward_risk: float = Field(default=1.5, ge=1)
     max_quote_age_seconds: int = Field(default=60, ge=5, le=120)
     max_snapshot_age_seconds: int = Field(default=120, ge=5, le=300)
-    monitor_interval_seconds: int = Field(default=120, ge=30, le=86400)
+    monitor_interval_seconds: int = Field(default=120, ge=5, le=86400)
     stock_spread_pct: float = Field(default=0.003, gt=0, le=0.01)
     option_spread_pct: float = Field(default=0.05, gt=0, le=0.10)
     min_option_open_interest: int = Field(default=100, ge=0)
@@ -177,8 +177,37 @@ class TacticalConfig(BaseModel):
         return self
 
 
+class ScalpConfig(BaseModel):
+    """PB-004: one intraday momentum-scalp strategy, many small round trips."""
+    model_config = ConfigDict(allow_inf_nan=False, extra="forbid")
+    enabled: bool = False
+    symbols: list[str] = Field(default_factory=lambda: ["US.NVDA", "US.AMD", "US.AVGO", "US.MU", "US.SMH", "US.SPY"])
+    breakout_bars: int = Field(default=5, ge=2, le=30)
+    stop_pct: float = Field(default=0.0025, gt=0, le=0.01)
+    target_r: float = Field(default=2.0, ge=1, le=5)
+    risk_per_trade_pct: float = Field(default=0.001, gt=0, le=0.005)
+    max_notional_pct: float = Field(default=0.05, gt=0, le=0.15)
+    max_open: int = Field(default=4, ge=1, le=10)
+    cooldown_seconds: int = Field(default=600, ge=60, le=3600)
+    timeout_minutes: int = Field(default=20, ge=2, le=60)
+    max_round_trips_per_day: int = Field(default=50, ge=1, le=200)
+    max_spread_pct: float = Field(default=0.001, gt=0, le=0.01)
+    flatten_minutes_before_close: int = Field(default=10, ge=5, le=30)
+    # A blocked exit must stay retryable; an entry can expire quickly.
+    exit_submit_window_seconds: int = Field(default=900, ge=60, le=3600)
+
+    @model_validator(mode="after")
+    def _bounds(self):
+        if len(self.symbols) != len(set(self.symbols)):
+            raise ValueError("duplicate scalp symbols")
+        if self.max_open > len(self.symbols):
+            raise ValueError("max_open exceeds scalp universe")
+        return self
+
+
 class AppConfig(BaseModel):
     tactical: TacticalConfig = Field(default_factory=TacticalConfig)
+    scalp: ScalpConfig = Field(default_factory=ScalpConfig)
     universe: UniverseConfig
     strategies: list[StrategyConfig]
     risk: RiskPolicy
@@ -236,15 +265,21 @@ def load_config(root: Path) -> AppConfig:
         strategies.append(strategy)
     tactical_path = config_dir / "tactical.yaml"
     tactical = TacticalConfig.model_validate(_read_yaml(tactical_path)) if tactical_path.is_file() else TacticalConfig()
+    scalp_path = config_dir / "scalp.yaml"
+    scalp = ScalpConfig.model_validate(_read_yaml(scalp_path)) if scalp_path.is_file() else ScalpConfig()
     universe = UniverseConfig.model_validate(_read_yaml(config_dir / "universe.yaml"))
     if tactical.enabled and set(tactical.symbols) & set(universe.by_symbol()):
         raise ValueError("tactical and ballast symbols must not overlap; separate position ownership")
+    if scalp.enabled and set(scalp.symbols) & (
+            set(universe.by_symbol()) | (set(tactical.symbols) if tactical.enabled else set())):
+        raise ValueError("scalp symbols must not overlap ballast/tactical ownership")
     if tactical.enabled and (sum(s.allocation_cap for s in strategies if s.enabled)
                              + tactical.stock_allocation_cap + risk.max_option_premium_pct
                              > risk.max_gross_exposure + 1e-8):
         raise ValueError("strategy allocation caps exceed gross exposure cap")
     return AppConfig(
         tactical=tactical,
+        scalp=scalp,
         universe=universe,
         strategies=strategies,
         risk=risk,

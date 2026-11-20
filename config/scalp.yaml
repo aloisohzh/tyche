@@ -1,0 +1,17 @@
+# PB-004: one deterministic intraday momentum scalp, many small round trips.
+# 1-minute 5-bar breakout entry, 0.25% stop, 2R target, 20-minute timeout,
+# flat 10 minutes before the close. Sizing is 0.1% of NAV risk to the stop,
+# capped at 5% of NAV notional per trade, max 4 open names.
+enabled: true
+symbols: ["US.NVDA", "US.AMD", "US.AVGO", "US.MU", "US.SMH"]
+breakout_bars: 5
+stop_pct: 0.0025
+target_r: 2.0
+risk_per_trade_pct: 0.001
+max_notional_pct: 0.05
+max_open: 4
+cooldown_seconds: 600
+timeout_minutes: 20
+max_round_trips_per_day: 50
+max_spread_pct: 0.001
+flatten_minutes_before_close: 10

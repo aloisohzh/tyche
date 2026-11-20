@@ -84,6 +84,23 @@ def setup_key(book: Watchlist, entry: WatchlistEntry) -> str:
     return entry.setup_id or f"{book.as_of}:{entry.symbol}:{entry.strategy}"
 
 
+def thesis_block(entry: WatchlistEntry) -> dict:
+    """Per-trade thesis carried from the scout record into the plan and desk."""
+    return {
+        "thesis": entry.thesis or None,
+        "synthesis": entry.synthesis or None,
+        "edge": entry.edge or None,
+        "bear_case": entry.bear_case or None,
+        "invalidation": entry.invalidation or None,
+        "horizon": entry.horizon or None,
+        "direction": entry.direction,
+        "factors": [factor.model_dump(mode="json") for factor in entry.factors],
+        "outlook": entry.outlook.model_dump(mode="json") if entry.outlook else None,
+        "thesis_ref": entry.thesis_ref or None,
+        "source": "scout",
+    }
+
+
 def risk_preview(intent: OrderIntent, entry: WatchlistEntry, nav: float, etf: bool) -> dict:
     fees = estimate_fees(intent.symbol, intent.side.value, intent.quantity, intent.limit_price,
                          "option" if intent.option else "stock").total
@@ -352,6 +369,7 @@ def plan_tick(
         contract_hash = setup_hash(entry, config, snapshot.account_id)
         report["orders"].append({"setup_hash": contract_hash, "order_hash": order_hash(intent, contract_hash),
                                  "intent": intent.model_dump(mode="json"),
+                                 "thesis": thesis_block(entry),
                                  "risk": preview, "verdict": verdict.model_dump(mode="json"),
                                  "authorization": "not granted; auditor + operator envelope required"})
         decision.update(action=intent.side.value, reason=intent.reason)

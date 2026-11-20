@@ -21,7 +21,7 @@ from tyche.models import AccountSnapshot, OptionContract, OrderIntent, Position,
 from tyche.risk import RiskState, evaluate_intent
 from tyche.tactical import MarketQuote, MonitorState, plan_tick, setup_hash
 from tyche.trade_risk import compute_expectancy
-from tyche.watchlist import Watchlist, WatchlistEntry
+from tyche.watchlist import Factor, Outlook, Watchlist, WatchlistEntry
 
 ROOT = Path(__file__).resolve().parents[1]
 NOW = datetime(2026, 11, 19, 15, 5, tzinfo=UTC)
@@ -31,6 +31,11 @@ CONTRACT = OptionContract(underlying="US.NVDA", expiry=date(2026, 11, 27), right
 
 def case(option=False, held=False):
     config = load_config(ROOT)
+    config.tactical.enabled = True  # PB-004 owns live symbols in repo config; tests opt in
+    config.tactical.options_enabled = True
+    # Pin the lane universe to the fixture symbol so tests do not track live config.
+    config.tactical.symbols = ["US.NVDA"]
+    config.tactical.etf_symbols = []
     config.tactical.monitor_interval_seconds = 120
     snapshot = AccountSnapshot(account_id="SIM-TEST", cash=100000, captured_at=NOW,
                                source="sim_list", account_type=2, market_id=100,
@@ -74,6 +79,31 @@ def ready(args):
     now = NOW + timedelta(seconds=120)
     advance(args, now)
     return run(args, now)
+
+
+def test_plan_carries_the_per_trade_thesis_block():
+    book, snapshot, quotes, orders, events, contracts, state, config = case()
+    book.entries[0] = book.entries[0].model_copy(update={
+        "synthesis": "Reclaimed 151 on volume",
+        "edge": "2R into the prior high",
+        "bear_case": "fails back below 145",
+        "invalidation": "daily close below 145",
+        "horizon": "2-4 weeks",
+        "thesis_ref": "scout-2026-11-19-nvda",
+        "factors": [Factor(name="reclaim", axis="technical", state="pass", why="closed above 151"),
+                    Factor(name="CPI print", axis="macro", state="unknown", why="not published")],
+        "outlook": Outlook(regime="neutral", conviction="medium",
+                           alignment={"technical": "bull", "macro": "neutral"}),
+    })
+    args = [book, snapshot, quotes, orders, events, contracts, state, config]
+    result = ready(args)
+    thesis = result["orders"][0]["thesis"]
+    assert thesis["thesis"] == "Synthetic catalyst thesis"
+    assert thesis["thesis_ref"] == "scout-2026-11-19-nvda"
+    assert thesis["direction"] == "bullish" and thesis["source"] == "scout"
+    assert {f["axis"] for f in thesis["factors"]} == {"technical", "macro"}
+    assert thesis["outlook"]["conviction"] == "medium"
+    assert thesis["invalidation"] == "daily close below 145"
 
 
 @pytest.mark.parametrize("option", [False, True])
@@ -140,7 +170,7 @@ def test_hourly_cadence_does_not_relax_data_gates(stale):
     if stale != "review":
         args[0].entries[0].reviewed_at = now
     if stale == "quote":
-        args[2][0].at -= timedelta(seconds=61)
+        args[2][0].at -= timedelta(seconds=args[7].tactical.max_quote_age_seconds + 1)
     result = run(args, now)
     assert not result["orders"], result
     if stale == "heartbeat":
@@ -191,7 +221,7 @@ def test_entry_gates_fail_closed(mutation):
     advance(args, now)
     entry, snapshot, quote = args[0].entries[0], args[1], args[2][0]
     if mutation == "stale":
-        quote.at -= timedelta(seconds=61)
+        quote.at -= timedelta(seconds=args[7].tactical.max_quote_age_seconds + 1)
     elif mutation == "future":
         snapshot.captured_at += timedelta(seconds=1)
     elif mutation == "research":
@@ -345,7 +375,7 @@ def test_cumulative_envelope_and_broker_budget():
 
 
 def write_cli_case(tmp_path, args):
-    paths = {key: tmp_path / f"{key}.json" for key in ("book", "account", "quotes", "orders", "envelope", "audit", "lifecycle-state")}
+    paths = {key: tmp_path / f"{key}.json" for key in ("book", "account", "quotes", "orders", "envelope", "lifecycle-state")}
     paths["book"].write_text(args[0].model_dump_json(), encoding="utf-8")
     paths["account"].write_text(args[1].model_dump_json(), encoding="utf-8")
     paths["quotes"].write_text(json.dumps([q.model_dump(mode="json") for q in args[2]]), encoding="utf-8")
@@ -370,7 +400,7 @@ def test_tactical_reservation_respects_disabled_gate(tmp_path, monkeypatch):
     assert len(read_events(journal)) == 1
 
 
-@pytest.mark.parametrize("blocker", [None, "audit", "exit", "setup", "date", "pending", "corruption", "stalequote"])
+@pytest.mark.parametrize("blocker", [None, "exit", "setup", "date", "pending", "corruption", "stalequote"])
 def test_exact_reservation_is_atomic_and_one_shot(tmp_path, monkeypatch, blocker):
     args = case(True)
     args[7].tactical.execution_enabled = True  # synthetic drill only
@@ -381,8 +411,6 @@ def test_exact_reservation_is_atomic_and_one_shot(tmp_path, monkeypatch, blocker
         {"symbol": OPT, "side": "buy", "max_qty": 1, "limit_max": 6.1, "multiplier": 100, "setup_hash": proposal["setup_hash"]},
         {"symbol": OPT, "side": "sell", "max_qty": 1, "limit_min": .01, "multiplier": 100, "setup_hash": proposal["setup_hash"]}])
     paths["envelope"].write_text(batch.model_dump_json(), encoding="utf-8")
-    paths["audit"].write_text(json.dumps({"order_hash": proposal["order_hash"], "reviewed_at": now.isoformat(),
-        "valid_until": (now + timedelta(seconds=60)).isoformat(), "verdict": "approved", "reference": "synthetic auditor"}), encoding="utf-8")
     journal = tmp_path / "events.jsonl"
     append_event(journal, "tactical.monitor", {"state": args[6].model_dump(mode="json")})
     monkeypatch.setattr("tyche.tactical_cli.now_utc", lambda: now)
@@ -392,11 +420,7 @@ def test_exact_reservation_is_atomic_and_one_shot(tmp_path, monkeypatch, blocker
         cmd.extend(["--" + key, str(path)])
     runner = CliRunner()
     if blocker:
-        if blocker == "audit":
-            data = json.loads(paths["audit"].read_text())
-            data["order_hash"] = "different-order"
-            paths["audit"].write_text(json.dumps(data))
-        elif blocker in {"exit", "setup", "date"}:
+        if blocker in {"exit", "setup", "date"}:
             if blocker == "exit":
                 batch.orders.pop()
             elif blocker == "setup":
@@ -412,7 +436,7 @@ def test_exact_reservation_is_atomic_and_one_shot(tmp_path, monkeypatch, blocker
             journal.write_text("not json")
         elif blocker == "stalequote":
             data = json.loads(paths["quotes"].read_text())
-            data[-1]["at"] = NOW.isoformat()
+            data[-1]["at"] = (NOW - timedelta(seconds=1)).isoformat()
             paths["quotes"].write_text(json.dumps(data))
         denied = runner.invoke(app, cmd)
         assert denied.exit_code == 1, denied.output
@@ -484,3 +508,32 @@ def test_quote_normalization_matches_observed_mcp_fields():
     quotes["data"]["quote_list"][0]["option_ex_data"]["contract_multiplier"] = 10
     with pytest.raises(ValueError, match="multiplier"):
         normalize_quotes(quotes, books, chains)
+
+
+def test_normalization_consolidates_multi_venue_books_to_nbbo():
+    stamp = int(NOW.timestamp() * 1000)
+    quotes = {"ret_code": 0, "data": {"quote_list": [{"code": "US.MU", "data_time": stamp,
+        "last_price": 730.01, "volume": 1000, "sec_status": "NORMAL", "suspension": False}]}}
+    books = [{"ret_code": 0, "data": [{"code": "US.MU", "books": [
+        {"exchange": "NASDAQ", "exchange_data_time_ms": stamp,
+         "bid_list": [{"price": 731.7, "volume": 3}], "ask_list": [{"price": 732.17, "volume": 177}]},
+        {"exchange": "ARCA", "exchange_data_time_ms": stamp - 500,
+         "bid_list": [{"price": 731.61, "volume": 30}], "ask_list": [{"price": 732.16, "volume": 20}]},
+    ]}]}]
+    q = normalize_quotes(quotes, books, [])[0]
+    assert q.bid == 731.7 and q.ask == 732.16
+    assert q.book_at == datetime.fromtimestamp((stamp - 500) / 1000, UTC)
+
+
+def test_normalization_skips_venues_without_two_sided_market():
+    stamp = int(NOW.timestamp() * 1000)
+    quotes = {"ret_code": 0, "data": {"quote_list": [{"code": "US.MU", "data_time": stamp,
+        "last_price": 730.01, "volume": 1000, "sec_status": "NORMAL", "suspension": False}]}}
+    books = [{"ret_code": 0, "data": [{"code": "US.MU", "books": [
+        {"exchange": "NASDAQ", "exchange_data_time_ms": stamp,
+         "bid_list": [{"price": 731.7, "volume": 3}], "ask_list": [{"price": 732.17, "volume": 177}]},
+        {"exchange": "ARCA", "exchange_data_time_ms": stamp,
+         "bid_list": [{"price": 731.61, "volume": 0}], "ask_list": [{"price": 732.16, "volume": 20}]},
+    ]}]}]
+    q = normalize_quotes(quotes, books, [])[0]
+    assert q.bid == 731.7 and q.ask == 732.17

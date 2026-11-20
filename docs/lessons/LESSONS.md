@@ -1,0 +1,99 @@
+# Engineering lessons ledger
+
+Append-only record of **engineering dead ends**: integrations that failed, guardrails that were
+deprecated, mechanisms that were reverted, and operational assumptions that proved wrong. The point
+is to stop re-paying for old mistakes - not to re-document how the live system works.
+
+## What does not belong here
+
+| Topic | Lives in |
+|---|---|
+| Live architecture decisions | [adr/](../adr/) |
+| Strategy hypotheses and NO-GO verdicts | [validation/README.md](../validation/README.md) |
+| What actually happened (fills, vetoes, halts) | [journal/events.jsonl](../../journal/events.jsonl) |
+| Generated readings of the journal | [performance/](../performance/) |
+| Dated reviews and parked scope | [reviews/](../reviews/) |
+| Frozen superseded artifacts | [archive/](../archive/) |
+
+When a lesson replaces a guardrail, link the ADR that records the replacement. A row is "we tried X,
+it died because Y, so Z" plus the commit or doc that proves it.
+
+## Conventions
+
+- Append-only: never delete or renumber a row; if a lesson is reversed, add a superseding row.
+- One row per lesson. Link the evidence (commit, error, doc section); do not restate it.
+- Mark a row **open** when the takeaway is identified but not yet applied.
+- Code, config and prompts are all "trials": a fix that silently changes tool access is a new build.
+
+## Delivery and scope
+
+| id | date | Tried | Outcome | What we do instead | Evidence |
+|---|---|---|---|---|---|
+| L-001 | 2026-11-18 | Build the full fortuna-style program (gauntlet, 6-agent expansion, options alpha) before a proven execution path | Cut; machinery consumed the window while the edge and the cloud path were unresolved | Ship a thin vertical slice first: data → plan → paper fill → journal; add governance after it runs | [ADR 0007](../adr/0007-scope-cut.md), [review](../reviews/2026-11-18-design-review.md) |
+
+## Integrations and channels
+
+| id | date | Tried | Outcome | What we do instead | Evidence |
+|---|---|---|---|---|---|
+| L-002 | 2026-11-18 | Bind personal WeChat via QR + pairing (4 API + 1 console session) | All QR mini-program URLs expired at ~180s with zero `scanned` events; abandoned | Outbound push; prefer a provider whose native client reports scans | [bonus tips](../competition/bonus-tips.md) |
+| L-003 | 2026-11-18 | Qoder Sites Function as inbound Telegram/Forward webhook receiver | Gateway enforces same-origin on POST; server-to-server deliveries carry no `Origin` and were rejected. Bridge dropped | Outbound-only sentinel. No-PC inbound would need a cron poller or external receiver (not built); `bridge-site/` is a documented experiment only | [sentinel runbook](../runbooks/sentinel-telegram.md) |
+| L-004 | 2026-11-19 | Treat a Telegram send timeout as failure and retry | The 18 Nov 22:05 skip notice timed out on both attempts yet both copies arrived; duplicate, and delivery state was unknown | At-least-once semantics: 60s socket timeout, stable content-ref footer, exit `2` UNCONFIRMED on socket errors vs `1` on API failure; never claim exactly-once | commit `9bea17b`, [sentinel runbook](../runbooks/sentinel-telegram.md) |
+| L-005 | 2026-11-18 | Compose digests in Markdown while sending `parse_mode=HTML` | Telegram displayed literal `**` and pipe characters | Deterministic Markdown→Telegram-HTML normalizer in the helper; strict `<b>/<pre>` HTML fallback, never raw Markdown | commit `4723102`, [sentinel runbook](../runbooks/sentinel-telegram.md) |
+| L-006 | 2026-11-19 | Relay Q&A and per-order approvals through a local Telegram listener | The desk PC is not always on, so approvals could not be relied on; listener stopped | Outbound-only sentinel. Approvals happen only in the desk console (per-order confirmation or bounded envelope); no auto-approve path | commit `64cb6d5`, [sentinel runbook](../runbooks/sentinel-telegram.md) |
+| L-007 | 2026-11-18 | Treat a successful QR scan as a paired channel | Binding and pairing are independent: in pairing mode the first real message creates a Pairing Code prompt and no session, and the message is not replayed | Finish binding and pairing as separate steps; after pairing, resend the first message | [bonus tips](../competition/bonus-tips.md) |
+| L-008 | 2026-11-19 | Read the compiled researcher version from the Forward REST `/agents/{id}` route | Route is gone; roster and version reads failed | Read versions with the QCA `list_agents` tool and pass the reported version to the deploy script | [event-discovery runbook](../runbooks/event-discovery.md) |
+
+## Broker and execution
+
+| id | date | Tried | Outcome | What we do instead | Evidence |
+|---|---|---|---|---|---|
+| L-009 | 2026-11-18 | v0.1 execution: subprocess `moomoo` CLI with interactive OAuth login | Cloud sandbox has no CLI binary and cannot complete the browser flow; the whole execute step was unusable | MCP adapter behind the broker protocol, Market Data permission only; `execute`/`fetch` stay local | [ADR 0008](../adr/0008-mcp-adapter-allowlist.md), [review G1](../reviews/2026-11-18-design-review.md) |
+| L-010 | 2026-11-18 | `^SIM` account-id regex as the paper-only guardrail, then an account-type-only check | The regex rejected the real competition account (numeric id, type 2); the type-only check then wrongly blocked the personal type-1 drill account | Allowlist conjunction: `env==paper`, id in allowlist (real ids injected, never committed), `account_type` in `{1,2}` and `market_id==100` verified against the sim account list | [ADR 0002](../adr/0002-paper-only.md), [ADR 0008](../adr/0008-mcp-adapter-allowlist.md), commit `78c7ee8` |
+| L-011 | 2026-11-19 | Direct HTTPS exit transport with OAuth token, no-retry logic and its own test suite | Removed after the portable path landed: ~1,200 lines deleted; exits are MCP-only and `execute-exit` is read-only | One execution transport (MCP). Never maintain parallel broker paths; a local command may check, not submit | commit `2181c12`, [protection runbook](../runbooks/protection-monitor.md) |
+| L-012 | 2026-11-18 | Assume a timed-out submit can be safely retried | MCP submission is non-idempotent; retry can double-submit | On timeout or unknown outcome, query today's orders before any further write; never retry blindly | [ADR 0008](../adr/0008-mcp-adapter-allowlist.md) |
+| L-013 | 2026-11-19 | Let `tyche plan` overwrite live marks with prior-close CSV prices and recompute NAV for risk | Overnight drift tripped `account.reconcile` and blocked every pre-market order | Validate the captured snapshot first; drop `broker_nav` from the planning copy; fail loudly with a recapture message on genuine mismatch | commit `3312287`, [premarket report](../performance/2026-11-19-premarket/report.md) |
+| L-014 | 2026-11-19 | Assume the order tool pauses for platform confirmation | `sim_trade_input_order` is `always_allow` and executes immediately; v6 wording told the model to expect a pause that never comes | Unattended runs with no valid envelope do not submit at all; conversational per-order confirmation only; re-pin after the wording fix | commit `4776c5a` |
+| L-015 | 2026-11-18 | Submit a paper market order outside RTH | Backend rejected it (`ret_code -5`, market closed); no order was created | Use a marketable limit; a submit is not a fill, so reconcile from broker order state | [kill-switch drill](../validation/2026-11-18-kill-switch-drill.md), [bonus tips](../competition/bonus-tips.md) |
+| L-016 | 2026-11-19 | Treat a broker status change and released freeze as proof an order was cancelled | VNQ 3116597 moved from status 2 resting to status 5 with cum 0 and the freeze released; status-5 semantics are unknown, so resurrection could not be excluded | Only a verified status-4 full fill is terminal proof. Keep the unresolved-manual-review flag, block writes on the symbol, and never retry, cancel or modify without per-action operator confirmation | [audit F04](../performance/2026-11-19-premarket/audit/review.md) |
+| L-017 | 2026-11-19 | Build a tactical capture from pre-market MCP quotes | Payloads lacked bid/ask, last price was the prior close and older than 60s; capture/tick was blocked with "no verified two-sided quotes" | Treat last price as non-executable. Capture `quote_market_snapshot` and/or order books fresh at RTH before entry | [premarket report](../performance/2026-11-19-premarket/report.md) |
+| L-018 | 2026-11-19 | Combine a 30-minute review freshness window with hourly checks, and document exits by nominal schedule time | The 13:17 review was stale by the 14:05 check, pushing the earliest entry to 15:05 with 2-tick confirmation; the 20:05 time exit actually fired at 19:05 because `next_check >= deadline` | Size freshness windows to cadence plus jitter; state and test boundary semantics (`>=` fires one interval early) instead of quoting the nominal time | [audit F09/F10](../performance/2026-11-19-premarket/audit/review.md) |
+
+## Automation and cadence
+
+| id | date | Tried | Outcome | What we do instead | Evidence |
+|---|---|---|---|---|---|
+| L-019 | 2026-11-20 | Fixed daily cron (08:05/15:05 ET) for the two-fire desk card | Fired on non-trading days; one card cannot span a month boundary; calendar drift risk | Gate days with `is_trading_day` from the pinned repo calendar, one card per month, alert-only calendar check that proposes but never auto-applies a re-pin | commits `44f0e59`, `eaee402`, `a6343b1`; [calendar deploy](../../scripts/deploy_calendar_check.py) |
+| L-020 | 2026-11-19 | Hourly desk cadence, then six gate-routed fires | Both superseded the same day: too many runs for the decision horizon and run budget | Match cadence to the actual decision horizon; two fires (premarket/close) with retained protection review. Every cadence change is a new pin | commits `4706d3c`, `6ee2b28`, `1430300` |
+| L-021 | 2026-11-18 | Manage agent roster only through the host console | Console Save strips roster pins; template/compiled-version edits silently change the roster | Re-pin via API after any console edit and verify the compiled version | [bonus tips](../competition/bonus-tips.md) |
+| L-022 | 2026-11-19 | Auto-refresh the hosted desk feed every 30 seconds | Removed; polling was replaced by refresh-on-load plus a manual button/R | Do not poll a hosted feed; refresh explicitly and keep challenge and drill account data visually separate | commit `fd7eb5f` |
+
+## Agent and policy configuration
+
+| id | date | Tried | Outcome | What we do instead | Evidence |
+|---|---|---|---|---|---|
+| L-023 | 2026-11-19 | Let the token/model policy script force effort and disable unused tools | It disabled the book/market-state/kline tools the capture contract required, and the new researcher model has no "medium" effort | Keep policy additive; assert the required tool allowlist after every recompile; never let a policy generator silently revert a tool contract | commit `6aa5e3e` |
+| L-024 | 2026-11-19 | Assume every agent can run helpers, persist cited payloads, read a clock and compute hashes | The researcher has no shell and could not persist `/tmp` tool outputs, so quoted MCP values stayed claim-level; the auditor has no clock or shell, so its times and hashes are labeled desk-head claims | Map each role's tool grants to the artifacts it must produce; give capture and persistence to a role that can write; label estimates and desk-head-computed claims explicitly | commit `9eaa017`, [audit F23](../performance/2026-11-19-premarket/audit/review.md) |
+
+## Data, evidence and tests
+
+| id | date | Tried | Outcome | What we do instead | Evidence |
+|---|---|---|---|---|---|
+| L-025 | 2026-11-18 | Assume the cloud sandbox workspace persists after a run | Sandbox is ephemeral and `journal/`, `plans/`, `reports/` are gitignored; evidence - 60% of the score - would vanish | Persist every run: raw data to Drive, sanitized summaries to git; `tyche persist` owns the split | [ADR 0009](../adr/0009-persistence.md), commit `55eef50` |
+| L-026 | 2026-11-18 | Have the researcher hand-transcribe chunked kline CSVs through the model | ~90 minutes for 11 ETFs; the first desk rehearsal died at the 30-minute timeout with no digest | Deterministic bulk fetch: `scripts/mcp_prices.py`, one `num=370` kline call per symbol; raise the schedule timeout to 60 minutes | commit `0e60cb1`, [sentinel runbook](../runbooks/sentinel-telegram.md) |
+| L-027 | 2026-11-19 | Run the full suite with fixtures wired into real operator controls | First full run leaked into the shared kill switch and git writes | Isolate fixtures from real halt/git paths; assert protected files are byte-identical after test runs | commit `2181c12`, [desk controls](../../tests/test_desk_controls.py) |
+| L-028 | 2026-11-18 | Assume git push from the sandbox works on every session | Prior sessions returned 403 on all credential paths; a later retry succeeded | Verify PAT injection and expiry, retry once, and record the push outcome; never assume persistence succeeded because the run completed | commit `c2cbfcd`, [EOD report](../performance/2026-11-18-eod/reports/2026-11-18-eod.md) |
+
+## Record keeping and privacy
+
+| id | date | Tried | Outcome | What we do instead | Evidence |
+|---|---|---|---|---|---|
+| L-029 | 2026-11-20 | Allocate planned playbook ids up front, then reuse one for a live strategy | **open** - `PB-004` is both "Sector rotation heat" (planned) and the live intraday scalp; attribution docs disagree | Claim an id once at pre-registration; update the playbook table when a planned id goes live; one strategy per id forever | [playbooks README](../playbooks/README.md), [scalp.yaml](../../config/scalp.yaml) |
+| L-030 | 2026-11-20 | Trust that the playbook freeze hash still identifies the trading rules | **open** - PB-001's playbook and `rules.refrozen` row say `569eb2c341e0`, but the kernel and journal plans compute `4105d7a680a3`; committed hashes moved `6d99` → `7799` → `4105` on 2026-11-19 with no new re-freeze rows | Assert playbook hash == `rules_hash()` in a test; journal `rules.refrozen` on every universe edit; update the playbook hash in the same commit | [PB-001](../playbooks/PB-001-etf-rotation-ballast.md), [pipeline.py](../../src/tyche/pipeline.py) |
+| L-031 | 2026-11-19 | Let plan payloads carry whatever account id the account snapshot held | Journal events 1-2 embedded the full unmasked account id in `plan.account_id`, while every report masked it | Mask account ids at journal write time; never rewrite history to fix an old payload; keep full ids server-side only | [audit F26a](../performance/2026-11-19-premarket/audit/review.md) |
+| L-032 | 2026-11-19 | Change a risk cap and rely on the next plan to show the new behavior | The 20%→30% per-order cap change was visible in plans but had no config-change journal event, so lineage needed manual reconciliation | Journal config changes with effective time and old/new values; bind plan lineage to that event, not to inference from later plans | [audit F26b](../performance/2026-11-19-premarket/audit/review.md) |
+
+## Template for new rows
+
+```md
+| L-0NN | YYYY-MM-DD | what we tried, one line | what happened, with the number or error | what we do instead | [evidence](relative/link) |
+```

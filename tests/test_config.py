@@ -51,17 +51,23 @@ def test_paper_allocation_profile_preserves_risk_limits() -> None:
     assert config.risk.daily_loss_limit_pct == pytest.approx(0.025)
     assert config.risk.soft_drawdown_pct == pytest.approx(0.04)
     assert config.risk.hard_drawdown_pct == pytest.approx(0.06)
-    assert config.tactical.enabled and config.tactical.options_enabled
-    assert not config.tactical.execution_enabled
+    # PB-004 is the live lane; any enabled tactical lane must own disjoint symbols.
+    assert config.scalp.enabled
+    assert not set(config.scalp.symbols) & set(config.tactical.symbols)
+    assert config.scalp.max_round_trips_per_day == 50
+    assert TacticalConfig().execution_enabled is False  # model default stays closed
     assert not config.risk.allow_short
 
 
-def test_two_fire_tactical_cadence_keeps_freshness_and_default_gate() -> None:
+def test_intraday_tactical_cadence_keeps_freshness_bounds() -> None:
     config = load_config(ROOT)
-    assert config.tactical.monitor_interval_seconds == 25200
-    assert config.tactical.max_quote_age_seconds == 60
+    assert config.tactical.monitor_interval_seconds == 30
+    assert config.tactical.max_quote_age_seconds == 120
     assert config.tactical.max_snapshot_age_seconds == 120
     assert not TacticalConfig().execution_enabled
+    assert TacticalConfig(monitor_interval_seconds=5).monitor_interval_seconds == 5
+    with pytest.raises(ValidationError):
+        TacticalConfig(monitor_interval_seconds=4)
     with pytest.raises(ValidationError):
         TacticalConfig(monitor_interval_seconds=86401)
 

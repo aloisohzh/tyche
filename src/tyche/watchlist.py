@@ -10,6 +10,25 @@ from tyche.models import OptionContract
 
 Sleeve = Literal["equity", "defensive", "real_asset", "credit"]
 Status = Literal["watch", "entered", "exited", "dropped"]
+FactorAxis = Literal["technical", "fundamental", "macro", "flow", "sentiment", "seasonality",
+                     "catalyst", "liquidity"]
+
+
+class Factor(BaseModel):
+    """One piece of evidence for a thesis; unknown is never silently a pass."""
+    model_config = ConfigDict(extra="forbid")
+    name: str
+    axis: FactorAxis
+    state: Literal["pass", "fail", "unknown"]
+    why: str = ""
+    detail: str = ""
+
+
+class Outlook(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    regime: str = ""
+    conviction: Literal["high", "medium", "low"] = "low"
+    alignment: dict[str, Literal["bull", "bear", "neutral"]] = Field(default_factory=dict)
 
 
 class WatchlistEntry(BaseModel):
@@ -24,6 +43,14 @@ class WatchlistEntry(BaseModel):
     expiry: date
     status: Status = "watch"
     thesis: str = ""
+    synthesis: str = ""
+    edge: str = ""
+    bear_case: str = ""
+    invalidation: str = ""
+    horizon: str = ""
+    factors: list[Factor] = Field(default_factory=list)
+    outlook: Outlook | None = None
+    thesis_ref: str = ""
     setup_id: str = ""
     option: OptionContract | None = None
     direction: Literal["bullish", "bearish"] = "bullish"
