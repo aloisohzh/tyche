@@ -13,12 +13,15 @@ writes the daily narrative. The LLM never sizes or submits an order.
 > Paper trading only. The agent refuses live accounts by policy and is not
 > investment advice.
 
-> **Current state (18 Nov 2026):** v0.1 safety core is built and tested. An adversarial review
-> ([docs/reviews/2026-11-18-design-review.md](docs/reviews/2026-11-18-design-review.md)) cut scope for
-> the ~7-session competition window and flagged critical fixes (MCP execution, account allowlist,
-> artifact persistence, fees, competition caps). The competition contract is persisted in
-> [docs/competition/rules.md](docs/competition/rules.md); the doc spine is indexed in
-> [docs/README.md](docs/README.md). DESIGN.md is the v0.1 baseline, partially superseded.
+> **Current state (20 Nov 2026):** the paper desk is running end to end - deterministic kernel, MCP
+> execution behind the paper-only allowlist, hash-chained journal, Telegram sentinel, and four pinned
+> Qoder Cloud Agents (desk, researcher, executor, risk auditor). 441 tests pass. What is real, partial
+> and planned is itemised in the [refinement audit](docs/reviews/2026-11-20-platform-refinement-audit.md)
+> and the [playbook roster](playbook/INDEX.yaml); the live rules are in
+> [docs/agent-rules.md](docs/agent-rules.md). Known open defects are tracked as lessons, not hidden:
+> the auditor prompt quotes caps that no longer match `config/risk.yaml` (L-033), and the per-strategy
+> freeze contract covers PB-001 only (L-036, L-037). DESIGN.md is the v0.1 baseline, partially
+> superseded.
 
 ## Why this design
 
@@ -91,19 +94,25 @@ blocked orders, and appends a hash-chained event to `journal/events.jsonl`.
 ## Layout
 
 ```text
-config/          universe and risk policy (YAML); strategies/ one yaml per playbook
+config/          universe, risk policy and the tactical/scalp lanes (YAML);
+                 strategies/ holds one frozen yaml per playbook id
+playbook/        one thesis file per setup + INDEX.yaml roster; agent-loadable
 src/tyche/
   config.py      typed, validated configuration
   models.py      domain models and enums
   strategies/    registry + one module per algorithm (rotation.py is the reference)
   risk.py        deterministic pre-trade risk kernel
   journal.py     SHA-256 hash-chained JSONL audit log
-  broker/        broker protocol, in-memory paper broker, Moomoo CLI adapter
+  broker/        broker protocol, in-memory paper broker, Moomoo CLI + MCP adapters
   cli.py         Typer entry point
+dashboard/       local desk server + static UI (the authored copy)
+desk-site/       generated site export of the desk; rebuilt by scripts/export_dashboard.py
+scripts/         cloud agent deploys, price/feed fetches, dashboard and site exports
 tests/           unit and end-to-end tests
-scripts/         demo data generator
-docs/            competition contract, scoring map, reviews, ADRs, playbooks,
-                 runbooks, validation, performance, agent-engineering (see docs/README.md)
+docs/            ADRs, lessons, runbooks, validation, performance, competition, reviews
+                 (index: docs/README.md)
+archive/         superseded artifacts, one MANIFEST.md row each
+runs/  journal/  plans/  reports/    runtime evidence and scratch, gitignored
 ```
 
 ## Safety model

@@ -13,7 +13,7 @@ is to stop re-paying for old mistakes - not to re-document how the live system w
 | What actually happened (fills, vetoes, halts) | [journal/events.jsonl](../../journal/events.jsonl) |
 | Generated readings of the journal | [performance/](../performance/) |
 | Dated reviews and parked scope | [reviews/](../reviews/) |
-| Frozen superseded artifacts | [archive/](../archive/) |
+| Frozen superseded artifacts | [archive/](../../archive/MANIFEST.md) |
 
 When a lesson replaces a guardrail, link the ADR that records the replacement. A row is "we tried X,
 it died because Y, so Z" plus the commit or doc that proves it.
@@ -36,7 +36,7 @@ it died because Y, so Z" plus the commit or doc that proves it.
 | id | date | Tried | Outcome | What we do instead | Evidence |
 |---|---|---|---|---|---|
 | L-002 | 2026-11-18 | Bind personal WeChat via QR + pairing (4 API + 1 console session) | All QR mini-program URLs expired at ~180s with zero `scanned` events; abandoned | Outbound push; prefer a provider whose native client reports scans | [bonus tips](../competition/bonus-tips.md) |
-| L-003 | 2026-11-18 | Qoder Sites Function as inbound Telegram/Forward webhook receiver | Gateway enforces same-origin on POST; server-to-server deliveries carry no `Origin` and were rejected. Bridge dropped | Outbound-only sentinel. No-PC inbound would need a cron poller or external receiver (not built); `bridge-site/` is a documented experiment only | [sentinel runbook](../runbooks/sentinel-telegram.md) |
+| L-003 | 2026-11-18 | Qoder Sites Function as inbound Telegram/Forward webhook receiver | Gateway enforces same-origin on POST; server-to-server deliveries carry no `Origin` and were rejected. Bridge dropped | Outbound-only sentinel. No-PC inbound would need a cron poller or external receiver (not built); `archive/bridge-site/` is a documented experiment only | [sentinel runbook](../runbooks/sentinel-telegram.md) |
 | L-004 | 2026-11-19 | Treat a Telegram send timeout as failure and retry | The 18 Nov 22:05 skip notice timed out on both attempts yet both copies arrived; duplicate, and delivery state was unknown | At-least-once semantics: 60s socket timeout, stable content-ref footer, exit `2` UNCONFIRMED on socket errors vs `1` on API failure; never claim exactly-once | commit `9bea17b`, [sentinel runbook](../runbooks/sentinel-telegram.md) |
 | L-005 | 2026-11-18 | Compose digests in Markdown while sending `parse_mode=HTML` | Telegram displayed literal `**` and pipe characters | Deterministic Markdown→Telegram-HTML normalizer in the helper; strict `<b>/<pre>` HTML fallback, never raw Markdown | commit `4723102`, [sentinel runbook](../runbooks/sentinel-telegram.md) |
 | L-006 | 2026-11-19 | Relay Q&A and per-order approvals through a local Telegram listener | The desk PC is not always on, so approvals could not be relied on; listener stopped | Outbound-only sentinel. Approvals happen only in the desk console (per-order confirmation or bounded envelope); no auto-approve path | commit `64cb6d5`, [sentinel runbook](../runbooks/sentinel-telegram.md) |

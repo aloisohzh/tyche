@@ -221,13 +221,13 @@ drill on the PERSONAL paper account before relying on it for challenge orders.
 >
 > Cleanup done: site reverted to **private**; Forward webhook endpoint deleted;
 > local listener and dev preview server stopped; no Telegram webhook set (outbound
-> `sendMessage` digests unaffected). `bridge-site/` and `scripts/cloud_bridge.py`
+> `sendMessage` digests unaffected). `archive/bridge-site/` and `archive/cloud_bridge.py`
 > are retained as a documented experiment, not a live path. A no-PC inbound bridge
 > would need either a scheduled Qoder cloud poller (drains `getUpdates` on a cron)
 > or an external serverless receiver that accepts anonymous POSTs — neither built.
 
 The local listener above requires the operator's PC to be on. The cloud bridge
-replaces it with a Qoder Sites Edge Function (`bridge-site/`) that receives
+replaces it with a Qoder Sites Edge Function (`archive/bridge-site/`) that receives
 webhooks directly, so questions and approvals work from Telegram alone.
 
 **Path**: Telegram → Sites Function (`POST /functions/v1/app/telegram`) and
@@ -259,7 +259,7 @@ function-backend database (`app.bridge_state`, `app.pending_asks`,
   desk schedules bind the newest matching desk session (identity + template
   check), so mid-run approvals route without manual `/session`.
 
-**Setup / wiring** (`scripts/cloud_bridge.py`, PAT from `.env`,
+**Setup / wiring** (`archive/cloud_bridge.py`, PAT from `.env`,
 `MSYS_NO_PATHCONV=1` in Git Bash):
 - `gen-secret` — create `TELEGRAM_WEBHOOK_SECRET` in `.env`.
 - `create-endpoint <site-url>` — register the Forward webhook endpoint

@@ -329,7 +329,7 @@ breaks every subsequent hash.
   `moomoo sim position` instead of a hand-written JSON file.
 - Cloud Agent deployment: built and running (desk, researcher, executor, risk
   auditor). The stale draft spec this bullet pointed at is archived to
-  `docs/archive/cloud-agent-draft-2026-11.md`; current rules live in
+  `archive/cloud-agent-draft-2026-11.md`; current rules live in
   `docs/agent-rules.md` and the topology in `docs/agent-engineering.md`.
   Remaining: the live prompts carry caps that have drifted from
   `config/risk.yaml` and need a re-pin.

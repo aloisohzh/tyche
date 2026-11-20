@@ -20,13 +20,13 @@ Two layers: **living source-of-truth md files** (version-controlled) and **gener
 | [agent-rules.md](agent-rules.md) | Hard rules every agent and contributor obeys; required lessons reading before significant work | living; enforcement is duplicated in the cloud prompts |
 | [agent-engineering.md](agent-engineering.md) | Topology, delegation contract, permissions, version pins, eval loop | living |
 | [dashboard.md](dashboard.md) | Pipeline-as-spine dashboard framework, per-trade contract, panels, API plumbing | living |
-| [archive/](archive/) | Superseded/stale artifacts kept for history | frozen |
+| [../archive/](../archive/MANIFEST.md) | Superseded/stale artifacts, one manifest row each | frozen |
 
 Top level: [DESIGN.md](../DESIGN.md) (v0.1 baseline, partially superseded - see the review),
 [README.md](../README.md).
 
 The old `.qoder/cloud-agent.md` deployment spec was archived to
-[archive/cloud-agent-draft-2026-11.md](archive/cloud-agent-draft-2026-11.md) in `6ee2b28`. It is a
+[archive/cloud-agent-draft-2026-11.md](../archive/cloud-agent-draft-2026-11.md) in `6ee2b28`. It is a
 stale draft (its own header says the CLI + OAuth path does not work in a sandbox); the hard rules it
 carried now live in [agent-rules.md](agent-rules.md).
 

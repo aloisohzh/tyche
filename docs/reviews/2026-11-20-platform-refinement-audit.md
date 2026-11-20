@@ -321,16 +321,18 @@ tyche/
 │   ├── PRD.md                 # current state, versioned; single source of truth for "what exists"
 │   ├── changelog/             # PRD v1.0, v1.1 … previous versions kept verbatim
 │   └── architecture.md        # the live diagram + narrative (PRD links here)
-├── playbook/                  # NEW - agent-loadable strategy library
+├── playbook/                  # NEW - agent-loadable strategy library (built 2026-11-20)
 │   ├── README.md              # contract, lifecycle, classification vocabulary
-│   ├── INDEX.yaml             # machine-readable registry: id, file, enabled, classifications
+│   ├── INDEX.yaml             # machine-readable roster: id, file, config, status
 │   ├── PB-001-*.md            # front matter = classification; body = existing template
-│   └── _TEMPLATE.md           # migrated from docs/playbooks/
+│   ├── PB-004-*.md            # the live scalp lane, previously documented only in config
+│   └── _TEMPLATE.md           # migrated from docs/playbooks/, which is now a pointer
 ├── archive/                   # NEW - superseded work with a MANIFEST.md entry each
-│   ├── MANIFEST.md
-│   └── bridge-site/           # dead per L-003, documented as an experiment
+│   ├── MANIFEST.md            # why each artifact died, what replaced it, how to revive it
+│   ├── bridge-site/           # dead per L-003, documented as an experiment
+│   └── cloud_bridge.py        # the bridge's wiring, kept as the only Sites-webhook example
 ├── config/
-│   ├── strategies/            # PB-001 + scalp + tactical normalised into this contract
+│   ├── strategies/            # PB-001 today; scalp + tactical normalisation is blocked on L-036
 │   └── …
 ├── src/tyche/                 # unchanged; strategies/ registry widened
 ├── dashboard/                 # the one authored UI tree (source of truth)
@@ -338,8 +340,15 @@ tyche/
 ├── scripts/                   # ops scripts; deploy ids consolidated into one module
 ├── data/                      # split: inputs/ (tracked) vs cache/ (ignored) vs fixtures/
 ├── tests/  research/  docs/   # docs/ keeps adr, lessons, runbooks, reviews, validation,
-│                              # performance, competition, archive, agent-rules.md - the living spine
+│                              # performance, competition, agent-rules.md - the living spine
 ```
+
+Two corrections to this plan, made while building it. **There is one archive, not two:** the tree above
+previously listed `archive/` at the root *and* `archive` under `docs/`, which would have left two
+superseded-work dumps to reconcile. `docs/archive/` moved into `/archive`, so `docs/` is now only the
+living spine. And `.scratch/` needed no archiving - it holds nothing but `__pycache__`, already ignored.
+`test_no_archived_code_is_imported` keeps `/archive` unreachable from live code, so consolidation
+cannot quietly reverse itself.
 
 Consolidations, in the order that keeps each step independently verifiable:
 
@@ -399,6 +408,10 @@ per id); 2 gates any playbook format change.
 | 6 | Write the missing PB-004 scalp playbook; mark PB-002/003/005 planned in the PRD | ledger + scalp.yaml rules | none |
 | 7 | `archive/` + `MANIFEST.md`; move `bridge-site/`, superseded schedules, `.scratch/` | existing `docs/archive/` convention | low - verify no live import (`dev/serve-live.mjs` imports `desk-site/functions/handler.ts`) |
 | 8 | `documentation/PRD.md` v1.0 + architecture diagram, statuses honest (implemented / partial / experimental / planned / deprecated) | `DESIGN.md`, `docs/README.md`, `docs/reviews/` | none |
+
+**Status (2026-11-20):** 5, 6 and 7 are built - `/playbook` with front matter, `INDEX.yaml` and the
+missing PB-004 playbook; `/archive` with a manifest, consolidating `docs/archive/`, `bridge-site/` and
+`cloud_bridge.py`. 8 is the remaining Phase 3 item.
 
 ### P2 - dashboard controls (the user-visible half)
 

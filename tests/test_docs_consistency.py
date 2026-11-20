@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -135,15 +136,14 @@ def test_live_playbook_configs_are_frozen() -> None:
 
 
 LINK = re.compile(r"\[([^\]]+)\]\(([^)\s]+)\)")
-MD_SCANNED = ("README.md", "DESIGN.md", "docs", "playbook")
 
 
 def _markdown_files() -> list[Path]:
-    found: list[Path] = []
-    for rel in MD_SCANNED:
-        path = ROOT / rel
-        found.extend([path] if path.is_file() else sorted(path.rglob("*.md")))
-    return found
+    """Tracked markdown only: a link out of an untracked directory goes nowhere real."""
+    tracked = subprocess.run(
+        ["git", "ls-files", "-z"], cwd=ROOT, capture_output=True, check=True
+    ).stdout.decode("utf-8").split("\0")
+    return [ROOT / rel for rel in sorted(tracked) if rel.endswith(".md")]
 
 
 FENCE = re.compile(r"```.*?```", re.DOTALL)
@@ -165,6 +165,32 @@ def test_markdown_links_resolve() -> None:
             if relative and not (path.parent / relative).resolve().exists():
                 dangling.append(f"{path.relative_to(ROOT)} -> {target}")
     assert not dangling, "dangling markdown links:\n" + "\n".join(sorted(dangling))
+
+
+ARCHIVE_REF = re.compile(r"""(?:from|import)\s+[\w.]*archive|["'/]archive/|bridge-site|cloud_bridge""")
+LIVE_CODE_DIRS = ("src", "dashboard", "scripts", "dev", "config")
+LIVE_CODE_SUFFIXES = {".py", ".mjs", ".js", ".ts", ".yaml", ".json"}
+
+
+def test_no_live_code_reaches_into_the_archive() -> None:
+    """archive/ is dead by contract, so a revival must be a move, not a silent import.
+
+    This file is not scanned: it names the patterns it forbids.
+    """
+    offenders = []
+    for rel in LIVE_CODE_DIRS:
+        root = ROOT / rel
+        if not root.is_dir():
+            continue
+        for path in sorted(root.rglob("*")):
+            if path.suffix not in LIVE_CODE_SUFFIXES or not path.is_file():
+                continue
+            for line in path.read_text(encoding="utf-8", errors="ignore").splitlines():
+                stripped = line.strip()
+                if stripped.startswith(("#", "//", "*")) or not ARCHIVE_REF.search(line):
+                    continue
+                offenders.append(f"{path.relative_to(ROOT)}: {stripped[:90]}")
+    assert not offenders, "live code references the archive:\n" + "\n".join(offenders)
 
 
 @pytest.mark.parametrize("dimension,vocabulary", [

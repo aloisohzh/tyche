@@ -82,7 +82,7 @@ Amendment 2026-11-18 18:03 UTC (executor path-B fail-closed wording, operator-ap
 envelope deploy follow-up): under `sim_trade_input_order` = always_allow the tool executes
 IMMEDIATELY with no platform pause, so the v6 path-B phrase "falls back to the platform
 confirmation prompt" was unsafe (the model could call it expecting a pause that never comes).
-Executor system-only edit (`scripts/fix_executor_gate_wording.py`, exact single-occurrence
+Executor system-only edit (`archive/fix_executor_gate_wording.py`, exact single-occurrence
 replacement, idempotent) rewrote path B: input_order is always_allow → never call until
 authorized; a no-envelope order needs CONVERSATIONAL per-order confirmation (preview in the
 reply, call ONLY after the operator's approving message); in an unattended run with no valid

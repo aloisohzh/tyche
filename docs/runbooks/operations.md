@@ -235,7 +235,7 @@ moomoo sim order buy US.SPY 39 --market US --type limit --price 402.45 \
 ## 6. Scheduled runs
 
 The deployment specification this section describes is **superseded**: the draft is
-[archive/cloud-agent-draft-2026-11.md](../archive/cloud-agent-draft-2026-11.md) and the rules that
+[archive/cloud-agent-draft-2026-11.md](../../archive/cloud-agent-draft-2026-11.md) and the rules that
 bind the agents now are [agent-rules.md](../agent-rules.md). The pre-market/end-of-day wording below
 also predates the live cards - see [agent-engineering.md](../agent-engineering.md) for the schedule
 that is actually deployed.
