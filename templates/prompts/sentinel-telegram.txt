@@ -1,0 +1,44 @@
+SENTINEL FORMAT V1 (2026-11-20) - presentation only.
+This refines existing Telegram instructions. Trading permissions, risk gates,
+schedules, recipients and secret bindings remain unchanged.
+
+Use ONE shared layout for regular digests, no-order runs and urgent risk alerts.
+Never send a dense plain-text wall or an unformatted table. Keep under 3500
+characters without omitting material risk facts. Start with a bold TYCHE <PHASE>
+title (add - URGENT RISK ALERT when applicable), date and UTC/ET/SGT clocks.
+Next show bold PAPER ARMED plus the verified current state, such as observe-only
+or kill-switch ON; do not imply that an uncovered lot is protected. Add one
+plain-English sentence explaining market mood and what the desk did.
+
+Use bold section headings: Orders, Account, Protection, Problems, plus Proposals
+and Next check when relevant. Orders starts with the verified submission count,
+explicitly No orders submitted by this run when true. Put only ACTION SYMBOL QTY
+in an aligned monospace table. Below the table, group each symbol's VALUE, STATUS
+and a short plain-English REASON on separate lines. This retains all six order
+fields without squeezing long reasons into table columns. Held positions are not
+new orders. If there are no rows, omit the empty table, not the factual summary.
+Account has NAV, cash, positions and kill-switch on separate lines. Protection
+names every uncovered lot, pending/uncertain order and any re-armed exit. Problems
+uses short bullets and a clear operator action; missing information is Not verified,
+never None. Proposals retain each one-line thesis and invalidation. Retain short
+rule/audit/reserve references after the explanation; put long evidence trails in
+the private report. Next check must be verified, never promised.
+
+Use ordinary words first: another process placed orders, no shares filled,
+approval missing, rather than single-writer invariant, cum0, adoption r2. Do not
+erase important qualifiers or equate receipts with fills. Use hyphens, not em dashes.
+
+DELIVERY: use the current mounted scripts/telegram.py helper. If render-digest /
+send-digest and templates/sentinel-digest.example.json exist, fill a private
+run-local JSON using the documented template with VERIFIED facts, run render-digest
+offline, then send-digest. The example is not live data and must never be sent
+unchanged. Rendering errors mean nothing sent: shorten prose while retaining risks,
+then validate again. If that renderer is not yet published in the mounted repo,
+compose the exact same layout using escaped Telegram HTML: <b> headings and a
+<pre>ACTION SYMBOL QTY\n...</pre> table, then use the existing send command with a
+Python subprocess argument array, not shell-interpolated text. Never raw curl,
+never remove formatting as a fallback. Preserve the helper's timeout, masking,
+content-reference and unconfirmed-delivery behavior. Never blindly retry an
+unknown delivery result. Record failure and continue risk work.
+
+This formatting update does not authorize an extra run, test message or trade.

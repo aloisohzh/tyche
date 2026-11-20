@@ -1,0 +1,32 @@
+{
+  "phase": "CLOSE",
+  "timestamp": "2026-11-19 | 20:31 UTC / 15:31 ET / 04:31 SGT (20 Nov)",
+  "urgent": true,
+  "mode": "EXAMPLE ONLY - not live account data",
+  "stance": "Trading is paused because an order could not be matched to the desk's records.",
+  "orders_summary": "No orders submitted by this run.",
+  "orders": [
+    {
+      "action": "HOLD",
+      "symbol": "US.SPY",
+      "qty": "28",
+      "value": "Not verified",
+      "status": "Exit approval missing",
+      "reason": "Shares remain held. The proposed exit plan is not approved, so protection is not active."
+    }
+  ],
+  "account": {
+    "nav": "Not verified",
+    "cash": "Not verified",
+    "positions": "Example: SPY 28",
+    "kill_switch": "ON (example)"
+  },
+  "protection": [
+    "SPY has no active exit protection. Monitoring is not a broker stop order."
+  ],
+  "problems": [
+    "An order has no matching desk record. Identify its source before allowing further trading."
+  ],
+  "proposals": [],
+  "next_check": "Not scheduled in this example."
+}

@@ -30,14 +30,12 @@ bound IM channel); delivery lives in the run instructions instead.
   monospace — so a digest composed in either syntax renders correctly (fix 2026-11-18:
   the desk had drifted to Markdown while sending `parse_mode=HTML`, showing literal
   `**` and pipes). Compliant HTML passes through unchanged. Plain-language digest
-  < 3500 chars — bold header (phase, date, UTC clock), one-sentence market mood +
-  stance, an **Orders** monospace table (ACTION SYMBOL QTY VALUE STATUS REASON, plain
-  words first, rule id in parentheses), **Account** lines (NAV, cash, positions,
-  kill-switch), **Problems** (or none); immediate alert on kill-switch engagement or
-  risk rejection; one retry after 5 s; delivery failure is recorded but never blocks
-  risk work; no tokens/credentials/full account ids in messages or logs. Fallback if
-  the helper is unavailable: strict Telegram HTML (`<b>`, `<pre>`) via curl
-  `parse_mode=HTML` — never raw Markdown.
+  < 3500 chars - use the shared digest format below: bold headings, a compact
+  **Orders** table with explanations outside it, separate **Account** lines,
+  **Protection**, and **Problems**. Immediate alerts use the same style. Delivery
+  failure is recorded but never blocks risk work; no tokens/credentials/full account
+  ids in messages or logs. Use the existing helper with explicit Telegram HTML when
+  the new structured renderer is unavailable; do not bypass it with raw curl.
 - Schedules: `tyche-premarket` (13:45 UTC), `tyche-eod` (22:15 UTC),
   `tyche-eod-halfday` (27 Nov 18:15 UTC).
 
@@ -62,6 +60,69 @@ bound IM channel); delivery lives in the run instructions instead.
   Normalizes Markdown or HTML to Telegram HTML (`parse_mode=HTML`), masks account
   ids, caps length, appends a stable content ref (`ref: <8 hex>`, sha256 of the
   input digest). Works locally (`.env`) and in the cloud desk (session env vars).
+
+## Shared digest format (2026-11-20)
+
+The active Managed premarket/close deployments replaced the older Forward schedule.
+Their shortened `TELEGRAM` instruction omitted the original formatting requirements;
+plain text therefore passed through the helper unchanged. The November and December
+cards need the same presentation contract for normal digests **and urgent alerts**.
+The paused Forward schedules and the separate local MSFT exit task are not notification
+owners and must not be resumed or otherwise changed for this formatting fix.
+
+Preferred path: fill `templates/sentinel-digest.example.json` with verified run facts,
+then use the deterministic renderer in `scripts/telegram.py`:
+
+```sh
+# Offline example preview only - reads no credentials and sends nothing:
+python scripts/telegram.py render-digest templates/sentinel-digest.example.json
+# Actual runs validate their own private payload before sending it:
+python scripts/telegram.py render-digest <run-dir>/sentinel.json
+python scripts/telegram.py send-digest <run-dir>/sentinel.json
+```
+
+Both commands also accept `-` for JSON on stdin. Never send the example as a live
+account report. The required JSON keys are `phase`, `timestamp` (date + UTC/ET/SGT),
+`mode`, `stance`, `orders_summary`, `orders`, `account`, `protection`, and `problems`.
+Optional keys: boolean `urgent`, list `proposals`, and string `next_check`.
+All text values are single-line plain strings, not Markdown or HTML.
+
+- Bold title and mode, then a one-sentence plain-English market/desk stance.
+- Bold **Orders**, with the explicit verified submission count. A compact monospace
+  `ACTION SYMBOL QTY` table contains only supplied rows; each row requires `action`,
+  `symbol`, `qty`, `value`, `status`, and `reason` strings. Value, status and short
+  reason appear **below** the table, grouped by symbol, so prose cannot widen it.
+  A held position is not a newly submitted order; never infer submission count from
+  the table. Empty orders omit the table but retain the caller's factual summary.
+- Bold **Account**, with `nav`, `cash`, `positions`, and `kill_switch` on separate lines.
+- Bold **Protection** and **Problems**, with short list items. Empty lists mean
+  "Not reported", not "safe" or "none". Include every uncovered lot and uncertain
+  order, including re-armed exits. Optional **Proposals** contains each one-line
+  thesis and invalidation; **Next check** must be verified, not promised.
+- Explain technical codes in ordinary language first: "another process placed orders"
+  instead of "single-writer invariant failed"; "no shares filled" instead of "cum0";
+  "approval missing" instead of "adoption r2 blocked". Retain material qualifiers,
+  brief rule/audit/reserve references, and the distinction between a receipt and a
+  fill. Put long evidence trails in the private run report, not the table.
+- Use hyphens, not em dashes. The renderer escapes markup, masks account IDs, enforces
+  short fields and a conservative 3500-character HTML budget. Invalid or oversized
+  input fails **before sending**; shorten prose without deleting risk facts and
+  re-render. Do not silently truncate protection warnings or invent missing values.
+
+Cloud rollout is compatible with older repo mounts: if the structured renderer is
+not present, compose this exact layout as explicit escaped `<b>`/`<pre>` HTML and
+pass it to the existing `send` helper using an argument array, not shell interpolation.
+No raw curl, no plain-text alternative, and no bypass of the helper's delivery status.
+Local code changes alone do not update the cloud repository mount; explicit HTML
+is the compatibility path once the formatting instruction is installed, until the
+renderer is published. The reusable instruction is saved at
+`templates/prompts/sentinel-telegram.txt`.
+
+Rollout status (2026-11-20): the November deployment update was blocked by the tool
+permission check; no further cloud writes were attempted. Neither active card has
+received this formatting update. Apply the saved instruction in an authorized
+session, preserving all existing run instructions and non-presentation settings.
+No schedules, trades or Telegram test messages were triggered for verification.
 
 ## Delivery semantics (hardened 2026-11-19)
 

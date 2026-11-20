@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import io
+import json
 import sys
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import pytest
@@ -212,3 +215,146 @@ def test_send_truncates_long_digest_but_keeps_ref(monkeypatch: pytest.MonkeyPatc
     assert len(text) <= bridge.MAX_MESSAGE + 40
     assert len(text) < 4096
     assert text.endswith(f"<i>ref: {bridge.digest_ref('x' * 5000)}</i>")
+
+
+def sample_digest() -> dict:
+    path = Path(__file__).resolve().parents[1] / "templates" / "sentinel-digest.example.json"
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+@pytest.mark.parametrize("urgent", [False, True])
+def test_shared_digest_layout(urgent: bool) -> None:
+    data = sample_digest()
+    data["urgent"] = urgent
+    rendered = bridge.render_digest(data)
+    root = ET.fromstring("<message>" + rendered + "</message>")
+    headings = [node.text for node in root.findall("b")]
+    assert ("URGENT RISK ALERT" in headings[0]) is urgent
+    assert headings.index("Orders") < headings.index("Account") < headings.index("Protection")
+    assert "Problems" in headings
+    table = root.find("pre").text
+    assert table.splitlines()[0].split() == ["ACTION", "SYMBOL", "QTY"]
+    assert table.splitlines()[1].split() == ["HOLD", "US.SPY", "28"]
+    assert "Exit approval missing" not in table
+    assert data["orders"][0]["reason"] in rendered
+    assert "Cash: Not verified\nPositions:" in rendered
+    assert "No orders submitted by this run." in rendered
+    assert len(rendered) < bridge.MAX_DIGEST
+
+
+def test_empty_orders_do_not_invent_trading_outcome() -> None:
+    data = sample_digest()
+    data["orders"] = []
+    data["orders_summary"] = "Order history unavailable; submission count not verified."
+    rendered = bridge.render_digest(data)
+    assert "<pre>" not in rendered
+    assert data["orders_summary"] in rendered
+    assert "No orders submitted" not in rendered
+
+
+def test_empty_risk_sections_do_not_claim_safety() -> None:
+    data = sample_digest()
+    data["protection"] = []
+    data["problems"] = []
+    rendered = bridge.render_digest(data)
+    assert "<b>Protection</b>\n- Not reported." in rendered
+    assert "<b>Problems</b>\n- Not reported." in rendered
+    assert "None" not in rendered
+
+
+def test_structured_send_escapes_without_reinterpreting_markdown(monkeypatch) -> None:
+    data = sample_digest()
+    data["stance"] = "A < B & C; **literal** plan_id_one - account 1234567"
+    data["orders"][0]["reason"] = "Literal <b>input</b> is not markup."
+    data["problems"] = ["Approval pending\u2014do not submit."]
+    captured = {}
+    monkeypatch.setattr(
+        bridge, "api",
+        lambda method, params: captured.update(params=params) or {"result": {"message_id": 1}},
+    )
+    bridge.send_digest(data, "test-chat")
+    text = captured["params"]["text"]
+    root = ET.fromstring("<message>" + text + "</message>")
+    assert captured["params"]["parse_mode"] == "HTML"
+    assert captured["params"]["chat_id"] == "test-chat"
+    assert "A &lt; B &amp; C; **literal** plan_id_one" in text
+    assert "&lt;b&gt;input&lt;/b&gt;" in text
+    assert "1234567" not in text and "...567" in text
+    assert "\u2014" not in text and "Approval pending-do not submit." in text
+    assert root.findall("i")[-1].text == "ref: " + bridge.digest_ref(bridge.render_digest(data))
+
+
+@pytest.mark.parametrize("change", [
+    lambda d: d.pop("account"),
+    lambda d: d.update(unknown_risk="must not silently disappear"),
+    lambda d: d.update(urgent="false"),
+    lambda d: d.update(orders="none"),
+    lambda d: d.update(protection="No protection"),
+    lambda d: d.update(phase="CLOSE\nInjected heading"),
+    lambda d: d.update(stance=""),
+    lambda d: d["orders"][0].update(qty=28),
+    lambda d: d["orders"][0].pop("reason"),
+    lambda d: d["account"].update(secret="ignored?"),
+    lambda d: d.update(problems=["x"] * 13),
+])
+def test_invalid_digest_never_reaches_api(change, monkeypatch) -> None:
+    data = sample_digest()
+    change(data)
+    monkeypatch.setattr(bridge, "api", lambda *args: pytest.fail("Must not send invalid input"))
+    with pytest.raises((ValueError, TypeError)):
+        bridge.send_digest(data, "test-chat")
+
+
+def test_oversize_digest_keeps_risks_intact_and_does_not_send(monkeypatch) -> None:
+    data = sample_digest()
+    data["problems"] = ["Risk: " + "x" * 230] * 12
+    monkeypatch.setattr(bridge, "api", lambda *args: pytest.fail("Must not truncate/send"))
+    with pytest.raises(ValueError, match="shorten prose, retain all risk facts"):
+        bridge.send_digest(data, "test-chat")
+
+
+def test_digest_timeout_still_exits_unconfirmed_without_retry(monkeypatch) -> None:
+    calls = []
+
+    def timeout_api(*args):
+        calls.append(args)
+        raise OSError("read timed out")
+
+    monkeypatch.setattr(bridge, "api", timeout_api)
+    with pytest.raises(SystemExit) as exc:
+        bridge.send_digest(sample_digest(), "test-chat")
+    assert exc.value.code == 2
+    assert len(calls) == 1
+
+
+def test_render_digest_cli_is_offline(monkeypatch, capsys) -> None:
+    data = sample_digest()
+    monkeypatch.setattr(sys, "argv", ["telegram.py", "render-digest", "-"])
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(data)))
+    monkeypatch.setattr(bridge, "env", lambda: pytest.fail("Offline render must not read secrets"))
+    monkeypatch.setattr(bridge, "api", lambda *args: pytest.fail("Offline render must not send"))
+    bridge.main()
+    assert capsys.readouterr().out.strip() == bridge.render_digest(data)
+
+
+def test_send_digest_cli_uses_shared_transport(monkeypatch) -> None:
+    data = sample_digest()
+    captured = {}
+    monkeypatch.setattr(sys, "argv", ["telegram.py", "send-digest", "-"])
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(data)))
+    monkeypatch.setattr(bridge, "env", lambda: {"TELEGRAM_CHAT_ID": "test-chat"})
+    monkeypatch.setattr(
+        bridge, "api",
+        lambda method, params: captured.update(params=params) or {"result": {"message_id": 1}},
+    )
+    bridge.main()
+    assert captured["params"]["text"].startswith(bridge.render_digest(data))
+    assert captured["params"]["text"].endswith("</i>")
+
+
+def test_render_cli_reports_invalid_json_without_env_access(monkeypatch) -> None:
+    monkeypatch.setattr(sys, "argv", ["telegram.py", "render-digest", "-"])
+    monkeypatch.setattr(sys, "stdin", io.StringIO("not json"))
+    monkeypatch.setattr(bridge, "env", lambda: pytest.fail("Must validate before reading secrets"))
+    with pytest.raises(SystemExit, match="Invalid digest .nothing sent."):
+        bridge.main()

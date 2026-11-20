@@ -1,6 +1,8 @@
 """Telegram Bot API helper for the tyche sentinel. Token from gitignored .env.
 
-Commands: chat-id, send, listen. `listen` is the inbound bridge: it relays
+Commands: chat-id, send, render-digest, send-digest, listen.
+`render-digest <json-file|->` is offline; `send-digest` uses the same template.
+`listen` is the inbound bridge: it relays
 operator questions to a desk session and surfaces pending always_ask tool
 approvals (e.g. paper order submissions) for explicit /approve or /deny.
 It NEVER auto-approves; only the allowlisted chat can drive it.
@@ -157,6 +159,111 @@ def to_telegram_html(text: str) -> str:
     return "\n".join(out)
 
 
+MAX_DIGEST = 3500
+
+
+def _digest_object(value: object, required: set[str], optional: set[str] | None = None) -> dict:
+    """Reject missing/unknown fields rather than silently dropping risk information."""
+    if not isinstance(value, dict):
+        raise TypeError("Digest sections and order rows must be JSON objects")
+    if required - value.keys():
+        raise ValueError("Missing digest fields: " + ", ".join(sorted(required - value.keys())))
+    if value.keys() - required - (optional or set()):
+        raise ValueError("Unexpected digest fields; use the documented template")
+    return value
+
+
+def _digest_text(value: object, limit: int = 240) -> str:
+    """Plain text only: preserve facts, escape markup, normalize user-facing punctuation."""
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError("Digest values must be non-empty plain-text strings")
+    text = value.strip().replace("\u2014", "-").replace("\u2013", "-")
+    if any(ord(char) < 32 for char in text) or len(text) > limit:
+        raise ValueError(f"Digest values must be single-line and at most {limit} characters")
+    return mask_ids(text)
+
+
+def _digest_lines(value: object) -> list[str]:
+    if not isinstance(value, list) or len(value) > 12:
+        raise ValueError("Digest detail sections must be lists of at most 12 short lines")
+    return [_digest_text(line) for line in value]
+
+
+def render_digest(digest: dict) -> str:
+    """One deterministic layout for routine digests and urgent alerts; no broker access.
+
+    Required facts are supplied by the caller, never inferred from holdings. Table
+    cells stay compact; values, statuses, reasons and rule references live below it.
+    Oversize input is rejected before sending, never sliced through a risk warning.
+    """
+    data = _digest_object(digest, {
+        "phase", "timestamp", "mode", "stance", "orders_summary", "orders",
+        "account", "protection", "problems",
+    }, {"urgent", "proposals", "next_check"})
+    urgent = data.get("urgent", False)
+    if not isinstance(urgent, bool):
+        raise TypeError("urgent must be a JSON boolean")
+    phase = _digest_text(data["phase"], 40).upper()
+    title = "TYCHE " + phase + (" - URGENT RISK ALERT" if urgent else "")
+    out = [
+        f"<b>{esc(title)}</b>",
+        esc(_digest_text(data["timestamp"], 120)),
+        f"<b>{esc(_digest_text(data['mode'], 100))}</b>",
+        "", esc(_digest_text(data["stance"])),
+        "", "<b>Orders</b>", esc(_digest_text(data["orders_summary"])),
+    ]
+    orders = data["orders"]
+    if not isinstance(orders, list) or len(orders) > 12:
+        raise ValueError("orders must be a list of at most 12 rows")
+    rows = [["ACTION", "SYMBOL", "QTY"]]
+    details = []
+    for order in orders:
+        item = _digest_object(order, {"action", "symbol", "qty", "value", "status", "reason"})
+        action = _digest_text(item["action"], 8)
+        symbol = _digest_text(item["symbol"], 24)
+        qty = _digest_text(item["qty"], 12)
+        rows.append([action, symbol, qty])
+        value = esc(_digest_text(item["value"], 40))
+        status = esc(_digest_text(item["status"], 80))
+        reason = esc(_digest_text(item["reason"]))
+        details.append(f"<b>{esc(symbol)}</b>: {value} | {status}\n{reason}")
+    if orders:
+        widths = [max(len(row[i]) for row in rows) for i in range(3)]
+        table = "\n".join(
+            "  ".join(cell.ljust(widths[i]) for i, cell in enumerate(row)).rstrip()
+            for row in rows
+        )
+        out.extend(["<pre>" + esc(table) + "</pre>", "", "\n\n".join(details)])
+
+    account = _digest_object(data["account"], {"nav", "cash", "positions", "kill_switch"})
+    out.extend(["", "<b>Account</b>"])
+    for key, label in [("nav", "NAV"), ("cash", "Cash"),
+                       ("positions", "Positions"), ("kill_switch", "Kill-switch")]:
+        out.append(f"{label}: {esc(_digest_text(account[key]))}")
+    for key, heading in [("protection", "Protection"), ("problems", "Problems")]:
+        lines = _digest_lines(data[key])
+        # Absence is not evidence of safety or absence of problems.
+        out.extend(["", f"<b>{heading}</b>"])
+        out.extend("- " + esc(line) for line in lines or ["Not reported."])
+    if "proposals" in data:
+        lines = _digest_lines(data["proposals"])
+        if lines:
+            out.extend(["", "<b>Proposals</b>"])
+            out.extend("- " + esc(line) for line in lines)
+    if "next_check" in data:
+        out.extend(["", "<b>Next check</b>", esc(_digest_text(data["next_check"]))])
+    rendered = "\n".join(out)
+    if len(rendered.encode("utf-16-le")) // 2 > MAX_DIGEST:
+        raise ValueError("Digest exceeds 3500 characters; shorten prose, retain all risk facts")
+    return rendered
+
+
+def send_digest(digest: dict, chat_id: str) -> None:
+    rendered = render_digest(digest)
+    # Already escaped: do not reinterpret underscores/asterisks in data as Markdown.
+    _send_html(rendered, chat_id, digest_ref(rendered))
+
+
 def digest_ref(text: str) -> str:
     """Stable content ref: identical digests carry the same ref, so a
     retry-after-timeout duplicate is recognizable at a glance."""
@@ -164,8 +271,11 @@ def digest_ref(text: str) -> str:
 
 
 def send(text: str, chat_id: str) -> None:
-    ref = digest_ref(text)
-    html_text = to_telegram_html(mask_ids(text))
+    _send_html(to_telegram_html(mask_ids(text)), chat_id, digest_ref(text))
+
+
+def _send_html(html_text: str, chat_id: str, ref: str) -> None:
+    """Shared transport; rendering never changes timeout, recipient or retry behavior."""
     if len(html_text) > MAX_MESSAGE:
         html_text = html_text[:MAX_MESSAGE] + "\n... (truncated)"
     html_text += f"\n<i>ref: {ref}</i>"
@@ -525,8 +635,27 @@ def listen() -> None:
 
 
 def main() -> None:
+    if len(sys.argv) < 2:
+        raise SystemExit("Usage: telegram.py chat-id|send|render-digest|send-digest|listen")
     command = sys.argv[1]
-    if command == "chat-id":
+    if command in {"render-digest", "send-digest"}:
+        if len(sys.argv) != 3:
+            raise SystemExit(f"Usage: telegram.py {command} <json-file|->")
+        try:
+            source = (sys.stdin.read() if sys.argv[2] == "-"
+                      else Path(sys.argv[2]).read_text(encoding="utf-8-sig"))
+            data = json.loads(source)
+            rendered = render_digest(data)
+        except (ValueError, TypeError, OSError) as error:
+            raise SystemExit(f"Invalid digest (nothing sent): {error}") from error
+        if command == "render-digest":
+            print(rendered)
+        else:
+            chat_id = env().get("TELEGRAM_CHAT_ID")
+            if not chat_id:
+                raise SystemExit("TELEGRAM_CHAT_ID missing from .env; run chat-id first")
+            _send_html(rendered, chat_id, digest_ref(rendered))
+    elif command == "chat-id":
         updates = api("getUpdates", {})["result"]
         chats = {}
         for update in updates:
