@@ -5,8 +5,19 @@ const $ = (sel) => document.querySelector(sel);
 const esc = (s) => String(s ?? "").replace(/[—–]/g, "-").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const hy = (s) => String(s ?? "").replace(/[—–]/g, "-");
 
-const VERSION = "0.4.0";
+const VERSION = "0.5.0";
 const CHANGELOG = [
+  {
+    version: "0.5.0", date: "2026-11-20", title: "Per-trade thesis on every card; exits retry until the broker takes them",
+    items: [
+      "Every trade card now carries the scout's thesis: hypothesis, synthesis, edge, bear case, invalidation, horizon and a pass/fail/unknown factor checklist with the axes it does not cover.",
+      "Outlook reads the per-trade regime, direction, conviction and bull/bear factor alignment instead of a generic playbook line.",
+      "The contract fields (playbook, outlook, expected edge, invalidation) are journaled with each plan, so none of them are guessed from prices.",
+      "A PB-004 exit that never reaches the broker is now an incident: it is journaled as a protection gap and re-armed with fresh quotes instead of expiring after 90 seconds.",
+      "Protection gaps appear on the risk timeline, and scalp fills are counted in their own intraday sleeve for expectancy.",
+      "Re-arming is idempotent: an active request is retried as-is, and a live broker order blocks a duplicate exit.",
+    ],
+  },
   {
     version: "0.4.0", date: "2026-11-20", title: "Plain-English desk: live broker feed, real orderbook, expandable trades",
     items: [
@@ -463,8 +474,13 @@ function tradeKind(status) {
 
 function stageText(key, st) {
   if (!st) return "";
-  if (key === "thesis") return st.text || "";
+  if (key === "thesis") return st.text || (st.synthesis || "");
   if (key === "multifactor") {
+    if (Array.isArray(st.factors) && st.factors.length) {
+      const tally = (s) => st.factors.filter((f) => f.state === s).length;
+      const axes = (st.covered || []).join(", ");
+      return `${tally("pass")} pass · ${tally("fail")} fail · ${tally("unknown")} unknown${axes ? ` · axes: ${axes}` : ""}`;
+    }
     const bits = [];
     if (st.score != null) bits.push(`score ${st.score}`);
     if (typeof st.momentum === "number" || typeof st.momentum === "string") bits.push(`momentum ${st.momentum}`);
@@ -472,7 +488,14 @@ function stageText(key, st) {
     if (st.selected != null) bits.push(st.selected ? "selected by the scan" : "not selected by the scan");
     return bits.length ? bits.join(" · ") : (st.note || "");
   }
-  if (key === "outlook") return st.mapped ? `${st.mapped}${st.regime ? ` (regime: ${st.regime})` : ""}` : (st.gap || "");
+  if (key === "outlook") {
+    const align = Object.entries(st.alignment || {}).map(([axis, view]) => `${axis} ${view}`).join(", ");
+    if (st.conviction || align) {
+      return [st.mapped || st.regime, st.conviction ? `conviction ${st.conviction}` : null, align || null]
+        .filter(Boolean).join(" · ");
+    }
+    return st.mapped ? `${st.mapped}${st.regime ? ` (regime: ${st.regime})` : ""}` : (st.gap || "");
+  }
   if (key === "vehicle") return [st.type, st.rationale].filter(Boolean).join(" · ");
   if (key === "edge") return [st.expected, st.realized != null ? `realized ${signedMoney(st.realized)}` : null].filter(Boolean).join(" · ") || (st.gap || "");
   return "";
@@ -657,7 +680,7 @@ function renderExpectancy() {
 function renderKill() {
   const halted = STATE.halt.halted;
   const drill = STATE.drill;
-  const events = [...(STATE.halt_timeline || [])];
+  const events = [...(STATE.halt_timeline || []), ...(STATE.protection_gaps || [])];
   const sell = (STATE.orders || []).find((o) => o.side === "sell" && o.order_id);
   if (sell) {
     events.push({ ts: sell.requested_ts, type: "order.requested", payload: { symbol: sell.symbol, quantity: sell.quantity } });
@@ -665,12 +688,13 @@ function renderKill() {
   }
   events.sort((a, b) => a.ts.localeCompare(b.ts));
   const items = events.map((ev) => {
-    const cls = ev.type === "halt.engaged" ? "ev-engaged" : ev.type === "halt.skip" ? "ev-skip" : ev.type === "halt.released" ? "ev-released" : "";
+    const cls = ev.type === "halt.engaged" ? "ev-engaged" : ev.type === "halt.skip" || ev.type === "protection.gap" ? "ev-skip" : ev.type === "halt.released" ? "ev-released" : "";
     let text;
     if (ev.type === "halt.skip") text = `blocked ${sym(ev.payload.symbol)} ${ev.payload.quantity} - ${esc(ev.payload.reason)}`;
     else if (ev.type === "halt.engaged") text = `kill-switch engaged - ${esc(ev.payload.reason)}`;
     else if (ev.type === "halt.released") text = `kill-switch released - ${esc(ev.payload.reason)}`;
     else if (ev.type === "order.filled") text = `de-risk sell filled ${ev.payload.quantity} ${sym(ev.payload.symbol)} @ ${money(ev.payload.price)}`;
+    else if (ev.type === "protection.gap") text = `protection gap - ${sym(ev.payload.symbol)} exit never reached the broker (${esc(ev.payload.resolution || "expired")}), re-armed`;
     else text = `de-risk sell requested ${sym(ev.payload.symbol)} ${ev.payload.quantity}`;
     return `<li class="${cls}"><span class="mono">${etHHMM(ev.ts)} ET</span> - ${text}</li>`;
   }).join("");
