@@ -265,10 +265,13 @@ webhook only — read-only, no order actions. Site access is public solely so
 Telegram/Forward can deliver webhooks anonymously; every route is gated by the
 secret checks above.
 
-Verification status: local fixture suite (13 route checks incl. signature
-rejection, dedup, approve/deny, 409 handling) passes; live publication and
-end-to-end webhook round trip pending at time of writing — update this section
-after the first real `webhook.test` delivery and operator `/status` round trip.
+Verification status (closed 2026-11-20): the local fixture suite (13 route checks incl. signature
+rejection, dedup, approve/deny, 409 handling) passes, and that is as far as this path ever got. Live
+publication and the webhook round trip will **not** be verified, because the gateway same-origin rule
+above makes them unreachable: this section is a record of an abandoned experiment, not pending work.
+Do not reopen it as a to-do. Inbound tasking and order approvals stay in the Qoder console;
+`scripts/telegram.py listen` remains the documented local fallback if the operator ever reverses the
+outbound-only decision.
 
 ## Rotation and revocation
 
