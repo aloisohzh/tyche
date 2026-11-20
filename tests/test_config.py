@@ -1,17 +1,20 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
 
 from tyche.config import (
+    PLAYBOOK_LANES,
     AppConfig,
     RiskPolicy,
     SleeveCaps,
     StrategyConfig,
     TacticalConfig,
     load_config,
+    rules_path_for,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -90,7 +93,6 @@ def test_lookback_weights_must_match() -> None:
     with pytest.raises(ValidationError):
         StrategyConfig(
             id="PB-001",
-            playbook="playbook/PB-001-etf-rotation-ballast.md",
             lookbacks=[63, 126],
             lookback_weights=[1.0],
             sleeve_caps=CAPS,
@@ -101,7 +103,6 @@ def test_lookback_weights_must_sum_to_one() -> None:
     with pytest.raises(ValidationError):
         StrategyConfig(
             id="PB-001",
-            playbook="playbook/PB-001-etf-rotation-ballast.md",
             lookbacks=[63, 126],
             lookback_weights=[0.5, 0.2],
             sleeve_caps=CAPS,
@@ -140,3 +141,37 @@ def test_shorting_is_rejected() -> None:
 def test_drawdown_thresholds_must_be_ordered() -> None:
     with pytest.raises(ValidationError):
         RiskPolicy(soft_drawdown_pct=0.08, hard_drawdown_pct=0.06)
+
+
+def test_every_id_the_code_can_emit_has_a_lane() -> None:
+    """An unmapped id has no rules file and no switch, so its lane is unregistrable (L-036)."""
+    literal = re.compile(r"""["'](PB-\d{3})["']""")
+    stamped = {
+        match.group(1)
+        for path in (ROOT / "src" / "tyche").rglob("*.py")
+        for match in literal.finditer(path.read_text(encoding="utf-8"))
+    }
+    assert stamped, "no playbook id is stamped in src: the guard would pass vacuously"
+    unmapped = stamped - set(PLAYBOOK_LANES)
+    assert not unmapped, f"{sorted(unmapped)} stamped onto intents but absent from PLAYBOOK_LANES"
+
+
+def test_enabled_playbook_ids_reads_each_lanes_own_switch() -> None:
+    """`strategy_by_id` only knows rotation configs; the other lanes would raise (L-036)."""
+    config = load_config(ROOT)
+    assert config.strategy_enabled("PB-001") is config.strategy_by_id("PB-001").enabled
+    assert config.strategy_enabled("PB-002") is config.tactical.enabled
+    assert config.strategy_enabled("PB-003") is (
+        config.tactical.enabled and config.tactical.options_enabled
+    )
+    assert config.strategy_enabled("PB-004") is config.scalp.enabled
+    enabled = config.enabled_playbook_ids()
+    assert [pid for pid in PLAYBOOK_LANES if config.strategy_enabled(pid)] == enabled
+    assert "PB-003" in set(PLAYBOOK_LANES) - set(enabled), (
+        "options_enabled is false, so PB-003 must not read as live"
+    )
+
+
+def test_unmapped_strategy_id_says_how_to_fix_it() -> None:
+    with pytest.raises(ValueError, match="PLAYBOOK_LANES"):
+        rules_path_for(ROOT, "PB-999")

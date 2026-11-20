@@ -15,13 +15,14 @@ writes the daily narrative. The LLM never sizes or submits an order.
 
 > **Current state (20 Nov 2026):** the paper desk is running end to end - deterministic kernel, MCP
 > execution behind the paper-only allowlist, hash-chained journal, Telegram sentinel, and four pinned
-> Qoder Cloud Agents (desk, researcher, executor, risk auditor). 441 tests pass. What is real, partial
+> Qoder Cloud Agents (desk, researcher, executor, risk auditor). 447 tests pass. What is real, partial
 > and planned is itemised in the [refinement audit](docs/reviews/2026-11-20-platform-refinement-audit.md)
 > and the [playbook roster](playbook/INDEX.yaml); the live rules are in
 > [docs/agent-rules.md](docs/agent-rules.md). Known open defects are tracked as lessons, not hidden:
-> the auditor prompt quotes caps that no longer match `config/risk.yaml` (L-033), and the per-strategy
-> freeze contract covers PB-001 only (L-036, L-037). DESIGN.md is the v0.1 baseline, partially
-> superseded.
+> the auditor prompt quotes caps that no longer match `config/risk.yaml` (L-033), and no producer writes
+> the `rules.refrozen` journal event the freeze contract assumes (L-035). Every lane's rules hash is now
+> computable and asserted in CI (L-036, L-037 closed 20 Nov 2026). DESIGN.md is the v0.1 baseline,
+> partially superseded.
 
 ## Why this design
 
@@ -51,11 +52,12 @@ and order intents; everything downstream is shared.
   across a configurable ETF universe. Parameters live in
   `config/strategies/pb-001.yaml` and `config/universe.yaml`.
 - **Adding a strategy**: one playbook md, one `config/strategies/pb-xxx.yaml`
-  (id, enabled, playbook ref, parameters), and one module registered in
-  `src/tyche/strategies/` keeping `OrderIntent` as the output, so the risk
-  kernel, turnover budget, order construction, broker adapter, journal, and
-  LLM perimeter apply unchanged (ADR 0014). Each strategy's rules hash is
-  frozen independently. Generalizing the strategy contract is tracked in
+  (id, enabled, parameters - the thesis link goes in `playbook/INDEX.yaml`, never in the frozen
+  file), and one module registered in `src/tyche/strategies/` keeping `OrderIntent` as the output, so
+  the risk kernel, turnover budget, order construction, broker adapter, journal, and
+  LLM perimeter apply unchanged (ADR 0014). Each lane's rules hash is frozen independently from the
+  file named in `PLAYBOOK_LANES` (`src/tyche/config.py`); an id that resolves to no file is a build
+  failure, not a silent block. Generalizing the strategy contract is tracked in
   [DESIGN.md §12](DESIGN.md#12-open-work).
 
 ## Quick start (no Moomoo account needed)

@@ -9,7 +9,7 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 
-from tyche.config import AppConfig, Sleeve, StrategyConfig
+from tyche.config import AppConfig, Sleeve, StrategyConfig, rules_path_for
 from tyche.models import (
     AccountSnapshot,
     EdgeEstimate,
@@ -37,14 +37,16 @@ ACT_WAIT_RULE = (
 
 
 def rules_hash(config_root: Path, strategy_id: str) -> str:
-    """Per-strategy freeze identifier (ADR 0014): that strategy's yaml + universe.
+    """Per-strategy freeze identifier (ADR 0014): that lane's rules yaml + universe.
 
     Editing another strategy's file can never invalidate this hash; a universe
-    edit re-freezes every strategy and must be journaled.
+    edit re-freezes every strategy and must be journaled. The rules file is
+    resolved through PLAYBOOK_LANES, because only the rotation lane follows the
+    config/strategies/<id>.yaml convention (L-036).
     """
     digest = hashlib.sha256()
     paths = (
-        config_root / "config" / "strategies" / f"{strategy_id.lower()}.yaml",
+        rules_path_for(config_root, strategy_id),
         config_root / "config" / "universe.yaml",
     )
     for path in paths:

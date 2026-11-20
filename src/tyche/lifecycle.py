@@ -477,7 +477,7 @@ def decide(plan: LifecyclePlan, book: LifecycleBook, market: MarketSnapshot,
         if rules_hash(config.root, plan.strategy_id) != plan.rules_hash:
             result.action, result.reason = "blocked", "strategy rules changed; re-plan and re-approve"
             return result
-        if not config.strategy_by_id(plan.strategy_id).enabled:
+        if not config.strategy_enabled(plan.strategy_id):
             result.action, result.reason = "blocked", "strategy disabled"
             return result
         from tyche.pipeline import act_wait

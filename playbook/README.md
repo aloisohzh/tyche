@@ -11,8 +11,10 @@ explicitly labeled unvalidated. The ETF rotation is low-vol **ballast**, not an 
 ## This directory is the strategy library, not part of the kernel
 
 `src/tyche/` never imports anything here. The three artifacts a playbook id links stay separate
-(ADR 0014): the thesis (this folder), the rules (`config/strategies/<id>.yaml`) and the code
-(`src/tyche/strategies/`). An agent that needs the current roster reads [INDEX.yaml](INDEX.yaml).
+(ADR 0014): the thesis (this folder), the rules (`config/strategies/<id>.yaml` for a rotation lane;
+whatever `PLAYBOOK_LANES` in `src/tyche/config.py` names for the others) and the code
+(`src/tyche/strategies/`). Nothing in this folder is inside a freeze hash - moving a thesis must never
+re-register a strategy (L-037). An agent that needs the current roster reads [INDEX.yaml](INDEX.yaml).
 
 ## Classification vocabulary
 
@@ -46,10 +48,10 @@ trade behind them.
 
 | id | Setup | Status | Note |
 |---|---|---|---|
-| PB-001 | [ETF rotation ballast](PB-001-etf-rotation-ballast.md) | **live** | rules `becd112bcac8` (see the playbook's freeze history for the mis-recorded `569eb2c341e0` and the two unregistered 2026-11-19 rules changes); low-vol, regime-aware; beta not alpha |
-| PB-002 | Event drift (FOMC minutes / PCE) | planned | defined-risk, small, time exit; needs pre-registration before any trade. `tactical.py` already stamps this id on stock intents (L-036) |
+| PB-001 | [ETF rotation ballast](PB-001-etf-rotation-ballast.md) | **live** | rules `819ad06e35f0` (see the playbook's freeze history for the mis-recorded `569eb2c341e0` and the two unregistered 2026-11-19 rules changes); low-vol, regime-aware; beta not alpha |
+| PB-002 | Event drift (FOMC minutes / PCE) | planned | defined-risk, small, time exit; needs a thesis file before it can be called live. `tactical.py` already stamps this id on stock intents from the **enabled** `config/tactical.yaml`, which freezes PB-002 and PB-003 together at `b6bc571033ac` |
 | PB-003 | First/last-hour liquidity | planned | intraday, limit orders, flat by close. `tactical.py` stamps this id on option intents, and `options_enabled: false` today |
-| PB-004 | [Intraday momentum scalp](PB-004-intraday-momentum-scalp.md) | **live** | the deterministic breakout lane in `config/scalp.yaml`; submission still gated by the executor's rollout hold. **No rules hash** - no `config/strategies/pb-004.yaml` exists (L-036) |
+| PB-004 | [Intraday momentum scalp](PB-004-intraday-momentum-scalp.md) | **live** | the deterministic breakout lane in `config/scalp.yaml`; rules `72077d5d4808`, the lane's first computable hash (L-036 fixed 2026-11-20). Submission still gated by the executor's rollout hold |
 | PB-005 | Defined-risk option vertical | parked | **conflicts with the instrument rules:** a vertical is a spread, and desk/auditor policy allows standard single-leg long calls and puts only. Do not trade without an ADR |
 | PB-006 | Sector rotation heat | planned | relative-strength sleeve; renumbered from the PB-004 collision in L-029 |
 

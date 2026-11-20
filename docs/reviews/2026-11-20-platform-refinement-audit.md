@@ -271,6 +271,22 @@ resolves each id to the file that genuinely defines it (`config/tactical.yaml`,
 which matters because that hash was only just reconciled. It also means `PB-002` and `PB-003` share
 one hash source, which reflects today's reality: they are one parameter file. Recorded as L-036.
 
+**Resolved 2026-11-20 (option 2, as recommended above).** `PLAYBOOK_LANES` maps each id to its rules
+file and enabling switch; `rules_hash()` and `AppConfig.strategy_enabled()` resolve through it, and
+`lifecycle.decide()` asks the latter instead of `strategy_by_id()`, which only ever knew rotation
+configs. All four ids now hash: PB-001 `819ad06e35f0`, PB-002/PB-003 `b6bc571033ac` (shared),
+PB-004 `72077d5d4808` - the scalp and tactical lanes' first ever freeze hash.
+
+One prediction in this section was wrong and is worth keeping visible: the second option was credited
+with leaving PB-001's bytes untouched. It did not, because doing it properly also meant deleting the
+`playbook:` pointer from the hashed file (L-037). PB-001 re-froze anyway, to `819ad06e35f0` with every
+trading parameter byte-identical. The lesson is general: when a guard's input set is wrong, fixing the
+set re-baselines the value, so budget for one honest re-registration instead of assuming you can avoid
+it. What the extra hash bought is that no documentation move can cause one again.
+
+Still open after this fix: no `rules.refrozen` producer exists (L-035), so the freeze lineage above is
+git archaeology rather than journal provenance.
+
 ---
 
 ## 4. Stocks-and-options-only scope
@@ -399,6 +415,11 @@ own warnings against spending the window on machinery.
 Dependencies: 0 gates everything after it - there is no point building on a validation signal the
 pipeline is not actually running. 4 depends on nothing; 3 should precede 5 (classification is filed
 per id); 2 gates any playbook format change.
+
+**Status 2026-11-20.** 0, 1, 3 and 4 are landed. 2 is landed except for its journal half: the playbook
+hash is reconciled and asserted in CI, but no `rules.refrozen` producer exists, so freeze provenance
+remains open as L-035. Item 4's own prediction that the hash source could be fixed without moving
+PB-001's hash did not hold - see §3.8.
 
 ### P1 - strategy and playbook foundation
 

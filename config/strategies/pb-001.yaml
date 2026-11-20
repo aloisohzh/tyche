@@ -2,7 +2,9 @@ id: PB-001
 enabled: true
 # Ballast remains in the arsenal; tactical strategies own the other allocations.
 allocation_cap: 0.25
-playbook: playbook/PB-001-etf-rotation-ballast.md
+# No thesis pointer belongs in this file: these bytes are the PB-001 freeze hash, so a document path
+# would re-register the strategy every time prose moved (L-037). The id maps to its thesis in the
+# playbook roster. Comments here are still inside the hash, so treat an edit as a re-registration.
 
 lookbacks: [63, 126, 252]
 lookback_weights: [0.5, 0.3, 0.2]

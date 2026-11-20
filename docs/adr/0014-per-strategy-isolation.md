@@ -140,3 +140,31 @@ Two further findings from the same pass, neither of which changes the decision:
   raises for the others and the re-freeze discipline this ADR mandates cannot be enforced on
   the two live short-horizon lanes. See
   [audit §3.8](../reviews/2026-11-20-platform-refinement-audit.md) and L-036.
+
+## Resolution of the freeze source (2026-11-20)
+
+Both findings above are closed at the rules layer; neither is closed at the provenance layer.
+
+- **Every emittable id now resolves to the bytes that govern it.** `PLAYBOOK_LANES` in
+  `src/tyche/config.py` maps id -> (rules file, enabling switch): PB-001 to
+  `config/strategies/pb-001.yaml`, PB-002 and PB-003 to `config/tactical.yaml`, PB-004 to
+  `config/scalp.yaml`. `rules_hash()` resolves through it instead of assuming the
+  `config/strategies/<id>.yaml` convention, and an unmapped id with no file raises a message
+  naming both fixes rather than a bare `FileNotFoundError`. PB-002/PB-003 share one hash by
+  construction: they are one lane with one parameter file, so a tactical edit re-registers the
+  pair. That is stated in the roster, not discovered in an incident.
+- **The doc pointer left the frozen bytes.** The `playbook:` key is gone from
+  `StrategyConfig` and from `pb-001.yaml`; id -> thesis now lives in `playbook/INDEX.yaml`.
+  Moving the library can no longer re-freeze a strategy (L-037). PB-001's hash moved a fourth
+  time to `819ad06e35f0`, mechanically computed and recorded with its cause; every trading
+  parameter is byte-identical to `becd112bcac8`.
+- **The enabled check reads the lane, not one config shape.** `lifecycle.decide()` called
+  `strategy_by_id()`, which only knows rotation strategies - the tactical and scalp lanes would
+  have looked up an id that is not in `config.strategies`. `AppConfig.strategy_enabled()` and
+  `enabled_playbook_ids()` now own that question, and they are what the desk and Scout will ask.
+
+Still open, and deliberately not papered over: there is **no `rules.refrozen` producer**, so the
+four PB-001 hashes above are git archaeology rather than journal records (L-035). The CI assertion
+that a declared hash equals the kernel's is the guarantee that the doc and the bytes agree; the
+journal row would be the guarantee that the change was *registered when it happened*, and that one
+is still not enforceable.

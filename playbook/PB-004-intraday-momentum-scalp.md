@@ -12,11 +12,12 @@ classification:
 
 - **Status:** trading in config (`config/scalp.yaml: enabled: true`); submission still gated by the
   executor's rollout hold, so no autonomous order path is live.
-- **Rules hash:** **not computable.** `rules_hash()` reads `config/strategies/pb-004.yaml`, which does
-  not exist - the scalp's rules live in `config/scalp.yaml`. Every PB-004 lifecycle plan therefore
-  fails its freeze guard with a `FileNotFoundError` that `lifecycle.decide()` converts into a blanket
-  block ([audit §3.8](../docs/reviews/2026-11-20-platform-refinement-audit.md), L-036). Written here
-  as a known hole, not as a passing contract.
+- **Rules hash:** `72077d5d4808` (sha256 of `config/scalp.yaml` + `config/universe.yaml`, CRLF
+  normalized, first 12). First computable hash for this lane: `rules_hash()` used to look for a
+  nonexistent `config/strategies/pb-004.yaml`, so the freeze guard raised and `lifecycle.decide()`
+  degraded every PB-004 plan to a blanket block (L-036, [audit §3.8](../docs/reviews/2026-11-20-platform-refinement-audit.md)).
+  The lane's bytes now resolve through `PLAYBOOK_LANES`. The hash covers the whole file, so it is the
+  first real registration - there is no prior freeze lineage for this strategy.
 - **Validation:** unvalidated - no gauntlet, no backtest, small-n intraday sample only.
 - **Sleeve:** intraday
 - **Env:** paper (competition)
@@ -79,4 +80,6 @@ Entry at the ask and exit at the bid, so the round trip pays the full spread; at
 - Kernel: `src/tyche/scalp.py`, rules in `config/scalp.yaml`
 - Id history: this id was double-listed as "sector rotation heat" until 2026-11-20 (L-029); the live
   scalp keeps PB-004 and the planned sleeve moved to PB-006.
-- Blocker to pre-registration: no `config/strategies/pb-004.yaml`, so nothing freezes these rules.
+- Pre-registration blocker closed 2026-11-20: the lane had no resolvable rules file, so its freeze guard
+  raised (L-036). `config/scalp.yaml` now hashes to `72077d5d4808`. What is still missing is a
+  `rules.refrozen` writer (L-035) and any validation at all - see Status above.

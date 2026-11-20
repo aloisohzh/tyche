@@ -11,6 +11,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
+from tyche.config import rules_path_for
 from tyche.pipeline import rules_hash
 
 RULES_HASH_LINE = re.compile(r"\*\*Rules hash:\*\*\s*`([0-9a-f]{12})`")
@@ -74,9 +75,11 @@ def test_declared_playbook_rules_hash_matches_the_kernel() -> None:
     pairs = _playbook_hashes()
     assert pairs, "no playbook declares a rules hash; the guard would pass vacuously"
     for strategy_id, declared in pairs:
-        frozen = ROOT / "config" / "strategies" / f"{strategy_id.lower()}.yaml"
-        if not frozen.is_file():
-            continue  # planned playbook with no kernel config yet
+        try:
+            frozen = rules_path_for(ROOT, strategy_id)
+        except ValueError:
+            continue  # planned playbook with no lane mapped yet
+        assert frozen.is_file(), f"{strategy_id}: {frozen} is the freeze source but does not exist"
         assert declared == rules_hash(ROOT, strategy_id), (
             f"{strategy_id}: playbook says {declared} but the kernel computes "
             f"{rules_hash(ROOT, strategy_id)}; re-register the rules, do not just edit the doc"
@@ -113,26 +116,21 @@ def test_playbook_roster_files_and_ids_agree() -> None:
             assert _front_matter(on_disk[0])["id"] == entry["id"], f"{entry['id']}: file id mismatch"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="L-036: PB-004 is live but its rules live in config/scalp.yaml, so rules_hash() "
-           "cannot verify an approval. Remove this marker when the lane is frozen.",
-)
-def test_live_playbook_configs_are_frozen() -> None:
-    """A live strategy whose rules cannot be hashed is not pre-registered (L-036)."""
-    unregistered = []
+def test_live_playbooks_have_a_freezable_rule_source() -> None:
+    """A live strategy whose rules cannot be hashed is not pre-registered (L-036).
+
+    The roster's `config:` and the kernel's PLAYBOOK_LANES must name the same bytes, or the
+    dashboard reports a strategy as live while approvals freeze a different file.
+    """
     for entry in _roster():
         if entry["status"] != "live":
             continue
-        config_path = ROOT / entry["config"]
-        if config_path.parent != ROOT / "config" / "strategies":
-            unregistered.append(f"{entry['id']} ({entry['config']})")
-            continue
-        rules_hash(ROOT, entry["id"])  # raises FileNotFoundError if the id has no frozen file
-    assert not unregistered, (
-        "live playbooks with rules outside the frozen contract, so rules_hash() cannot "
-        f"verify an approval against them: {unregistered}"
-    )
+        strategy_id = entry["id"]
+        assert rules_hash(ROOT, strategy_id), f"{strategy_id}: no rules hash"
+        assert rules_path_for(ROOT, strategy_id) == ROOT / entry["config"], (
+            f"{strategy_id}: playbook/INDEX.yaml says {entry['config']} but the kernel freezes "
+            f"{rules_path_for(ROOT, strategy_id).relative_to(ROOT)}"
+        )
 
 
 LINK = re.compile(r"\[([^\]]+)\]\(([^)\s]+)\)")

@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from tyche.config import load_config
+from tyche.config import PLAYBOOK_LANES, load_config, rules_path_for
 from tyche.models import AccountSnapshot, OrderIntent, Regime, RiskVerdict, Side
 from tyche.pipeline import (
     act_wait,
@@ -73,6 +73,26 @@ def test_rules_hash_isolated_per_strategy(tmp_path: Path) -> None:
     assert rules_hash(tmp_path, "PB-001") == frozen
     (fake / "universe.yaml").write_bytes(b"assets: [US.SPY]\n")
     assert rules_hash(tmp_path, "PB-001") != frozen
+
+
+def test_rules_hash_covers_every_mapped_lane() -> None:
+    """PB-002/003/004 hashed nothing at all, so their freeze guard blocked everything (L-036)."""
+    for strategy_id in PLAYBOOK_LANES:
+        source = rules_path_for(ROOT, strategy_id)
+        assert source.is_file(), f"{strategy_id}: {source} is the freeze source but does not exist"
+        assert len(rules_hash(ROOT, strategy_id)) == 12, f"{strategy_id}: no hash"
+
+    tactical_pair = {rules_hash(ROOT, pid) for pid in ("PB-002", "PB-003")}
+    assert len(tactical_pair) == 1, "PB-002/PB-003 share config/tactical.yaml, so they freeze together"
+    assert rules_hash(ROOT, "PB-004") not in tactical_pair
+
+
+def test_no_freeze_source_names_a_document() -> None:
+    """A doc path inside the hashed bytes re-freezes a strategy every time the prose moves (L-037)."""
+    for strategy_id in PLAYBOOK_LANES:
+        text = rules_path_for(ROOT, strategy_id).read_text(encoding="utf-8")
+        assert "playbook/" not in text, f"{strategy_id}: thesis path leaked into frozen rules"
+
 
 
 def test_plan_pipeline_pins_inputs(tmp_path: Path) -> None:

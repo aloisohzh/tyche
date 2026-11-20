@@ -10,6 +10,37 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 Sleeve = Literal["equity", "defensive", "real_asset", "credit"]
 RegimeKey = Literal["risk_on", "neutral", "risk_off"]
 
+# Which bytes freeze each playbook id, and which switch turns it on (ADR 0014).
+#
+# Only PB-001 follows the `config/strategies/<id>.yaml` convention; the tactical and scalp lanes keep
+# their own parameter files, and a freeze must cover the bytes that actually govern trading rather
+# than a documentation pointer (L-036, L-037). PB-002 and PB-003 share one file because they are one
+# lane with one set of parameters, so editing tactical.yaml re-registers both - stated rather than
+# discovered later.
+#
+# Rotation ids missing from this table fall back to the convention, so adding PB-007 needs no edit
+# here as long as its config lands in config/strategies/.
+PLAYBOOK_LANES: dict[str, tuple[str, str]] = {
+    "PB-001": ("config/strategies/pb-001.yaml", "rotation"),
+    "PB-002": ("config/tactical.yaml", "tactical"),
+    "PB-003": ("config/tactical.yaml", "tactical_options"),
+    "PB-004": ("config/scalp.yaml", "scalp"),
+}
+
+
+def rules_path_for(config_root: Path, strategy_id: str) -> Path:
+    """Resolve the file that freezes a playbook id, without loading the whole config."""
+    lane = PLAYBOOK_LANES.get(strategy_id)
+    if lane is not None:
+        return config_root / lane[0]
+    candidate = config_root / "config" / "strategies" / f"{strategy_id.lower()}.yaml"
+    if candidate.is_file():
+        return candidate
+    raise ValueError(
+        f"{strategy_id} has no rules file: add config/strategies/{strategy_id.lower()}.yaml "
+        f"or map it in PLAYBOOK_LANES (src/tyche/config.py)"
+    )
+
 
 class Asset(BaseModel):
     symbol: str = Field(pattern=r"^[A-Z]{2}\.[A-Z0-9.]+$")
@@ -68,7 +99,6 @@ class StrategyConfig(BaseModel):
     id: str = Field(pattern=r"^PB-\d{3}$")
     allocation_cap: float = Field(default=0.95, gt=0, le=0.95)
     enabled: bool = True
-    playbook: str
     lookbacks: list[int] = [63, 126, 252]
     lookback_weights: list[float] = [0.5, 0.3, 0.2]
     skip_days: int = 5
@@ -227,6 +257,28 @@ class AppConfig(BaseModel):
             if strategy.id == strategy_id:
                 return strategy
         raise KeyError(f"unknown strategy id: {strategy_id}")
+
+    def rules_path(self, strategy_id: str) -> Path:
+        """The file whose bytes freeze this playbook id (see PLAYBOOK_LANES)."""
+        return rules_path_for(self.root, strategy_id)
+
+    def strategy_enabled(self, strategy_id: str) -> bool:
+        """Whether the lane owning this id is on, across all three config shapes."""
+        lane = PLAYBOOK_LANES.get(strategy_id, (None, "rotation"))[1]
+        if lane == "rotation":
+            return self.strategy_by_id(strategy_id).enabled
+        if lane == "tactical":
+            return self.tactical.enabled
+        if lane == "tactical_options":
+            return self.tactical.enabled and self.tactical.options_enabled
+        if lane == "scalp":
+            return self.scalp.enabled
+        raise ValueError(f"{strategy_id}: unknown lane {lane}")
+
+    def enabled_playbook_ids(self) -> list[str]:
+        """What Scout and the desk should treat as live right now (L-036)."""
+        claimed = {strategy.id for strategy in self.strategies} | set(PLAYBOOK_LANES)
+        return sorted(pid for pid in claimed if self.strategy_enabled(pid))
 
     def enabled_strategies(self) -> list[StrategyConfig]:
         return [strategy for strategy in self.strategies if strategy.enabled]

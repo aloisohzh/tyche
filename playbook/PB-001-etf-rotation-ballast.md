@@ -13,15 +13,16 @@ classification:
 # PB-001 - Regime-aware ETF rotation (ballast)
 
 - **Status:** trading (ballast)
-- **Rules hash:** `becd112bcac8` (sha256 of `config/strategies/pb-001.yaml` + `config/universe.yaml`, CRLF normalized, first 12). Reconciled 2026-11-20; asserted by `tests/test_docs_consistency.py`.
+- **Rules hash:** `819ad06e35f0` (sha256 of `config/strategies/pb-001.yaml` + `config/universe.yaml`, CRLF normalized, first 12). Declared here, computed by the kernel, asserted equal in `tests/test_docs_consistency.py`.
 - **Freeze history:**
   - `946b3ef31a3d` - frozen 2026-11-18 against `config/strategy.yaml` (pre-ADR 0014 layout).
   - `569eb2c341e0` - recorded in the ADR 0014 split as the post-migration hash and carried here until 2026-11-20. **It never matched the committed files.** Recomputing at `010cd9b` gives `6d991165fa64`, so the re-freeze was mis-recorded on arrival rather than drifted later (L-030).
   - `6d991165fa64` - actual hash at `010cd9b` (2026-11-19). File moved and `id`/`enabled`/`playbook` metadata added; trading parameters unchanged, so this one is genuinely "new hash, same rules".
   - `7799974f9fd0` - `43b85ca` (2026-11-19, ADR 0016). **A real rules change:** `initial_stop_pct: 0.08` added.
   - `4105d7a680a3` - `7f61baf` (2026-11-19). **A real rules change:** `allocation_cap: 0.25`, cutting the ballast ceiling to a quarter of NAV.
-  - `becd112bcac8` - 2026-11-20, playbook relocations. **Not a rules change:** the `playbook:` pointer moved from `docs/playbooks/` to `playbook/`; every trading parameter is byte-identical. The pointer is inside the frozen bytes, so a doc move re-hashes the strategy - recorded here rather than hidden, and again with no journal producer (L-035).
-- **Registration gap:** the two 2026-11-19 changes altered sizing and stop rules and were never re-registered here or in the journal. There is no `rules.refrozen` producer in the codebase, so the single existing chain entry could only have been written by hand. Until that mechanism exists, a PB-001 rules change cannot be recorded the way ADR 0014 intends.
+  - `becd112bcac8` - 2026-11-20, playbook relocations. **Not a rules change:** the `playbook:` pointer moved from `docs/playbooks/` to `playbook/`; every trading parameter is byte-identical. The pointer was inside the frozen bytes, so a doc move re-hashed the strategy - the defect corrected by the next entry (L-037).
+  - `819ad06e35f0` - 2026-11-20. **Not a rules change:** the `playbook:` pointer left the hashed file altogether, and the id now maps to this document through `playbook/INDEX.yaml`, while `PLAYBOOK_LANES` resolves each lane's real rules file (L-036, L-037). Trading parameters are byte-identical to `becd112bcac8`; only the two comment lines that named the doc changed. From here a documentation move can never re-register a strategy, and `test_no_freeze_source_names_a_document` fails the build if a path creeps back in.
+- **Registration gap:** the two 2026-11-19 changes altered sizing and stop rules and were never re-registered in the journal. There is still no `rules.refrozen` producer, so every entry above was reconstructed from git blobs rather than recorded as it happened. The CI assertion is what guarantees the declared hash matches the bytes; the journal row is provenance this repo does not yet emit (L-035).
 - **Validation:** unvalidated - beta exposure, not an edge claim; Fortuna's gauntlet rejected every setup it tested
 - **Sleeve:** ballast
 - **Env:** paper (competition)
