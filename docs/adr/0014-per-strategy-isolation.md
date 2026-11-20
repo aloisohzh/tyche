@@ -103,3 +103,26 @@ sole enabled strategy; explicit id required once several are enabled).
   per-strategy symbol scope, which only exists once a second strategy defines
   its tradeable set. The capital allocator and position netting stay deferred
   as decided above.
+
+## Amendment (2026-11-20, refinement audit)
+
+Two claims in the migration note above are wrong and are corrected here rather
+than silently rewritten:
+
+- `569eb2c341e0` **never matched the committed files.** Recomputing
+  `rules_hash` at `010cd9b` yields `6d991165fa64`. The re-freeze was
+  mis-recorded when it was written, not drifted afterwards, so the ADR 0014
+  freeze contract did not actually hold for PB-001 at any point after the split.
+- The `rules.refrozen` journal entry exists, but **no producer for it exists in
+  the codebase**, and none of the later PB-001 rules changes raised one. PB-001's
+  parameters then changed twice for real - `initial_stop_pct` at `43b85ca` and
+  `allocation_cap: 0.25` at `7f61baf` - taking the hash to `7799974f9fd0` and
+  `4105d7a680a3` with no re-registration.
+
+The mechanism this ADR assumed (an automatic re-freeze record on every rules or
+universe edit) is therefore still unbuilt, and is logged as required work in
+[LESSONS.md L-030](../lessons/LESSONS.md). Until it lands, per-strategy isolation
+holds for *file layout and hashing inputs* but not for *freeze provenance*.
+`tests/test_docs_consistency.py` now asserts a declared playbook hash equals the
+kernel's, which catches drift at the doc boundary but cannot reconstruct a
+freeze event that was never written.

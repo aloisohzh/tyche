@@ -1,9 +1,15 @@
-# PB-001 — Regime-aware ETF rotation (ballast)
+# PB-001 - Regime-aware ETF rotation (ballast)
 
 - **Status:** trading (ballast)
-- **Rules hash:** `569eb2c341e0` (sha256 of config/strategies/pb-001.yaml + config/universe.yaml bytes, first 12; re-frozen 2026-11-19)
-- **Freeze history:** `946b3ef31a3d` frozen 2026-11-18 against config/strategy.yaml. ADR 0014 migration (2026-11-19) moved the file to config/strategies/pb-001.yaml and added id/enabled/playbook metadata; every trading parameter is byte-identical. New hash, same rules — not a re-tune.
-- **Validation:** unvalidated — beta exposure, not an edge claim; Fortuna's gauntlet rejected every setup it tested
+- **Rules hash:** `4105d7a680a3` (sha256 of `config/strategies/pb-001.yaml` + `config/universe.yaml`, CRLF normalized, first 12). Reconciled 2026-11-20; asserted by `tests/test_docs_consistency.py`.
+- **Freeze history:**
+  - `946b3ef31a3d` - frozen 2026-11-18 against `config/strategy.yaml` (pre-ADR 0014 layout).
+  - `569eb2c341e0` - recorded in the ADR 0014 split as the post-migration hash and carried here until 2026-11-20. **It never matched the committed files.** Recomputing at `010cd9b` gives `6d991165fa64`, so the re-freeze was mis-recorded on arrival rather than drifted later (L-030).
+  - `6d991165fa64` - actual hash at `010cd9b` (2026-11-19). File moved and `id`/`enabled`/`playbook` metadata added; trading parameters unchanged, so this one is genuinely "new hash, same rules".
+  - `7799974f9fd0` - `43b85ca` (2026-11-19, ADR 0016). **A real rules change:** `initial_stop_pct: 0.08` added.
+  - `4105d7a680a3` - `7f61baf` (2026-11-19). **A real rules change:** `allocation_cap: 0.25`, cutting the ballast ceiling to a quarter of NAV.
+- **Registration gap:** the last two changes altered sizing and stop rules and were never re-registered here or in the journal. There is no `rules.refrozen` producer in the codebase, so the single existing chain entry could only have been written by hand. Until that mechanism exists, a PB-001 rules change cannot be recorded the way ADR 0014 intends.
+- **Validation:** unvalidated - beta exposure, not an edge claim; Fortuna's gauntlet rejected every setup it tested
 - **Sleeve:** ballast
 - **Env:** paper (competition)
 
@@ -18,7 +24,7 @@ Why it should work after fees: momentum + inverse-vol weighting is a documented 
 harvest; low turnover (drift band 20%, min trade $500) keeps modeled fees small.
 Why it might not: momentum crashes on regime whipsaws; 7-session competition n is far too
 small to validate anything. Drift ≠ edge: no claim of beating a random entry in the same
-regime — the value is the risk path, not the return.
+regime - the value is the risk path, not the return.
 
 ## Universe / liquidity filter
 config/universe.yaml: 11 broad ETFs (SPY/QQQ/IWM/EFA/EEM/TLT/IEF/GLD/DBC/VNQ/HYG),
@@ -33,7 +39,7 @@ portfolio vol, regime sleeve caps, 5% cash floor. Limit = last ±0.1%. Session: 
 Per position: rotation target drops to 0 when the symbol's momentum ≤ 0 or the regime
 flips to risk_off (<2 of 4 checks: SPY>200-SMA, golden cross, vol calm, HYG/IEF credit
 trend); exit at next rebalance. Strategy-level: hard drawdown 6% blocks all buys;
-daily loss 2.5% blocks buys. No broker-native stop on sim — protection is rebalance +
+daily loss 2.5% blocks buys. No broker-native stop on sim - protection is rebalance +
 risk kernel (protection_type=rebalance), synthetic monitor is P2.
 
 ## Sizing
@@ -63,7 +69,7 @@ constitutes that approval. Synthetic hourly checks do not guarantee stop prices
 or liquidation at the deadline; choose deadlines within the deployed schedule.
 
 ## Regime fit
-All regimes — the sleeve caps are the regime expression (risk_off: equity ≤20%,
+All regimes - the sleeve caps are the regime expression (risk_off: equity ≤20%,
 defensive ≤60%, credit 0).
 
 ## Fees/slippage note
