@@ -11,7 +11,7 @@ Two layers: **living source-of-truth md files** (version-controlled) and **gener
 | [competition/scoring-map.md](competition/scoring-map.md) | Criterion → artifact → evidence → status | living |
 | [reviews/](reviews/) | Dated design/product reviews (e.g. 2026-11-18 adversarial review) | append-only snapshots |
 | [adr/](adr/) | Architecture decision records (0001–0006 accepted; new ones proposed in reviews) | one decision per file |
-| [playbooks/](playbooks/) | One setup per file: thesis, edge, entry, **invalidation**, sizing, exit | living; pre-register before trading |
+| [../playbook/](../playbook/README.md) | One setup per file: thesis, edge, entry, **invalidation**, sizing, exit | living; pre-register before trading |
 | [risk-card.md](risk-card.md) | Every cap keyed + asserted by a test | living; doc-as-test |
 | [runbooks/](runbooks/) | Operations, daily routine, halt/kill, EOD reconcile, incident | living |
 | [validation/](validation/) | Pre-registration convention, NO-GO ledger, parked gauntlet | append-only verdicts |

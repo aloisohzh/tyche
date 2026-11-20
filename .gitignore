@@ -21,6 +21,10 @@ dist/
 /journal/
 /plans/
 /reports/
+# Run scratch: raw fetches, snapshots and receipts. The performance reports cite
+# these by path + sha256, so they are evidence - but they are only preserved when
+# `tyche persist` is run against them (ADR 0009), and never committed.
+/runs/
 /data/research/
 # Transient broker feeds carry the paper account id in raw payloads; never tracked.
 /data/feed-*/

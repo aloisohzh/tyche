@@ -140,7 +140,7 @@ def make_config() -> AppConfig:
         strategies=[
             StrategyConfig(
                 id="PB-001",
-                playbook="docs/playbooks/PB-001-etf-rotation-ballast.md",
+                playbook="playbook/PB-001-etf-rotation-ballast.md",
                 sleeve_caps={"risk_on": caps, "neutral": caps, "risk_off": caps},
             )
         ],

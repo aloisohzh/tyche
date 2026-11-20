@@ -1,10 +1,23 @@
-# PB-XXX — <setup name>
+---
+id: PB-XXX
+title: <setup name>
+classification:
+  holding_period: Scalping | Intraday | Swing | Position | Long-term
+  strategy_type: Trend following | Mean reversion | Momentum | Breakout | Arbitrage | Market making | Event-driven | Statistical/quantitative
+  execution_style: Manual | Semi-automated | Fully automated
+  instruments: [Stocks, Options]
+---
+
+# PB-XXX - <setup name>
 
 - **Status:** draft / pre-registered / trading / killed
 - **Rules hash:** `<freeze before trading>`
 - **Validation:** unvalidated / sanity-checked / backtested (label honestly)
 - **Sleeve:** ballast / event / intraday / options
 - **Env:** paper (competition)
+
+Pick one value per classification dimension (README.md fixes the vocabulary); `instruments` is the only
+list, because a setup can hold both stocks and options.
 
 ## Thesis
 One paragraph: what market behavior this exploits.
@@ -21,7 +34,7 @@ Exact, deterministic condition. Limit price rule. Session window (ET).
 
 ## Invalidation
 The condition that kills this trade (and this strategy). Explicit price/level/time/event. This is a
-judging requirement — never leave it vague.
+judging requirement - never leave it vague.
 
 ## Sizing
 Risk unit (R), risk-per-trade %, single-asset headroom (target ≤38%), sleeve cap, cash buffer.

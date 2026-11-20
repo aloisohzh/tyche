@@ -3,7 +3,7 @@
 > **Status: draft v0.1, stale in part.** The CLI + OAuth path below does not work in a cloud sandbox;
 > execution moves to the **Moomoo MCP** and the `^SIM` guard to an **account allowlist** (review G1/G2).
 > The topology becomes coordinator + researcher + executor + risk auditor + advisor
-> ([docs/agent-engineering.md](../docs/agent-engineering.md)). The hard rules at the bottom still hold.
+> ([docs/agent-engineering.md](../agent-engineering.md)). The hard rules at the bottom still hold.
 > Rewrite this spec on operator approval of the review; do not deploy from it as-is.
 
 Status: draft, not yet deployed. Cloud Agents are created through the QCA tools

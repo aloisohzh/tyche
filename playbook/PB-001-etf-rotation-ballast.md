@@ -1,14 +1,27 @@
+---
+id: PB-001
+title: Regime-aware ETF rotation (ballast)
+# The four classification dimensions are independent (see playbook/README.md). Only playbook/INDEX.yaml
+# and this block describe a playbook; nothing here is restated in an agent prompt (L-033).
+classification:
+  holding_period: Position          # rebalances on drift bands, multi-session horizon
+  strategy_type: Momentum           # cross-asset momentum, inverse-vol weighted
+  execution_style: Semi-automated   # deterministic kernel plans; entries need operator approval
+  instruments: [Stocks]             # broad ETFs; no options in this sleeve
+---
+
 # PB-001 - Regime-aware ETF rotation (ballast)
 
 - **Status:** trading (ballast)
-- **Rules hash:** `4105d7a680a3` (sha256 of `config/strategies/pb-001.yaml` + `config/universe.yaml`, CRLF normalized, first 12). Reconciled 2026-11-20; asserted by `tests/test_docs_consistency.py`.
+- **Rules hash:** `becd112bcac8` (sha256 of `config/strategies/pb-001.yaml` + `config/universe.yaml`, CRLF normalized, first 12). Reconciled 2026-11-20; asserted by `tests/test_docs_consistency.py`.
 - **Freeze history:**
   - `946b3ef31a3d` - frozen 2026-11-18 against `config/strategy.yaml` (pre-ADR 0014 layout).
   - `569eb2c341e0` - recorded in the ADR 0014 split as the post-migration hash and carried here until 2026-11-20. **It never matched the committed files.** Recomputing at `010cd9b` gives `6d991165fa64`, so the re-freeze was mis-recorded on arrival rather than drifted later (L-030).
   - `6d991165fa64` - actual hash at `010cd9b` (2026-11-19). File moved and `id`/`enabled`/`playbook` metadata added; trading parameters unchanged, so this one is genuinely "new hash, same rules".
   - `7799974f9fd0` - `43b85ca` (2026-11-19, ADR 0016). **A real rules change:** `initial_stop_pct: 0.08` added.
   - `4105d7a680a3` - `7f61baf` (2026-11-19). **A real rules change:** `allocation_cap: 0.25`, cutting the ballast ceiling to a quarter of NAV.
-- **Registration gap:** the last two changes altered sizing and stop rules and were never re-registered here or in the journal. There is no `rules.refrozen` producer in the codebase, so the single existing chain entry could only have been written by hand. Until that mechanism exists, a PB-001 rules change cannot be recorded the way ADR 0014 intends.
+  - `becd112bcac8` - 2026-11-20, playbook relocations. **Not a rules change:** the `playbook:` pointer moved from `docs/playbooks/` to `playbook/`; every trading parameter is byte-identical. The pointer is inside the frozen bytes, so a doc move re-hashes the strategy - recorded here rather than hidden, and again with no journal producer (L-035).
+- **Registration gap:** the two 2026-11-19 changes altered sizing and stop rules and were never re-registered here or in the journal. There is no `rules.refrozen` producer in the codebase, so the single existing chain entry could only have been written by hand. Until that mechanism exists, a PB-001 rules change cannot be recorded the way ADR 0014 intends.
 - **Validation:** unvalidated - beta exposure, not an edge claim; Fortuna's gauntlet rejected every setup it tested
 - **Sleeve:** ballast
 - **Env:** paper (competition)
@@ -61,7 +74,7 @@ research blocks entries without disabling already-approved protective exits.
 Changing the contract requires a new preview and approval; a positive research
 refresh cannot silently rearm a previously invalidated lifecycle.
 
-The [hourly lifecycle workflow](../runbooks/protection-monitor.md) is deployed
+The [hourly lifecycle workflow](../docs/runbooks/protection-monitor.md) is deployed
 in observe-only mode as of 2026-11-19; automatic orders remain unarmed pending
 storage/risk integration checks and reviewed adoption approvals. Neither the
 sizing stop nor an old research level

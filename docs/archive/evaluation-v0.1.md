@@ -43,7 +43,7 @@ reproducible rather than a one-off chat session.
 
 ## Strategy and risk design
 
-- [DESIGN.md](../DESIGN.md) states the thesis, rules, and thresholds.
+- [DESIGN.md](../../DESIGN.md) states the thesis, rules, and thresholds.
 - Six ADRs record the architectural decisions and rejected alternatives.
 - `tests/test_risk.py` covers each kernel invariant, including projected fills,
   the de-risking sell exemption, halt behavior, soft drawdown halving, and

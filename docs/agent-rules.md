@@ -24,7 +24,7 @@ cap because it reads as authority.
 |---|---|
 | Broker, orders, fills, exits | ADR 0002, 0008; lessons "Broker and execution" |
 | Risk caps, sizing | ADR 0003, 0010, 0016; [risk-card.md](risk-card.md) |
-| Config contract, strategies, playbooks | ADR 0007, 0014; [playbooks/README.md](playbooks/README.md) |
+| Config contract, strategies, playbooks | ADR 0007, 0014; [playbook/README.md](../playbook/README.md) |
 | Schedules, cadence, automation cards | ADR 0011; lessons "Automation and cadence" |
 | Agent prompts, permissions, roster | [agent-engineering.md](agent-engineering.md); lessons "Agent and policy configuration" |
 | Persistence, journal, reports | ADR 0005, 0009; lessons "Data, evidence and tests" |

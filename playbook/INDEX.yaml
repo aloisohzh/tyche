@@ -1,0 +1,44 @@
+# Playbook registry.
+#
+# One row per claimed id. An id is claimed once and kept forever (L-029), so this roster is the
+# authority on what exists - the table in README.md is the human-facing copy of it.
+#
+# Deliberately NOT duplicated here:
+#   - the four classification dimensions live in each file's YAML front matter (one source);
+#   - `enabled` lives in the strategy config, because a toggle is a rule change, not a doc change;
+#   - the rules hash lives in the playbook body and is computed by the kernel, never hand-written.
+#
+# `tests/test_docs_consistency.py` asserts this roster, the front matter and the config files agree.
+playbooks:
+  - id: PB-001
+    file: playbook/PB-001-etf-rotation-ballast.md
+    config: config/strategies/pb-001.yaml
+    status: live
+
+  # PB-002/PB-003 are stamped onto tactical intents at src/tyche/tactical.py:243,345 but have no
+  # thesis file and no config/strategies entry, so their freeze guard cannot compute a hash
+  # (docs/reviews/2026-11-20-platform-refinement-audit.md section 3.8, lesson L-036).
+  - id: PB-002
+    file: null
+    config: config/tactical.yaml
+    status: planned
+
+  - id: PB-003
+    file: null
+    config: config/tactical.yaml
+    status: planned
+
+  - id: PB-004
+    file: playbook/PB-004-intraday-momentum-scalp.md
+    config: config/scalp.yaml
+    status: live
+
+  - id: PB-005
+    file: null
+    config: null
+    status: parked
+
+  - id: PB-006
+    file: null
+    config: null
+    status: planned

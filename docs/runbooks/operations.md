@@ -234,10 +234,11 @@ moomoo sim order buy US.SPY 39 --market US --type limit --price 402.45 \
 
 ## 6. Scheduled runs
 
-The deployment specification is [.qoder/cloud-agent.md](../.qoder/cloud-agent.md).
-It defines the agent prompt, the pre-market and end-of-day schedule, the
-environment, and the guardrails. Create the agent and deployment with the QCA
-tools after completing that checklist.
+The deployment specification this section describes is **superseded**: the draft is
+[archive/cloud-agent-draft-2026-11.md](../archive/cloud-agent-draft-2026-11.md) and the rules that
+bind the agents now are [agent-rules.md](../agent-rules.md). The pre-market/end-of-day wording below
+also predates the live cards - see [agent-engineering.md](../agent-engineering.md) for the schedule
+that is actually deployed.
 
 A Cloud Agent run executes the same sequence non-interactively. It must stop
 rather than guess when authentication fails, prices are stale, the journal is

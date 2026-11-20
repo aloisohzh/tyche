@@ -4,6 +4,7 @@ import re
 import sys
 from pathlib import Path
 
+import pytest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -42,9 +43,24 @@ def test_published_price_floor_matches_config() -> None:
     assert f"| Min price | ${price:.2f} | ${price:.2f} |" in _doc("docs/risk-card.md")
 
 
+def _playbook_dir() -> Path:
+    return ROOT / "playbook"
+
+
+def _front_matter(path: Path) -> dict:
+    text = path.read_text(encoding="utf-8")
+    if not text.startswith("---\n"):
+        return {}
+    return yaml.safe_load(text.split("---\n", 2)[1]) or {}
+
+
+def _roster() -> list[dict]:
+    return yaml.safe_load(_doc("playbook/INDEX.yaml"))["playbooks"]
+
+
 def _playbook_hashes() -> list[tuple[str, str]]:
     found = []
-    for path in sorted((ROOT / "docs" / "playbooks").glob("PB-*.md")):
+    for path in sorted(_playbook_dir().glob("PB-*.md")):
         matched = PLAYBOOK_ID.match(path.name)
         declared = RULES_HASH_LINE.search(path.read_text(encoding="utf-8"))
         if matched and declared:
@@ -68,8 +84,112 @@ def test_declared_playbook_rules_hash_matches_the_kernel() -> None:
 
 def test_playbook_ids_are_claimed_once() -> None:
     """PB-004 named two setups at once and attribution became unreliable (L-029)."""
-    table = _doc("docs/playbooks/README.md")
+    table = _doc("playbook/README.md")
     ids = re.findall(r"^\| (PB-\d{3}) \|", table, flags=re.MULTILINE)
     assert ids, "playbook index table is missing"
     duplicates = {i for i in ids if ids.count(i) > 1}
     assert not duplicates, f"playbook id claimed by more than one setup: {sorted(duplicates)}"
+
+
+def test_playbook_roster_files_and_ids_agree() -> None:
+    """The roster, the table and the files must name the same set of ids (L-029)."""
+    roster = _roster()
+    assert roster, "playbook/INDEX.yaml is empty"
+    roster_ids = [entry["id"] for entry in roster]
+    assert len(roster_ids) == len(set(roster_ids)), "INDEX.yaml lists an id twice"
+    table_ids = re.findall(r"^\| (PB-\d{3}) \|", _doc("playbook/README.md"), flags=re.MULTILINE)
+    assert sorted(roster_ids) == sorted(table_ids), (
+        f"roster {sorted(roster_ids)} and README table {sorted(table_ids)} disagree"
+    )
+    for entry in roster:
+        path = _playbook_dir() / f"{entry['id']}-*.md"
+        on_disk = sorted(path.parent.glob(path.name))
+        if entry["status"] == "live":
+            assert on_disk, f"{entry['id']} is live but has no playbook file"
+        if entry.get("file") is not None:
+            assert (ROOT / entry["file"]).is_file(), f"{entry['file']} is listed but missing"
+        if on_disk:
+            assert _front_matter(on_disk[0])["id"] == entry["id"], f"{entry['id']}: file id mismatch"
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="L-036: PB-004 is live but its rules live in config/scalp.yaml, so rules_hash() "
+           "cannot verify an approval. Remove this marker when the lane is frozen.",
+)
+def test_live_playbook_configs_are_frozen() -> None:
+    """A live strategy whose rules cannot be hashed is not pre-registered (L-036)."""
+    unregistered = []
+    for entry in _roster():
+        if entry["status"] != "live":
+            continue
+        config_path = ROOT / entry["config"]
+        if config_path.parent != ROOT / "config" / "strategies":
+            unregistered.append(f"{entry['id']} ({entry['config']})")
+            continue
+        rules_hash(ROOT, entry["id"])  # raises FileNotFoundError if the id has no frozen file
+    assert not unregistered, (
+        "live playbooks with rules outside the frozen contract, so rules_hash() cannot "
+        f"verify an approval against them: {unregistered}"
+    )
+
+
+LINK = re.compile(r"\[([^\]]+)\]\(([^)\s]+)\)")
+MD_SCANNED = ("README.md", "DESIGN.md", "docs", "playbook")
+
+
+def _markdown_files() -> list[Path]:
+    found: list[Path] = []
+    for rel in MD_SCANNED:
+        path = ROOT / rel
+        found.extend([path] if path.is_file() else sorted(path.rglob("*.md")))
+    return found
+
+
+FENCE = re.compile(r"```.*?```", re.DOTALL)
+
+
+def _prose(path: Path) -> str:
+    """Fenced blocks hold templates, not links: `[evidence](relative/link)` must not count."""
+    return FENCE.sub("", path.read_text(encoding="utf-8"))
+
+
+def test_markdown_links_resolve() -> None:
+    """Docs rotted twice because nothing checked a link survived a move (audit section 3.1)."""
+    dangling = []
+    for path in _markdown_files():
+        for _, target in LINK.findall(_prose(path)):
+            if target.startswith(("#", "http://", "https://", "mailto:", "{")):
+                continue
+            relative = target.split("#")[0]
+            if relative and not (path.parent / relative).resolve().exists():
+                dangling.append(f"{path.relative_to(ROOT)} -> {target}")
+    assert not dangling, "dangling markdown links:\n" + "\n".join(sorted(dangling))
+
+
+@pytest.mark.parametrize("dimension,vocabulary", [
+    ("holding_period", {"Scalping", "Intraday", "Swing", "Position", "Long-term"}),
+    ("strategy_type", {"Trend following", "Mean reversion", "Momentum", "Breakout", "Arbitrage",
+                       "Market making", "Event-driven", "Statistical/quantitative"}),
+    ("execution_style", {"Manual", "Semi-automated", "Fully automated"}),
+])
+def test_playbook_classification_uses_the_frozen_vocabulary(
+    dimension: str, vocabulary: set[str]
+) -> None:
+    """Four independent dimensions, fixed words: Scout and the dashboard filter on these."""
+    offenders = []
+    for path in sorted(_playbook_dir().glob("PB-*.md")):
+        matter = _front_matter(path)
+        assert matter, f"{path.name} has no YAML front matter"
+        value = (matter.get("classification") or {}).get(dimension)
+        if value is None or (dimension != "instruments" and value not in vocabulary):
+            offenders.append(f"{path.name}: {dimension}={value!r}")
+    assert not offenders, f"unknown {dimension} value(s): {offenders}"
+
+
+def test_playbook_instruments_are_stocks_and_options_only() -> None:
+    """The window trades stocks and options; anything else is out of scope by construction."""
+    for path in sorted(_playbook_dir().glob("PB-*.md")):
+        instruments = (_front_matter(path).get("classification") or {}).get("instruments")
+        assert isinstance(instruments, list) and instruments, f"{path.name}: instruments must be a list"
+        assert set(instruments) <= {"Stocks", "Options"}, f"{path.name}: {instruments}"

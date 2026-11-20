@@ -90,7 +90,7 @@ def test_lookback_weights_must_match() -> None:
     with pytest.raises(ValidationError):
         StrategyConfig(
             id="PB-001",
-            playbook="docs/playbooks/PB-001-etf-rotation-ballast.md",
+            playbook="playbook/PB-001-etf-rotation-ballast.md",
             lookbacks=[63, 126],
             lookback_weights=[1.0],
             sleeve_caps=CAPS,
@@ -101,7 +101,7 @@ def test_lookback_weights_must_sum_to_one() -> None:
     with pytest.raises(ValidationError):
         StrategyConfig(
             id="PB-001",
-            playbook="docs/playbooks/PB-001-etf-rotation-ballast.md",
+            playbook="playbook/PB-001-etf-rotation-ballast.md",
             lookbacks=[63, 126],
             lookback_weights=[0.5, 0.2],
             sleeve_caps=CAPS,

@@ -33,7 +33,7 @@ Note: ~7 daily marks make Sharpe a noisy estimate. The honest play is a **smooth
 
 | Artifact | Evidence | Status |
 |---|---|---|
-| Trading thesis + edge per setup | `docs/playbooks/PB-*.md` | planned |
+| Trading thesis + edge per setup | `playbook/PB-*.md` | planned |
 | **Explicit invalidation conditions** per setup and per trade | playbook invalidation section; plan artifact `invalidation` field | planned |
 | Risk card: every cap keyed and asserted by a test | `config/risk.yaml` + `tests/test_risk.py` | partial (needs competition deltas) |
 | Position limits, drawdown response, **kill switch (tested)** | risk kernel + halt runbook + [drill PASS record](../validation/2026-11-18-kill-switch-drill.md) | evidenced |

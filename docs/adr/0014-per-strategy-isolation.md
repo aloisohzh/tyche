@@ -126,3 +126,17 @@ holds for *file layout and hashing inputs* but not for *freeze provenance*.
 `tests/test_docs_consistency.py` now asserts a declared playbook hash equals the
 kernel's, which catches drift at the doc boundary but cannot reconstruct a
 freeze event that was never written.
+
+Two further findings from the same pass, neither of which changes the decision:
+
+- **The thesis layer moved** to `/playbook` on 2026-11-20, so the isolation-unit table above
+  reads `docs/playbooks/PB-xxx-*.md` where the files are now `playbook/PB-xxx-*.md`.
+  `docs/playbooks/README.md` remains as a pointer. Because the `playbook:` path lives inside
+  the hashed yaml, the move re-froze PB-001 to `becd112bcac8` with trading parameters
+  byte-identical - a third "new hash, same rules" entry in a lineage that has no journal
+  producer, which is the cost of putting a documentation pointer under a rules hash.
+- **The contract covers one lane, not three.** `tactical.py` and `scalp.py` stamp
+  `PB-002`/`PB-003`/`PB-004` onto intents, but only `pb-001.yaml` exists, so `rules_hash()`
+  raises for the others and the re-freeze discipline this ADR mandates cannot be enforced on
+  the two live short-horizon lanes. See
+  [audit §3.8](../reviews/2026-11-20-platform-refinement-audit.md) and L-036.

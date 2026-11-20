@@ -160,6 +160,14 @@ requirement the brief asks for. Making the live agents actually read it is a pro
 therefore a new version pin that only applies to new sessions (L-021): schedule it with the Scout
 prompt work in P2 rather than treating the doc alone as enforcement.
 
+**Correction and status (2026-11-20).** The count above is wrong: there were **three** dangling
+references, not two. `docs/runbooks/operations.md` §6 also cited `.qoder/cloud-agent.md`, and the move
+of the playbook library to `/playbook` produced two more (`PB-001`'s own runbook link, plus stale
+archive links to `../docs/agent-engineering.md` and `../DESIGN.md`). All are repointed, and
+`docs/agent-rules.md` now exists. The durable fix is the guard, not the hunt:
+`test_markdown_links_resolve` fails on any local markdown link whose target is missing, so a future
+move cannot leave rot behind. It ignores anchors, URLs and fenced templates.
+
 ### 3.2 Stale documentation
 
 | Doc | Claim | Reality |
