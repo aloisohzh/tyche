@@ -327,8 +327,12 @@ breaks every subsequent hash.
 - Backtest harness with transaction costs, slippage, and walk-forward splits.
 - Automate the account snapshot from `moomoo sim account funds` and
   `moomoo sim position` instead of a hand-written JSON file.
-- Create and validate the Cloud Agent deployment described in
-  `.qoder/cloud-agent.md`.
+- Cloud Agent deployment: built and running (desk, researcher, executor, risk
+  auditor). The stale draft spec this bullet pointed at is archived to
+  `docs/archive/cloud-agent-draft-2026-11.md`; current rules live in
+  `docs/agent-rules.md` and the topology in `docs/agent-engineering.md`.
+  Remaining: the live prompts carry caps that have drifted from
+  `config/risk.yaml` and need a re-pin.
 - Parameter sensitivity and decay analysis before the trading window.
 - Post-trade reconciliation report that matches order IDs to fills.
 - Strategy protocol and strategy-agnostic plan schema so strategies other than
