@@ -4,6 +4,7 @@ Reads QODER_PAT and the three runtime secret values from gitignored .env and sen
 them directly to the Cloud API. Never prints secret values.
 
 Run: .venv/Scripts/python.exe scripts/deploy_two_fire_automation.py [--month 2026-12] [--apply]
+Update a live card's prompt/cron: ... --apply-update <deployment_id> [--month 2026-11]
 """
 from __future__ import annotations
 
@@ -84,7 +85,7 @@ def card_prompt(window: tuple[date, date]) -> str:
     return PROMPT.replace("{{WINDOW}}", f"{window[0]}..{window[1]}")
 
 
-PROMPT = """TYCHE TWO-FIRE PAPER DESK RUN (ARMED 2026-11-19).
+PROMPT = """TYCHE TWO-FIRE PAPER DESK RUN (ARMED 2026-11-20: PER-TRADE THESES, RETRIED EXITS).
 
 CLOCK: this automation fires at 08:05 and 15:05 America/New_York only on NYSE trading days in the
 card window {{WINDOW}}; the cron day list already excludes weekends and holidays. At the very start still run
@@ -103,12 +104,39 @@ state belongs under /data/drive/tyche-raw/lifecycle; missing state is a reconcil
 proof there were no holdings. Never create adoption grants from current holdings alone.
 
 PHASES: at both fires reconcile account positions, order history, pending orders and protection gaps
-FIRST through the executor. Premarket: run the researcher's broad source-backed discovery and produce
+FIRST through the executor, and re-arm any exit that never reached the broker before planning
+anything new. Premarket: run the researcher's broad source-backed discovery and produce
 approval-ready plans. Close: focused revalidation of holdings, approved plans and open proposals; no
 broad re-scout unless a held name has fresh material news. Later fires revalidate; they may add new
 candidates only as unapproved proposals through the same preview/audit/approval path; never scale,
 re-enter or silently modify approved plans. Any approved change needs the operator's exact approval
 again.
+
+THESIS: the per-trade thesis is the unit of work, not decoration. Every entry proposal, and the
+plan.created event it is journaled in, must carry the scout's thesis block: thesis, synthesis, edge,
+bear_case, invalidation, horizon, direction (bullish|bearish), factors [{name, axis, state, why,
+detail}] with axis in technical|fundamental|macro|flow|sentiment|seasonality|catalyst|liquidity and
+state pass|fail|unknown, outlook {regime, conviction high|medium|low, alignment per axis}, and
+thesis_ref when the scout journaled one. A missing input is state unknown with the reason; never
+omit a factor, never upgrade unknown to pass, never invent an edge or a source. tyche watchlist and
+the tactical planner build this block; keep it verbatim through audit, approval and the journal, and
+put a one-line thesis summary in the digest. A proposal without a thesis is incomplete: do not
+audit, approve or submit it. The PB-001 rotation plan carries its own rule-based reasoning instead;
+never fabricate a scout thesis for it.
+
+PROTECTION: exits come before entries at every fire. Reconcile open lots against the journal and
+broker order history and name every lot with no live exit path. A triggered exit (stop, target,
+exit_at/timeout, option expiry or session flatten) is submitted through the same entry/exit
+envelope, fresh audit and reserve before any new entry. Entry requests carry a short submit_before
+(30s tactical, 90s scalp); an exit request's submit_before is whatever its submitter set - the
+PB-004 scalp lane sets exit_submit_window_seconds (900s) and re-arms its own exits, while a tactical
+exit has no automatic re-arm, so you re-arm it by hand at the next fire with a fresh quote, audit
+and reserve. When a submit is blocked by client policy, a classifier, a transport error or gate.wait,
+journal one protection.gap event for that request_id (resolution gate.wait or expired) and re-arm
+only after checking both the journal and the broker order history: if the broker still shows that
+request live or an order live, do not submit a second sell, and never journal a second gap for the
+same request_id. Synthetic exits are not resting broker stops; a blocked or late exit leaves the
+lot unprotected and must be reported as such, not implied filled.
 
 ROSTER GATING: always delegate the executor. Delegate the researcher at the premarket fire, or when
 holdings or open entry proposals need narrow revalidation. Delegate the auditor only when an
@@ -116,14 +144,17 @@ executable proposal or contract revision needs independent exact-order review. I
 positions, no open proposals, no pending orders and no discovery due, finish with the executor alone
 and say so.
 
-ORDERS: config/tactical.yaml keeps execution_enabled=false until the controlled drill passes; while
-closed, tactical entries are proposals only. Broker writes follow the PB-001 lifecycle contract: the
-executor is the only writer; require a same-day exact setup/config/account-bound entry AND exit
-envelope, a fresh independent exact-order audit and a successful tyche reserve persisted before ONE
-paper regular-session limit order with request_id as text strictly before submit_before. Paper only;
-live trading is forbidden; no shorts, spreads, naked options, scaling or automatic re-entry. A
-receipt is not a fill; reconcile afterwards. Timeouts, partial fills and uncertain statuses block
-retry. Cancel and modify need separate per-action operator confirmation.
+ORDERS: re-read config/tactical.yaml at every fire. When the lane is enabled and execution_enabled
+is true, the executor may submit paper orders under the approved envelope; when either is false,
+entries are proposals only. Options stay disabled until their own entry/exit validation. Broker
+writes follow the PB-001 lifecycle contract: the executor is the only writer; require a same-day
+exact setup/config/account-bound entry AND exit envelope, a fresh independent exact-order audit and
+a successful tyche reserve persisted before ONE paper regular-session limit order with request_id
+as text strictly before submit_before. Paper only; live trading is forbidden; no shorts, spreads,
+naked options, scaling or automatic re-entry. A receipt is not a fill; reconcile afterwards.
+Timeouts, partial fills and uncertain statuses block retry and escalate to the digest. Cancel and
+modify need separate per-action operator confirmation. When the envelope lacks an exit line, no
+entry. Never widen the universe, raise caps or flip a gate in a run; config changes are operator-only.
 
 BUDGET: PB-001 ballast 25%, tactical stock cap 45%, aggregate option premium cap 25%, cash >=5%,
 gross <=95%.
@@ -136,11 +167,13 @@ PERSIST: keep the hash-chained journal; persist plans, snapshots and state to Dr
 ids and tokens from plans, logs, digests and attachments.
 
 TELEGRAM: send a compact digest prefixed "PAPER ARMED": date/fire, market state, reconciliation
-(positions, pending, protection gaps), new or modified proposals, orders submitted (state none if
-none), reserve/audit references, blockers. Never include account ids, tokens or secrets.
+(positions, pending, protection gaps and any re-armed exit), new or modified proposals with a
+one-line thesis and invalidation, orders submitted (state none if none), reserve/audit references,
+blockers. Never include account ids, tokens or secrets.
 
-REPORT: end with a short digest; state explicitly if no orders were submitted; list coverage gaps.
-Never invent references and never claim a fill or approval that did not occur."""
+REPORT: end with a short digest; state explicitly if no orders were submitted; list coverage gaps
+and every lot that still has no live exit path. Never invent references and never claim a fill or
+approval that did not occur."""
 
 
 def env() -> dict[str, str]:
@@ -192,6 +225,28 @@ def sanitize(result: dict) -> dict:
     return keep
 
 
+def prompt_markers(events: str) -> dict:
+    return {
+        "has_calendar_gate": "tyche calendar --json" in events,
+        "has_half_day_cutoff": "12:15 ET" in events,
+        "has_after_hours_guard": "AFTER_HOURS" in events,
+        "has_execution_gate": "execution_enabled" in events,
+        "has_per_trade_thesis": "the per-trade thesis is the unit of work" in events,
+        "has_exit_retry": "exit_submit_window_seconds" in events,
+        "has_protection_gap": "protection.gap" in events,
+    }
+
+
+def update_payload(cron: str, window: tuple[date, date], prompt_text: str) -> dict:
+    return {
+        "schedule": {"type": "cron", "expression": cron, "timezone": "America/New_York"},
+        "metadata": {"source": "operator", "profile": "two-fire",
+                     "window": f"{window[0]}..{window[1]}"},
+        "initial_events": [{"type": "user.message",
+                            "content": [{"type": "text", "text": prompt_text}]}],
+    }
+
+
 def main() -> None:
     values = env()
     inherited = environment_keys(values)
@@ -213,9 +268,7 @@ def main() -> None:
             "upcoming_runs_at": schedule.get("upcoming_runs_at"),
             "prompt_sha256": hashlib.sha256(events.encode()).hexdigest()[:16],
             "prompt_chars": len(events),
-            "has_calendar_gate": "tyche calendar --json" in events,
-            "has_half_day_cutoff": "12:15 ET" in events,
-            "has_after_hours_guard": "AFTER_HOURS" in events,
+            **prompt_markers(events),
         }, indent=2))
         return
     if "--sanitize" in sys.argv:
@@ -282,13 +335,7 @@ def main() -> None:
         deployment_id = sys.argv[sys.argv.index("--emit-update") + 1]
         payload_path = Path(sys.argv[sys.argv.index("--emit-update") + 2])
         config_path = Path(sys.argv[sys.argv.index("--emit-update") + 3])
-        payload_path.write_text(json.dumps({
-            "schedule": {"type": "cron", "expression": cron, "timezone": "America/New_York"},
-            "metadata": {"source": "operator", "profile": "two-fire",
-                         "window": f"{window[0]}..{window[1]}"},
-            "initial_events": [{"type": "user.message",
-                                "content": [{"type": "text", "text": prompt_text}]}]
-        }))
+        payload_path.write_text(json.dumps(update_payload(cron, window, prompt_text)))
         config_path.write_text(
             'url = "https://api.qoder.com/api/v1/cloud/deployments/' + deployment_id + '"\n'
             'header = "Authorization: Bearer ' + values["QODER_PAT"] + '"\n'
@@ -298,6 +345,31 @@ def main() -> None:
         print(json.dumps({"staged": True, "deployment_id": deployment_id,
                           "payload_file": str(payload_path), "curl_config": str(config_path),
                           "cron": cron, "prompt_chars": len(prompt_text)}, indent=2))
+        return
+    if "--apply-update" in sys.argv:
+        import hashlib
+        deployment_id = sys.argv[sys.argv.index("--apply-update") + 1]
+        before = req(values, "GET", f"/deployments/{deployment_id}")
+        if not str(before.get("name", "")).startswith("Tyche desk"):
+            raise SystemExit("refusing to update a deployment that is not the Tyche desk card")
+        req(values, "POST", f"/deployments/{deployment_id}",
+            update_payload(cron, window, prompt_text))
+        after = req(values, "GET", f"/deployments/{deployment_id}")
+        events = json.dumps(after.get("initial_events") or [])
+        schedule = after.get("schedule") or {}
+        checks = prompt_markers(events)
+        print(json.dumps({
+            "updated": deployment_id,
+            "name": after.get("name"),
+            "status": after.get("status"),
+            "cron": f"{schedule.get('expression')} {schedule.get('timezone')}",
+            "upcoming_runs_at": schedule.get("upcoming_runs_at"),
+            "prompt_sha256": hashlib.sha256(events.encode()).hexdigest()[:16],
+            "prompt_chars": len(events),
+            **checks,
+        }, indent=2))
+        if not all(checks.values()):
+            raise SystemExit("prompt markers missing after update; inspect cloud state")
         return
     if "--apply" not in sys.argv:
         print(json.dumps({"dry_run": True, "name": name, "agent_version": version,
