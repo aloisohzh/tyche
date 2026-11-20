@@ -1,4 +1,7 @@
-"""Create the two-fire Qoder Cloud Automation card for the tyche paper desk.
+"""Create the three-fire Qoder Cloud Automation card for the tyche paper desk.
+
+One card per month: 08:05 premarket plan fire, 12:05 midday watch-and-shout protection check,
+15:05 close fire. The midday fire shares the card and may never submit anything.
 
 Reads QODER_PAT and the three runtime secret values from gitignored .env and sends
 them directly to the Cloud API. Never prints secret values.
@@ -29,7 +32,7 @@ DEFAULT_MONTH = (2026, 11)
 COMPETITION_END = date(2026, 12, 31)
 DESCRIPTION = (
     "Tyche paper desk: ETF ballast plus catalyst stocks and standard long options; "
-    "two-fire premarket/close runs, independent audits and retained position-protection review."
+    "three-fire premarket/midday/close runs, independent audits and retained position-protection review."
 )
 SECRET_KEYS = ("TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID", "TYCHE_ALLOWED_ACCOUNT_IDS")
 
@@ -48,7 +51,7 @@ def _ranges(days: list[int]) -> str:
 
 
 def desk_cron(start: date, end: date) -> str:
-    """Cron that fires 08:05/15:05 ET only on NYSE trading days; one month per card."""
+    """Cron that fires 08:05/12:05/15:05 ET only on NYSE trading days; one month per card."""
     if (start.year, start.month) != (end.year, end.month):
         raise ValueError("window must stay within one month; use one card per month")
     days = []
@@ -59,7 +62,7 @@ def desk_cron(start: date, end: date) -> str:
         day += timedelta(days=1)
     if not days:
         raise ValueError("window contains no trading days")
-    return f"5 8,15 {_ranges(days)} {start.month} *"
+    return f"5 8,12,15 {_ranges(days)} {start.month} *"
 
 
 def card_month(argv: list[str]) -> tuple[int, int]:
@@ -85,16 +88,18 @@ def card_prompt(window: tuple[date, date]) -> str:
     return PROMPT.replace("{{WINDOW}}", f"{window[0]}..{window[1]}")
 
 
-PROMPT = """TYCHE TWO-FIRE PAPER DESK RUN (ARMED 2026-11-20: PER-TRADE THESES, RETRIED EXITS).
+PROMPT = """TYCHE THREE-FIRE PAPER DESK RUN (ARMED 2026-11-20: PER-TRADE THESES, RETRIED EXITS; MIDDAY IS ALERT-ONLY).
 
-CLOCK: this automation fires at 08:05 and 15:05 America/New_York only on NYSE trading days in the
+CLOCK: this automation fires at 08:05, 12:05 and 15:05 America/New_York only on NYSE trading days in the
 card window {{WINDOW}}; the cron day list already excludes weekends and holidays. At the very start still run
 tyche calendar --json from the repo. Exit 1 means skip: weekend, NYSE holiday or outside 04:00-20:00
 ET; finish read-only with a one-line note and submit nothing. Exit 0 reports trading_day, half_day,
-session phase and events; obey them. 08:05 is the premarket plan fire. 15:05 is the close fire; on a
+session phase and events; obey them. 08:05 is the premarket plan fire. 12:05 is the midday protection
+fire and submits nothing (see MIDDAY). 15:05 is the close fire; on a
 13:00 early close it is AFTER_HOURS, so it may reconcile only and never submit. The option exit cutoff
-is session close minus 45 minutes (15:15 ET normally, 12:15 ET on early closes). A late or skipped fire
-never authorizes catch-up with stale quotes.
+is session close minus 45 minutes (15:15 ET normally, 12:15 ET on early closes). On an early-close day
+the 12:05 fire is the last check inside the session, and its alert is notice for the operator, not an
+order. A late or skipped fire never authorizes catch-up with stale quotes.
 
 BOOTSTRAP: repo mount /data/workspace/tyche. Install editable --no-deps if tyche is missing; run
 tyche journal-verify and tyche halt-status --json. halted=true blocks buys while approved de-risking
@@ -103,14 +108,35 @@ sells may still run. Restore the verified Drive journal lineage at
 state belongs under /data/drive/tyche-raw/lifecycle; missing state is a reconciliation task, never
 proof there were no holdings. Never create adoption grants from current holdings alone.
 
-PHASES: at both fires reconcile account positions, order history, pending orders and protection gaps
-FIRST through the executor, and re-arm any exit that never reached the broker before planning
-anything new. Premarket: run the researcher's broad source-backed discovery and produce
+PHASES: at the premarket and close fires reconcile account positions, order history, pending orders
+and protection gaps FIRST through the executor, and re-arm any exit that never reached the broker
+before planning anything new. Premarket: run the researcher's broad source-backed discovery and produce
 approval-ready plans. Close: focused revalidation of holdings, approved plans and open proposals; no
 broad re-scout unless a held name has fresh material news. Later fires revalidate; they may add new
 candidates only as unapproved proposals through the same preview/audit/approval path; never scale,
 re-enter or silently modify approved plans. Any approved change needs the operator's exact approval
 again.
+
+MIDDAY (12:05 ET, WATCH AND SHOUT ONLY): this fire is a protection check, not a trading decision, and
+is the one exception to the submission parts of PROTECTION and ORDERS. It may not open, change or close
+any position. Ask the executor for fresh broker reads of positions, every order-history page and quotes;
+normalize them with `tyche lifecycle capture`, then run `tyche lifecycle tick`, `tyche tactical tick`
+and, for the PB-004 lane, `tyche tactical scalp` with --record omitted (dry run: evaluation only, no
+latch, no reservation). Report every open position, lot and lifecycle grant: whether a live exit request
+exists, its submit_before, the stop/target/deadline versus the current quote, and the outcome of the most
+recent exit request. When an approved exit has no live request and its window has passed, journal ONE
+protection.gap for that request_id (resolution gate.wait or expired, never invented); if the broker still
+shows that order live, journal nothing and say so. If any level is breached or a lot is uncovered, send
+the URGENT RISK ALERT digest first: the title must carry the ` - URGENT RISK ALERT` suffix (the
+renderer's urgent field) and the Protection section must name the symbol, quantity, level versus current
+quote and the exact operator action. Then stop - the close fire and the operator decide the exit.
+Never at this fire: reserve, submit, cancel, modify, approve, revoke, write or edit an envelope or any
+config file, run `tyche lifecycle approve`, `revoke`, `reserve` or `execute-exit`, `tyche tactical
+reserve`, or `tyche tactical scalp --record` (the arm path); propose a new entry, a new plan or a new
+candidate; run broad discovery; delegate the researcher or the auditor; revalidate a thesis; re-arm an
+exit; widen a level; send the example template as a live report; or send a routine digest when nothing
+is open and nothing is wrong. With an empty watchlist and no gap, record the reconciliation in the
+journal only - no Telegram message, because a heartbeat nobody needs is noise.
 
 THESIS: the per-trade thesis is the unit of work, not decoration. Every entry proposal, and the
 plan.created event it is journaled in, must carry the scout's thesis block: thesis, synthesis, edge,
@@ -124,8 +150,9 @@ put a one-line thesis summary in the digest. A proposal without a thesis is inco
 audit, approve or submit it. The PB-001 rotation plan carries its own rule-based reasoning instead;
 never fabricate a scout thesis for it.
 
-PROTECTION: exits come before entries at every fire. Reconcile open lots against the journal and
-broker order history and name every lot with no live exit path. A triggered exit (stop, target,
+PROTECTION: exits come before entries at the premarket and close fires; the 12:05 midday fire only
+checks and shouts (see MIDDAY). Reconcile open lots against the journal and broker order history and
+name every lot with no live exit path. A triggered exit (stop, target,
 exit_at/timeout, option expiry or session flatten) is submitted through the same entry/exit
 envelope, fresh audit and reserve before any new entry. Entry requests carry a short submit_before
 (30s tactical, 90s scalp); an exit request's submit_before is whatever its submitter set - the
@@ -262,13 +289,15 @@ def prompt_markers(events: str) -> dict:
         "has_protection_gap": "protection.gap" in events,
         "has_sentinel_format_v1": "SENTINEL FORMAT V1" in events,
         "has_renderer_path": "send-digest" in events,
+        "has_midday_watch": ("MIDDAY (12:05 ET, WATCH AND SHOUT ONLY)" in events
+                             and "08:05, 12:05 and 15:05" in events),
     }
 
 
 def update_payload(cron: str, window: tuple[date, date], prompt_text: str) -> dict:
     return {
         "schedule": {"type": "cron", "expression": cron, "timezone": "America/New_York"},
-        "metadata": {"source": "operator", "profile": "two-fire",
+        "metadata": {"source": "operator", "profile": "three-fire",
                      "window": f"{window[0]}..{window[1]}"},
         "initial_events": [{"type": "user.message",
                             "content": [{"type": "text", "text": prompt_text}]}],
@@ -336,7 +365,7 @@ def main() -> None:
             {"type": "memory_store", "memory_store_id": MEMORY_STORE_ID, "access": "read_write"},
         ],
         "schedule": {"type": "cron", "expression": cron, "timezone": "America/New_York"},
-        "metadata": {"source": "operator", "profile": "two-fire",
+        "metadata": {"source": "operator", "profile": "three-fire",
                      "window": f"{window[0]}..{window[1]}"},
         "initial_events": [{"type": "user.message", "content": [{"type": "text", "text": prompt_text}]}],
     }

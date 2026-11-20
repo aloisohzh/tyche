@@ -130,6 +130,19 @@ and `templates/sentinel-digest.example.json` exist in the cloud repo mount: the 
 the live path and the explicit-HTML route above is a fallback only. The example renders correctly
 offline. No schedule ran, no trade was placed and no Telegram message was sent for this rollout - the
 first real proof is the next card fire's digest arriving formatted.
+(Later the same day the midday fire took the card prompt to 11757 characters; see
+[2026-11-20-protection-guard-plan.md](../reviews/2026-11-20-protection-guard-plan.md).)
+
+### Which fires may message (2026-11-20)
+
+The desk card now fires 08:05, 12:05 and 15:05 ET. The 12:05 midday fire is the watch-and-shout
+protection check: it sends only an urgent digest (title suffix ` - URGENT RISK ALERT`, `"urgent": true`
+in the renderer JSON) when a level is breached or a lot has no live exit path, and sends nothing when
+nothing is open and nothing is wrong. It never sends a routine digest, and its alert is notice, not an
+order - the exit is decided by the operator or the 15:05 fire. So an urgent 12:05 message means: read
+the Protection section, then act or wait for the close fire. Delivery rules are unchanged: exit code 2
+is UNCONFIRMED, and a failed send is recorded, never retried blindly and never a reason to skip risk
+work.
 
 ## Delivery semantics (hardened 2026-11-19)
 

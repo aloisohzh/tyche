@@ -76,21 +76,29 @@ def test_breakout_needs_close_above_prior_highs_and_up_bar():
     assert not breakout(breakout_bars()[:5], 5)                  # too few bars
 
 
-def test_state_rebuilds_lots_cooldown_and_today_round_trips(tmp_path):
-    journal = tmp_path / "events.jsonl"
-    append_event(journal, "plan.created", {"plan": {"nav": 100000.0, "orders": [{"intent": {
-        "strategy_id": "PB-004", "symbol": "US.NVDA", "side": "buy", "stop_price": 99.75,
-        "target_price": 100.5, "limit_price": 100.0}}]}})
-    append_event(journal, "order.filled", {"strategy_id": "PB-004", "symbol": "US.NVDA",
-                                           "side": "buy", "quantity": 10, "price": 100.0})
-    append_event(journal, "order.requested", {"strategy_id": "PB-004", "symbol": "US.NVDA"})
-    state = scalp_state(read_events(journal), TODAY, 20)
+def test_state_rebuilds_lots_cooldown_and_today_round_trips():
+    # Explicit event stamps, not the wall clock: scalp_state keeps only requests and round
+    # trips whose ET date equals `today`, so appending with the real clock made this test pass
+    # on 2026-11-19 and fail every day after. Same shape as the sibling replay tests.
+    events = [
+        {"ts": "2026-11-19T15:30:00+00:00", "type": "plan.created", "payload": {"plan": {
+            "nav": 100000.0, "orders": [{"intent": {
+                "strategy_id": "PB-004", "symbol": "US.NVDA", "side": "buy", "stop_price": 99.75,
+                "target_price": 100.5, "limit_price": 100.0}}]}}},
+        {"ts": "2026-11-19T15:30:10+00:00", "type": "order.filled", "payload": {
+            "strategy_id": "PB-004", "symbol": "US.NVDA", "side": "buy", "quantity": 10,
+            "price": 100.0}},
+        {"ts": "2026-11-19T15:30:20+00:00", "type": "order.requested", "payload": {
+            "strategy_id": "PB-004", "symbol": "US.NVDA", "request_id": "req-1"}},
+    ]
+    state = scalp_state(events, TODAY, 20)
     assert state.lots["US.NVDA"].quantity == 10
     assert state.lots["US.NVDA"].stop == 99.75
     assert "US.NVDA" in state.last_request
-    append_event(journal, "order.filled", {"strategy_id": "PB-004", "symbol": "US.NVDA",
-                                           "side": "sell", "quantity": 10, "price": 100.4})
-    state = scalp_state(read_events(journal), TODAY, 20)
+    events.append({"ts": "2026-11-19T15:31:00+00:00", "type": "order.filled", "payload": {
+        "strategy_id": "PB-004", "symbol": "US.NVDA", "side": "sell", "quantity": 10,
+        "price": 100.4}})
+    state = scalp_state(events, TODAY, 20)
     assert state.lots == {}
     assert state.round_trips_today == 1
 

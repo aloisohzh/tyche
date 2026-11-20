@@ -1,10 +1,17 @@
 # Runbook: hourly paper trade lifecycles
 
-Status (2026-11-19): **cloud workflow deployed in OBSERVE ONLY; orders NOT armed.**
-All four cloud roles and the existing hourly schedule now include the stock/ETF
-lifecycle workflow, pinned to release `1e902cf57c26599b69c49496e81b7a493ae5bc49`.
+Status (2026-11-20): **the lifecycle workflow is not separately scheduled; it runs inside the two
+active desk cards, and nothing submits without the envelope + audit + reserve gates.**
+The card instruction in `scripts/deploy_two_fire_automation.py` delegates the researcher,
+auditor and executor roles and calls the lifecycle commands directly. The `tyche-hourly`
+schedule and the other seven Forward schedules are paused and must stay paused. The old
+release pin `1e902cf57c26599b69c49496e81b7a493ae5bc49` (still written in
+`plans/deploy_lifecycle_hourly.py`) is deprecated: it is **not an ancestor of `main`**, and
+`scripts/deploy_hourly_workflow.py` tells later builds not to use it. Each card mounts
+`https://github.com/aloisohzh/tyche` at `/data/workspace/tyche` with no release pin, so
+confirm the revision a run actually checked out before relying on a code path.
 Compiled member pins: researcher 10, auditor 4, executor 10. Trading permissions,
-models, credentials, mounts, hourly cadence and concurrency/attempt limits are
+models, credentials, mounts and concurrency/attempt limits are
 unchanged. Existing tactical rollout holds remain in force; no faster schedule
 was activated. No production lifecycle approval or broker order was created.
 
@@ -20,12 +27,15 @@ isolated synthetic state. The researcher checked the review schema and the
 independent auditor retained the execution hold. No position-specific approvals
 were produced; synthetic test grants are not operator authorization.
 
-Local follow-up (2026-11-19): lifecycle entries now enforce the current total
+Follow-up (2026-11-19, since committed): lifecycle entries now enforce the current total
 ballast allocation and per-name strategy/universe caps, including pending and
 reserved exposure; protective sells remain possible above those caps. Rule
-hashing normalizes CRLF to LF so identical Windows/cloud checkouts agree. These
-local changes passed 329 tests but are **not committed or deployed**. Existing
-contracts/grants were not rewritten; older rules still require renewed review.
+hashing normalizes CRLF to LF so identical Windows/cloud checkouts agree. That work
+is on `main` as commit `965c06b` (caps: `src/tyche/lifecycle.py:551-564`; CRLF:
+`src/tyche/pipeline.py:52`), not a local-only change; `329 tests` was the count that
+day, and the suite is 429 tests green at `88a7563`. Because the cards mount the
+repository rather than a pinned release, `main` is the code their runs can reach.
+Existing contracts/grants were not rewritten; older rules still require renewed review.
 
 The existing private Tyche Desk has a legacy Functions/Storage allocation. The
 supported Sites interface cannot convert it in place to `function_backend`, and
@@ -44,10 +54,22 @@ for the initial long-stock/ETF implementation only. It does not enable options.
 
 ## Operator decisions
 
+- Cadence (updated 2026-11-20): the desk card fires 08:05, 12:05 and 15:05 ET on NYSE trading
+  days (`5 8,12,15 <trading days> <month> *`, America/New_York, one card per month). The 12:05 fire
+  is a watch-and-shout protection check only: fresh executor reads, dry-run
+  `lifecycle tick` / `tactical tick` / `tactical scalp` with `--record` omitted, one `protection.gap`
+  when an approved exit has no live request, and an urgent digest when a level is breached or a lot is
+  uncovered. It reserves, submits, cancels, modifies, approves, revokes and writes no config; it
+  proposes nothing and runs no broad discovery. The paused `tyche-hourly` and `tyche-midday-monitor`
+  schedules stay paused, and no five-minute or one-minute schedule was added. The longest intraday
+  blind window on an open position is now about 4 hours (08:05 -> 12:05) instead of about 7
+  (08:05 -> 15:05); a breach after 15:05 still waits for the next morning's check. This is not an
+  around-the-clock monitor.
 - Check once per hour using the existing `tyche-hourly` schedule; do not add a
   parallel five-minute or one-minute schedule. Retain one concurrent run and
-  one attempt. Current window: six fires at :05 ET, 08:05–16:05, on the configured challenge dates,
-  ending 2026-11-28 UTC. It is not an around-the-clock monitor.
+  one attempt. Current window: six fires at :05 ET, 08:05-16:05, on the configured challenge dates,
+  ending 2026-11-28 UTC. It is not an around-the-clock monitor. (Superseded by the cadence bullet
+  above: `tyche-hourly` is paused, and the desk card carries the checks.)
 - Approve a complete lifecycle once: account, symbol, quantity, entry bounds,
   stop and its basis, profit target and its basis, entry expiry, holding deadline,
   thesis-invalidation conditions, and allowed limit-price deviation. Matching
