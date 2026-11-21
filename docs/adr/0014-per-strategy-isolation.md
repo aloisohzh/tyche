@@ -184,5 +184,8 @@ What it does and does not buy:
   kernel computes differently. The tool will not journal a freeze over a document that disagrees (L-030).
 - Still not enforceable: **timing**. Nothing intercepts a rules edit; the comparison runs when someone runs it, and
   CI only proves the doc and the bytes agree. The PB-001 hashes before `819ad06e35f0` stay git archaeology - this
-  records today's state, it does not backfill. And no row has been appended yet: writing the current four lanes onto
-  the operator's chain is the operator's step ([PRD §7 item 2](../../documentation/PRD.md)).
+  records today's state, it does not backfill.
+- What it did on landing: with the operator's approval the command registered all four hashable lanes on
+  2026-11-21 (`rules.refrozen` PB-001 as event `5f1b2b82b48a`, `rules.frozen` for PB-002 `1664156d6346`, PB-003
+  `4f3e84d163ec` and PB-004 `5f6d8ab3cc1d`; chain 89 -> 93 events). From the next rules edit onward, a re-freeze is
+  journaled with its cause, its sources and the previous hash the chain actually held.
