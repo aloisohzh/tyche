@@ -1,12 +1,13 @@
-# Prompt re-pin proposal - 2026-11-21 - PROPOSAL, nothing written to the cloud
+# Prompt re-pin proposal - 2026-11-21 - APPROVED AND APPLIED the same day, see "Applied" at the end
 
 Two of the four pinned agents quote risk caps that `config/risk.yaml` no longer carries, and the researcher's
 pinned arsenal names lanes that are not what the desk runs today. [PRD §7 item 1](../../documentation/PRD.md)
 records this as **L-033**, and it needs the operator's approval to fix: a prompt edit is a new pin, and a new
 pin is a new build ([agent-rules](../agent-rules.md), L-021).
 
-This file is the exact diff. No `update_agent` call has been made, no deployment was touched, and no existing
-pin was modified. The live configs are captured (gitignored, local-only) in `data/capture-2026-11-21-repin/` so
+This file is the exact diff. As written at approval time it described an untouched cloud: no `update_agent`
+call had been made, no deployment had been touched, and no existing pin had been modified. The applied state,
+including the two things the platform handed back, is recorded at the end. The live configs are captured (gitignored, local-only) in `data/capture-2026-11-21-repin/` so
 any change is reversible byte-for-byte.
 
 ## Why numbers in a prompt are the problem, not these numbers
@@ -102,13 +103,47 @@ diffed against the capture and must still show exactly:
 
 ## Rollback
 
-Restore the captured `system` string for the affected agent with the same `update_agent` call
-(`data/capture-2026-11-21-repin/*.json`, local-only). Version numbers move forward only; a rolled-back pin is a
-new pin again, which is why the capture is the rollback, not the previous version id.
+Restore the captured `system` string for the affected agent. Written before the mechanics were understood,
+this said `update_agent`; what actually carries a prompt is the Forward **template**, so a rollback is
+`POST /templates/{id}` with the captured text, followed by the same chain this document's "Mechanics" section
+now describes: compiled version, roster pin, card pin. `plans/cloud-*-pre-repin.json` holds every pre-change
+object, and version numbers move forward only - a rolled-back pin is a new pin again, which is why the capture
+is the rollback, not the previous version id.
 
-## Separate approval sitting next to this one
+## Applied (2026-11-21, operator approval "Apply all three")
 
-`tyche rules-freeze` now exists and reports four unregistered lanes against the real chain (PB-001
-`rules.refrozen` `569eb2c341e0` -> `819ad06e35f0`; PB-002/PB-003/PB-004 `rules.frozen`). Appending them is a
-provenance claim in the audit chain, so it has not been run. Say the word and it executes as
-`tyche rules-freeze --record --reason "..."`; the check-only run writes nothing and is safe to repeat.
+`scripts/repin_stale_caps.py` sent the three diffs exactly as reviewed - each one asserted to match its OLD
+text exactly once before anything was written, so a drifted pin aborts instead of shipping prose nobody read.
+
+| Object | Before | After | What moved |
+|---|---|---|---|
+| `tyche-risk-auditor` | v6 | v7 (`895754b43589`) | Edit 1; 4 built-ins, no MCP |
+| `tyche-researcher` | v16 | v17 (`6b9bce87ed03`) | Edit 3; 6 built-ins, 24 read-only moomoo tools |
+| `tyche-desk` | v28 | v29 -> v30 -> v31 (`d3ee24f78f05`) | Edit 2 + roster 7/17/15 in one write, then the two findings below |
+| Desk roster | researcher 16 / auditor 6 / executor 15 | 17 / 7 / 15 + advisor | pinned, not left to resolve |
+| Scheduled cards | both v28 | both v31 | prompts, crons and env keys asserted byte-identical |
+
+Two things the platform handed back that no prose review would have caught:
+
+- **A recompile materialises latent grants (L-046).** The desk template carried
+  `managed_tool_config: {enabled_tools: ["drive", "schedule"]}`, which v28 had never honoured and v29 did:
+  ten always-allow tools, including `delete_forward_schedule` and `delete_drive_entry`, on the pin an
+  unattended card runs - against a card that states the paused Forward schedule must stay paused and never
+  have two writers. The operator chose to clear the grant; the desk compiled again as v30 with 9 built-ins and
+  no MCP server, which is the surface the reviewed table described and what v28 actually ran with.
+- **A filtered roster rebuild deletes rows (L-045).** Rebuilding `multiagent.agents` from the entries that
+  carry a `template_id` dropped the model-only advisor row `{model: qmodel_38max, type: advisor}` - part of
+  the topology ADR 0011 names deliberately. It was restored verbatim as v31 with the child pins and the prompt
+  byte-identical, and the script now refuses a roster write whose non-agent rows changed.
+
+Verified against the compiled agents rather than the templates: no recited cap string survives in any prompt,
+the three allowlists match the table above, and the first run under the new authority is the Monday 23 Nov
+13:05Z pre-market fire.
+
+## The separate approval, also applied
+
+`tyche rules-freeze --record` ran on the operator's approval and appended all four rows: PB-001
+`rules.refrozen` `569eb2c341e0` -> `819ad06e35f0` (event `5f1b2b82b48a`) and first-ever `rules.frozen` rows for
+PB-002 (`1664156d6346`), PB-003 (`4f3e84d163ec`) and PB-004 (`5f6d8ab3cc1d`); chain 89 -> 93 events, verified,
+and a re-check exits 0. The residual finding it exposed - PB-002/PB-003 record with `declared: null` because no
+playbook declares their hash - lives on as PRD §7 item 4.

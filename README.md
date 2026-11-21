@@ -15,14 +15,16 @@ writes the daily narrative. The LLM never sizes or submits an order.
 
 > **Current state (21 Nov 2026):** the paper desk is running end to end - deterministic kernel, MCP
 > execution behind the paper-only allowlist, hash-chained journal, Telegram sentinel, four pinned
-> Qoder Cloud Agents (desk, researcher, executor, risk auditor), a propose-and-arm exit card, and a Level 0
-> protection tick that nothing schedules yet. 571 tests pass. What is real, partial
+> Qoder Cloud Agents (desk v31, researcher v17, executor v15, risk auditor v7), a propose-and-arm exit card,
+> and a Level 0 protection tick that nothing schedules yet. 571 tests pass. What is real, partial
 > and planned is itemised in the [refinement audit](docs/reviews/2026-11-20-platform-refinement-audit.md)
 > and the [playbook roster](playbook/INDEX.yaml); the live rules are in
 > [docs/agent-rules.md](docs/agent-rules.md). Known open defects are tracked as lessons, not hidden:
-> the auditor prompt still quotes caps that no longer match `config/risk.yaml` (L-033 - a re-pin is a new
-> build, so it waits on the operator), and the `rules.refrozen` writer L-035 asked for landed on 21 Nov
-> without having appended a single row to the live chain. Every lane's rules hash is now
+> the stale caps L-033 recorded are out of the auditor, desk and researcher prompts as of 21 Nov, applied by
+> [scripts/repin_stale_caps.py](scripts/repin_stale_caps.py), which also found that a recompile can
+> materialise a template grant the running pin never had (L-046) and that a filtered roster rebuild can drop
+> the advisor row (L-045); the `rules.refrozen` writer L-035 asked for landed the same day and registered all
+> four hashable lanes. Every lane's rules hash is now
 > computable and asserted in CI (L-036, L-037 closed 20 Nov 2026). DESIGN.md is the v0.1 baseline,
 > partially superseded.
 

@@ -58,13 +58,17 @@ withholds new non-defensive entries at low conviction; sells and defensive entri
 - Omitted version pins at save; updates affect **new sessions only**.
 - Export the working config locally with a timestamped comment (retrieved-at, agent id, cloud version,
   change summary) before every change; verify after; keep the exact submission version.
+- Verify the **compiled agent**, not the template: a recompile can materialise a `managed_tool_config`
+  group the running pin never had (L-046), and it is the compiled version the roster and the cards pin.
+- When a script writes back a nested object it did not author (a roster, a tool matrix), deep-copy the whole
+  object and mutate only the named rows - a filtered rebuild deletes rows (L-045).
 
 ## Cadence (what is deployed, 2026-11-20)
 
 One Qoder **Managed card per month**, built by `scripts/deploy_two_fire_automation.py`:
 cron `5 8,12,15 <trading-day list> <month> *` in `America/New_York`, trading days filtered at
 generation time by `is_trading_day` (L-019). Live cards: `dep_00vzb9h4ezawwl4thnva` (Nov,
-2026-11-19..30) and `dep_00vzd8d5rdfr4w0denqh` (Dec, 2026-12-01..31), both `active`, agent pin v28.
+2026-11-19..30) and `dep_00vzd8d5rdfr4w0denqh` (Dec, 2026-12-01..31), both `active`, agent pin v31 (moved off v28 by the 2026-11-21 re-pin; each card's prompt, cron and env keys verified unchanged).
 
 - **08:05 pre-market** and **15:05 close** are decision fires. **12:05 is watch-and-shout only**: it
   may open, change or close nothing, and messages only on a breach or an exit-less lot
@@ -118,10 +122,12 @@ matrix, schedule ids) lands here before submission. No credentials in the export
 
 Change control: `scripts/deploy_token_policy.py` (default read-only diff, `--apply` to mutate) owns the
 MCP allowlists, and `scripts/verify_envelope_deploy.py` re-reads the executor's envelope state without
-printing secrets. Verified against the live platform via `list_agents` on 2026-11-20: both
-MCP-connected agents run `permission_policy: always_deny` at the toolset level with per-tool enables -
-researcher 24 tools, executor 14 enabled and `quote_rt_data` explicitly disabled. Desk (v28) and
-auditor (v6) mount no MCP server at all.
+printing secrets. `scripts/repin_stale_caps.py` is the pattern for a prompt re-pin: it walks templates ->
+compiled agents -> the desk roster -> the scheduled cards, because a template edit alone changes nothing an
+existing pin runs. Verified against the live platform on 2026-11-21: both MCP-connected agents run
+`permission_policy: always_deny` at the toolset level with per-tool enables - researcher 24 tools, executor
+14 enabled and `quote_rt_data` explicitly disabled. Desk (v31) and auditor (v7) mount no MCP server at all;
+the desk's `managed_tool_config` is empty, which is what its pin has always run with (L-046).
 
 The `plans/live-*.json` captures in the gitignored scratch tree are **not** the pin or permission
 authority: `plans/live-desk.json` still records researcher 13 / auditor 5 / executor 12 and an
