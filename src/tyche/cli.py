@@ -24,8 +24,9 @@ from tyche.config import load_config
 from tyche.envelope import propose_exit_envelope
 from tyche.events_cli import app as events_app
 from tyche.execution_state import daily_usage
+from tyche.freeze import lane_states, registration_events, verdict
 from tyche.halt import effective_halt, repo_halt_path, set_halt
-from tyche.journal import append_event, read_events, verify_chain
+from tyche.journal import append_event, append_locked, journal_lock, read_events, verify_chain
 from tyche.lanes import read_state
 from tyche.lifecycle_cli import app as lifecycle_app
 from tyche.market_calendar import (
@@ -1354,6 +1355,104 @@ def strategies_cmd(
     console.print(
         "Live for this run: " + (", ".join(config.enabled_playbook_ids()) or "none")
     )
+
+
+@app.command("rules-freeze")
+def rules_freeze(
+    config_root: Path = typer.Option(Path("."), "--config-root"),
+    journal_path: Path = typer.Option(Path("journal/events.jsonl"), "--journal"),
+    reason: str = typer.Option("", "--reason",
+                               help="Required with --record: what moved in the bytes, and why."),
+    record: bool = typer.Option(False, "--record",
+                                help="Append the rules.frozen / rules.refrozen rows. Off by default."),
+    as_json: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
+) -> None:
+    """Put each lane's rules hash on the journal, so a re-freeze is a record rather than git archaeology.
+
+    Read-only unless `--record` is passed. Exit `0` means every lane's current hash is already on the
+    chain; `1` means unregistered drift exists and nothing was written; `2` means this command could not
+    judge - a refused lane, a broken chain, or a `--record` without a `--reason` - and is never "all
+    frozen". It cannot register a lane whose playbook document disagrees with the kernel: the doc edit is
+    the review, and journaling around it is exactly how a freeze hash launders a rules change (L-030).
+    """
+    if record and not reason.strip():
+        console.print("[bold red]NO-GO[/] --record needs --reason. A freeze row with no stated cause is "
+                      "the hand-written provenance this command exists to retire (L-035).")
+        raise typer.Exit(2)
+    states, notes = lane_states(config_root, read_events(journal_path))
+    if not states:
+        console.print(f"[bold red]NO-GO[/] no lane's rules could be hashed from {config_root}. "
+                      "That is not the same as 'nothing to register'.")
+        raise typer.Exit(2)
+    chain_ok, chain_events, chain_error = verify_chain(journal_path)
+    if record and not chain_ok:
+        console.print(f"[bold red]NO-GO[/] journal invalid at {journal_path}: {chain_error}; nothing written.")
+        raise typer.Exit(2)
+    outcome = verdict(states)
+    blocked = [state.blocked for state in states if state.blocked]
+    # One refused lane holds the whole run: registering the healthy lanes around it would leave the
+    # chain describing a review that has not happened yet.
+    pending = [] if blocked else registration_events(states, reason or "<not recorded: check only>")
+    report = {
+        "status": outcome, "config_root": str(config_root),
+        "journal": {"path": str(journal_path), "events": chain_events, "valid": chain_ok,
+                    "error": chain_error},
+        "lanes": [state.as_dict() for state in states], "notes": notes,
+        "would_record": [{"type": event_type, "payload": payload} for event_type, payload in pending],
+    }
+    written: list[dict] = []
+    if record and pending:
+        try:
+            with journal_lock(journal_path):
+                for event_type, payload in pending:
+                    written.append(append_locked(journal_path, event_type, payload))
+        except (RuntimeError, ValueError) as exc:
+            console.print(f"[bold red]NO-GO[/] {exc}; the freeze rows were not written.")
+            raise typer.Exit(2) from exc
+        report["recorded"] = [{"type": event["type"], "hash": event["hash"],
+                               "strategy": event["payload"]["strategy"]} for event in written]
+    if as_json:
+        print(json.dumps(report, default=str))
+    else:
+        table = Table(title=f"Rules freeze ({'recording' if record else 'check only'})")
+        table.add_column("lane")
+        table.add_column("bytes")
+        table.add_column("playbook declares")
+        table.add_column("journal holds")
+        table.add_column("state")
+        for state in states:
+            state_text = ("REFUSED" if state.blocked
+                          else "registered" if not state.needs_record else state.event_type)
+            table.add_row(state.strategy_id, state.computed, state.declared or "-",
+                          f"{state.recorded or '-'}"
+                          + (f" @{(state.recorded_ts or '')[:10]}" if state.recorded else ""),
+                          state_text)
+        console.print(table)
+        if not chain_ok:
+            console.print(f"[bold red]journal does not verify:[/] {chain_error} - the \"journal holds\" "
+                          "column is not provenance, so no lane here can be called registered.")
+        for text in blocked:
+            console.print(f"[red]refused:[/red] {text}")
+        for text in notes:
+            console.print(f"[yellow]note:[/yellow] {text}")
+        if written:
+            for event in written:
+                console.print(f"[green]journaled[/green] {event['type']} "
+                              f"{event['payload']['strategy']} -> {event['payload']['new_hash']}")
+        elif blocked:
+            console.print("[red]nothing written:[/red] one refused lane holds the whole run")
+        elif outcome == "pending":
+            console.print(f"[yellow]{len(pending)} lane(s) need registering[/yellow] "
+                          "- `tyche rules-freeze --record --reason \"...\"`")
+        elif outcome == "registered":
+            console.print("[green]every lane's current rules hash is on the chain[/green]")
+    # A chain that does not verify cannot certify provenance in either direction: "registered" read off a
+    # broken chain is not a fact about the bytes, so check mode refuses to call it that (exit 2, not 0/1).
+    if not chain_ok:
+        raise typer.Exit(2)
+    if record:
+        raise typer.Exit(2 if blocked else 0)
+    raise typer.Exit({"registered": 0, "pending": 1, "blocked": 2}[outcome])
 
 
 @app.command("strategy-score")

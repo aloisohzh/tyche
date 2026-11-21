@@ -104,7 +104,10 @@ Stop the run, journal the failure, and tell the operator. Do not improvise past 
   one authored UI tree (L-011).
 - Every dashboard update bumps the version and adds a changelog entry.
 - A rules change requires re-registration: freeze the new rules, journal `rules.refrozen`, update the
-  playbook hash in the same commit, and assert it (L-029, L-030).
+  playbook hash in the same commit, and assert it (L-029, L-030). The command is
+  `tyche rules-freeze --reason "..." --record`, and the order is the point - update the playbook first, because a
+  lane whose document disagrees with the kernel is refused outright rather than registered (L-030). Check without
+  `--record` writes nothing; exit `1` means drift, `2` means it could not judge.
 - Changing a cap is not done until the config change is journaled with effective time and old/new
   values, and the prompts that quote caps are re-checked (L-032).
 - **Switching a strategy on or off is not a rules change.** It goes in `data/strategies.json`, which the

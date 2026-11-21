@@ -168,3 +168,21 @@ four PB-001 hashes above are git archaeology rather than journal records (L-035)
 that a declared hash equals the kernel's is the guarantee that the doc and the bytes agree; the
 journal row would be the guarantee that the change was *registered when it happened*, and that one
 is still not enforceable.
+
+## Amendment (2026-11-21, the producer landed)
+
+`src/tyche/freeze.py` and `tyche rules-freeze` (`src/tyche/cli.py:1360`, 18 tests in
+`tests/test_rules_freeze.py`) are the writer this ADR assumed, so the paragraph above is no longer the last word.
+What it does and does not buy:
+
+- A row states the lane's `new_hash`, the full sha256 of both hashed sources, the playbook's `declared` hash, and an
+  `old_hash` taken **from the chain alone** (`previous_from: "journal"`; `null` and `rules.frozen` for a lane the
+  chain has never held). A record therefore cannot assert a lineage the journal does not contain. The mis-recorded
+  `569eb2c341e0` was written by hand with no producer to compute it from the bytes; nothing can do that again
+  through this command.
+- Registering is refused for the whole run - not just for the offending lane - when a playbook declares a hash the
+  kernel computes differently. The tool will not journal a freeze over a document that disagrees (L-030).
+- Still not enforceable: **timing**. Nothing intercepts a rules edit; the comparison runs when someone runs it, and
+  CI only proves the doc and the bytes agree. The PB-001 hashes before `819ad06e35f0` stay git archaeology - this
+  records today's state, it does not backfill. And no row has been appended yet: writing the current four lanes onto
+  the operator's chain is the operator's step ([PRD §7 item 2](../../documentation/PRD.md)).

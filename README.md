@@ -13,14 +13,16 @@ writes the daily narrative. The LLM never sizes or submits an order.
 > Paper trading only. The agent refuses live accounts by policy and is not
 > investment advice.
 
-> **Current state (20 Nov 2026):** the paper desk is running end to end - deterministic kernel, MCP
-> execution behind the paper-only allowlist, hash-chained journal, Telegram sentinel, and four pinned
-> Qoder Cloud Agents (desk, researcher, executor, risk auditor). 499 tests pass. What is real, partial
+> **Current state (21 Nov 2026):** the paper desk is running end to end - deterministic kernel, MCP
+> execution behind the paper-only allowlist, hash-chained journal, Telegram sentinel, four pinned
+> Qoder Cloud Agents (desk, researcher, executor, risk auditor), a propose-and-arm exit card, and a Level 0
+> protection tick that nothing schedules yet. 571 tests pass. What is real, partial
 > and planned is itemised in the [refinement audit](docs/reviews/2026-11-20-platform-refinement-audit.md)
 > and the [playbook roster](playbook/INDEX.yaml); the live rules are in
 > [docs/agent-rules.md](docs/agent-rules.md). Known open defects are tracked as lessons, not hidden:
-> the auditor prompt quotes caps that no longer match `config/risk.yaml` (L-033), and no producer writes
-> the `rules.refrozen` journal event the freeze contract assumes (L-035). Every lane's rules hash is now
+> the auditor prompt still quotes caps that no longer match `config/risk.yaml` (L-033 - a re-pin is a new
+> build, so it waits on the operator), and the `rules.refrozen` writer L-035 asked for landed on 21 Nov
+> without having appended a single row to the live chain. Every lane's rules hash is now
 > computable and asserted in CI (L-036, L-037 closed 20 Nov 2026). DESIGN.md is the v0.1 baseline,
 > partially superseded.
 
@@ -93,6 +95,7 @@ blocked orders, and appends a hash-chained event to `journal/events.jsonl`.
 | `tyche journal-verify` | Verify the audit journal hash chain |
 | `tyche halt-status --json` | Report the effective kill-switch state across both flags |
 | `tyche strategies [--json]` | Show which playbook lanes are live, what decides each one, and its frozen rules hash |
+| `tyche rules-freeze [--record --reason "..."]` | Freeze provenance: compare each lane's rules bytes, the hash its playbook declares and the hash the journal last holds. Check-only without `--record`; a lane whose document disagrees blocks the whole run; exit `1` is drift, `2` could not judge ([ADR 0014](docs/adr/0014-per-strategy-isolation.md)) |
 | `tyche monitor tick --quotes ... --journal ... [--record]` | Level 0 protection check: read a book, a quote file and the journal, then journal `monitor.breach` / `.clear` / `.heartbeat`. Writes nothing without `--record` and never submits anything ([runbook](docs/runbooks/intraday-protection-monitor.md)) |
 | `python dashboard/server.py` | Local operator desk on <http://127.0.0.1:8765> (loopback only, no auth) |
 

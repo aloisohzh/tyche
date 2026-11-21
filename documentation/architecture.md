@@ -116,6 +116,13 @@ nothing, and no schedule runs it yet.
 ([ADR 0016](../docs/adr/0016-per-trade-risk-budget.md)); `strategy_ledger.py` scores a lane for
 mount/retire decisions.
 
+`freeze.py` is the producer behind `tyche rules-freeze`: it puts a lane's three claims about itself - the bytes
+`pipeline.rules_hash` reads, the hash the playbook declares, the hash the journal last recorded - in one table and
+can append the `rules.frozen` / `rules.refrozen` row the ADR 0014 contract assumed but nothing wrote (L-035). Its
+`previous_from` field and the refusal to register a lane whose document disagrees are the whole point: a freeze row
+is a claim about provenance, so the module takes `old_hash` from the chain and nowhere else, and it shares
+`playbook_declared_hashes` with the CI assertion so the two cannot read the same line differently.
+
 ### 4. Execution
 
 There is exactly one exit per environment, and no code path can reach a live account
@@ -237,8 +244,10 @@ failure, so a retry cannot silently duplicate (L-004), and there is no inbound p
   **`OrderIntent.strategy_id` defaulting to `"PB-001"`** (`models.py:134`) while `tyche strategy-score`
   defaults to `PB-004` (`cli.py:1231`). Both are misattribution hazards: a lane that forgets to set the id
   books its trades under the ballast strategy, and ledger scoring filters on that field.
-- **No `rules.refrozen` producer** exists, so a re-registration is provable in CI (declared hash ==
-  kernel hash) but not journaled at the moment it happens (L-035).
+- **Freeze provenance is emitted but not yet in the chain.** `tyche rules-freeze` writes the `rules.frozen` /
+  `rules.refrozen` event ADR 0014 assumed (L-035's writer gap is closed), but no row has been appended to
+  `journal/events.jsonl` by it yet, so the historical lineage is still git archaeology and PB-002/PB-003 have no
+  playbook declaring a hash to record against.
 - **One generated directory, four provenances.** `desk-site/web/` mixes exporter output, another script's
   output (`charts.html`), the published data feed and hand-authored functions, so "it is all generated" is
   false and "never edit in place" is false for `functions/`. The provenance table above is the current

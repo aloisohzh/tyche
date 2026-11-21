@@ -36,6 +36,8 @@ carried now live in [agent-rules.md](agent-rules.md).
 - **One decision per ADR**, one setup per playbook. Short files beat sprawling ones.
 - Every claim in a report links to evidence: a journal row, a doc section, or a pinned template version.
 - **Pre-register** a setup (freeze rules + hash) before it trades; a re-tuned rule is a new hypothesis.
+  `tyche rules-freeze` does the comparison and, with `--record --reason`, journals the `rules.frozen` /
+  `rules.refrozen` row ([ADR 0014](adr/0014-per-strategy-isolation.md)).
 - Record **rejections and vetoes with reasons**, not just fills.
 - Engineering dead ends and deprecated guardrails get one row in [lessons/LESSONS.md](lessons/LESSONS.md);
   strategy verdicts stay in validation, live decisions in ADRs.

@@ -81,5 +81,6 @@ Entry at the ask and exit at the bid, so the round trip pays the full spread; at
 - Id history: this id was double-listed as "sector rotation heat" until 2026-11-20 (L-029); the live
   scalp keeps PB-004 and the planned sleeve moved to PB-006.
 - Pre-registration blocker closed 2026-11-20: the lane had no resolvable rules file, so its freeze guard
-  raised (L-036). `config/scalp.yaml` now hashes to `72077d5d4808`. What is still missing is a
-  `rules.refrozen` writer (L-035) and any validation at all - see Status above.
+  raised (L-036). `config/scalp.yaml` now hashes to `72077d5d4808`, declared here and asserted in CI. The
+  writer that would journal it landed 2026-11-21 (`tyche rules-freeze`, L-035) and has recorded no row for
+  this lane yet. What is genuinely missing is any validation at all - see Status above.

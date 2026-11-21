@@ -14,10 +14,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from tyche.config import rules_path_for
+from tyche.freeze import playbook_declared_hashes
 from tyche.pipeline import rules_hash
-
-RULES_HASH_LINE = re.compile(r"\*\*Rules hash:\*\*\s*`([0-9a-f]{12})`")
-PLAYBOOK_ID = re.compile(r"^(PB-\d{3})-")
 
 
 def _risk() -> dict:
@@ -74,13 +72,10 @@ def _roster() -> list[dict]:
 
 
 def _playbook_hashes() -> list[tuple[str, str]]:
-    found = []
-    for path in sorted(_playbook_dir().glob("PB-*.md")):
-        matched = PLAYBOOK_ID.match(path.name)
-        declared = RULES_HASH_LINE.search(path.read_text(encoding="utf-8"))
-        if matched and declared:
-            found.append((matched.group(1), declared.group(1)))
-    return found
+    """Declared hashes come from the kernel's own parser, so the CI assertion and
+    `tyche rules-freeze` cannot read the same line differently."""
+    return sorted((strategy_id, value[0])
+                  for strategy_id, value in playbook_declared_hashes(ROOT).items())
 
 
 def test_declared_playbook_rules_hash_matches_the_kernel() -> None:

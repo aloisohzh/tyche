@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Version** | 1.6 |
+| **Version** | 1.7 |
 | **Last revised** | 2026-11-21 |
 | **Supersedes** | [../DESIGN.md](../DESIGN.md) §2/§11 as the statement of current scope (DESIGN.md stays as the v0.1 baseline) |
 | **How it is built** | [architecture.md](architecture.md) |
@@ -121,7 +121,7 @@ These are requirements in the strict sense: a change that breaks one is not a re
 | Hash-chained journal + verify | implemented | `journal.py:86,91`, `tyche journal-verify` | account ids masked at write time |
 | Two-flag kill switch | implemented | `halt.py:56`, `tyche halt-status --json` | drill recorded in `docs/validation/2026-11-18-kill-switch-drill.md` |
 | Run evidence persistence split (raw → Drive, sanitized → git) | implemented | `persist.py`, ADR 0009 | the cloud sandbox is ephemeral; without this, 60% of the score evaporates |
-| `rules.refrozen` journal producer | planned (no writer exists) | nothing in the codebase emits it | the freeze is *asserted* in CI but not *recorded* when it happens (L-035) |
+| `rules.refrozen` journal producer | implemented (local CLI, 2026-11-21; no rows written to the live chain yet) | `src/tyche/freeze.py`, `tyche rules-freeze` (`src/tyche/cli.py:1360`), `tests/test_rules_freeze.py` (18 tests) | The producer exists: it compares the lane's bytes, the hash its playbook declares and the hash the chain last recorded, and writes `rules.frozen` / `rules.refrozen` with the source files' full sha256 and an `old_hash` taken **only** from the journal. Default is check-only, a refusal blocks the whole run, and `--record` needs a `--reason`. What it cannot do is invent provenance for the past: PB-001's stale 2026-11-18 row stays in the chain, and the four lanes are still unrecorded until the operator runs it (§7 item 2) |
 | Config-change journaling with effective time | partial | L-032 records the requirement | a cap change is currently inferred from later plans |
 
 ### 5.5 Desk and reporting
@@ -148,7 +148,7 @@ These are requirements in the strict sense: a change that breaks one is not a re
 | Scout (idea generation) | partial | researcher role + premarket fire; manual trigger `server.py:2265`; `watchlist.py`, `reports/*-research.md` | scheduled and manual discovery both work; the researcher prompt still does not consult the live lane id set, and changing that prompt is a re-pin needing operator approval. The manual run starts the researcher alone, so it can propose nothing that reaches a broker |
 | Ideas consumed downstream | partial | `tyche events add` → `config/events.yaml` → gate halves budget | operator triage is the link; nothing auto-promotes an idea into a plan |
 | Telegram sentinel | implemented (outbound only) | `scripts/telegram.py`, runbook | at-least-once semantics; no inbound approvals (L-003/L-006) |
-| CI (ruff + pytest) | implemented | `.github/workflows/ci.yml` | 553 tests; a red pipeline blocks every later phase (L-034) |
+| CI (ruff + pytest) | implemented | `.github/workflows/ci.yml` | 571 tests; a red pipeline blocks every later phase (L-034) |
 
 ## 6. Non-functional requirements
 
@@ -172,8 +172,12 @@ Ordered by how much they can cost, not by effort.
    and 300% turnover. Two authorities disagree and a prompt reads as authority. Fix: strip the numbers
    from both prompts, re-pin, assert the tool allowlist. **Needs operator approval** (a re-pin is a new
    build).
-2. **No `rules.refrozen` producer** (L-035). The freeze contract is provable in CI but has no journal
-   provenance, so every historical re-registration is git archaeology.
+2. **Freeze provenance has a writer but the chain has no rows** (L-035). `tyche rules-freeze` emits the
+   `rules.frozen` / `rules.refrozen` events the contract assumes, and its check already reads the real state:
+   PB-001's last journaled hash `569eb2c341e0` (2026-11-18) does not match the bytes (`819ad06e35f0`), and
+   PB-002/003/004 have never been recorded. What is outstanding is the append itself - four rows onto a valid
+   89-event chain - and the fact that no playbook declares a hash for PB-002/PB-003, so those two rows would
+   record bytes with no document to review them against.
 3. **Strategy identity is a default value, not a required argument.** `OrderIntent.strategy_id` defaults
    to `PB-001` while `tyche strategy-score` defaults to `PB-004`. A lane that forgets to set the id books
    its trades under the wrong strategy, and ledger/expectancy filter on that field.
@@ -220,7 +224,7 @@ Ordered by how much they can cost, not by effort.
 | Item | Closing condition |
 |---|---|
 | Stale caps in prompts (1) and Scout honoring the live lane ids (§5.6) | one re-pin of the researcher/auditor prompts, which is a new build and needs approval |
-| `rules.refrozen` producer (2) | a kernel writer plus a journal assertion; deferred by decision while the freeze-source fix is verified in use |
+| `rules.refrozen` producer (2) | built 2026-11-21 (`src/tyche/freeze.py`); what remains is the write - one `tyche rules-freeze --record --reason "..."` appending four rows to the audit chain is the operator's call. PB-002/PB-003 record with `declared: null`, which the tool flags: a hash with no playbook declaring it is bytes nobody reviewed (same reason item 4 keeps those lanes out of `live`) |
 | Calendar drift trigger (7) | a live schedule object to attach the check to; `scripts/deploy_calendar_check.py` already builds it |
 | Intraday protection monitor (§5.3) | decided 2026-11-21: rung 1.5 (pre-armed bounded exit) is built, Level 2 stays declined; rung 0 (`tyche monitor tick`) was approved and is built, with a pinned-clock synthetic-breach rehearsal recorded. Still open: a runner that feeds the tick a quote file on a schedule, the live-session drill leg that needs the operator, and a separate decision on rung 1 Telegram bark routing |
 | Hosted operator console proven unattended (11) | one signed-in browser read of `control/status` and one arm/disarm round trip; the Secrets themselves are present and synced, and the gateway 401s any check from here |
@@ -258,8 +262,10 @@ Named here so the desk's next steps are auditable; the first bullet is now part 
   [../docs/validation/](../docs/validation/2026-11-21-synthetic-breach-drill.md). Still open in the same ladder: a
   scheduled runner that supplies fresh quotes (the tick reads files, so this is a card/schedule decision, not a
   kernel one), the wall-clock drill leg with the operator present, the bark, and only then any queueing behaviour.
-- **Deferred, needs a decision:** the `rules.refrozen` writer, the backtest harness, the monitor's bark (ADR 0013
-  rung 1) and narrowing the ETF universe further to equity-only.
+- **Deferred, needs a decision:** the backtest harness, the monitor's bark (ADR 0013
+  rung 1) and narrowing the ETF universe further to equity-only. The `rules.refrozen` writer is no longer on this
+  list - it shipped in v1.7 as `tyche rules-freeze`; what is left is the operator's decision to run `--record`,
+  which appends provenance rows to the audit chain.
 
 ## 9. Version history
 
@@ -274,6 +280,7 @@ Named here so the desk's next steps are auditable; the first bullet is now part 
 | **v1.4** | 2026-11-21 | Phase 5 close-out: no capability changed status, the **evidence** behind them was re-checked against the code. 40 of 42 §5 rows held; six defects were fixed - PB-002/PB-003 cited a shared id ternary rather than the `options_enabled` gate, the lifecycle `reserve` range overshot by a line, `quote_order_book` read like repo code when it is an MCP read tool enabled on the executor, two test counts were stale, and the header still said 1.2 under a v1.3 table (now a test). §7 gained the unlinted `dashboard/` tree, the narrow-viewport approval clip, the publish-on-hold truth and a gated-items table naming each closing condition. [../docs/dashboard.md](../docs/dashboard.md) no longer calls the act/wait gate prompt-honored: `lifecycle.py:485` blocks it in code. ADR 0013 finally has the contract it promised: [../docs/runbooks/intraday-protection-monitor.md](../docs/runbooks/intraday-protection-monitor.md), a draft for review with nothing deployed. |
 | **v1.5** | 2026-11-21 | ADR 0013's rung 1.5 built: `src/tyche/envelope.py` drafts the operator's exit note from the book the desk shows plus the stops the plans journaled, `tyche propose-envelope` and the desk's Propose/Arm card turn it into a same-day sell-only envelope only when the operator clicks, and `risk.exit_collar_pct` (5%) became the single exit number the operator owns (desk v0.8.0). Nothing in it detects a breach - the tick is still unbuilt - and nothing in it can write `data/approvals.json` except the arm click. §7 gained the reason PB-001 ballast gets no drafted line (the rotation stop is computed at `rotation.py:351-353` and never journaled). |
 | **v1.6** | 2026-11-21 | ADR 0013's rung 0 built. `src/tyche/monitor.py` + `tyche monitor tick` (`src/tyche/cli.py:55`) evaluate every journaled or entered protective level against a quote file at the 5-minute tier and journal `monitor.heartbeat` / `.breach` / `.clear` / `.gap` / `.error`: nothing is written without `--record`, `--at` replay cannot record, an unjudgeable tick exits `2` instead of saying "no breaches", and episodes de-duplicate by transition. `scripts/drill_synthetic_breach.py` rehearses runbook §8 on a pinned clock ([record](../docs/validation/2026-11-21-synthetic-breach-drill.md)) and caught a real defect on the way: exposure and coverage were being measured from the journal's append stamp rather than the payload's market time, which reported 386,832 s of naked risk for a 135 s breach. Fixed and guarded (L-043). Suite 530 → 553. Not claimed: a schedule that runs the tick, per-tick alert routing, or the operator-present live-session drill leg. |
+| **v1.7** | 2026-11-21 | L-035's missing writer landed: `src/tyche/freeze.py` + `tyche rules-freeze` (`src/tyche/cli.py:1360`) compare one lane's bytes, the hash its playbook declares and the hash the journal last recorded, and can append the `rules.frozen` (first row for a lane) or `rules.refrozen` (each one after) event the freeze contract assumes - with `old_hash` taken only from the chain, the two source files' full sha256 alongside the 12-hex lane hash, and a required `--reason`. Check-only by default; a lane whose document disagrees with the kernel blocks the whole run rather than quietly registering the healthy neighbours, and an invalid chain or a missing reason exits `2` having written nothing (exit `1` means drift, not failure). Against this repo it reads the truth the docs already suspected: PB-001's chain says `569eb2c341e0` where the bytes say `819ad06e35f0`, and PB-002/PB-003/PB-004 have never been recorded. §5.4 moves the row `planned` -> `implemented (local CLI)` and §7 item 2 becomes the write itself, because appending provenance rows to the audit chain is the operator's call and no playbook yet declares PB-002/PB-003. `tests/test_docs_consistency.py` now reads the declared hashes through the same parser, so CI and the tool cannot disagree about the same line. Suite 553 -> 571. No journal row was written and no cloud object changed. |
 
 **Maintenance rule.** A change to a capability's status, a new lane, a new agent or a new external
 integration is a PRD edit with a version bump and a [CHANGELOG.md](CHANGELOG.md) row, landed in the same
