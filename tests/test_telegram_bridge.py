@@ -11,6 +11,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
 import telegram as bridge
+from cloud_api import CloudError
 
 
 def make_state() -> dict:
@@ -358,3 +359,208 @@ def test_render_cli_reports_invalid_json_without_env_access(monkeypatch) -> None
     monkeypatch.setattr(bridge, "env", lambda: pytest.fail("Must validate before reading secrets"))
     with pytest.raises(SystemExit, match="Invalid digest .nothing sent."):
         bridge.main()
+
+
+# ------------------------------------------------------- Managed session reads (the W7 bridge)
+#
+# The bridge found sessions in the Forward schedule-run list. Every one of those schedules is paused,
+# so `/session latest` could not bind a card-fired run and /status, /approve, /interrupt and relayed
+# questions were all dead for the live desk. These tests pin the replacement - card runs -> session ->
+# threads -> events on the Managed base - without touching the network.
+
+
+class FakeCloud:
+    """Stands in for `cloud_api.req`: answers from canned pages and records every call.
+
+    A page may carry `first_after`, meaning "serve this page once the caller's after_id equals that
+    event id" - the cursor contract the bridge's polling loop depends on.
+    """
+
+    def __init__(self, runs=None, threads=None, pages=None, session=None, flaky=()):
+        self.calls: list[tuple[str, str, dict | None]] = []
+        self.runs = runs or {}
+        self.threads = threads or {}
+        self.pages = pages or {}
+        self.session = session or {}
+        self.flaky = set(flaky)
+        self.failed: set[str] = set()
+
+    def __call__(self, method, path, body=None, timeout=20):
+        self.calls.append((method, path, body))
+        if path not in self.failed and path in self.flaky:
+            self.failed.add(path)
+            raise CloudError("HTTP 404: transient", status=404)
+        if path.startswith("/deployments/") and path.endswith(("runs?limit=3", "runs?limit=8")):
+            card = path.split("/")[2]
+            return {"data": self.runs.get(card, [])}
+        if path.startswith("/sessions/") and "/threads/" in path:
+            thread = path.split("/")[4]
+            pages = self.pages.get(thread) or []
+            after = path.split("after_id=")[1].split("&")[0] if "after_id=" in path else None
+            if after is None:
+                return pages[0]
+            for page in pages[1:]:
+                if page.get("first_after") == after:
+                    return {k: v for k, v in page.items() if k != "first_after"}
+            return {"data": [], "has_more": False, "last_id": after}
+        if path.startswith("/sessions/") and path.endswith("/threads"):
+            session = path.split("/")[2]
+            return {"data": self.threads.get(session, [])}
+        if path.startswith("/sessions/") and path.count("/") == 2:
+            return self.session
+        if path == "/sessions/sess_x/events" and method == "POST":
+            return {"data": []}
+        raise AssertionError(f"unexpected call {method} {path}")
+
+    def posted(self) -> list[dict]:
+        return [body for method, _, body in self.calls if method == "POST"]
+
+
+def patch_cloud(monkeypatch, fake: FakeCloud) -> FakeCloud:
+    monkeypatch.setattr("cloud_api.req", fake)
+    monkeypatch.setattr("cloud_api.time.sleep", lambda _s: None, raising=True)
+    return fake
+
+
+NOV = "dep_00vzb9h4ezawwl4thnva"
+DEC = "dep_00vzd8d5rdfr4w0denqh"
+
+
+def run_row(run_id: str, at: str, session_id: str | None) -> dict:
+    return {"id": run_id, "created_at": at, "session_id": session_id,
+            "trigger_context": {"type": "schedule"}}
+
+
+def test_newest_run_spans_both_cards(monkeypatch) -> None:
+    fake = patch_cloud(monkeypatch, FakeCloud(runs={
+        NOV: [run_row("drun_2", "2026-11-20T20:05:00Z", "sess_new"),
+              run_row("drun_1", "2026-11-20T13:05:00Z", "sess_old")],
+        DEC: [],
+    }))
+    found = bridge.cloud_api.newest_run(bridge.DESK_CARD_IDS)
+    assert found["run"]["session_id"] == "sess_new"
+    assert found["run"]["card"] == NOV
+    assert found["failed_cards"] == []
+    assert [c[1] for c in fake.calls if c[0] == "GET"] == [
+        f"/deployments/{NOV}/runs?limit=3", f"/deployments/{DEC}/runs?limit=3"]
+
+
+def test_run_without_session_is_not_bindable(monkeypatch) -> None:
+    patch_cloud(monkeypatch, FakeCloud(runs={
+        NOV: [run_row("drun_3", "2026-11-21T08:05:00Z", None),
+              run_row("drun_2", "2026-11-20T20:05:00Z", "sess_real")],
+        DEC: [],
+    }))
+    assert bridge.latest_session_id() == "sess_real"
+
+
+def test_transient_miss_on_runs_is_retried(monkeypatch) -> None:
+    """The runs route has 404'd once and answered next call for a card that exists. One miss must not
+    be reported as 'the desk never fired'."""
+    fake = patch_cloud(monkeypatch, FakeCloud(
+        runs={NOV: [run_row("drun_2", "2026-11-20T20:05:00Z", "sess_new")], DEC: []},
+        flaky={f"/deployments/{NOV}/runs?limit=3"}))
+    assert bridge.latest_session_id() == "sess_new"
+    assert sum(1 for c in fake.calls if c[1] == f"/deployments/{NOV}/runs?limit=3") == 2
+
+
+def test_unreadable_card_is_reported_not_fatal(monkeypatch, capsys) -> None:
+    """One card that cannot be read must not hide the other's run, and must not pass itself off as
+    'the desk never fired'."""
+
+    def boom(card_id, limit=8):
+        if card_id == DEC:
+            raise CloudError("HTTP 404: not found", status=404)
+        # card_runs' own projection shape: what newest_run consumes.
+        return [{"id": "drun_2", "at": "2026-11-20T20:05:00Z", "trigger": "schedule",
+                 "session_id": "sess_new", "scheduled_at": None, "error": None}]
+
+    monkeypatch.setattr("cloud_api.card_runs", boom)
+    run = bridge.newest_desk_run()
+    assert run and run["session_id"] == "sess_new"
+    assert DEC in capsys.readouterr().out  # the operator is told the sweep was partial
+
+
+def test_threads_and_events_read_the_managed_base(monkeypatch) -> None:
+    fake = patch_cloud(monkeypatch, FakeCloud(
+        threads={"sess_x": [{"id": "sthr_c", "role": "coordinator", "agent_name": "tyche-desk"},
+                            {"id": "sthr_e", "role": "child", "agent_name": "tyche-executor",
+                             "archived_at": "2026-11-20T21:00:00Z"}]},
+        pages={"sthr_c": [{"data": [{"id": "evt_1", "type": "agent.message"}],
+                           "last_id": "evt_1", "has_more": True},
+                          {"data": [{"id": "evt_2", "type": "agent.tool_use"}],
+                           "last_id": "evt_2", "has_more": False, "first_after": "evt_1"}]},
+    ))
+    state = make_state()
+    state["session_id"] = "sess_x"
+    desk = bridge.Bridge(state, "123")
+    assert desk.refresh_threads() is True
+    assert state["threads"]["sthr_c"]["name"] == "tyche-desk"
+    assert state["threads"]["sthr_e"]["archived"] is True
+    events = desk.thread_events("sthr_c")
+    assert [e["id"] for e in events] == ["evt_1", "evt_2"]
+    assert all(e["session_thread_id"] == "sthr_c" for e in events)
+    assert state["cursors"]["sthr_c"] == "evt_2"
+    assert any("after_id=evt_1" in path for _m, path, _b in fake.calls)
+
+
+def test_status_read_never_carries_the_session_secrets(monkeypatch) -> None:
+    """A session object returns `environment_variables` in plaintext, bot token included (queue.md
+    4.5). /status must print credits, and nothing else, from that payload."""
+    patch_cloud(monkeypatch, FakeCloud(session={
+        "id": "sess_x", "title": "Tyche desk", "status": "idle",
+        "usage": {"total_credits": 85.15, "model_credits": 80.44, "sandbox_runtime_credits": 4.71},
+        "environment_variables": "TELEGRAM_BOT_TOKEN=123456:SECRET-token-value",
+        "vault_ids": ["vault_x"],
+    }))
+    state = make_state()
+    state["session_id"] = "sess_x"
+    desk = bridge.Bridge(state, "123")
+    sent: list[str] = []
+    monkeypatch.setattr(desk, "say", sent.append)
+    desk.handle("/status")
+    text = " ".join(sent)
+    assert "85.15" in text
+    assert "SECRET-token-value" not in text and "TELEGRAM_BOT_TOKEN" not in text
+    projection = bridge.cloud_api.session_status("sess_x")
+    assert "environment_variables" not in projection and "vault_ids" not in projection
+
+
+def test_relay_and_interrupt_post_once_to_the_managed_base(monkeypatch) -> None:
+    fake = patch_cloud(monkeypatch, FakeCloud())
+    state = make_state()
+    state["session_id"] = "sess_x"
+    desk = bridge.Bridge(state, "123")
+    monkeypatch.setattr(desk, "say", lambda _t: None)
+    desk.handle("what is the protection status?")
+    desk.handle("/interrupt")
+    assert [body["events"][0]["type"] for _m, _p, body in fake.calls if body] == [
+        "user.message", "user.interrupt"]
+    assert all(path == "/sessions/sess_x/events" for _m, path, body in fake.calls if body)
+
+
+def test_failed_post_is_not_retried(monkeypatch) -> None:
+    """A second approval or a second interrupt is worse than a failed one."""
+
+    def boom(method, path, body=None, timeout=20):
+        if method == "POST":
+            raise CloudError("HTTP 500: server error", status=500)
+        raise AssertionError("only the POST should happen")
+
+    monkeypatch.setattr("cloud_api.req", boom)
+    monkeypatch.setattr("cloud_api.time.sleep", lambda _s: None)
+    state = make_state()
+    state["session_id"] = "sess_x"
+    desk = bridge.Bridge(state, "123")
+    said: list[str] = []
+    monkeypatch.setattr(desk, "say", said.append)
+    desk.handle("/interrupt")
+    assert "Interrupt failed" in " ".join(said)
+
+
+def test_bridge_source_reads_no_forward_base() -> None:
+    """The paused Forward schedules are the reason the bridge went dead; a regression here has to fail."""
+    source = (Path(__file__).resolve().parents[1] / "scripts" / "telegram.py").read_text(
+        encoding="utf-8")
+    for dead in ("import forward", "schedule_runs", "IDENTITY_ID", "SCHEDULE_IDS"):
+        assert dead not in source, f"telegram.py still mentions {dead!r}"

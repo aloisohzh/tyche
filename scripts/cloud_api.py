@@ -4,15 +4,19 @@ PAT from gitignored .env, server-side only - the browser never sees it. This mod
 narrow: read the cards, pause or resume one, run one now, read run history, start a researcher session
 and read sessions. It has no create, edit or delete path for a card, because the card's prompt and cron
 are authored by scripts/deploy_two_fire_automation.py (L-019: cadence and prompt must not drift apart).
+The Telegram bridge reads and posts its session events through here too, since the desk's sessions only
+exist on this base (queue.md W7).
 
 Every response is reduced to a whitelist before it leaves this module. `environment_variables` comes
 back in plaintext from the API and holds the Telegram token and the account allowlist, so it is dropped
-here rather than filtered downstream (L-038).
+here rather than filtered downstream (L-038). A session object carries the same field as a deployment
+does, which is why the bridge gets a projected status, not the raw payload.
 """
 from __future__ import annotations
 
 import json
 import re
+import time
 import urllib.error
 import urllib.request
 from datetime import UTC, date, datetime, timedelta
@@ -77,6 +81,27 @@ def req(method: str, path: str, body: dict | None = None, timeout: int = 20) -> 
 def _items(payload: dict) -> list[dict]:
     rows = payload.get("data") or payload.get("items") or []
     return [row for row in rows if isinstance(row, dict)]
+
+
+RETRY_STATUS = {404, 429, 500, 502, 503, 504}
+
+
+def req_retry(method: str, path: str, body: dict | None = None, tries: int = 3) -> dict:
+    """Read with a few attempts. A live card's `/runs` route has returned 404 once and 200 on the next
+    call for the same object, and the bridge reads it to decide whether a desk run exists at all: a
+    transient miss reported as "no session found" would look like the desk never fired.
+
+    Writes pass `tries=1`. A duplicate approval or a duplicate interrupt is worse than a failed one,
+    so nothing here retries a POST.
+    """
+    for attempt in range(tries):
+        try:
+            return req(method, path, body, timeout=30)
+        except CloudError as error:
+            if tries == 1 or attempt == tries - 1 or error.status not in RETRY_STATUS:
+                raise
+            time.sleep(0.5 * (attempt + 1))
+    raise AssertionError("unreachable")
 
 
 def card_view(item: dict) -> dict:
@@ -146,7 +171,7 @@ def run_card_now(card_id: str) -> dict:
 
 
 def card_runs(card_id: str, limit: int = 8) -> list[dict]:
-    rows = _items(req("GET", f"/deployments/{card_id}/runs?limit={int(limit)}"))
+    rows = _items(req_retry("GET", f"/deployments/{card_id}/runs?limit={int(limit)}"))
     return [
         {
             "id": row.get("id"),
@@ -161,6 +186,13 @@ def card_runs(card_id: str, limit: int = 8) -> list[dict]:
 
 
 def session_view(item: dict) -> dict:
+    """The session as any reader may see it: identity, state and credits.
+
+    A session row carries `environment_variables` and `vault_ids` in plaintext, the same way a deployment
+    does (L-050), so credits and wall time are taken key by key rather than by copying `usage`/`stats`.
+    """
+    usage = item.get("usage") or {}
+    stats = item.get("stats") or {}
     return {
         "id": item.get("id"),
         "title": item.get("title"),
@@ -170,6 +202,8 @@ def session_view(item: dict) -> dict:
         "agent": (item.get("agent") or {}).get("id"),
         "kind": (item.get("metadata") or {}).get("kind"),
         "deployment_id": item.get("deployment_id"),
+        "usage": {key: usage.get(key) for key in ("total_credits", "model_credits", "sandbox_runtime_credits")},
+        "stats": {key: stats.get(key) for key in ("active_seconds", "duration_seconds")},
     }
 
 
@@ -259,3 +293,81 @@ def start_scout_run(brief: str) -> dict:
         # unexplained idle session in Qoder and no way to find it.
         raise CloudError(f"{exc} - session {session_id} was created without the brief; stop it in Qoder") from exc
     return session_view(item)
+
+
+# --------------------------------------------------------------------------- bridge reads
+#
+# scripts/telegram.py is the operator's control path over a live desk run: find the newest run, read
+# its threads and events, relay a question, confirm or interrupt a turn. Every one of those reads and
+# writes is served here; the Forward schedule-run source the bridge used before can no longer see a
+# card-fired session at all (queue.md W7).
+
+BRIDGE_EVENT_LIMIT = 100
+
+
+def thread_rows(session_id: str) -> list[dict]:
+    """The session's threads, projected. Managed rows have no `name`, so the agent name is the label
+    an operator recognises when an approval comes from a child instead of the coordinator."""
+    rows = _items(req_retry("GET", f"/sessions/{session_id}/threads"))
+    return [
+        {
+            "id": row["id"],
+            "role": row.get("role"),
+            "name": row.get("name") or row.get("agent_name"),
+            "archived": bool(row.get("archived_at")),
+        }
+        for row in rows
+        if row.get("id")
+    ]
+
+
+def thread_events(session_id: str, thread_id: str, after_id: str | None = None,
+                  limit: int = BRIDGE_EVENT_LIMIT) -> dict:
+    """One page of events for one thread, each tagged with its thread id so the bridge can attribute
+    an approval to the agent that asked. `last_id` is the cursor the caller stores."""
+    path = f"/sessions/{session_id}/threads/{thread_id}/events?limit={int(limit)}"
+    if after_id:
+        path += f"&after_id={after_id}"
+    payload = req_retry("GET", path)
+    events = _items(payload)
+    for event in events:
+        event.setdefault("session_thread_id", thread_id)
+    return {"events": events, "last_id": payload.get("last_id"), "has_more": bool(payload.get("has_more"))}
+
+
+def session_status(session_id: str) -> dict:
+    """Status for the bridge's /status. Credits, never the session's environment variables."""
+    return session_view(req_retry("GET", f"/sessions/{session_id}"))
+
+
+def post_session_event(session_id: str, event: dict) -> dict:
+    """Post one operator event (relayed message, tool confirmation, interrupt). Never retried: a
+    second approval or a second interrupt is worse than a failed one."""
+    req_retry("POST", f"/sessions/{session_id}/events", {"events": [event]}, tries=1)
+    return {"ok": True}
+
+
+def newest_run(card_ids: list[str] | tuple[str, ...], limit: int = 3) -> dict | None:
+    """The newest session any desk card started, across the given cards, or None when there is none.
+
+    A card that has not fired yet (the December card before 1 Dec) legitimately returns zero runs, and
+    one bad card must not hide a good one, so each card is read separately and a failure is remembered
+    rather than raised. The result says which cards were unread so the bridge can tell the operator the
+    discovery was partial instead of claiming nothing ran.
+    """
+    best: dict | None = None
+    failed: list[str] = []
+    for card_id in card_ids:
+        try:
+            rows = card_runs(card_id, limit=limit)
+        except CloudError as error:
+            failed.append(f"{card_id} ({error.status or 'unreachable'})")
+            continue
+        for run in rows:
+            if not run.get("session_id"):
+                continue
+            if best is None or str(run.get("at")) > str(best.get("at")):
+                best = {**run, "card": card_id}
+    if not best and not failed:
+        return None
+    return {"run": best, "failed_cards": failed}

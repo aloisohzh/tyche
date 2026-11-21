@@ -65,12 +65,33 @@ order stays unsubmitted even if the model ignores it.
 
 - **Journal** (`journal/events.jsonl`, hash-chained) = truth for trades, decisions, rejections, risk events.
 - **Performance artifacts** (`docs/performance/`) = generated metrics.
-- **QCA API** for sessions/threads/events/schedules (automation panel), read **server-side** with a PAT.
+- **QCA API** for sessions/threads/events and the scheduled desk cards (automation panel), read
+  **server-side** with a PAT. Since 21 Nov both reads are on the **Managed** base:
+  `build_automation()` lists the cadence through `cloud_api.cards()` and the runs through
+  `cloud_api.sessions()`, and every session row passes `cloud_api.session_view()`, which keeps identity,
+  state and credits and drops everything else (a raw session row carries `environment_variables` in
+  plaintext - L-050). The panel says what started each run (card-fired, scout, or opened elsewhere), and an
+  unreachable API **blinds** it rather than refilling it from an old export or from `plans/`.
+  The eight Forward schedules this panel used to enumerate are archived, so they are not read anywhere in
+  the running desk. PRD §7 item 14 is therefore closed **locally**; its hosted half is not - 
+  `desk-site/functions/handler.ts` still fetches `/forward/schedules` and `/forward/sessions` with
+  `TYCHE_FORWARD_PAT` and falls back to the committed export, which now means the live hosted overlay
+  reports zero schedules while the baked file shows the cards.
+- **The cards themselves** = the only source for the Strategy view's cadence table. `card_cadence()` expands
+  each card's own cron into one row per fire time and asks the kernel gate (`phase_at` → `strategy_for`)
+  what that wall-clock hour routes to, so the table reads 08:05 plan / 12:05 monitor / 15:05 active with the
+  card's timezone, window and day count beside it. `build_calendar()` stopped emitting
+  `generate_hourly_schedules()`: that models the retired six-run hourly design, so the panel was advertising
+  09:05/10:05/16:05 ET fires no card makes. Blind stays blind - unreadable cards leave the table empty and
+  saying so, rather than drawing a remembered cadence.
 
 ## API plumbing (from the conventions overview)
 
-- Gateway: Managed `https://api.qoder.com/api/v1/cloud`; **Forward `https://api.qoder.com/api/v1/forward`**
-  (our sessions/threads/schedules live under Forward).
+- Gateway: **Managed `https://api.qoder.com/api/v1/cloud`** is where the desk is authored and where its
+  agents, skills, cards, sessions, threads and events live.
+  `https://api.qoder.com/api/v1/forward` is residue - four templates, the eight archived schedules, their
+  own runs - and nothing authors through it any more: see [agent-engineering.md](agent-engineering.md) and
+  [tests/test_forward_fence.py](../tests/test_forward_fence.py).
 - Auth: `Authorization: Bearer <PAT>`; PAT created at qoder.com/cloud/pat-keys, kept in a gitignored
   `.env`, **server-side only**, never in client code or the repo.
 - Cursor pagination (`first_id`/`last_id`/`has_more`); 4 MB body limit; exponential backoff on 429/5xx
@@ -82,5 +103,7 @@ order stays unsubmitted even if the model ignores it.
 ## Build order
 
 P1: pipeline board + trade detail + expectancy + equity + rejection log from the journal (local).
-P1: automation panel from the Forward API (PAT server-side). P2: protection heartbeat + roll state.
+P1: automation panel from the Managed base through `scripts/cloud_api.py` (PAT server-side) - **landed
+21 Nov**; the hosted `desk-site` Function's matching read is what is left of item 14. P2: protection
+heartbeat + roll state.
 Keep it one page; do not build a platform.

@@ -1,12 +1,29 @@
-/* Tyche desk dashboard - renders journal-derived state + live Forward automation + cloud cadence. */
+/* Tyche desk dashboard - renders journal-derived state + live cloud cards and sessions + cloud cadence. */
 "use strict";
 
 const $ = (sel) => document.querySelector(sel);
 const esc = (s) => String(s ?? "").replace(/[—–]/g, "-").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const hy = (s) => String(s ?? "").replace(/[—–]/g, "-");
 
-const VERSION = "0.8.0";
+const VERSION = "0.10.0";
 const CHANGELOG = [
+  {
+    version: "0.10.0", date: "2026-11-22", title: "The cadence table shows the cards that actually fire",
+    items: [
+      "Strategy view: the cron table is drawn from each automation card's own cron, timezone and window - one row per fire time, grouped by card - with the phase and activity the kernel gate would route that wall-clock time to. What the desk really does is 08:05 plan, 12:05 monitor, 15:05 trade.",
+      "The six-run hourly model row is gone. That was the retired design's schedule generator, not the desk's behaviour, and it had no card behind it: a table that disagrees with the cards is worse than a short one.",
+      "Blind stays blind: if the Managed cards cannot be read, the table renders empty and the note says so, instead of falling back to a remembered cadence that would read as a status report.",
+    ],
+  },
+  {
+    version: "0.9.0", date: "2026-11-21", title: "The Orchestration view reads the plane the desk runs on",
+    items: [
+      "Automation lists the Managed cadence cards - cron, timezone, window, coordinator pin and next runs - and the sessions they fired, with credits and active time from the same projection the Telegram bridge reads.",
+      "The Forward schedule and session lists are gone from this view. Not hidden: the eight schedules were archived on 21 Nov, so that read had become an empty list plus a history of runs the desk stopped making.",
+      "No refill from the old exported schedule set. An unreachable cloud API now says the desk is blind, because a cached list of archived objects would look like a report and read as proof.",
+      "Session origin comes from what the platform actually says (a `deployment_id`, or the Scout metadata tag), so a run opened elsewhere is never labelled as scheduled. The roster card names the four Managed agents instead of Forward templates.",
+    ],
+  },
   {
     version: "0.8.0", date: "2026-11-21", title: "Draft the exit note from what you actually hold",
     items: [
@@ -156,6 +173,9 @@ function setTheme(t) {
 /* ---------------- view routing ---------------- */
 const VIEWS = ["overview", "strategy", "risk", "automation", "controls"];
 const VIEW_LABEL = { overview: "Overview", strategy: "Strategy", risk: "Risk & Execution", automation: "Orchestration", controls: "Controls" };
+// What started a session, in the words the desk can prove: a card, the Scout button, or something opened
+// elsewhere. The server derives it from `deployment_id` / `kind`, never from a label it guessed.
+const ORIGIN_LABEL = { card: "Cadence card", scout: "Research Scout", manual: "Opened elsewhere" };
 function showView(name) {
   if (!VIEWS.includes(name)) name = "overview";
   CLOUD_VIEW_ACTIVE = name === "controls";
@@ -1879,20 +1899,32 @@ function renderCalendar() {
     `<div class="cal-aware-row"><span class="cal-aware-label">Today</span><div class="cal-aware-items">${today}</div></div>` +
     `<div class="cal-aware-row"><span class="cal-aware-label">Ahead</span><div class="cal-aware-items cal-days">${ahead}</div></div>`;
 
-  $("#cal-window").textContent = `${cal.window.start} → ${cal.window.end}`;
+  // The gate's own window, not the table's: each card row below carries the window the card declares.
+  $("#cal-window").textContent = `gate window ${cal.window.start} → ${cal.window.end}`;
+  let lastCard = null;
   $("#cal-cron-rows").innerHTML = (cal.schedules || []).map((s) => {
-    const meta = PHASE_META[s.phase] || { name: "gate-routed", hue: "var(--cyan)" };
-    return `<tr>
-      <td><strong style="font-size:12px">${esc(s.name)}</strong></td>
+    const meta = PHASE_META[s.phase] || { name: "unknown", hue: "var(--faint)" };
+    const grouped = s.name !== lastCard;
+    lastCard = s.name;
+    const who = grouped
+      ? `<strong style="font-size:12px">${esc(s.name)}</strong><div class="dim mono">${esc(s.window || "-")} · ${esc(s.timezone || "UTC")}</div>`
+      : '<span class="dim">same card</span>';
+    return `<tr class="${grouped ? "cal-cron-group" : ""}">
+      <td>${who}</td>
       <td><span class="cal-cron mono">${esc(s.cron)}</span></td>
       <td><span class="cal-phase-tag" style="--seg-hue:${meta.hue}">${meta.name}</span></td>
       <td><span class="cal-activity ${s.activity}">${ACTIVITY_LABEL[s.activity] || s.activity}</span></td>
       <td class="mono" style="font-size:11px">${esc(s.et_time)}</td>
       <td class="mono" style="font-size:11px">${esc(s.sgt_time || "-")}</td>
-      <td class="num">${s.days}</td>
+      <td class="num">${s.days ?? "-"}</td>
     </tr>`;
-  }).join("");
-  $("#cal-cron-note").textContent = "One hourly schedule fires at :05 past each hour from 08:05 to 17:05 ET (21:05 to 06:05 SGT, landing after midnight in Singapore). It only trades on NYSE open days - weekends and holidays are skipped automatically. Each run checks the session phase first, so a run outside its window does nothing, and half-days and clock changes are handled.";
+  }).join("") || '<tr><td colspan="7" class="empty-row">No cards read, so there is no cadence to show - the desk does not draw one from a remembered model.</td></tr>';
+  $("#cal-cron-note").textContent =
+    "Each row is one fire time of one automation card: the cron, timezone and day count are that card's own, " +
+    "and the phase and activity are what the kernel gate routes a run to at that wall-clock time on the first " +
+    "session day of its window. So 08:05 plans, 12:05 monitors, and 15:05 trades. The two monthly cards overlap " +
+    "around a rollover; the one whose window owns today's date is the one that fires. Fire times come from the " +
+    "cloud read, never from the retired hourly model - if the cards cannot be read, this table is empty and says so.";
 
   const wl = cal.watchlist;
   const wlWrap = $("#cal-watchlist-wrap");
@@ -1923,8 +1955,8 @@ function renderAutomation() {
   } else {
     const isLive = LIVE ? AUTO.live === true : AUTO.ok;
     pill.className = "pill live-pill " + (isLive ? "live" : "cached");
-    pill.querySelector("span").textContent = isLive ? "Live · Forward API" : (LIVE ? "Cached export" : "Cached local export");
-    pill.title = hy(AUTO.source) + (AUTO.error ? " - " + AUTO.error : "");
+    pill.querySelector("span").textContent = isLive ? "Live · cloud cards" : "Cloud API unavailable";
+    pill.title = hy(AUTO.source) + (AUTO.problem || AUTO.error ? " - " + hy(AUTO.problem || AUTO.error) : "");
   }
   const allScheds = AUTO.schedules || [];
   const activeScheds = allScheds.filter((s) => s.status === "active").length;
@@ -1934,39 +1966,38 @@ function renderAutomation() {
   setText("#ov-sessions", allSessions.length ? String(allSessions.length) : "-");
   setText("#ov-credits", allSessions.length ? totalCredits.toFixed(1) : "-");
   setText("#ov-chain", STATE.chain.ok ? `${STATE.chain.count} ✓` : "BROKEN");
-  const scheds = [...(AUTO.schedules || [])].sort((a, b) => {
-    const na = (a.trigger_policy?.upcoming_runs_at || ["9999"])[0];
-    const nb = (b.trigger_policy?.upcoming_runs_at || ["9999"])[0];
-    return na.localeCompare(nb);
-  });
+  const nextOf = (s) => (s.next_runs || ["9999-12-31"])[0];
+  const todayEt = etDateStr(AUTO.calendar?.now_et) || "";
+  const scheds = [...allScheds].sort((a, b) => nextOf(a).localeCompare(nextOf(b)));
   setText("#sched-count", allScheds.length ? `${activeScheds} active / ${allScheds.length}` : "-");
   $("#sched-rows").innerHTML = scheds.map((s) => {
-    const next = (s.trigger_policy?.upcoming_runs_at || [])[0];
+    const next = (s.next_runs || [])[0];
     const nextT = next ? Date.parse(next) : null;
+    const owns = s.window && todayEt && s.window.includes(todayEt) ? "owns today" : `window ${s.window || "-"}`;
     return `<tr class="${s.status === "active" ? "" : "is-paused"}">
-      <td><strong>${esc(s.name)}</strong><div class="dim">${esc(s.description || "")}</div></td>
-      <td><span class="cal-cron mono">${esc(s.trigger_policy?.expression || "-")}</span><div class="dim mono">${esc(s.trigger_policy?.timezone || "UTC")}</div></td>
-      <td><span class="sched-pill ${s.status === "active" ? "active" : "paused"}"><i></i>${esc(s.status || "unknown")}</span></td>
+      <td><strong>${esc(s.name)}</strong><div class="dim mono">${esc(owns)} · coordinator v${esc(s.agent?.version ?? "?")}</div></td>
+      <td><span class="cal-cron mono">${esc(s.cron || "-")}</span><div class="dim mono">${esc(s.timezone || "UTC")}</div></td>
+      <td><span class="sched-pill ${s.status === "active" ? "active" : "paused"}"><i></i>${esc(s.status || "unknown")}${s.paused && s.paused_reason ? ` (${esc(s.paused_reason)})` : ""}</span></td>
       <td>${nextT && nextT > Date.now()
         ? `<b class="mono" data-countdown="${nextT}">${fmtCountdown(nextT - Date.now())}</b><div class="dim mono">${dateLabel(next)} ${etHHMM(next)} ET · ${sgtHHMM(next)} SGT</div>`
-        : '<span class="dim">No upcoming run in this window</span>'}</td>
+        : '<span class="dim">No upcoming run reported by the card</span>'}</td>
     </tr>`;
-  }).join("") || '<tr><td colspan="4" class="empty-row">No schedules returned - Forward may be unreachable; the cached export carries the last known set.</td></tr>';
-  const sessions = AUTO.sessions || [];
+  }).join("") || '<tr><td colspan="4" class="empty-row">No automation card returned - the cloud API was unreachable, or no card has been built for this window.</td></tr>';
+  const sessions = allSessions;
   const credits = sessions.reduce((a, s) => a + (s.usage?.total_credits || 0), 0);
   $("#credits-total").textContent = `Σ ${credits.toFixed(1)} credits`;
   $("#session-rows").innerHTML = sessions.map((s) => {
     const st = s.status || "unknown";
     return `<tr>
       <td><strong style="font-size:12px">${esc(s.title || s.id)}</strong><div class="mono" style="font-size:9.5px;color:var(--faint)">${esc(s.id)}</div></td>
-      <td style="color:var(--muted)">${esc(s.template?.name || "-")}</td>
+      <td style="color:var(--muted)">${esc(ORIGIN_LABEL[s.origin] || s.origin || "-")}</td>
       <td><span class="sess-status ${esc(st)}"><i></i>${esc(st)}</span></td>
-      <td><span class="chip ${s.source_type === "schedule" ? "dry" : ""}" style="font-size:9.5px">${esc(s.source_type || "-")}</span></td>
+      <td><span class="chip ${s.deployment_id ? "dry" : ""} mono" style="font-size:9.5px">${esc(s.deployment_id || "-")}</span></td>
       <td class="num">${(s.usage?.total_credits ?? 0).toFixed(1)}</td>
       <td class="num">${fmtDur(s.stats?.active_seconds)}</td>
       <td class="mono" style="font-size:10.5px">${dualCell(s.created_at)}</td>
     </tr>`;
-  }).join("") || '<tr><td colspan="7" style="color:var(--faint)">No sessions - Forward API unreachable; cached export carries schedules only.</td></tr>';
+  }).join("") || '<tr><td colspan="7" style="color:var(--faint)">No sessions returned - the cloud API was unreachable.</td></tr>';
 }
 
 /* ---------------- instrumentation ---------------- */

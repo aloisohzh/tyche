@@ -2,7 +2,7 @@
 
 Serves the single-page dashboard and four JSON endpoints:
   /api/state       journal-derived desk state (truth = journal/events.jsonl)
-  /api/automation  legacy Qoder Forward schedules + sessions (PAT server-side only)
+  /api/automation  the Managed cards that carry the cadence + the sessions they fired (PAT server-side only)
   /api/schedule    the cloud automation card that owns today: cadence, next runs, run history
   /api/scout       the manual researcher lane: status, history and the brief it would send
 
@@ -40,14 +40,15 @@ from tyche.lanes import read_state, set_enabled  # noqa: E402
 from tyche.models import AccountSnapshot, Position, looks_like_option  # noqa: E402
 from tyche.market_calendar import (
     ET,
+    SGT,
     SessionPhase,
     earnings_season,
     evaluate,
     events_on,
-    generate_hourly_schedules,
     holiday_name,
     is_half_day,
     is_trading_day,
+    phase_at,
     session_timeline,
     strategy_for,
 )
@@ -1440,24 +1441,6 @@ def live_broker_snapshot() -> tuple[dict | None, str | None]:
         return None, note
 
 
-def sentinel_fallback() -> list[dict]:
-    out = []
-    for path in sorted((ROOT / "plans" / "sentinel").glob("sched_*.json")):
-        d = json.loads(path.read_text(encoding="utf-8"))
-        out.append(
-            {
-                "id": d["id"],
-                "name": d["name"],
-                "description": d.get("description"),
-                "status": d.get("status"),
-                "trigger_policy": d.get("trigger_policy"),
-                "initial_events_version": d.get("initial_events_version"),
-                "template_id": d.get("template_id"),
-            }
-        )
-    return out
-
-
 EVENTS: list[dict] = []
 
 
@@ -1713,7 +1696,6 @@ def build_state() -> dict:
                 {"field": "roll_plan", "state": "gap", "note": "P2 - option leg groups"},
                 {"field": "macro / sentiment / seasonality", "state": "partial", "note": "researcher child designed, not yet in plan artifacts"},
             ],
-            "sentinel_fallback": sentinel_fallback(),
             "strategies": strategies_view,
         }
     )
@@ -1722,34 +1704,9 @@ def build_state() -> dict:
 # ---------------------------------------------------------------- automation
 AUTOMATION_CACHE: dict = {"at": 0.0, "payload": None}
 AUTOMATION_LOCK = threading.Lock()
-
-
-def slim_schedule(d: dict) -> dict:
-    return {
-        "id": d.get("id"),
-        "name": d.get("name"),
-        "description": d.get("description"),
-        "status": d.get("status"),
-        "trigger_policy": d.get("trigger_policy"),
-        "initial_events_version": d.get("initial_events_version"),
-        "template_id": d.get("template_id"),
-        "updated_at": d.get("updated_at"),
-    }
-
-
-def slim_session(d: dict) -> dict:
-    template = d.get("template") or {}
-    return {
-        "id": d.get("id"),
-        "title": d.get("title"),
-        "status": d.get("status"),
-        "source_type": d.get("source_type"),
-        "template": {"id": template.get("id"), "name": template.get("name")},
-        "stats": d.get("stats"),
-        "usage": d.get("usage"),
-        "metadata": d.get("metadata"),
-        "created_at": d.get("created_at"),
-    }
+# Small on purpose: each Managed session row embeds its agent definition, and the panel sums credits over
+# what it lists, so a longer list would be a slower read of the same few lines.
+SESSION_ROWS = 12
 
 
 CALENDAR_WINDOW = (date(2026, 11, 17), date(2026, 11, 28))
@@ -1777,7 +1734,13 @@ def build_watchlist() -> dict | None:
 
 
 def build_calendar() -> dict:
-    """Deterministic market-calendar gate + session-phase routing (local, no API)."""
+    """Deterministic market-calendar gate + session-phase routing (local, no API).
+
+    Deliberately carries no cadence rows: which times the desk fires at is the automation cards' business, and
+    `build_automation()` attaches those rows through `card_cadence()`. This function used to emit
+    `generate_hourly_schedules()`, which models the retired six-run hourly design, so the panel was showing
+    fires at 09:05/10:05/16:05 ET that no card makes.
+    """
     now = datetime.now(UTC)
     gate = evaluate(now)
     today = gate.now_et.date()
@@ -1817,43 +1780,72 @@ def build_calendar() -> dict:
         "timeline": session_timeline(timeline_day),
         "phase_strategies": [strategy_for(p).model_dump(mode="json") for p in _PHASE_ORDER],
         "window": {"start": start.isoformat(), "end": end.isoformat()},
-        "schedules": [d.model_dump(mode="json") for d in generate_hourly_schedules(start, end)],
         "watchlist": build_watchlist(),
         "upcoming": upcoming,
     }
 
 
+def session_origin(row: dict) -> str:
+    """How a session arrived, named from the fields that actually say so.
+
+    Forward used to carry a `source_type`; a Managed session does not, so the desk says what it can prove:
+    a `deployment_id` means a card fired it, the Scout metadata tag means the desk's Research Scout button
+    started it, and anything else was opened somewhere else rather than being labelled as scheduled.
+    """
+    import cloud_api
+
+    if row.get("deployment_id"):
+        return "card"
+    kind = row.get("kind")
+    if kind:
+        return "scout" if kind == cloud_api.SCOUT_KIND else str(kind)
+    return "manual"
+
+
 def build_automation() -> dict:
+    """The automation the desk has: the Managed cards are the cadence and the Managed sessions are the runs.
+
+    This panel read Forward schedules and their sessions until 21 Nov, when those eight objects were archived:
+    that read now answers with an empty list plus a history of retired runs, which looks like a report and is
+    noise. Everything here goes through `cloud_api`, whose projections drop the plaintext
+    `environment_variables` a deployment or session row carries (L-050), so no panel state can put a token in
+    a browser. A failed read is reported as blind, not filled in from an old export.
+    """
     with AUTOMATION_LOCK:
         now = time.time()
         if AUTOMATION_CACHE["payload"] and now - AUTOMATION_CACHE["at"] < 20:
             return AUTOMATION_CACHE["payload"]
-        calendar = build_calendar()
-        try:
-            import forward
+    calendar = build_calendar()
 
-            schedules = forward.req("GET", "/schedules?limit=20").get("data") or []
-            sessions = forward.req("GET", "/sessions?limit=12").get("data") or []
-            payload = {
-                "ok": True,
-                "source": "live - api.qoder.com/api/v1/forward",
-                "fetched_at": datetime.now(UTC).isoformat(),
-                "schedules": [slim_schedule(s) for s in schedules],
-                "sessions": [slim_session(s) for s in sessions],
-                "calendar": calendar,
-            }
-        except Exception as exc:  # noqa: BLE001 - degrade to local export
-            payload = {
-                "ok": False,
-                "source": "cached local export (plans/sentinel) - Forward API unreachable",
-                "error": str(exc)[:300],
-                "fetched_at": datetime.now(UTC).isoformat(),
-                "schedules": sentinel_fallback(),
-                "sessions": [],
-                "calendar": calendar,
-            }
-        AUTOMATION_CACHE.update(at=now, payload=payload)
-        return payload
+    try:
+        import cloud_api
+
+        cards = cloud_api.cards()
+        sessions = [dict(row, origin=session_origin(row)) for row in cloud_api.sessions(SESSION_ROWS)]
+        payload = {
+            "ok": True,
+            "live": True,
+            "source": "live - api.qoder.com/api/v1/cloud",
+            "fetched_at": datetime.now(UTC).isoformat(),
+            "schedules": cards,
+            "sessions": sessions,
+            "calendar": dict(calendar, schedules=card_cadence(cards)),
+            "problem": None,
+        }
+    except Exception as exc:  # noqa: BLE001 - the desk must still render, and say why it is blind
+        payload = {
+            "ok": False,
+            "live": False,
+            "source": "unavailable - api.qoder.com/api/v1/cloud",
+            "fetched_at": datetime.now(UTC).isoformat(),
+            "schedules": [],
+            "sessions": [],
+            "calendar": dict(calendar, schedules=[]),
+            "problem": str(exc)[:300],
+        }
+    with AUTOMATION_LOCK:
+        AUTOMATION_CACHE.update(at=time.time(), payload=payload)
+    return payload
 
 
 # ---------------------------------------------------------------- http
@@ -2196,6 +2188,67 @@ def fire_times(cron: str | None) -> list[str]:
     if not minutes or not hours:
         return []
     return [f"{hour:02d}:{minutes[0]:02d}" for hour in sorted(set(hours))]
+
+
+def _cadence_reference_day(window: str, today: date) -> date:
+    """A session day to judge a card's fire times against: the first one in its window still ahead of today.
+
+    Which phase a run lands in is a property of the clock, but only on a trading day - on a Saturday every fire
+    is CLOSED, which would label the whole table "rests" across a weekend while the card itself is healthy.
+    """
+    start_text, _, end_text = window.partition("..")
+    try:
+        start, end = date.fromisoformat(start_text), date.fromisoformat(end_text)
+    except ValueError:
+        return today
+    if end < start:
+        return today
+    session = [
+        day for day in (start + timedelta(days=i) for i in range((end - start).days + 1)) if is_trading_day(day)
+    ]
+    ahead = [day for day in session if day >= today]
+    return ahead[0] if ahead else (session[0] if session else today)
+
+
+def card_cadence(cards: list[dict]) -> list[dict]:
+    """The cadence table drawn from the cards that fire: one row per card, per fire time.
+
+    Cron, timezone and day count come off the card's own expression. Phase and activity are what the kernel
+    gate would route a run to at that wall-clock time on the first session day of the card's window, so a row
+    says what a fire *does* instead of what an archived schedule used to be called. An unreadable cloud yields
+    no rows rather than a model of what the desk might be doing - see `build_automation()`.
+    """
+    from zoneinfo import ZoneInfo
+
+    today = datetime.now(ET).date()
+    rows: list[dict] = []
+    for card in cards:
+        parts = (card.get("cron") or "").split()
+        if len(parts) != 5:
+            continue
+        try:
+            tz = ZoneInfo(card.get("timezone") or "UTC")
+        except Exception:  # noqa: BLE001 - a bad zone name is a display problem, not a reason to drop the card
+            tz = ET
+        reference = _cadence_reference_day(card.get("window") or "", today)
+        day_field = _cron_field(parts[2])
+        for stamp in fire_times(card.get("cron")):
+            hour, minute = (int(piece) for piece in stamp.split(":"))
+            when = datetime(reference.year, reference.month, reference.day, hour, minute, tzinfo=tz)
+            phase = phase_at(when)
+            sgt = when.astimezone(SGT)
+            rows.append({
+                "name": card.get("name") or card.get("id") or "-",
+                "window": card.get("window") or "-",
+                "cron": card.get("cron"),
+                "timezone": card.get("timezone") or "UTC",
+                "phase": phase.value,
+                "activity": strategy_for(phase).activity,
+                "et_time": when.strftime("%H:%M"),
+                "sgt_time": f"{sgt:%H:%M}" + (" (+1d)" if sgt.date() > when.date() else ""),
+                "days": len(set(day_field)) if day_field else None,
+            })
+    return rows
 
 
 def build_schedule(force: bool = False) -> dict:
