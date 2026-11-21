@@ -186,6 +186,13 @@ def card_runs(card_id: str, limit: int = 8) -> list[dict]:
 
 
 def session_view(item: dict) -> dict:
+    """The session as any reader may see it: identity, state and credits.
+
+    A session row carries `environment_variables` and `vault_ids` in plaintext, the same way a deployment
+    does (L-050), so credits and wall time are taken key by key rather than by copying `usage`/`stats`.
+    """
+    usage = item.get("usage") or {}
+    stats = item.get("stats") or {}
     return {
         "id": item.get("id"),
         "title": item.get("title"),
@@ -195,6 +202,8 @@ def session_view(item: dict) -> dict:
         "agent": (item.get("agent") or {}).get("id"),
         "kind": (item.get("metadata") or {}).get("kind"),
         "deployment_id": item.get("deployment_id"),
+        "usage": {key: usage.get(key) for key in ("total_credits", "model_credits", "sandbox_runtime_credits")},
+        "stats": {key: stats.get(key) for key in ("active_seconds", "duration_seconds")},
     }
 
 
@@ -328,13 +337,7 @@ def thread_events(session_id: str, thread_id: str, after_id: str | None = None,
 
 def session_status(session_id: str) -> dict:
     """Status for the bridge's /status. Credits, never the session's environment variables."""
-    item = req_retry("GET", f"/sessions/{session_id}")
-    view = session_view(item)
-    usage = item.get("usage") or {}
-    view["usage"] = {key: usage.get(key) for key in
-                     ("total_credits", "model_credits", "sandbox_runtime_credits")}
-    view["deployment_id"] = item.get("deployment_id")
-    return view
+    return session_view(req_retry("GET", f"/sessions/{session_id}"))
 
 
 def post_session_event(session_id: str, event: dict) -> dict:

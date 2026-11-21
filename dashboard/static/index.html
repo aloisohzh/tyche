@@ -370,15 +370,15 @@
         <div class="page-heading">
           <div>
             <h1>Orchestration</h1>
-            <p>The desk trades on a schedule in the cloud, even when your PC is off. Every order is either confirmed by you or inside a pre-approved envelope. The cadence that owns today - its times, its switch, its run history - is the Scheduled daily checks card on Controls; the Forward schedules below are the retired hourly design, still listed because they still exist in the platform. Session status is read live from Qoder Forward; the access token stays server-side.</p>
+            <p>The desk trades on a schedule in the cloud, even when your PC is off. Every order is either confirmed by you or inside a pre-approved envelope. The cadence is the set of automation cards below: each carries its own cron, window and pinned agent version, and the one whose window owns today's date is the one that fires. The session history comes from the same Managed API, read server-side so the access token never reaches the browser. The Forward schedules the desk ran on until 21 Nov are archived, so they are no longer listed here.</p>
           </div>
           <div class="heading-aside"><span class="pill live-pill" id="automation-source"><i class="dot"></i><span>Connecting…</span></span></div>
         </div>
 
         <div class="evidence-strip">
-          <div class="card evidence-card"><span class="ev-num mono" id="ov-sched-count">-</span><span class="ev-label">Legacy schedules live</span><span class="ev-sub">retired hourly design</span></div>
+          <div class="card evidence-card"><span class="ev-num mono" id="ov-sched-count">-</span><span class="ev-label">Cadence cards live</span><span class="ev-sub">active / total</span></div>
           <div class="card evidence-card"><span class="ev-num mono" id="ov-sessions">-</span><span class="ev-label">Desk sessions</span><span class="ev-sub">Coordinator + children</span></div>
-          <div class="card evidence-card"><span class="ev-num mono" id="ov-credits">-</span><span class="ev-label">Credits consumed</span><span class="ev-sub">Forward run usage</span></div>
+          <div class="card evidence-card"><span class="ev-num mono" id="ov-credits">-</span><span class="ev-label">Credits consumed</span><span class="ev-sub">Managed run usage</span></div>
           <div class="card evidence-card"><span class="ev-num mono" id="ov-chain">-</span><span class="ev-label">Journal events ✓</span><span class="ev-sub">Hash-chain verified</span></div>
         </div>
 
@@ -431,16 +431,16 @@
 
         <div class="card table-card sched-card">
           <div class="table-head">
-            <span class="card-kicker">Legacy schedules · Forward</span>
+            <span class="card-kicker">Cadence · cloud cards</span>
             <span class="chip" id="sched-count">-</span>
           </div>
           <div class="tbl-scroll">
             <table class="tbl sched-tbl">
-              <thead><tr><th>Schedule</th><th>Cron (UTC)</th><th>Status</th><th>Next run</th></tr></thead>
+              <thead><tr><th>Card</th><th>Cron · timezone</th><th>Status</th><th>Next run</th></tr></thead>
               <tbody id="sched-rows"></tbody>
             </table>
           </div>
-          <p class="table-note">None of these drives the desk any more: the cadence that fires is the automation card on the Controls page. They stay listed because they still exist in the platform, and a schedule that is paused but visible is harder to forget than one that is deleted.</p>
+          <p class="table-note">These are the automation cards on the Managed plane, and they are the cadence: the one whose window owns today's date is the one that fires. Fire times and timezone come from the card's own cron, so retuning them means rebuilding the card. Switching the cadence or firing one run now lives on the Controls page.</p>
         </div>
         <div class="auto-grid">
           <div class="card table-card sessions-card">
@@ -450,23 +450,23 @@
             </div>
             <div class="tbl-scroll">
               <table class="tbl">
-                <thead><tr><th>Session</th><th>Template</th><th>Status</th><th>Trigger</th><th class="num">Credits</th><th class="num">Active</th><th>Created (ET · SGT)</th></tr></thead>
+                <thead><tr><th>Session</th><th>Started by</th><th>Status</th><th>Card</th><th class="num">Credits</th><th class="num">Active</th><th>Created (ET · SGT)</th></tr></thead>
                 <tbody id="session-rows"></tbody>
               </table>
             </div>
           </div>
           <div class="card roster-card">
-            <span class="card-kicker">Desk roster · pinned</span>
+            <span class="card-kicker">Desk roster · Managed agents</span>
             <div class="roster">
               <div class="roster-node coordinator">
                 <strong>tyche-desk</strong><span>coordinator</span>
-                <code class="mono">tmpl_004fa0…</code>
+                <code class="mono">agent_00vtt1wjgm…</code>
               </div>
               <div class="roster-edges" aria-hidden="true"><i></i><i></i><i></i></div>
               <div class="roster-members">
-                <div class="roster-node"><strong>researcher</strong><span>multi-factor briefs · HH:MM UTC stamped</span><code class="mono">tmpl_875834…</code></div>
-                <div class="roster-node"><strong>auditor</strong><span>plan review · read-only</span><code class="mono">tmpl_ae317c…</code></div>
-                <div class="roster-node"><strong>executor</strong><span>broker reads + gated sim writes</span><code class="mono">tmpl_bc25a5…</code></div>
+                <div class="roster-node"><strong>researcher</strong><span>multi-factor briefs · HH:MM UTC stamped</span><code class="mono">agent_00vs9v3dg0…</code></div>
+                <div class="roster-node"><strong>auditor</strong><span>plan review · read-only</span><code class="mono">agent_00vtx8g7k1…</code></div>
+                <div class="roster-node"><strong>executor</strong><span>broker reads + gated sim writes</span><code class="mono">agent_00vtx8mfbx…</code></div>
               </div>
             </div>
             <p class="table-note">Children start with no tools. Every sim order needs approval unless it is inside your pre-approved envelope. Challenge account only - live and crypto tools are never mounted.</p>
@@ -621,7 +621,7 @@
                 <div class="info-row"><span class="info-k">Broker feed</span><span class="info-v">Newest moomoo MCP JSON capture under <span class="mono">data/&lt;run&gt;/</span> - account, cash, positions and order history, masked before it reaches the page.</span></div>
                 <div class="info-row"><span class="info-k">Trade journal</span><span class="info-v"><span class="mono">journal/events.jsonl</span> - the hash-chained record of plans, orders, halts and rejections.</span></div>
                 <div class="info-row"><span class="info-k">Cloud runs</span><span class="info-v"><span class="mono">docs/performance/&lt;run&gt;/</span> bundles, used for NAV readings and reconciliation when a broker capture is out of date.</span></div>
-                <div class="info-row"><span class="info-k">Forward API</span><span class="info-v">Schedules and desk sessions; the access token stays server-side.</span></div>
+                <div class="info-row"><span class="info-k">Cloud API · Managed</span><span class="info-v">Cadence cards and desk sessions; the access token stays server-side.</span></div>
                 <div class="info-row"><span class="info-k">Fill records</span><span class="info-v"><span class="mono">docs/validation/2026-11-18-kill-switch-drill.md</span> - drill fills the simulator cannot date itself.</span></div>
               </div>
             </div>

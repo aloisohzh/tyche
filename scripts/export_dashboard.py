@@ -1,10 +1,10 @@
 """Bake the tyche desk dashboard into a redacted static Qoder Site.
 
-Reuses dashboard/server.py's builders (journal-derived state + live Forward
-automation + cloud cadence + market calendar), scrubs full account ids, and writes a
-self-contained static site under desk-site/web/ that app.js renders in snapshot
-mode (window.TYCHE_SNAPSHOT). A hard secret guard refuses to write if any PAT,
-Telegram credential, signing secret or full account id appears in the output.
+Reuses dashboard/server.py's builders (journal-derived state + live Managed cards and
+sessions + market calendar), scrubs full account ids, and writes a self-contained static
+site under desk-site/web/ that app.js renders in snapshot mode (window.TYCHE_SNAPSHOT). A
+hard secret guard refuses to write if any PAT, Telegram credential, signing secret or full
+account id appears in the output.
 
 The local dashboard is untouched; only the baked copy carries the snapshot flag.
 

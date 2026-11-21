@@ -5,9 +5,12 @@ Read-only scripts may still talk to the Forward base (the archived writers expla
 materialise a `managed_tool_config` grant the running pin never had (L-046). So the whole Forward authoring
 path was moved to `archive/` on 2026-11-21 instead of being deleted, and this test is what keeps it moved.
 
-Scope is `scripts/` deliberately: `dashboard/server.py` still *reads* `/forward/schedules` for its automation
-panel (documented in the sentinel runbook as the remaining Forward-plane consumer), and `scripts/forward.py`
-is the client itself. This fence is about authoring, not about the existence of the base.
+Scope is authoring, plus one narrow read: `scripts/forward.py` is the client itself, so it may name its own
+base. The desk's automation panel used to be the other exception - `dashboard/server.py` read
+`/forward/schedules` and `/forward/sessions` - and it was repointed at the Managed cards on 21 Nov, so the
+running code no longer reads that base at all and `test_the_desk_itself_does_not_read_the_forward_base`
+keeps it that way. The hosted `desk-site` Function is the one reader left, and it is display-only with a
+committed-export fallback (PRD 7 item 14).
 """
 from __future__ import annotations
 
@@ -37,6 +40,10 @@ FENCED_WRITERS = (
 )
 
 
+# The desk's own running code, which item 14 of PRD §7 took off the Forward base.
+DESK_READERS = ("dashboard/server.py", "scripts/export_dashboard.py")
+
+
 def _script_sources() -> list[Path]:
     return sorted(p for p in SCRIPTS.glob("*.py") if p.name != FORWARD_CLIENT)
 
@@ -56,6 +63,26 @@ def test_no_live_script_authors_a_forward_template() -> None:
         "a script under scripts/ is back on the Forward plane; author the Managed object instead "
         "(see scripts/deploy_managed_agents.py) and park this one in archive/ with a MANIFEST row:\n"
         + "\n".join(offenders)
+    )
+
+
+def test_the_desk_itself_does_not_read_the_forward_base() -> None:
+    """Reading is not authoring, but a panel that reads a retired base drifts from what the desk runs on.
+
+    The automation panel used to enumerate `/forward/schedules` and `/forward/sessions`; PRD §7 item 14
+    repointed it at `cloud_api.cards()` and the Managed sessions. Nothing in the desk's own code may go back
+    to the archived objects, or the panel starts showing a cadence that no longer fires.
+    """
+    offenders = []
+    for rel in DESK_READERS:
+        text = (ROOT / rel).read_text(encoding="utf-8", errors="replace")
+        if IMPORT_FORWARD.search(text):
+            offenders.append(f"{rel}: imports the Forward client")
+        if FORWARD_BASE.search(text):
+            offenders.append(f"{rel}: names the Forward base directly")
+    assert not offenders, (
+        "the desk is back on the Forward plane; the cadence lives on the Managed cards "
+        "(see scripts/deploy_managed_agents.py) and the runs on /sessions:\n" + "\n".join(offenders)
     )
 
 

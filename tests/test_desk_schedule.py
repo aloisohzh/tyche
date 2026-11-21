@@ -71,23 +71,52 @@ def _card(card_id="dep_nov", window="2026-11-01..2026-11-30", status="active", c
     }
 
 
+def _session(session_id: str, *, deployment_id: str | None = None, kind: str | None = None) -> dict:
+    """A session as `cloud_api.session_view` projects it: credits, wall time and what started it.
+
+    A live row also carries `environment_variables` and `vault_ids`; this helper does not, because the
+    projection is all the desk is allowed to see and the leak test builds the raw row itself.
+    """
+    return {
+        "id": session_id,
+        "title": "Tyche desk - premarket and close" if deployment_id else "tyche scout",
+        "status": "idle",
+        "created_at": "2026-11-20T13:05:00Z",
+        "updated_at": "2026-11-20T13:22:00Z",
+        "agent": "agent_desk",
+        "kind": kind,
+        "deployment_id": deployment_id,
+        "usage": {"total_credits": 4.0, "model_credits": 3.5, "sandbox_runtime_credits": 0.5},
+        "stats": {"active_seconds": 900, "duration_seconds": 1020},
+    }
+
+
 class FakeCloud:
     """Stands in for scripts/cloud_api.py with the same surface the desk uses."""
 
     CloudError = Exception
     RESEARCHER_AGENT = "agent_researcher"
+    SCOUT_KIND = "tyche-scout"
 
-    def __init__(self, cards=None, runs=None, activity=None):
+    def __init__(self, cards=None, runs=None, activity=None, sessions=None):
         self._cards = cards if cards is not None else [_card()]
         self._runs = runs or [{"id": "drun_1", "at": "2026-11-20T13:05:00Z", "trigger": "schedule",
                                "scheduled_at": "2026-11-20T13:05:00Z", "session_id": "sess_1", "error": None}]
         self._activity = activity or {"running": None, "stale": None}
+        self._sessions = sessions if sessions is not None else [
+            _session("sess_card", deployment_id="dep_nov"),
+            _session("sess_scout", kind="tyche-scout"),
+            _session("sess_other"),
+        ]
         self.paused_calls = []
         self.ran = []
         self.started = []
 
     def cards(self):
         return list(self._cards)
+
+    def sessions(self, limit=12):
+        return list(self._sessions)[:limit]
 
     def pick_card(self, rows, day):
         return next((c for c in rows if c["window"].split("..")[0] <= day.isoformat() <= c["window"].split("..")[1]),
@@ -133,12 +162,13 @@ class _FixedNow(datetime):
 
 @pytest.fixture
 def fake(srv, monkeypatch):
-    def _install(cards=None, activity=None):
-        stub = FakeCloud(cards=cards, activity=activity)
+    def _install(cards=None, activity=None, sessions=None):
+        stub = FakeCloud(cards=cards, activity=activity, sessions=sessions)
         monkeypatch.setitem(sys.modules, "cloud_api", stub)
         monkeypatch.setattr(srv, "datetime", _FixedNow)
         srv.SCHEDULE_CACHE.update(at=0.0, payload=None)
         srv.SCOUT_CACHE.update(at=0.0, payload=None)
+        srv.AUTOMATION_CACHE.update(at=0.0, payload=None)
         return stub
 
     return _install
@@ -339,6 +369,51 @@ def test_a_broken_cloud_leaves_scout_stalled_but_described(srv, desk, monkeypatc
     assert view["history"] == []
 
 
+# ------------------------------------------------------------------ automation panel
+def test_automation_lists_the_cards_that_carry_the_cadence(srv, desk, fake):
+    fake(cards=[_card("dep_nov"), _card("dep_dec", window="2026-12-01..2026-12-31")])
+    view = srv.build_automation()
+    assert view["ok"] is True and view["live"] is True
+    assert "api/v1/cloud" in view["source"]
+    assert [c["id"] for c in view["schedules"]] == ["dep_nov", "dep_dec"]
+    assert view["schedules"][0]["cron"] == "5 8,12,15 19-20 11 *"
+    assert view["schedules"][0]["agent"] == {"id": "agent_desk", "version": 28}
+
+
+def test_automation_names_what_started_each_session(srv, desk, fake):
+    fake()
+    view = srv.build_automation()
+    assert [(s["id"], s["origin"]) for s in view["sessions"]] == [
+        ("sess_card", "card"), ("sess_scout", "scout"), ("sess_other", "manual")]
+    assert view["sessions"][0]["usage"]["total_credits"] == 4.0
+
+
+def test_automation_carries_no_forward_shaped_fields(srv, desk, fake):
+    """The archived schedules are gone from this view, and so is the shape that described them.
+
+    A key named `template_id` or `trigger_policy` here would mean the panel is still reporting Forward
+    objects under a Managed heading, which is the drift this repoint closed (PRD 7 item 14).
+    """
+    fake()
+    view = srv.build_automation()
+    text = json.dumps(view["schedules"] + view["sessions"])
+    for forbidden in ("template_id", "trigger_policy", "initial_events_version", "source_type"):
+        assert forbidden not in text
+
+
+def test_an_unreachable_cloud_blinds_the_panel_without_refilling_it(srv, desk, monkeypatch):
+    class Boom(FakeCloud):
+        def cards(self):
+            raise RuntimeError("HTTP 503: cloud on fire")
+
+    monkeypatch.setitem(sys.modules, "cloud_api", Boom())
+    srv.AUTOMATION_CACHE.update(at=0.0, payload=None)
+    view = srv.build_automation()
+    assert view["ok"] is False and view["live"] is False and "503" in view["problem"]
+    assert view["schedules"] == [] and view["sessions"] == []
+    assert "sentinel" not in view["source"]
+
+
 # ------------------------------------------------------------------ what may not leave
 def test_card_view_drops_secrets_prompts_and_mounts(cloud):
     raw = {
@@ -369,12 +444,18 @@ def test_session_view_drops_the_agent_definition_and_env(cloud):
         "resources": [{"type": "memory_store", "memory_store_id": "memstore_1"}],
         "agent": {"id": "agent_1", "version": 16, "system": "a very long prompt"},
         "metadata": {"kind": "tyche-scout", "forward_owner_id": "owner-1"},
-        "deployment_id": None, "stats": {"tokens": 999999},
+        "deployment_id": None, "stats": {"tokens": 999999, "active_seconds": 900, "duration_seconds": 1020},
+        "usage": {"total_credits": 4.0, "model_credits": 3.5, "sandbox_runtime_credits": 0.5,
+                  "internal_charge_key": "secret"},
     }
-    text = json.dumps(cloud.session_view(raw))
-    for forbidden in ("supersecret", "a very long prompt", "memstore_1", "owner-1", "999999"):
+    view = cloud.session_view(raw)
+    text = json.dumps(view)
+    for forbidden in ("supersecret", "a very long prompt", "memstore_1", "owner-1", "999999", "secret"):
         assert forbidden not in text
     assert json.loads(text)["agent"] == "agent_1"
+    # what the automation panel sums, and nothing else from those two blocks
+    assert view["usage"] == {"total_credits": 4.0, "model_credits": 3.5, "sandbox_runtime_credits": 0.5}
+    assert view["stats"] == {"active_seconds": 900, "duration_seconds": 1020}
 
 
 def test_only_the_window_covering_the_day_is_picked(cloud):

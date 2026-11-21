@@ -2,7 +2,7 @@
 
 Serves the single-page dashboard and four JSON endpoints:
   /api/state       journal-derived desk state (truth = journal/events.jsonl)
-  /api/automation  legacy Qoder Forward schedules + sessions (PAT server-side only)
+  /api/automation  the Managed cards that carry the cadence + the sessions they fired (PAT server-side only)
   /api/schedule    the cloud automation card that owns today: cadence, next runs, run history
   /api/scout       the manual researcher lane: status, history and the brief it would send
 
@@ -1440,24 +1440,6 @@ def live_broker_snapshot() -> tuple[dict | None, str | None]:
         return None, note
 
 
-def sentinel_fallback() -> list[dict]:
-    out = []
-    for path in sorted((ROOT / "plans" / "sentinel").glob("sched_*.json")):
-        d = json.loads(path.read_text(encoding="utf-8"))
-        out.append(
-            {
-                "id": d["id"],
-                "name": d["name"],
-                "description": d.get("description"),
-                "status": d.get("status"),
-                "trigger_policy": d.get("trigger_policy"),
-                "initial_events_version": d.get("initial_events_version"),
-                "template_id": d.get("template_id"),
-            }
-        )
-    return out
-
-
 EVENTS: list[dict] = []
 
 
@@ -1713,7 +1695,6 @@ def build_state() -> dict:
                 {"field": "roll_plan", "state": "gap", "note": "P2 - option leg groups"},
                 {"field": "macro / sentiment / seasonality", "state": "partial", "note": "researcher child designed, not yet in plan artifacts"},
             ],
-            "sentinel_fallback": sentinel_fallback(),
             "strategies": strategies_view,
         }
     )
@@ -1722,34 +1703,9 @@ def build_state() -> dict:
 # ---------------------------------------------------------------- automation
 AUTOMATION_CACHE: dict = {"at": 0.0, "payload": None}
 AUTOMATION_LOCK = threading.Lock()
-
-
-def slim_schedule(d: dict) -> dict:
-    return {
-        "id": d.get("id"),
-        "name": d.get("name"),
-        "description": d.get("description"),
-        "status": d.get("status"),
-        "trigger_policy": d.get("trigger_policy"),
-        "initial_events_version": d.get("initial_events_version"),
-        "template_id": d.get("template_id"),
-        "updated_at": d.get("updated_at"),
-    }
-
-
-def slim_session(d: dict) -> dict:
-    template = d.get("template") or {}
-    return {
-        "id": d.get("id"),
-        "title": d.get("title"),
-        "status": d.get("status"),
-        "source_type": d.get("source_type"),
-        "template": {"id": template.get("id"), "name": template.get("name")},
-        "stats": d.get("stats"),
-        "usage": d.get("usage"),
-        "metadata": d.get("metadata"),
-        "created_at": d.get("created_at"),
-    }
+# Small on purpose: each Managed session row embeds its agent definition, and the panel sums credits over
+# what it lists, so a longer list would be a slower read of the same few lines.
+SESSION_ROWS = 12
 
 
 CALENDAR_WINDOW = (date(2026, 11, 17), date(2026, 11, 28))
@@ -1823,37 +1779,67 @@ def build_calendar() -> dict:
     }
 
 
+def session_origin(row: dict) -> str:
+    """How a session arrived, named from the fields that actually say so.
+
+    Forward used to carry a `source_type`; a Managed session does not, so the desk says what it can prove:
+    a `deployment_id` means a card fired it, the Scout metadata tag means the desk's Research Scout button
+    started it, and anything else was opened somewhere else rather than being labelled as scheduled.
+    """
+    import cloud_api
+
+    if row.get("deployment_id"):
+        return "card"
+    kind = row.get("kind")
+    if kind:
+        return "scout" if kind == cloud_api.SCOUT_KIND else str(kind)
+    return "manual"
+
+
 def build_automation() -> dict:
+    """The automation the desk has: the Managed cards are the cadence and the Managed sessions are the runs.
+
+    This panel read Forward schedules and their sessions until 21 Nov, when those eight objects were archived:
+    that read now answers with an empty list plus a history of retired runs, which looks like a report and is
+    noise. Everything here goes through `cloud_api`, whose projections drop the plaintext
+    `environment_variables` a deployment or session row carries (L-050), so no panel state can put a token in
+    a browser. A failed read is reported as blind, not filled in from an old export.
+    """
     with AUTOMATION_LOCK:
         now = time.time()
         if AUTOMATION_CACHE["payload"] and now - AUTOMATION_CACHE["at"] < 20:
             return AUTOMATION_CACHE["payload"]
-        calendar = build_calendar()
-        try:
-            import forward
+    calendar = build_calendar()
 
-            schedules = forward.req("GET", "/schedules?limit=20").get("data") or []
-            sessions = forward.req("GET", "/sessions?limit=12").get("data") or []
-            payload = {
-                "ok": True,
-                "source": "live - api.qoder.com/api/v1/forward",
-                "fetched_at": datetime.now(UTC).isoformat(),
-                "schedules": [slim_schedule(s) for s in schedules],
-                "sessions": [slim_session(s) for s in sessions],
-                "calendar": calendar,
-            }
-        except Exception as exc:  # noqa: BLE001 - degrade to local export
-            payload = {
-                "ok": False,
-                "source": "cached local export (plans/sentinel) - Forward API unreachable",
-                "error": str(exc)[:300],
-                "fetched_at": datetime.now(UTC).isoformat(),
-                "schedules": sentinel_fallback(),
-                "sessions": [],
-                "calendar": calendar,
-            }
-        AUTOMATION_CACHE.update(at=now, payload=payload)
-        return payload
+    try:
+        import cloud_api
+
+        cards = cloud_api.cards()
+        sessions = [dict(row, origin=session_origin(row)) for row in cloud_api.sessions(SESSION_ROWS)]
+        payload = {
+            "ok": True,
+            "live": True,
+            "source": "live - api.qoder.com/api/v1/cloud",
+            "fetched_at": datetime.now(UTC).isoformat(),
+            "schedules": cards,
+            "sessions": sessions,
+            "calendar": calendar,
+            "problem": None,
+        }
+    except Exception as exc:  # noqa: BLE001 - the desk must still render, and say why it is blind
+        payload = {
+            "ok": False,
+            "live": False,
+            "source": "unavailable - api.qoder.com/api/v1/cloud",
+            "fetched_at": datetime.now(UTC).isoformat(),
+            "schedules": [],
+            "sessions": [],
+            "calendar": calendar,
+            "problem": str(exc)[:300],
+        }
+    with AUTOMATION_LOCK:
+        AUTOMATION_CACHE.update(at=time.time(), payload=payload)
+    return payload
 
 
 # ---------------------------------------------------------------- http

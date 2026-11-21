@@ -66,11 +66,17 @@ order stays unsubmitted even if the model ignores it.
 - **Journal** (`journal/events.jsonl`, hash-chained) = truth for trades, decisions, rejections, risk events.
 - **Performance artifacts** (`docs/performance/`) = generated metrics.
 - **QCA API** for sessions/threads/events and the scheduled desk cards (automation panel), read
-  **server-side** with a PAT. The desk's real runs are card-fired and live on the **Managed** base;
-  `dashboard/server.py` still reads Forward for this panel, which is PRD §7 item 14. Since the eight
-  schedules were archived on 21 Nov that read returns **no schedules at all**, and its session list is
-  Forward's own history - the Nov-19 schedule runs plus two terminated Phase 0 probe sessions - not the
-  running desk.
+  **server-side** with a PAT. Since 21 Nov both reads are on the **Managed** base:
+  `build_automation()` lists the cadence through `cloud_api.cards()` and the runs through
+  `cloud_api.sessions()`, and every session row passes `cloud_api.session_view()`, which keeps identity,
+  state and credits and drops everything else (a raw session row carries `environment_variables` in
+  plaintext - L-050). The panel says what started each run (card-fired, scout, or opened elsewhere), and an
+  unreachable API **blinds** it rather than refilling it from an old export or from `plans/`.
+  The eight Forward schedules this panel used to enumerate are archived, so they are not read anywhere in
+  the running desk. PRD §7 item 14 is therefore closed **locally**; its hosted half is not - 
+  `desk-site/functions/handler.ts` still fetches `/forward/schedules` and `/forward/sessions` with
+  `TYCHE_FORWARD_PAT` and falls back to the committed export, which now means the live hosted overlay
+  reports zero schedules while the baked file shows the cards.
 
 ## API plumbing (from the conventions overview)
 
@@ -90,6 +96,7 @@ order stays unsubmitted even if the model ignores it.
 ## Build order
 
 P1: pipeline board + trade detail + expectancy + equity + rejection log from the journal (local).
-P1: automation panel from the Managed base through `scripts/cloud_api.py` (PAT server-side). P2: protection
+P1: automation panel from the Managed base through `scripts/cloud_api.py` (PAT server-side) - **landed
+21 Nov**; the hosted `desk-site` Function's matching read is what is left of item 14. P2: protection
 heartbeat + roll state.
 Keep it one page; do not build a platform.
