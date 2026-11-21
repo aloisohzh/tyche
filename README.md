@@ -14,9 +14,13 @@ writes the daily narrative. The LLM never sizes or submits an order.
 > investment advice.
 
 > **Current state (21 Nov 2026):** the paper desk is running end to end - deterministic kernel, MCP
-> execution behind the paper-only allowlist, hash-chained journal, Telegram sentinel, four pinned
-> Qoder Cloud Agents (desk v31, researcher v17, executor v15, risk auditor v7), a propose-and-arm exit card,
-> and a Level 0 protection tick that nothing schedules yet. 572 tests pass. The 08:05 premarket fire also
+> execution behind the paper-only allowlist, hash-chained journal, Telegram sentinel, four Qoder Cloud
+> Agents authored on the Managed plane (coordinator v34, researcher v19, executor v19, risk auditor v12,
+> both scheduled desk cards pinned to v34), a propose-and-arm exit card, and a Level 0 protection tick that
+> nothing schedules yet. 607 tests pass. Procedures live in three role skills the prompts point at instead
+> of restating, so the prompts keep permissions and hard rules; what lives on which plane, and why a
+> Forward template is no longer an authoring surface, is itemised in
+> [docs/agent-engineering.md](docs/agent-engineering.md). The 08:05 premarket fire also
 > runs the alert-only NYSE drift check (`tyche calendar-check`), so the pinned trading calendar is compared
 > with what the exchange publishes instead of assumed; a diff reaches the operator digest, never a config
 > edit. What is real, partial
@@ -24,9 +28,11 @@ writes the daily narrative. The LLM never sizes or submits an order.
 > and the [playbook roster](playbook/INDEX.yaml); the live rules are in
 > [docs/agent-rules.md](docs/agent-rules.md). Known open defects are tracked as lessons, not hidden:
 > the stale caps L-033 recorded are out of the auditor, desk and researcher prompts as of 21 Nov, applied by
-> [scripts/repin_stale_caps.py](scripts/repin_stale_caps.py), which also found that a recompile can
+> [archive/repin_stale_caps.py](archive/repin_stale_caps.py), which also found that a recompile can
 > materialise a template grant the running pin never had (L-046) and that a filtered roster rebuild can drop
-> the advisor row (L-045); the `rules.refrozen` writer L-035 asked for landed the same day and registered all
+> the advisor row (L-045) - both writers are archived now, and
+> [tests/test_forward_fence.py](tests/test_forward_fence.py) fails if anything under `scripts/` goes back to
+> authoring a template. The `rules.refrozen` writer L-035 asked for landed the same day and registered all
 > four hashable lanes. Every lane's rules hash is now
 > computable and asserted in CI (L-036, L-037 closed 20 Nov 2026). DESIGN.md is the v0.1 baseline,
 > partially superseded.

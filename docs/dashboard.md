@@ -65,12 +65,18 @@ order stays unsubmitted even if the model ignores it.
 
 - **Journal** (`journal/events.jsonl`, hash-chained) = truth for trades, decisions, rejections, risk events.
 - **Performance artifacts** (`docs/performance/`) = generated metrics.
-- **QCA API** for sessions/threads/events/schedules (automation panel), read **server-side** with a PAT.
+- **QCA API** for sessions/threads/events and the scheduled desk cards (automation panel), read
+  **server-side** with a PAT. The desk's real runs are card-fired and live on the **Managed** base;
+  `dashboard/server.py` still reads Forward for this panel, which is PRD §7 item 14 - what it lists are the
+  Nov-19 automations, not the running desk.
 
 ## API plumbing (from the conventions overview)
 
-- Gateway: Managed `https://api.qoder.com/api/v1/cloud`; **Forward `https://api.qoder.com/api/v1/forward`**
-  (our sessions/threads/schedules live under Forward).
+- Gateway: **Managed `https://api.qoder.com/api/v1/cloud`** is where the desk is authored and where its
+  agents, skills, cards, sessions, threads and events live.
+  `https://api.qoder.com/api/v1/forward` is residue - four templates, the retired schedules, their own runs -
+  and nothing authors through it any more: see [agent-engineering.md](agent-engineering.md) and
+  [tests/test_forward_fence.py](../tests/test_forward_fence.py).
 - Auth: `Authorization: Bearer <PAT>`; PAT created at qoder.com/cloud/pat-keys, kept in a gitignored
   `.env`, **server-side only**, never in client code or the repo.
 - Cursor pagination (`first_id`/`last_id`/`has_more`); 4 MB body limit; exponential backoff on 429/5xx
@@ -82,5 +88,6 @@ order stays unsubmitted even if the model ignores it.
 ## Build order
 
 P1: pipeline board + trade detail + expectancy + equity + rejection log from the journal (local).
-P1: automation panel from the Forward API (PAT server-side). P2: protection heartbeat + roll state.
+P1: automation panel from the Managed base through `scripts/cloud_api.py` (PAT server-side). P2: protection
+heartbeat + roll state.
 Keep it one page; do not build a platform.

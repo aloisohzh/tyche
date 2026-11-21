@@ -1,6 +1,12 @@
 # Cloud config export — 2026-11-18 (retrieved-at 02:49 UTC)
 
-Live Forward configuration for the tyche desk, pinned for the challenge window.
+> **Not the current record.** This is the dated Forward-era log; its amendments stop being authoritative at
+> the 2026-11-21 Managed cutover. Today's configuration is the platform - read it with
+> `scripts/deploy_managed_agents.py status` - and the as-retrieved prompts are under
+> [prompts/live/](prompts/live/). What lives where, and why a template is no longer an authoring surface,
+> is [docs/agent-engineering.md](../docs/agent-engineering.md).
+
+Forward configuration as retrieved on 2026-11-18 for the tyche desk, pinned for the challenge window.
 Change summary: Collaboration conversion (operator-approved 2026-11-18): members
 are Forward templates wired through the desk's Collaboration roster; the old
 `Moomoo Paper Trader` shell was rewritten in place as the researcher member.

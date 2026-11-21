@@ -72,9 +72,10 @@ names the report section and forbids scout-run backtests):
 
 Rollback (gitignored snapshots): `plans/cloud-researcher-pre-youtube.prompt.txt`
 + `plans/cloud-desk-roster-pre-youtube.json`; restore the pre-change system and
-re-pin researcher 7. Deploy script: `scripts/deploy_youtube_clause.py`
-(idempotent; the Bash script path was classifier-blocked, so the QCA connector
-tool path was used, per prior amendments).
+re-pin the researcher. The clause was installed by `archive/deploy_youtube_clause.py`, a
+Forward-template writer kept for its wording only - today the researcher prompt goes through
+`scripts/deploy_managed_agents.py diff researcher --file <path>` and `apply-system researcher`, and the
+roster's `latest` pin makes it live at the next fire rather than at the next re-pin.
 
 ## Evidence links
 

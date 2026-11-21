@@ -19,10 +19,10 @@ Write fresh broker reads into the run directory as `accounts.json`, `cash.json`,
 `pipeline.action == wait` means no submit on either path. `tyche execute` withholds it; on the MCP path journal `tyche record-order gate.wait --data '{...}'` and move on. The gate withholds only new non-defensive entries; sells and defensive entries act.
 
 ## 4. Submit one order, verbatim, in the window
-Submit with `sim_trade_input_order` only while `now < submit_before`. It is always_allow: the call executes at once, no popup, so a second call is a second order. Cancel and modify are always_ask and need their own per-action operator approval; an envelope never approves them. Journal `tyche record-order order.submitted --data '{...}'`, reconcile fills from `sim_trade_history_order_list`, journal `order.filled` or `order.rejected`, and let the core reconcile cash (`tyche.fees.reconcile_cash`).
+Submit with `sim_trade_input_order` only while `now < submit_before`. It is always_allow: the call executes at once, so a second call is a second order. Cancel and modify are always_ask and need their own per-action operator approval; an envelope never approves them. Journal `tyche record-order order.submitted --data '{...}'`, reconcile fills from `sim_trade_history_order_list`, journal `order.filled` or `order.rejected`, and let the core reconcile cash (`tyche.fees.reconcile_cash`).
 
 ## 5. An uncertain outcome blocks retry
-On a timeout, transport error or unclear status, read `sim_trade_history_order_list` before any further write; if the broker shows the order, submit nothing and journal what you found. Status 4 and status 5 are terminal for that request_id: journal `order.rejected` with the broker reason and report the lot as unprotected.
+On a timeout, transport error or unclear status, read `sim_trade_history_order_list` before any further write; if the broker shows the order, submit nothing and journal what you found. Only status 4 at full cumulative quantity is proven terminal; status 5 is not, so treat it as unresolved and report the lot as unprotected.
 
 ## 6. Exactly one gap per request_id
 When an approved exit cannot be armed, journal one `protection.gap` for that request_id via `tyche events add`, resolution `gate.wait` or `expired`, never invented. Before re-arming, check journal and broker history; if still live, journal nothing.
