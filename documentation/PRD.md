@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| **Version** | 1.2 |
-| **Last revised** | 2026-11-20 |
+| **Version** | 1.4 |
+| **Last revised** | 2026-11-21 |
 | **Supersedes** | [../DESIGN.md](../DESIGN.md) §2/§11 as the statement of current scope (DESIGN.md stays as the v0.1 baseline) |
 | **How it is built** | [architecture.md](architecture.md) |
 | **Why it is built this way** | [../docs/adr/](../docs/adr/) |
@@ -84,7 +84,7 @@ These are requirements in the strict sense: a change that breaks one is not a re
 | Session calendar, half-days, phases, gate | implemented | `market_calendar.py`, `tyche calendar --json` | trading-day filtering is applied at card generation (L-019) |
 | NYSE published-calendar drift detection | partial | `nyse_calendar.py:74,152`, `tyche calendar-check` | the check clause is installed only on a **paused** schedule, so it does not run unattended |
 | Event overlay (catalyst days) | implemented | `config/events.yaml`, `tyche events add` | fed by operator triage of research, not automatically |
-| Two-sided quote capture for intraday entry | partial | `quote_order_book`, snapshot capture in card prompts | pre-market payloads lack bid/ask; entries require a fresh RTH capture (L-017) |
+| Two-sided quote capture for intraday entry | partial | Moomoo MCP read tool `quote_order_book`, enabled on the executor (`plans/live-executor.json`; the platform, not that capture, is the authority), plus snapshot capture in card prompts | pre-market payloads lack bid/ask; entries require a fresh RTH capture (L-017) |
 | Synthetic demo data | implemented | `scripts/make_demo_data.py` | the no-credentials on-ramp |
 
 ### 5.2 Strategy lanes
@@ -92,8 +92,8 @@ These are requirements in the strict sense: a change that breaks one is not a re
 | Lane | Status | Evidence | Gap / note |
 |---|---|---|---|
 | PB-001 regime/vol-targeted rotation (ballast) | implemented, **unvalidated** | `strategies/rotation.py`, [../playbook/PB-001-etf-rotation-ballast.md](../playbook/PB-001-etf-rotation-ballast.md) | beta-not-alpha framing; low-vol regime sleeves |
-| PB-002 tactical event lane | partial | `tactical.py:243`, `config/tactical.yaml` (`enabled: true`) | lane runs and stamps its id, but has **no thesis file**, so the roster keeps it `planned`; freeze shared with PB-003 |
-| PB-003 tactical options lane | partial | `tactical.py:345` | off: `options_enabled: false`; option protections per ADR 0012 |
+| PB-002 tactical event lane | partial | `tactical.py:241-243` (exit intent) and `:342-345` (entry intent) stamp the id, `config/tactical.yaml` (`enabled: true`) | lane runs and stamps its id, but has **no thesis file**, so the roster keeps it `planned`; freeze shared with PB-003 |
+| PB-003 tactical options lane | partial | `config.py:182,275` (`options_enabled`) and its gate at `tactical.py:302`; the id ternary it shares with PB-002 is `tactical.py:345` | off: `options_enabled: false`; option protections per ADR 0012 |
 | PB-004 intraday breakout scalp | partial | `scalp.py`, [../playbook/PB-004-intraday-momentum-scalp.md](../playbook/PB-004-intraday-momentum-scalp.md) | rules now freeze (`72077d5d4808`); submission gated by the executor rollout hold; unvalidated |
 | Backtest / walk-forward harness | planned | - | open item in [../DESIGN.md §12](../DESIGN.md); validation currently means a documented sanity check, labelled as such |
 | Local LEAN sanity lane | experimental | `research/lean/PB001/`, `docs/validation/2026-11-19-lean-pb001-smoke.md` | research-only, one smoke run, never a kernel input |
@@ -107,11 +107,11 @@ These are requirements in the strict sense: a change that breaks one is not a re
 | Drawdown ladder, daily loss, turnover and order budgets | implemented | `risk.py:108-114,146-151` | soft halves buys, hard blocks them |
 | Per-trade risk budget + R-multiple expectancy | implemented | `trade_risk.py:173`, ADR 0016 | needs canonically journaled fills; unattributed fills are reported, never guessed |
 | Operator envelope (bounded same-day authorization) | implemented | `approvals.py`, `data/approvals.json`, desk arm/disarm | `sim_trade_input_order` executes immediately inside it - no platform popup (L-014) |
-| Lifecycle decide/tick/reserve gate | implemented | `lifecycle.py:386,597`, `lifecycle_cli.py:242-333` | reservation is durable before one submit; largest test suite |
+| Lifecycle decide/tick/reserve gate | implemented | `lifecycle.py:386,597`, `lifecycle_cli.py:241-332` | reservation is durable before one submit; largest test suite |
 | Cloud execution via Moomoo MCP (paper) | implemented | executor v15 tool grants, `docs/agent-engineering.md` | submission is agent-side by design; Python never submits in the cloud |
 | Local execution via `moomoo` CLI | implemented | `cli.py:516-668` | preview exits 2; real accounts blocked |
 | In-memory paper broker | implemented (test/demo) | `broker/base.py:14` | explicitly not evidence of a broker fill |
-| Intraday protection monitor (1-2 min) | planned | ADR 0013 (still `proposed`), runbook marked not deployed | the gap that makes the scalp lane's exits a manual watch today |
+| Intraday protection monitor (1-2 min) | planned | [../docs/adr/0013-protection-monitor.md](../docs/adr/0013-protection-monitor.md) (still `proposed`) + its draft contract [../docs/runbooks/intraday-protection-monitor.md](../docs/runbooks/intraday-protection-monitor.md); no `monitor` command is registered in `src/tyche/cli.py` | the gap that makes the scalp lane's exits a manual watch today; the guard pieces that do exist are listed in that draft |
 
 ### 5.4 Evidence and audit
 
@@ -130,7 +130,7 @@ These are requirements in the strict sense: a change that breaks one is not a re
 | Local desk with overview/strategy/risk/automation/controls views | implemented | `dashboard/static/index.html`, `server.py:1505` (`build_state`), routes `server.py:2338-2400` | version + changelog in `app.js:8`, currently `0.7.1` |
 | Halt and envelope arm/disarm from the desk | implemented | `server.py:1902` (`halt_control`), `1862`/`1823` (arm/disarm); routes `server.py:2368-2386` | path-limited commit + push; the kill switch and envelope keep one intent path each |
 | Hosted desk snapshot + control proxy | implemented | `desk-site/`, `scripts/export_dashboard.py`, `handler.ts` | `functions/` is authored inside the export target; refresh-on-load, no polling (L-022) |
-| Per-strategy enable/disable control in the UI | implemented | `src/tyche/lanes.py:82` (`set_enabled`), `server.py:1966` (`toggle_strategy`) + route `2386`, `handler.ts:298` (`action === "strategy"`), `data/strategies.json` | local and hosted desks both write the same unhashed switch file; a toggle blocks entries but never an exit, and moves no rules hash (L-037) |
+| Per-strategy enable/disable control in the UI | implemented | `src/tyche/lanes.py:82` (`set_enabled`), `server.py:1966` (`toggle_strategy`) + route `2386`, `handler.ts:298` (`action === "strategy"`), `tests/test_strategy_switches.py`; state lives in `data/strategies.json` | local and hosted desks both write the same unhashed switch file; a toggle blocks entries but never an exit, and moves no rules hash (L-037). The file is created on the first toggle, and its absence is normal: `read_overrides` (`lanes.py:44`) falls back to the lane config rather than to "everything on" |
 | Scheduled daily checks: see the cadence, switch it, fire one now | implemented (times read-only by decision) | `server.py:2047` (`build_schedule`), `2102` (`schedule_control`), routes `2338`/`2392`; `scripts/cloud_api.py:119,135,143,148`; `app.js:1179,1237` | pause/resume/run-now are journaled and the pause is re-read from the platform before it is reported as done; fire times and timezone are shown but not editable, because they live in the card's cron and again in its prompt (operator decision, Phase 4b) |
 | "Run Scout" trigger in the UI | implemented | `server.py:2155` (`scout_brief`), `2265` (`start_scout`), routes `2344`/`2398`; `scripts/cloud_api.py:209,231`; `app.js:1270,1313` | starts the researcher session alone - no executor, no auditor, no envelope, nothing that can submit; a second concurrent run is refused and the start is journaled as `scout.requested`. The session has no repo mount, so the brief carries the clock, the live lane ids and their hashes |
 | Daily brief / pre-trade critique / EOD narrative | implemented | card prompts, `reports/*` | journaled; advisory only |
@@ -146,7 +146,7 @@ These are requirements in the strict sense: a change that breaks one is not a re
 | Scout (idea generation) | partial | researcher role + premarket fire; manual trigger `server.py:2265`; `watchlist.py`, `reports/*-research.md` | scheduled and manual discovery both work; the researcher prompt still does not consult the live lane id set, and changing that prompt is a re-pin needing operator approval. The manual run starts the researcher alone, so it can propose nothing that reaches a broker |
 | Ideas consumed downstream | partial | `tyche events add` → `config/events.yaml` → gate halves budget | operator triage is the link; nothing auto-promotes an idea into a plan |
 | Telegram sentinel | implemented (outbound only) | `scripts/telegram.py`, runbook | at-least-once semantics; no inbound approvals (L-003/L-006) |
-| CI (ruff + pytest) | implemented | `.github/workflows/ci.yml` | 496 tests; a red pipeline blocks every later phase (L-034) |
+| CI (ruff + pytest) | implemented | `.github/workflows/ci.yml` | 499 tests; a red pipeline blocks every later phase (L-034) |
 
 ## 6. Non-functional requirements
 
@@ -158,7 +158,7 @@ These are requirements in the strict sense: a change that breaks one is not a re
 | Least privilege | per-agent tool allowlists; no MCP mount on desk/auditor; paper-only ids injected from env | verified against the live platform, re-asserted after re-pins |
 | Privacy | no credentials or full account ids in tracked files, journals or chat; secret guard in the site export | `test_no_live_code_reaches_into_the_archive`, export guard in `export_dashboard.py` |
 | Runway | internal order budget below the competition ceiling so the desk cannot exhaust its own limits | `config/risk.yaml` + `docs/risk-card.md` |
-| Documentation as test | published caps, playbook hashes, roster ids, classification vocabulary and local links all fail the build when they rot | `tests/test_docs_consistency.py` (10 tests) |
+| Documentation as test | published caps, playbook hashes, roster ids, classification vocabulary and local links all fail the build when they rot | `tests/test_docs_consistency.py` (17 tests) |
 | Offline usability | demo data + in-memory broker means a full plan/journal cycle with no credentials | `README.md` quick start |
 
 ## 7. Known defects and technical debt
@@ -186,10 +186,33 @@ Ordered by how much they can cost, not by effort.
    reads as live state to anyone who finds it in a clone.
 7. **Calendar drift checking is not wired to a live trigger**; the code and CLI exist.
 8. **Duplicate domain names** (`Outlook` enum vs model) invite the wrong import.
+9. **`dashboard/` sits outside the lint set.** `ruff check dashboard` reports 18 findings (14 auto-fixable)
+   while CI lints `src scripts tests` only, so the operator-facing server and its UI have no style or
+   correctness gate - the same class of blind spot that let a JS parse error blank the whole desk while every
+   Python test stayed green (L-040). Fix: clear the 18, then add `dashboard` to the CI lint command.
+10. **Approval cards clip horizontally below ~390 px.** Pre-existing `.approval-*` / `.mode-*` / `.tbl` rules,
+    not introduced by the Phase 4 cards (verified by diff); the new schedule and Scout cards are
+    overflow-safe at the same width. Fix: stack the approval grid at a narrow breakpoint.
+11. **The hosted desk is only as fresh as its last publish, and publishing is on hold.** The Controls view
+    reads and writes the live cloud card directly, but the hosted page serves `desk-site/web/data/*.json`
+    from `main`, and the operator's push hold leaves the last work unpushed. That is a deliberate gate, not a
+    defect: the hosted view is a dated snapshot until a push and a publish happen.
+
+### Blocked on an operator decision, with what each one needs
+
+| Item | Closing condition |
+|---|---|
+| Stale caps in prompts (1) and Scout honoring the live lane ids (§5.6) | one re-pin of the researcher/auditor prompts, which is a new build and needs approval |
+| `rules.refrozen` producer (2) | a kernel writer plus a journal assertion; deferred by decision while the freeze-source fix is verified in use |
+| Calendar drift trigger (7) | a live schedule object to attach the check to; `scripts/deploy_calendar_check.py` already builds it |
+| Intraday protection monitor (§5.3) | review of [../docs/runbooks/intraday-protection-monitor.md](../docs/runbooks/intraday-protection-monitor.md), then a Level 0 build at the 5-minute tier and a synthetic-breach drill before options |
+| Push the local commits and publish the hosted desk (11) | an explicit release of the push hold |
+| Telegram bot token | the deployments/sessions API returns `environment_variables` in plaintext, which is why `cloud_api.py` whitelists every payload before it reaches a browser (L-038); rotating the token itself is an operator action outside the repo |
 
 Closed during this refinement and kept off the list: the desk server had no documented launch command
 (it is in the README command table now) and the site export deleted hosted assets it could not rebuild
-(L-039).
+(L-039). Also closed: `docs/dashboard.md` described the act/wait gate on the MCP path as prompt-honored when
+`lifecycle.py:485` blocks it in code; the doc now states the mechanism and the prompt is labelled a backstop.
 
 ## 8. Roadmap
 
@@ -222,6 +245,7 @@ Named here so the desk's next steps are auditable; the first bullet is now part 
 | **v1.1** | 2026-11-20 | Hosted-desk claims corrected after checking what the exporter actually does: `desk-site/` is not uniformly generated (the Sites Function and the tracked data feed are load-bearing), and a full export used to delete assets it cannot rebuild (L-039, fixed). Capability statuses are now asserted against the vocabulary in [README.md](README.md) by `test_prd_capability_statuses_use_the_fixed_vocabulary`. |
 | **v1.2** | 2026-11-20 | Phase 4a: operator strategy switches. `src/tyche/lanes.py` owns `data/strategies.json`, the kernel resolves enablement through it after the freeze check, `tyche strategies` prints it, and both desks can flip a lane (desk v0.6.0). A toggle is deliberately not a rules change: no hash moves, no lineage entry, and exits keep running while entries block (L-037). Scout honoring the live set is still open because it is a prompt change, hence a re-pin. |
 | **v1.3** | 2026-11-21 | Phase 4b: scheduled daily checks and Run Scout (desk v0.7.0-v0.7.1). `scripts/cloud_api.py` is a whitelisting cloud client - it drops `environment_variables`, `initial_events`, mounts and vault ids before anything reaches a browser (L-038) - and the desk reads the cadence card that owns a date, pauses and resumes it and fires one run, with the pause re-read from the platform before it is reported. Run Scout starts the researcher session alone; no envelope, halt or approval path is touched. Two defects this increment found and fixed: `evaluate()` was handed a `date` where it needs a `datetime`, and a raw newline inside a JS string made the whole desk fail to parse while every Python test stayed green (L-040, now a test). |
+| **v1.4** | 2026-11-21 | Phase 5 close-out: no capability changed status, the **evidence** behind them was re-checked against the code. 40 of 42 §5 rows held; six defects were fixed - PB-002/PB-003 cited a shared id ternary rather than the `options_enabled` gate, the lifecycle `reserve` range overshot by a line, `quote_order_book` read like repo code when it is an MCP read tool enabled on the executor, two test counts were stale, and the header still said 1.2 under a v1.3 table (now a test). §7 gained the unlinted `dashboard/` tree, the narrow-viewport approval clip, the publish-on-hold truth and a gated-items table naming each closing condition. [../docs/dashboard.md](../docs/dashboard.md) no longer calls the act/wait gate prompt-honored: `lifecycle.py:485` blocks it in code. ADR 0013 finally has the contract it promised: [../docs/runbooks/intraday-protection-monitor.md](../docs/runbooks/intraday-protection-monitor.md), a draft for review with nothing deployed. |
 
 **Maintenance rule.** A change to a capability's status, a new lane, a new agent or a new external
 integration is a PRD edit with a version bump and a [CHANGELOG.md](CHANGELOG.md) row, landed in the same
