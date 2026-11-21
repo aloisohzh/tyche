@@ -39,7 +39,9 @@ def repo(tmp_path: Path, *, declared: str | None = None, stop: float = 0.08) -> 
 
 def run(*args) -> tuple[int, str]:
     result = CliRunner().invoke(app, list(args))
-    return result.exit_code, result.output
+    # rich wraps to the console width, and CI's 80 columns is not this machine's, so a sentence can be
+    # broken across a line here and whole there. Assert on the words, not on the wrapping (L-044).
+    return result.exit_code, " ".join(result.output.split())
 
 
 def tick(tmp_path: Path, *, record: bool = False, reason: str = "re-registered") -> tuple[int, str]:
