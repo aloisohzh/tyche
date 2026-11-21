@@ -178,6 +178,39 @@ def test_markdown_links_resolve() -> None:
     assert not dangling, "dangling markdown links:\n" + "\n".join(sorted(dangling))
 
 
+def test_no_markdown_links_to_a_gitignored_artifact() -> None:
+    """A link to a runtime file passes on this machine and reds on a clean checkout.
+
+    `journal/events.jsonl` exists here and does not exist in CI, so the existence check above
+    cannot see the difference. Docs point at committed artifacts; a runtime path is a code span.
+    """
+    targets: dict[str, str] = {}
+    for path in _markdown_files():
+        for _, target in LINK.findall(_prose(path)):
+            if target.startswith(("#", "http://", "https://", "mailto:", "{")):
+                continue
+            relative = target.split("#")[0]
+            if not relative:
+                continue
+            resolved = (path.parent / relative).resolve()
+            if resolved.is_file() and resolved.is_relative_to(ROOT):
+                targets[resolved.relative_to(ROOT).as_posix()] = (
+                    f"{path.relative_to(ROOT).as_posix()} -> {target}"
+                )
+    if not targets:
+        return
+    probe = subprocess.run(
+        ["git", "check-ignore", "--stdin"],
+        cwd=ROOT,
+        check=False,  # exits 1 when nothing matches, which is the passing case
+        input="\n".join(targets).encode("utf-8"),
+        capture_output=True,
+    )
+    ignored = {line for line in probe.stdout.decode("utf-8").splitlines() if line}
+    offenders = sorted(targets[rel] for rel in ignored if rel in targets)
+    assert not offenders, "markdown links into gitignored runtime files:\n" + "\n".join(offenders)
+
+
 ARCHIVE_REF = re.compile(r"""(?:from|import)\s+[\w.]*archive|["'/]archive/|bridge-site|cloud_bridge""")
 LIVE_CODE_DIRS = ("src", "dashboard", "scripts", "dev", "config")
 LIVE_CODE_SUFFIXES = {".py", ".mjs", ".js", ".ts", ".yaml", ".json"}

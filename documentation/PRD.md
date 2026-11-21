@@ -148,7 +148,7 @@ These are requirements in the strict sense: a change that breaks one is not a re
 | Scout (idea generation) | partial | researcher role + premarket fire; manual trigger `server.py:2265`; `watchlist.py`, `reports/*-research.md` | scheduled and manual discovery both work; the researcher prompt still does not consult the live lane id set, and changing that prompt is a re-pin needing operator approval. The manual run starts the researcher alone, so it can propose nothing that reaches a broker |
 | Ideas consumed downstream | partial | `tyche events add` → `config/events.yaml` → gate halves budget | operator triage is the link; nothing auto-promotes an idea into a plan |
 | Telegram sentinel | implemented (outbound only) | `scripts/telegram.py`, runbook | at-least-once semantics; no inbound approvals (L-003/L-006) |
-| CI (ruff + pytest) | implemented | `.github/workflows/ci.yml` | 529 tests; a red pipeline blocks every later phase (L-034) |
+| CI (ruff + pytest) | implemented | `.github/workflows/ci.yml` | 530 tests; a red pipeline blocks every later phase (L-034) |
 
 ## 6. Non-functional requirements
 
