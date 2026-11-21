@@ -225,10 +225,43 @@ Run it: `MSYS_NO_PATHCONV=1 .venv/Scripts/python scripts/telegram.py listen`
 
 Verification status 2026-11-18: bind + history scan + `/status` + question
 relay smoke-tested against rehearsal session `sess_00vvadnsde5fkxq15t9z`;
-round trip confirmed (desk reply `RELAY-OK` delivered to Telegram via the
-listener). The approval relay (`user.tool_confirmation`) is API-verified but
-has NOT yet been exercised against a real pending order ask — do a controlled
-drill on the PERSONAL paper account before relying on it for challenge orders.
+### Drill scheduled: Mon 23 Nov 12:05 ET fire (PRD §7 item 13)
+
+What is unproven is the **write** envelope against a session that is currently running. `/approve`, `/deny`
+and `/interrupt` now POST to `/sessions/{id}/events` on the cloud base, and the endpoint plus the
+`user.message` shape are proven by `cloud_api.start_scout_run` - but posting them against a *closed* session
+is not the same claim, and posting them against a live one is itself a live write, so it needs the operator
+present rather than a rehearsal.
+
+Run it on the **12:05 ET (17:05 UTC) midday fire**, deliberately: that fire is monitor-phase, so it takes no
+new entries and only acts on a drift breach or a risk halt. Stopping it cannot leave an order half-submitted,
+which is not true of the 08:05 or 15:05 drives.
+
+Three legs, in this order:
+
+0. **The listener has to be running.** Telegram is outbound-only by the operator's standing decision, and
+   routine approvals go through the Qoder console thread. This drill is a deliberate, one-fire exception:
+   start `MSYS_NO_PATHCONV=1 .venv/Scripts/python scripts/telegram.py listen` a few minutes before 12:05 ET,
+   and stop it (Ctrl+C) when the legs are done. Nothing else about the inbound path changes.
+1. **Bind and read first.** `/session latest`, then `/status`, against the card-fired session. Record the
+   session id and which card it came from; a session that cannot be found is the L-051 failure mode and the
+   drill stops there.
+2. **Interrupt** - `user.interrupt`. Send `/interrupt` while the run is mid-turn, then `/status` again. What
+   counts as passing is what the platform reports, so write down the response and the resulting session state
+   rather than assuming either: an accepted interrupt that leaves the session idle is a pass; a 409 or a
+   state that does not change is a finding, not something to retry silently.
+3. **Question relay** - `user.message`. Send plain text on the same live session. The runbook's existing
+   contract applies: a relay while the session is mid-turn returns **409 and says NOT sent**, which for this
+   leg is the correct outcome and worth seeing once.
+
+`user.tool_confirmation` is **not** staged. Only `sim_trade_cancel_order` and `sim_trade_modify_order` are
+`always_ask`, so a pending ask happens only if the desk actually cancels or modifies during that fire. Let it
+occur naturally and log which way it went: the §7 item stays open on that one call until a real ask has been
+approved or denied through the bridge.
+
+Afterwards append one line here with the date, session id, each command's HTTP outcome and what `/status`
+showed next. No cap, gate, schedule, vault or env value changes as part of this drill, and nothing in it
+arms a pre-approved envelope.
 
 ## Cloud bridge (no PC) — Sites function experiment, ARCHIVED 2026-11-18
 

@@ -234,7 +234,9 @@ Ordered by how much they can cost, not by effort.
     `/interrupt` now POST to `/sessions/{id}/events` on the cloud base, and the endpoint plus the
     `user.message` envelope are proven by `cloud_api.start_scout_run`; posting `user.tool_confirmation` or
     `user.interrupt` against a fire in progress has not been exercised, because doing so against a closed
-    session is itself a live write. Drill it once with the operator present at a real fire.
+    session is itself a live write. The drill is scheduled and written up - Mon 23 Nov, the 12:05 ET
+    monitor-phase fire, chosen because stopping that run cannot leave an order half-submitted: see
+    [../docs/runbooks/sentinel-telegram.md](../docs/runbooks/sentinel-telegram.md).
 14. **The hosted desk still reads the Forward base, and it now reads an empty one.** The local half landed on
     21 Nov: `dashboard/server.py`'s automation panel lists the cadence through `cloud_api.cards()` and the runs
     through `cloud_api.sessions()`, and `tests/test_forward_fence.py` now forbids the desk's own code from
@@ -249,7 +251,10 @@ Ordered by how much they can cost, not by effort.
 
 | Item | Closing condition |
 |---|---|
-| Intraday protection monitor (§5.3) | decided 2026-11-21: rung 1.5 (pre-armed bounded exit) is built, Level 2 stays declined; rung 0 (`tyche monitor tick`) was approved and is built, with a pinned-clock synthetic-breach rehearsal recorded. Still open: a runner that feeds the tick a quote file on a schedule, the live-session drill leg that needs the operator, and a separate decision on rung 1 Telegram bark routing |
+| Intraday protection monitor (§5.3) | decided 2026-11-21: rung 1.5 (pre-armed bounded exit) is built, Level 2 stays declined; rung 0 (`tyche monitor tick`) was approved and is built, with a pinned-clock synthetic-breach rehearsal recorded. Still open: a runner that feeds the tick a quote file on a schedule, the live-session drill leg that needs the operator, and a separate decision on rung 1 Telegram bark routing. **The tick is deliberately unscheduled for now:** a cloud card that fires outside the session would judge overnight holds on stale quotes, and the challenge book is intraday. Trigger to revisit: the first overnight holding, or a decision to run it as a local cron only while the desk is open |
+| Roster child pins: `latest` or numeric (W6b) | not applied, and reversible either way. Today the coordinator's roster pins its children at `version: "latest"`, so a child write is live at the next fire; numeric pins would move that to "next deliberate re-pin", which trades surprise for the opposite failure - a forgotten pin. The children are still changing while strategies are being tested, so the current semantics are the safer ones. Trigger: after Mon 23 Nov, once one clean fire has run on the trimmed brief and the children have stopped moving |
+| The two Phase 0 probe sessions | kept, not deleted, on the operator's decision. They are the only surviving evidence that a published skill actually loads in a running session, and a session delete is not reversible. They show up in the panel as "opened elsewhere", which is honest. Trigger: the first skill change whose loading is proven by a scheduled fire - after that the evidence is reproducible and they are ordinary history |
+| Managed PAT in Sites secrets (hosted `/automation`) | not done, because it is a secret change rather than a code change: `desk-site/functions/handler.ts` reads Forward with `TYCHE_FORWARD_PAT`, and repointing it at `/api/v1/cloud` needs a new Managed PAT mounted in the hosted site's secrets. Until then the hosted live overlay reports zero schedules and the baked export is what a reader should trust. Trigger: an explicit operator decision on which token the hosted Function is allowed to hold |
 | Hosted operator console proven unattended (11) | one signed-in browser read of `control/status` and one arm/disarm round trip; the Secrets themselves are present and synced, and the gateway 401s any check from here |
 | Telegram bot token | the deployments/sessions API returns `environment_variables` in plaintext, which is why `cloud_api.py` whitelists every payload before it reaches a browser (L-038); rotating the token itself is an operator action outside the repo |
 
