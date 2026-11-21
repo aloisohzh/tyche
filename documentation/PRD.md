@@ -129,7 +129,7 @@ These are requirements in the strict sense: a change that breaks one is not a re
 |---|---|---|---|
 | Local desk with overview/strategy/risk/automation/controls views | implemented | `dashboard/static/index.html`, `server.py:1505` (`build_state`), routes `server.py:2338-2400` | version + changelog in `app.js:8`, currently `0.7.1` |
 | Halt and envelope arm/disarm from the desk | implemented | `server.py:1902` (`halt_control`), `1862`/`1823` (arm/disarm); routes `server.py:2368-2386` | path-limited commit + push; the kill switch and envelope keep one intent path each |
-| Hosted desk snapshot + control proxy | implemented | `desk-site/`, `scripts/export_dashboard.py`, `handler.ts` | `functions/` is authored inside the export target; refresh-on-load, no polling (L-022) |
+| Hosted desk snapshot + control proxy | implemented | `desk-site/`, `scripts/export_dashboard.py`, `handler.ts` | `functions/` is authored inside the export target; refresh-on-load, no polling (L-022). Republished 2026-11-21 with the `/schedule` route live; the console's write path stays inert until two Secret values are entered in Site Settings (§7 item 11) |
 | Per-strategy enable/disable control in the UI | implemented | `src/tyche/lanes.py:82` (`set_enabled`), `server.py:1966` (`toggle_strategy`) + route `2386`, `handler.ts:298` (`action === "strategy"`), `tests/test_strategy_switches.py`; state lives in `data/strategies.json` | local and hosted desks both write the same unhashed switch file; a toggle blocks entries but never an exit, and moves no rules hash (L-037). The file is created on the first toggle, and its absence is normal: `read_overrides` (`lanes.py:44`) falls back to the lane config rather than to "everything on" |
 | Scheduled daily checks: see the cadence, switch it, fire one now | implemented (times read-only by decision) | `server.py:2047` (`build_schedule`), `2102` (`schedule_control`), routes `2338`/`2392`; `scripts/cloud_api.py:119,135,143,148`; `app.js:1179,1237` | pause/resume/run-now are journaled and the pause is re-read from the platform before it is reported as done; fire times and timezone are shown but not editable, because they live in the card's cron and again in its prompt (operator decision, Phase 4b) |
 | "Run Scout" trigger in the UI | implemented | `server.py:2155` (`scout_brief`), `2265` (`start_scout`), routes `2344`/`2398`; `scripts/cloud_api.py:209,231`; `app.js:1270,1313` | starts the researcher session alone - no executor, no auditor, no envelope, nothing that can submit; a second concurrent run is refused and the start is journaled as `scout.requested`. The session has no repo mount, so the brief carries the clock, the live lane ids and their hashes |
@@ -193,10 +193,14 @@ Ordered by how much they can cost, not by effort.
 10. **Approval cards clip horizontally below ~390 px.** Pre-existing `.approval-*` / `.mode-*` / `.tbl` rules,
     not introduced by the Phase 4 cards (verified by diff); the new schedule and Scout cards are
     overflow-safe at the same width. Fix: stack the approval grid at a narrow breakpoint.
-11. **The hosted desk is only as fresh as its last publish, and publishing is on hold.** The Controls view
-    reads and writes the live cloud card directly, but the hosted page serves `desk-site/web/data/*.json`
-    from `main`, and the operator's push hold leaves the last work unpushed. That is a deliberate gate, not a
-    defect: the hosted view is a dated snapshot until a push and a publish happen.
+11. **The hosted desk is only as fresh as its last feed publish.** The Controls view reads and writes the live
+    cloud card directly, but the hosted page serves `desk-site/web/data/*.json` from `main`, and those files are
+    a snapshot of whenever `scripts/publish_desk_data.py` last ran (2026-11-21). Nothing refreshes them by
+    itself, and that is by design: `handler.ts:8-10` keeps the cloud token off the server so only one path can
+    change cadence, which means the hosted snapshot advances on push rather than pretending to be live.
+    **Still open:** the operator console needs `TYCHE_GITHUB_PAT` and `TYCHE_OPERATOR_PASSPHRASE` entered in
+    Site Settings before its write path works; until then `handler.ts:271-274` answers 503 naming exactly what
+    is missing, and the read-only desk is unaffected.
 
 ### Blocked on an operator decision, with what each one needs
 
@@ -206,7 +210,7 @@ Ordered by how much they can cost, not by effort.
 | `rules.refrozen` producer (2) | a kernel writer plus a journal assertion; deferred by decision while the freeze-source fix is verified in use |
 | Calendar drift trigger (7) | a live schedule object to attach the check to; `scripts/deploy_calendar_check.py` already builds it |
 | Intraday protection monitor (§5.3) | review of [../docs/runbooks/intraday-protection-monitor.md](../docs/runbooks/intraday-protection-monitor.md), then a Level 0 build at the 5-minute tier and a synthetic-breach drill before options |
-| Push the local commits and publish the hosted desk (11) | an explicit release of the push hold |
+| Hosted operator console writes (11) | `TYCHE_GITHUB_PAT` and `TYCHE_OPERATOR_PASSPHRASE` entered in Site Settings; the repo cannot carry them and the publish/push hold was released on 2026-11-21 |
 | Telegram bot token | the deployments/sessions API returns `environment_variables` in plaintext, which is why `cloud_api.py` whitelists every payload before it reaches a browser (L-038); rotating the token itself is an operator action outside the repo |
 
 Closed during this refinement and kept off the list: the desk server had no documented launch command
