@@ -40,14 +40,15 @@ from tyche.lanes import read_state, set_enabled  # noqa: E402
 from tyche.models import AccountSnapshot, Position, looks_like_option  # noqa: E402
 from tyche.market_calendar import (
     ET,
+    SGT,
     SessionPhase,
     earnings_season,
     evaluate,
     events_on,
-    generate_hourly_schedules,
     holiday_name,
     is_half_day,
     is_trading_day,
+    phase_at,
     session_timeline,
     strategy_for,
 )
@@ -1733,7 +1734,13 @@ def build_watchlist() -> dict | None:
 
 
 def build_calendar() -> dict:
-    """Deterministic market-calendar gate + session-phase routing (local, no API)."""
+    """Deterministic market-calendar gate + session-phase routing (local, no API).
+
+    Deliberately carries no cadence rows: which times the desk fires at is the automation cards' business, and
+    `build_automation()` attaches those rows through `card_cadence()`. This function used to emit
+    `generate_hourly_schedules()`, which models the retired six-run hourly design, so the panel was showing
+    fires at 09:05/10:05/16:05 ET that no card makes.
+    """
     now = datetime.now(UTC)
     gate = evaluate(now)
     today = gate.now_et.date()
@@ -1773,7 +1780,6 @@ def build_calendar() -> dict:
         "timeline": session_timeline(timeline_day),
         "phase_strategies": [strategy_for(p).model_dump(mode="json") for p in _PHASE_ORDER],
         "window": {"start": start.isoformat(), "end": end.isoformat()},
-        "schedules": [d.model_dump(mode="json") for d in generate_hourly_schedules(start, end)],
         "watchlist": build_watchlist(),
         "upcoming": upcoming,
     }
@@ -1823,7 +1829,7 @@ def build_automation() -> dict:
             "fetched_at": datetime.now(UTC).isoformat(),
             "schedules": cards,
             "sessions": sessions,
-            "calendar": calendar,
+            "calendar": dict(calendar, schedules=card_cadence(cards)),
             "problem": None,
         }
     except Exception as exc:  # noqa: BLE001 - the desk must still render, and say why it is blind
@@ -1834,7 +1840,7 @@ def build_automation() -> dict:
             "fetched_at": datetime.now(UTC).isoformat(),
             "schedules": [],
             "sessions": [],
-            "calendar": calendar,
+            "calendar": dict(calendar, schedules=[]),
             "problem": str(exc)[:300],
         }
     with AUTOMATION_LOCK:
@@ -2182,6 +2188,67 @@ def fire_times(cron: str | None) -> list[str]:
     if not minutes or not hours:
         return []
     return [f"{hour:02d}:{minutes[0]:02d}" for hour in sorted(set(hours))]
+
+
+def _cadence_reference_day(window: str, today: date) -> date:
+    """A session day to judge a card's fire times against: the first one in its window still ahead of today.
+
+    Which phase a run lands in is a property of the clock, but only on a trading day - on a Saturday every fire
+    is CLOSED, which would label the whole table "rests" across a weekend while the card itself is healthy.
+    """
+    start_text, _, end_text = window.partition("..")
+    try:
+        start, end = date.fromisoformat(start_text), date.fromisoformat(end_text)
+    except ValueError:
+        return today
+    if end < start:
+        return today
+    session = [
+        day for day in (start + timedelta(days=i) for i in range((end - start).days + 1)) if is_trading_day(day)
+    ]
+    ahead = [day for day in session if day >= today]
+    return ahead[0] if ahead else (session[0] if session else today)
+
+
+def card_cadence(cards: list[dict]) -> list[dict]:
+    """The cadence table drawn from the cards that fire: one row per card, per fire time.
+
+    Cron, timezone and day count come off the card's own expression. Phase and activity are what the kernel
+    gate would route a run to at that wall-clock time on the first session day of the card's window, so a row
+    says what a fire *does* instead of what an archived schedule used to be called. An unreadable cloud yields
+    no rows rather than a model of what the desk might be doing - see `build_automation()`.
+    """
+    from zoneinfo import ZoneInfo
+
+    today = datetime.now(ET).date()
+    rows: list[dict] = []
+    for card in cards:
+        parts = (card.get("cron") or "").split()
+        if len(parts) != 5:
+            continue
+        try:
+            tz = ZoneInfo(card.get("timezone") or "UTC")
+        except Exception:  # noqa: BLE001 - a bad zone name is a display problem, not a reason to drop the card
+            tz = ET
+        reference = _cadence_reference_day(card.get("window") or "", today)
+        day_field = _cron_field(parts[2])
+        for stamp in fire_times(card.get("cron")):
+            hour, minute = (int(piece) for piece in stamp.split(":"))
+            when = datetime(reference.year, reference.month, reference.day, hour, minute, tzinfo=tz)
+            phase = phase_at(when)
+            sgt = when.astimezone(SGT)
+            rows.append({
+                "name": card.get("name") or card.get("id") or "-",
+                "window": card.get("window") or "-",
+                "cron": card.get("cron"),
+                "timezone": card.get("timezone") or "UTC",
+                "phase": phase.value,
+                "activity": strategy_for(phase).activity,
+                "et_time": when.strftime("%H:%M"),
+                "sgt_time": f"{sgt:%H:%M}" + (" (+1d)" if sgt.date() > when.date() else ""),
+                "days": len(set(day_field)) if day_field else None,
+            })
+    return rows
 
 
 def build_schedule(force: bool = False) -> dict:

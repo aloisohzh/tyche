@@ -165,7 +165,8 @@ def main() -> None:
     print("output:", web)
     print("built_at:", built_at)
     print("automation ok:", automation.get("ok"), "| schedules:", len(automation.get("schedules") or []))
-    print("calendar phase:", cal.get("phase"), "| run:", cal.get("run"), "| next:", (cal.get("next_run") or {}).get("name"))
+    print("calendar phase:", cal.get("phase"), "| run:", cal.get("run"),
+          "| cadence rows:", len((automation.get("calendar") or {}).get("schedules") or []))
     print("state bytes:", len(state_json), "| automation bytes:", len(auto_json))
 
 

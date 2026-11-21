@@ -12,7 +12,7 @@ import importlib.util
 import json
 import shutil
 import sys
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -411,7 +411,49 @@ def test_an_unreachable_cloud_blinds_the_panel_without_refilling_it(srv, desk, m
     view = srv.build_automation()
     assert view["ok"] is False and view["live"] is False and "503" in view["problem"]
     assert view["schedules"] == [] and view["sessions"] == []
+    assert view["calendar"]["schedules"] == []
     assert "sentinel" not in view["source"]
+
+
+def test_the_cadence_table_is_the_cards_own_fire_times(srv, desk, fake):
+    """One row per fire time per card, taken off the cron the card actually carries.
+
+    The table used to be generated from `generate_hourly_schedules()`, which models the six-run hourly design
+    the desk retired: it listed 09:05, 10:05 and 16:05 ET fires no card makes, and a cadence that disagrees
+    with the cards is worse than a short one.
+    """
+    cards = [{**_card("dep_nov"), "name": "November"},
+             {**_card("dep_dec", window="2026-12-01..2026-12-31"), "name": "December"}]
+    fake(cards=cards)
+    rows = srv.build_automation()["calendar"]["schedules"]
+    assert [r["name"] for r in rows] == ["November"] * 3 + ["December"] * 3
+    assert [r["et_time"] for r in rows] == ["08:05", "12:05", "15:05"] * 2
+    assert {r["window"] for r in rows} == {"2026-11-01..2026-11-30", "2026-12-01..2026-12-31"}
+    assert {r["days"] for r in rows} == {2}
+    for retired in ("09:05", "10:05", "16:05", "hourly"):
+        assert retired not in json.dumps(rows)
+
+
+def test_a_fire_time_is_labelled_with_the_phase_it_routes_to(srv, desk, fake):
+    """The hour says what a run does: 08:05 plans, 12:05 monitors, 15:05 trades - the gate's own routing."""
+    fake(cards=[{**_card("dep_nov"), "cron": "5 8,12,15 19-20,23-25,27,30 11 *"}])
+    rows = srv.build_automation()["calendar"]["schedules"]
+    assert [(r["et_time"], r["phase"], r["activity"]) for r in rows] == [
+        ("08:05", "pre_market", "plan"), ("12:05", "midday", "monitor"), ("15:05", "closing_drive", "active")]
+    assert {r["days"] for r in rows} == {7}
+
+
+def test_the_cadence_is_judged_on_a_session_day_inside_the_cards_window(srv):
+    """A weekend reference day would label every fire CLOSED across a healthy card's whole table."""
+    assert srv._cadence_reference_day("2026-11-01..2026-11-30", date(2026, 11, 21)) == date(2026, 11, 23)
+    assert srv._cadence_reference_day("2026-10-05..2026-10-09", date(2026, 11, 21)) == date(2026, 10, 5)
+    assert srv._cadence_reference_day("Nov to Dec", date(2026, 11, 21)) == date(2026, 11, 21)
+    assert srv._cadence_reference_day("2026-11-30..2026-11-01", date(2026, 11, 21)) == date(2026, 11, 21)
+
+
+def test_the_calendar_gate_carries_no_cadence_of_its_own(srv, desk):
+    """"Which times does the desk fire at" has exactly one answerer now: `card_cadence`, from the cards."""
+    assert "schedules" not in srv.build_calendar()
 
 
 # ------------------------------------------------------------------ what may not leave

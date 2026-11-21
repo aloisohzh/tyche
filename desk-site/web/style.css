@@ -550,6 +550,8 @@ ul { margin: 0; padding: 0; list-style: none; }
 .cal-crons-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 11px; flex-wrap: wrap; }
 .cal-cron { font-size: 11px; color: var(--label-2); }
 .cal-phase-tag { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 5px; color: var(--seg-hue, var(--accent)); background: color-mix(in srgb, var(--seg-hue, var(--accent)) 12%, transparent); }
+.cal-crons tbody tr.cal-cron-group td { border-top: 1px solid var(--sep); padding-top: 14px; }
+.cal-crons tbody tr.cal-cron-group:first-child td { border-top: 0; padding-top: 13px; }
 
 .sched-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin-bottom: 18px; }
 .sched-card { padding: 18px 20px; border-radius: 16px; }

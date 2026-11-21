@@ -5,8 +5,16 @@ const $ = (sel) => document.querySelector(sel);
 const esc = (s) => String(s ?? "").replace(/[—–]/g, "-").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const hy = (s) => String(s ?? "").replace(/[—–]/g, "-");
 
-const VERSION = "0.9.0";
+const VERSION = "0.10.0";
 const CHANGELOG = [
+  {
+    version: "0.10.0", date: "2026-11-22", title: "The cadence table shows the cards that actually fire",
+    items: [
+      "Strategy view: the cron table is drawn from each automation card's own cron, timezone and window - one row per fire time, grouped by card - with the phase and activity the kernel gate would route that wall-clock time to. What the desk really does is 08:05 plan, 12:05 monitor, 15:05 trade.",
+      "The six-run hourly model row is gone. That was the retired design's schedule generator, not the desk's behaviour, and it had no card behind it: a table that disagrees with the cards is worse than a short one.",
+      "Blind stays blind: if the Managed cards cannot be read, the table renders empty and the note says so, instead of falling back to a remembered cadence that would read as a status report.",
+    ],
+  },
   {
     version: "0.9.0", date: "2026-11-21", title: "The Orchestration view reads the plane the desk runs on",
     items: [
@@ -1891,20 +1899,32 @@ function renderCalendar() {
     `<div class="cal-aware-row"><span class="cal-aware-label">Today</span><div class="cal-aware-items">${today}</div></div>` +
     `<div class="cal-aware-row"><span class="cal-aware-label">Ahead</span><div class="cal-aware-items cal-days">${ahead}</div></div>`;
 
-  $("#cal-window").textContent = `${cal.window.start} → ${cal.window.end}`;
+  // The gate's own window, not the table's: each card row below carries the window the card declares.
+  $("#cal-window").textContent = `gate window ${cal.window.start} → ${cal.window.end}`;
+  let lastCard = null;
   $("#cal-cron-rows").innerHTML = (cal.schedules || []).map((s) => {
-    const meta = PHASE_META[s.phase] || { name: "gate-routed", hue: "var(--cyan)" };
-    return `<tr>
-      <td><strong style="font-size:12px">${esc(s.name)}</strong></td>
+    const meta = PHASE_META[s.phase] || { name: "unknown", hue: "var(--faint)" };
+    const grouped = s.name !== lastCard;
+    lastCard = s.name;
+    const who = grouped
+      ? `<strong style="font-size:12px">${esc(s.name)}</strong><div class="dim mono">${esc(s.window || "-")} · ${esc(s.timezone || "UTC")}</div>`
+      : '<span class="dim">same card</span>';
+    return `<tr class="${grouped ? "cal-cron-group" : ""}">
+      <td>${who}</td>
       <td><span class="cal-cron mono">${esc(s.cron)}</span></td>
       <td><span class="cal-phase-tag" style="--seg-hue:${meta.hue}">${meta.name}</span></td>
       <td><span class="cal-activity ${s.activity}">${ACTIVITY_LABEL[s.activity] || s.activity}</span></td>
       <td class="mono" style="font-size:11px">${esc(s.et_time)}</td>
       <td class="mono" style="font-size:11px">${esc(s.sgt_time || "-")}</td>
-      <td class="num">${s.days}</td>
+      <td class="num">${s.days ?? "-"}</td>
     </tr>`;
-  }).join("");
-  $("#cal-cron-note").textContent = "One hourly schedule fires at :05 past each hour from 08:05 to 17:05 ET (21:05 to 06:05 SGT, landing after midnight in Singapore). It only trades on NYSE open days - weekends and holidays are skipped automatically. Each run checks the session phase first, so a run outside its window does nothing, and half-days and clock changes are handled.";
+  }).join("") || '<tr><td colspan="7" class="empty-row">No cards read, so there is no cadence to show - the desk does not draw one from a remembered model.</td></tr>';
+  $("#cal-cron-note").textContent =
+    "Each row is one fire time of one automation card: the cron, timezone and day count are that card's own, " +
+    "and the phase and activity are what the kernel gate routes a run to at that wall-clock time on the first " +
+    "session day of its window. So 08:05 plans, 12:05 monitors, and 15:05 trades. The two monthly cards overlap " +
+    "around a rollover; the one whose window owns today's date is the one that fires. Fire times come from the " +
+    "cloud read, never from the retired hourly model - if the cards cannot be read, this table is empty and says so.";
 
   const wl = cal.watchlist;
   const wlWrap = $("#cal-watchlist-wrap");

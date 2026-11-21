@@ -77,6 +77,13 @@ order stays unsubmitted even if the model ignores it.
   `desk-site/functions/handler.ts` still fetches `/forward/schedules` and `/forward/sessions` with
   `TYCHE_FORWARD_PAT` and falls back to the committed export, which now means the live hosted overlay
   reports zero schedules while the baked file shows the cards.
+- **The cards themselves** = the only source for the Strategy view's cadence table. `card_cadence()` expands
+  each card's own cron into one row per fire time and asks the kernel gate (`phase_at` → `strategy_for`)
+  what that wall-clock hour routes to, so the table reads 08:05 plan / 12:05 monitor / 15:05 active with the
+  card's timezone, window and day count beside it. `build_calendar()` stopped emitting
+  `generate_hourly_schedules()`: that models the retired six-run hourly design, so the panel was advertising
+  09:05/10:05/16:05 ET fires no card makes. Blind stays blind - unreadable cards leave the table empty and
+  saying so, rather than drawing a remembered cadence.
 
 ## API plumbing (from the conventions overview)
 
