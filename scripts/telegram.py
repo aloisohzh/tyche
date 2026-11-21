@@ -20,16 +20,14 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-import forward
+import cloud_api
 
 ROOT = Path(__file__).resolve().parents[1]
 STATE_PATH = ROOT / ".telegram-bridge.json"
-IDENTITY_ID = "idn_1d7b9ab60a1bcc934d4a1d8f"
-SCHEDULE_IDS = [
-    "sched_52f7a8a04e4bf656e25fac47",  # tyche-premarket
-    "sched_f522c892f2a72e77dd7c590f",  # tyche-eod
-    "sched_7d7dcb7101f048b8b4df159f",  # tyche-eod-halfday
-]
+# The two live desk cards, both authored by scripts/deploy_two_fire_automation.py. Their runs are the
+# only source of a session id worth binding to: the Forward schedules listed here before are paused,
+# fire nothing, and 404 on the sessions a card started (queue.md W7).
+DESK_CARD_IDS = ("dep_00vzb9h4ezawwl4thnva", "dep_00vzd8d5rdfr4w0denqh")
 ASK_EVENTS = {"agent.tool_use", "agent.mcp_tool_use"}
 RESOLUTION_EVENTS = {"user.tool_confirmation", "agent.tool_result", "agent.mcp_tool_result"}
 MAX_PREVIEW = 1500
@@ -368,17 +366,21 @@ def find_pending(state: dict, token: str) -> tuple[str, dict] | None:
     return None
 
 
+def newest_desk_run() -> dict | None:
+    """The newest session any desk card started, with its card and trigger, or None when the cards
+    have no runs. A card that could not be read goes to stderr, so 'no session found' is never a lie
+    about a run that exists."""
+    found = cloud_api.newest_run(DESK_CARD_IDS)
+    if not found:
+        return None
+    if found["failed_cards"]:
+        print(f"card runs unread: {', '.join(found['failed_cards'])}", flush=True)
+    return found["run"]
+
+
 def latest_session_id() -> str | None:
-    best = None
-    for schedule_id in SCHEDULE_IDS:
-        result = forward.req(
-            "GET", f"/schedule_runs?identity_id={IDENTITY_ID}&schedule_id={schedule_id}&limit=1",
-            check=False,
-        )
-        for run in result.get("data", []):
-            if run.get("session_id") and (best is None or run["created_at"] > best[0]):
-                best = (run["created_at"], run["session_id"])
-    return best[1] if best else None
+    run = newest_desk_run()
+    return run["session_id"] if run else None
 
 
 class Bridge:
@@ -397,14 +399,14 @@ class Bridge:
 
     def refresh_threads(self) -> bool:
         session_id = self.state["session_id"]
-        threads = forward.req("GET", f"/sessions/{session_id}/threads", check=False)
-        if threads.get("http_error"):
-            print(f"thread list HTTP {threads['http_error']}", flush=True)
+        try:
+            rows = cloud_api.thread_rows(session_id)
+        except cloud_api.CloudError as error:
+            print(f"thread list failed: {error}", flush=True)
             return False
         self.state["threads"] = {
-            t["id"]: {"role": t.get("role"), "name": t.get("name"),
-                      "archived": bool(t.get("archived_at"))}
-            for t in threads.get("data", [])
+            row["id"]: {"role": row["role"], "name": row["name"], "archived": row["archived"]}
+            for row in rows
         }
         return True
 
@@ -413,19 +415,15 @@ class Bridge:
         events: list[dict] = []
         cursor = self.state["cursors"].get(thread_id)
         for _ in range(300):
-            path = f'/sessions/{self.state["session_id"]}/threads/{thread_id}/events?limit=100'
-            if cursor:
-                path += f"&after_id={cursor}"
-            page = forward.req("GET", path, check=False)
-            if page.get("http_error"):
-                print(f"thread events HTTP {page['http_error']}", flush=True)
+            try:
+                page = cloud_api.thread_events(self.state["session_id"], thread_id, cursor)
+            except cloud_api.CloudError as error:
+                print(f"thread events failed: {error}", flush=True)
                 break
-            batch = page.get("data", [])
-            for event in batch:
-                event.setdefault("session_thread_id", thread_id)
+            batch = page["events"]
             events.extend(batch)
-            cursor = page.get("last_id") or cursor
-            if not page.get("has_more"):
+            cursor = page["last_id"] or cursor
+            if not page["has_more"]:
                 break
         self.state["cursors"][thread_id] = cursor
         return events
@@ -492,11 +490,10 @@ class Bridge:
         body = {"type": "user.tool_confirmation", "tool_use_id": tool_use_id, "result": result}
         if reason:
             body["deny_message"] = reason
-        response = forward.req(
-            "POST", f'/sessions/{self.state["session_id"]}/events', {"events": [body]}, check=False
-        )
-        if response.get("http_error"):
-            self.say(f"Confirmation failed: HTTP {response['http_error']} {esc(response['body'][:200])}")
+        try:
+            cloud_api.post_session_event(self.state["session_id"], body)
+        except cloud_api.CloudError as error:
+            self.say(f"Confirmation failed: {esc(str(error)[:200])}")
             return
         self.state["pending"].pop(tool_use_id, None)
         self.state["decisions"].append({
@@ -517,7 +514,7 @@ class Bridge:
         if command in ("/start", "/help"):
             self.say(
                 "<b>Tyche bridge</b>\n"
-                "/session latest — bind the newest schedule-run session\n"
+                "/session latest — bind the newest desk-card session\n"
                 "/session &lt;sess_id&gt; — bind a specific session\n"
                 "/status — session status and credits\n"
                 "/pending — list approvals waiting for you\n"
@@ -530,10 +527,13 @@ class Bridge:
         elif command == "/session":
             target = parts[1] if len(parts) > 1 else None
             if target == "latest":
-                target = latest_session_id()
-                if not target:
-                    self.say("No schedule-run session found yet.")
+                run = newest_desk_run()
+                if not run:
+                    self.say("No desk-card session found yet.")
                     return
+                target = run["session_id"]
+                self.say(f'Latest desk run: card <code>{esc(run["card"])}</code> at '
+                         f'{esc(str(run.get("at")))} ({esc(str(run.get("trigger")))}).')
             if not target:
                 self.say(f'Current: <code>{esc(self.state["session_id"] or "unbound")}</code>')
                 return
@@ -542,9 +542,10 @@ class Bridge:
             if not self.state["session_id"]:
                 self.say("Not bound. Use /session latest.")
                 return
-            session = forward.req("GET", f'/sessions/{self.state["session_id"]}', check=False)
-            if session.get("http_error"):
-                self.say(f"Status failed: HTTP {session['http_error']}")
+            try:
+                session = cloud_api.session_status(self.state["session_id"])
+            except cloud_api.CloudError as error:
+                self.say(f"Status failed: {esc(str(error)[:200])}")
                 return
             usage = session.get("usage") or {}
             self.say(
@@ -571,27 +572,27 @@ class Bridge:
             if not self.state["session_id"]:
                 self.say("Not bound.")
                 return
-            response = forward.req(
-                "POST", f'/sessions/{self.state["session_id"]}/events',
-                {"events": [{"type": "user.interrupt"}]}, check=False,
-            )
-            self.say("Interrupt sent." if not response.get("http_error")
-                     else f'Interrupt failed: HTTP {response["http_error"]}')
+            try:
+                cloud_api.post_session_event(self.state["session_id"], {"type": "user.interrupt"})
+            except cloud_api.CloudError as error:
+                self.say(f"Interrupt failed: {esc(str(error)[:200])}")
+                return
+            self.say("Interrupt sent.")
         else:
             if not self.state["session_id"]:
                 self.say("Not bound. Use /session latest first.")
                 return
-            response = forward.req(
-                "POST", f'/sessions/{self.state["session_id"]}/events',
-                {"events": [{"type": "user.message", "content": [{"type": "text", "text": text}]}]},
-                check=False,
-            )
-            if response.get("http_error") == 409:
-                self.say("Desk is mid-turn; message NOT sent. Retry when idle (/status).")
-            elif response.get("http_error"):
-                self.say(f'Relay failed: HTTP {response["http_error"]} {esc(response["body"][:200])}')
-            else:
-                self.say("Relayed to the desk; the reply will appear here.")
+            body = {"type": "user.message", "content": [{"type": "text", "text": text}]}
+            try:
+                cloud_api.post_session_event(self.state["session_id"], body)
+            except cloud_api.CloudError as error:
+                if error.status == 409:
+                    # Never retried: a queued second message would read as two operator instructions.
+                    self.say("Desk is mid-turn; message NOT sent. Retry when idle (/status).")
+                else:
+                    self.say(f"Relay failed: {esc(str(error)[:200])}")
+                return
+            self.say("Relayed to the desk; the reply will appear here.")
 
 
 def listen() -> None:

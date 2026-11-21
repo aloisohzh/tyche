@@ -61,17 +61,17 @@ without weakening any gate.
 
 ## Deployment
 
-`scripts/deploy_event_discovery.py` applies the scout + desk-head clauses
-(system-only edits, tools/vault/env/mount preserved, roster re-pinned,
-idempotent, snapshots under gitignored `plans/`). Schedules reference the desk
-template by id, so the triage clause reaches all hourly runs without schedule
-changes.
+The clauses are in the researcher and coordinator prompts as retrieved; the text itself is what you edit.
+`scripts/deploy_managed_agents.py diff <role> --file <path>` then `apply-system <role> --file <path>` is the
+write path (system-only, tools/vault/env/mount never sent, snapshot under gitignored
+`plans/managed-migration/`, post-write guard on what moved).
 
-`scripts/deploy_scout_data_suite.py` applies the fixed-core/deep-dive data-suite
-clause to the researcher and re-pins the desk roster the same way. Run it after
-compiling the edited researcher template, passing the version reported by QCA
-`list_agents` when the REST agent route is unavailable.
+`archive/deploy_event_discovery.py` and `archive/deploy_scout_data_suite.py` are the Forward-template
+writers that installed these clauses originally, before the desk was consolidated on the Managed plane. They
+are kept for the exact wording and the snapshot discipline, not to run: a template write recompiles the
+Managed agent and can surface a tool grant the running pin never had (L-046), which is why
+[test_forward_fence.py](../../tests/test_forward_fence.py) keeps them out of `scripts/`.
 
-The Forward REST `/agents/{id}` route is gone, so read the compiled researcher
-version with the QCA `list_agents` tool first and pass it as the script's
-argument (after a template edit it is the previous pin + 1).
+The child agents run at the roster's `version: "latest"`, so an auditor / researcher / executor prompt write
+is live at the next fire. The coordinator needs both desk cards re-pinned (`pin-card`) before its text takes
+effect - see [agent-engineering.md](../agent-engineering.md), §Version pins.

@@ -20,10 +20,14 @@ bound IM channel); delivery lives in the run instructions instead.
 
 ## Architecture
 
-- Bot: `@tyche_sentinel_bot` (BotFather). Token + chat id live **server-side** in the
-  desk template's `environment_variables` (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`),
-  merged with existing keys. Local copy in gitignored `.env` for local tests only.
-- Each schedule's `initial_events` (version 5) ends with a TELEGRAM DELIVERY contract:
+- Bot: `@tyche_sentinel_bot` (BotFather). Token + chat id live **server-side** in the desk
+  cards' `environment_variables` (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`,
+  `TYCHE_ALLOWED_ACCOUNT_IDS`), authored by `scripts/deploy_two_fire_automation.py`. Local copy in
+  gitignored `.env` for local tests only. Read a card or a session only through a projection: the API
+  returns that field in **plaintext**, so a naive "snapshot the object first" habit writes a live bot
+  token to disk - `scripts/cloud_api.py` drops it and `scripts/deploy_managed_agents.py` keeps only
+  the key names.
+- Each desk card's `initial_events` ends with a TELEGRAM DELIVERY contract:
   send via the repo helper `python scripts/telegram.py send "<digest>"` (reads
   `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID` from session env). The helper normalizes
   Markdown **or** HTML to Telegram HTML — `**bold**`→bold, pipe tables→aligned `<pre>`
@@ -36,8 +40,15 @@ bound IM channel); delivery lives in the run instructions instead.
   failure is recorded but never blocks risk work; no tokens/credentials/full account
   ids in messages or logs. Use the existing helper with explicit Telegram HTML when
   the new structured renderer is unavailable; do not bypass it with raw curl.
-- Schedules: `tyche-premarket` (13:45 UTC), `tyche-eod` (22:15 UTC),
-  `tyche-eod-halfday` (27 Nov 18:15 UTC).
+- What fires: the two Managed desk cards, `dep_00vzb9h4ezawwl4thnva` (Nov) and
+  `dep_00vzd8d5rdfr4w0denqh` (Dec), at 08:05, 12:05 and 15:05 America/New_York on their own
+  trading-day sets; the midday fire is watch-and-shout only. The Forward schedules `tyche-premarket`,
+  `tyche-eod`, `tyche-eod-halfday` and the five others were archived on 21 Nov 2026: they run nothing, they
+  are not notification owners, and they no longer appear in the default Forward schedule list
+  (plans/managed-migration/queue.md W8).
+- The digest *layout* is the `sentinel-digest` skill's job, attached to the coordinator agent; the
+  prompt keeps the recipient, unconfirmed-delivery, masking and order-preview disclosure rules,
+  because a skill is loaded on demand and cannot be the only place a rule exists.
 
 ## Setup from scratch
 
@@ -45,13 +56,18 @@ bound IM channel); delivery lives in the run instructions instead.
 2. Put token in gitignored `.env` as `TELEGRAM_BOT_TOKEN=` (never in chat/repo).
 3. Send the bot any message; then `.venv/Scripts/python scripts/telegram.py chat-id`
    (writes `TELEGRAM_CHAT_ID` to `.env`).
-4. Operator explicitly authorizes the secret write, then:
-   `MSYS_NO_PATHCONV=1 .venv/Scripts/python scripts/forward.py env-set /templates/<desk-template-id> TELEGRAM_BOT_TOKEN TELEGRAM_CHAT_ID`
-   (merge semantics: existing env keys are carried over; values never printed).
-5. Append the delivery contract to each schedule via
-   `POST /api/v1/forward/schedules/{id}` with the full replaced `initial_events`.
-6. Verify: `POST /schedules/{id}/run`, watch `GET /schedule_runs/{run_id}`, and confirm
-   the digest arrives in Telegram. A submit is not a delivery: check the chat.
+4. Operator explicitly authorizes the secret write, then carry the values onto the cards with
+   `scripts/deploy_two_fire_automation.py` - its create path merges `environment_variables` and never
+   prints a value. An existing card is not edited by hand for secrets: the pin-only writer
+   `scripts/deploy_managed_agents.py pin-card` deliberately cannot send that field.
+5. The delivery contract lives in the card brief that same script authors, so it moves with the card
+   instead of with a separate schedule object.
+6. Verify without starting anything: `MSYS_NO_PATHCONV=1 .venv/Scripts/python.exe
+   scripts/deploy_managed_agents.py status` shows both cards `active` with the expected pin and cron,
+   and `.venv/Scripts/python.exe plans/managed-migration/drill_bridge.py` walks the bridge's read path
+   against the last real fire. To watch a fresh digest end to end you must trigger a run
+   (`cloud_api.run_card_now`), which starts a real desk session - do that deliberately, not as a smoke
+   test. A submit is not a delivery: check the chat.
 
 ## Local commands
 
@@ -67,7 +83,7 @@ The active Managed premarket/close deployments replaced the older Forward schedu
 Their shortened `TELEGRAM` instruction omitted the original formatting requirements;
 plain text therefore passed through the helper unchanged. The November and December
 cards need the same presentation contract for normal digests **and urgent alerts**.
-The paused Forward schedules and the separate local MSFT exit task are not notification
+The archived Forward schedules and the separate local MSFT exit task are not notification
 owners and must not be resumed or otherwise changed for this formatting fix.
 
 Preferred path: fill `templates/sentinel-digest.example.json` with verified run facts,
@@ -171,25 +187,35 @@ reached Telegram — the operator saw a duplicate. Hardening in the helper:
 > handled in the Qoder console session thread, not via Telegram. Kept as a fallback.
 
 `scripts/telegram.py listen` runs on the operator's PC and bridges Telegram to a
-desk session via `POST /api/v1/forward/sessions/{id}/events`:
+desk session on the Managed base (`/api/v1/cloud`): `POST /sessions/{id}/events` for
+operator events, `/sessions/{id}/threads` and `/sessions/{id}/threads/{tid}/events` for
+reads. The Forward base 404s a card-fired session, which is what made this bridge blind.
 
 - **Auth**: only `TELEGRAM_CHAT_ID` from `.env` is accepted; every other chat is
   ignored. PAT stays in local `.env`; nothing secret is committed.
 - **State**: `.telegram-bridge.json` (gitignored) holds the getUpdates offset,
   bound session, event cursor, pending approvals and a decision log. First run
   drains stale updates so old messages are never replayed into the desk.
-- **Commands**: `/session latest` (bind newest schedule-run session) or
+- **Commands**: `/session latest` (bind the newest session any desk card started - it reads
+  `/deployments/{card}/runs` for both cards and takes the newest run that has a session; a card it
+  cannot read is reported on stderr instead of being counted as "never fired") or
   `/session <sess_id>`; `/status`; `/pending`; `/approve N`; `/deny N [reason]`;
   `/interrupt`; `/help`. Any other text is relayed as `user.message`; the desk
   coordinator's replies are relayed back (account ids masked to last 3 digits).
 - **Approvals**: the bridge polls each member thread's event stream for
-  `agent.tool_use` / `agent.mcp_tool_use` with `evaluated_permission: ask` (the
-  executor's `always_ask` order gate — MCP calls only surface in thread streams,
-  not the session stream), sends the full tool input as a preview, and waits.
+  `agent.tool_use` / `agent.mcp_tool_use` with `evaluated_permission: ask` (MCP calls only surface in
+  thread streams, not the session stream), sends the full tool input as a preview, and waits.
   `/approve N` posts `user.tool_confirmation {tool_use_id, result: allow}`;
-  `/deny N` posts `deny` with an optional reason. **Never auto-approves** — an
+  `/deny N` posts `deny` with an optional reason. **Never auto-approves** - an
   explicit numbered reply from the allowlisted chat is the only path. A submit
   is still not a fill; fills come from broker order state.
+- **What can actually ask** (read off the live pin 2026-11-21, not assumed): on the executor only
+  `sim_trade_cancel_order` and `sim_trade_modify_order` carry `permission_policy: always_ask`. The
+  paper submit path is not a platform ask - it is gated by the desk brief's order-preview plus
+  explicit operator confirmation protocol, so `/approve` governs cancels and modifies, not new
+  entries. The last scheduled fire before this was read contained 192 tool uses, all
+  `evaluated_permission: allow`, and surfaced zero asks: the pending-approval path is exercised only
+  when the desk cancels or modifies an order.
 - **Busy desk**: a relay while the session is mid-turn returns 409; the bridge
   tells the operator the message was NOT sent (no silent queueing).
 - Binding scans session history once to surface any already-pending approval.
