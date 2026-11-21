@@ -43,8 +43,9 @@ bound IM channel); delivery lives in the run instructions instead.
 - What fires: the two Managed desk cards, `dep_00vzb9h4ezawwl4thnva` (Nov) and
   `dep_00vzd8d5rdfr4w0denqh` (Dec), at 08:05, 12:05 and 15:05 America/New_York on their own
   trading-day sets; the midday fire is watch-and-shout only. The Forward schedules `tyche-premarket`,
-  `tyche-eod` and `tyche-eod-halfday` are paused, run nothing, and are retired with the rest of the
-  Forward residue (plans/managed-migration/queue.md W8).
+  `tyche-eod`, `tyche-eod-halfday` and the five others were archived on 21 Nov 2026: they run nothing, they
+  are not notification owners, and they no longer appear in the default Forward schedule list
+  (plans/managed-migration/queue.md W8).
 - The digest *layout* is the `sentinel-digest` skill's job, attached to the coordinator agent; the
   prompt keeps the recipient, unconfirmed-delivery, masking and order-preview disclosure rules,
   because a skill is loaded on demand and cannot be the only place a rule exists.
@@ -82,7 +83,7 @@ The active Managed premarket/close deployments replaced the older Forward schedu
 Their shortened `TELEGRAM` instruction omitted the original formatting requirements;
 plain text therefore passed through the helper unchanged. The November and December
 cards need the same presentation contract for normal digests **and urgent alerts**.
-The paused Forward schedules and the separate local MSFT exit task are not notification
+The archived Forward schedules and the separate local MSFT exit task are not notification
 owners and must not be resumed or otherwise changed for this formatting fix.
 
 Preferred path: fill `templates/sentinel-digest.example.json` with verified run facts,

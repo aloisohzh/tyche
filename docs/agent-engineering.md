@@ -6,7 +6,8 @@ The platform is the source of truth for what runs; this file says where to look 
 ## What lives where (one plane)
 
 The desk is authored on the **Managed** API (`api.qoder.com/api/v1/cloud`) and nowhere else. Forward still
-holds objects, but they are residue: nothing on the running desk reads or writes them.
+holds objects, but they are residue: no control or execution path reads or writes them, and the only readers
+left are two display-only panels that show a desk which no longer runs there ([PRD §7 item 14](../documentation/PRD.md)).
 
 | Object | Where it lives | How it changes |
 |---|---|---|
@@ -15,7 +16,7 @@ holds objects, but they are residue: nothing on the running desk reads or writes
 | Two monthly desk cards | Managed `deployments` | `scripts/deploy_two_fire_automation.py` owns the brief, `pin-card` owns the agent version |
 | Environment (repo mount, Drive bucket, `setup_script`) | Managed `environments` | read-only in practice: a `config` write replaces the object wholesale and the bucket credential is write-only |
 | Vault, memory store, sessions / threads / events | Managed | not authored from this repo |
-| 4 templates, 8 paused schedules, 1 identity | Forward only, and they fire nothing | **never authored, by design.** A template write recompiles the Managed agent and can materialise a `managed_tool_config` grant the running pin never had (L-046), so the writers are in [../archive/MANIFEST.md](../archive/MANIFEST.md) and `test_no_live_script_authors_a_forward_template` keeps them out of `scripts/` |
+| 4 templates, 8 archived schedules, 1 identity | Forward only, and they fire nothing | **never authored, by design.** A template write recompiles the Managed agent and can materialise a `managed_tool_config` grant the running pin never had (L-046), so the writers are in [../archive/MANIFEST.md](../archive/MANIFEST.md) and `test_no_live_script_authors_a_forward_template` keeps them out of `scripts/` |
 
 The Forward identity `idn_1d7b9ab60a1bcc934d4a1d8f` stays even though it is Forward: the environment's OSS
 bucket prefix embeds it, so retiring it could orphan the journal lineage under `/data/drive/tyche-raw` that
@@ -141,13 +142,18 @@ rewriting.
   (weekend, holiday, outside 04:00-20:00 ET) and finish read-only. On a 13:00 early close the 15:05
   fire is AFTER_HOURS and may reconcile only, never submit. Halt is checked with
   `tyche halt-status --json`; a halted run submits no buys.
-- The hourly and six-fire cadences are **cut** (L-019, L-020). Their eight Forward schedules are `paused`
-  and fire nothing, and the deploy scripts that used to drive them are in
-  [../archive/MANIFEST.md](../archive/MANIFEST.md). Retiring them is one reviewed write -
-  `POST /forward/schedules/{id}/archive`, eight calls, nothing else: they are kept only so the platform
-  history stays where it happened, and an object nobody can name is an object someone eventually mistakes
-  for the cadence. The desk prompts' "the paused Forward schedules must remain paused" stays true either
-  way, so no prompt depends on the archive.
+- The hourly and six-fire cadences are **cut** (L-019, L-020), and the eight Forward schedules that used to
+  own them were **archived on 21 Nov 2026** - one reviewed write, `POST /forward/schedules/{id}/archive`,
+  eight calls, nothing else, through `plans/managed-migration/archive_schedules.py`. That writer reads the
+  list first and refuses anything outside exactly those eight ids or not already `paused`, never retries a
+  POST, re-reads `archived_at` per call, and between calls re-reads the Managed projection it must not
+  disturb (four agent versions and prompt lengths, three `skill@version` pins, each card's pin,
+  `initial_events` hash and env *key names*), aborting if any of it moves. The deploy scripts that used to
+  drive the cadence are in [../archive/MANIFEST.md](../archive/MANIFEST.md). Objects are archived, not
+  deleted, so platform history stays where it happened; what the archive removes is the risk that an object
+  nobody can name gets mistaken for the cadence. An archived schedule still reports `status: "paused"` with
+  `archived_at` set and drops out of the default list, so the desk prompts' "the paused Forward schedules
+  must remain paused" is still literally true after the write - no prompt depended on it either way.
 - **The live card is operator-switchable from the desk, not from the hosted page.** Controls reads the card
   that owns today (`scripts/cloud_api.py:119` selects by its `metadata.window`, because two monthly cards
   overlap at a rollover and pausing the wrong one would look like success), and `POST /api/schedule/control`

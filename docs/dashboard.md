@@ -67,15 +67,17 @@ order stays unsubmitted even if the model ignores it.
 - **Performance artifacts** (`docs/performance/`) = generated metrics.
 - **QCA API** for sessions/threads/events and the scheduled desk cards (automation panel), read
   **server-side** with a PAT. The desk's real runs are card-fired and live on the **Managed** base;
-  `dashboard/server.py` still reads Forward for this panel, which is PRD §7 item 14 - what it lists are the
-  Nov-19 automations, not the running desk.
+  `dashboard/server.py` still reads Forward for this panel, which is PRD §7 item 14. Since the eight
+  schedules were archived on 21 Nov that read returns **no schedules at all**, and its session list is
+  Forward's own history - the Nov-19 schedule runs plus two terminated Phase 0 probe sessions - not the
+  running desk.
 
 ## API plumbing (from the conventions overview)
 
 - Gateway: **Managed `https://api.qoder.com/api/v1/cloud`** is where the desk is authored and where its
   agents, skills, cards, sessions, threads and events live.
-  `https://api.qoder.com/api/v1/forward` is residue - four templates, the retired schedules, their own runs -
-  and nothing authors through it any more: see [agent-engineering.md](agent-engineering.md) and
+  `https://api.qoder.com/api/v1/forward` is residue - four templates, the eight archived schedules, their
+  own runs - and nothing authors through it any more: see [agent-engineering.md](agent-engineering.md) and
   [tests/test_forward_fence.py](../tests/test_forward_fence.py).
 - Auth: `Authorization: Bearer <PAT>`; PAT created at qoder.com/cloud/pat-keys, kept in a gitignored
   `.env`, **server-side only**, never in client code or the repo.

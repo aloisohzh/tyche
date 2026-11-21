@@ -300,5 +300,5 @@ explicitly declined.
 
 Creating or editing any schedule, card, agent pin or vault. Level 2 automatic submission. Options enablement
 (needs [ADR 0012](../adr/0012-options-protection.md) *and* this one closed). Broker-native stops - unavailable on
-the sim, which is the entire reason this document exists. Any live trading. Reopening the paused Forward
+the sim, which is the entire reason this document exists. Any live trading. Reopening the archived Forward
 schedules or the inbound Telegram bridge.

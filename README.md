@@ -32,8 +32,11 @@ writes the daily narrative. The LLM never sizes or submits an order.
 > materialise a template grant the running pin never had (L-046) and that a filtered roster rebuild can drop
 > the advisor row (L-045) - both writers are archived now, and
 > [tests/test_forward_fence.py](tests/test_forward_fence.py) fails if anything under `scripts/` goes back to
-> authoring a template. The `rules.refrozen` writer L-035 asked for landed the same day and registered all
-> four hashable lanes. Every lane's rules hash is now
+> authoring a template. The eight Forward schedules those writers used to drive were archived on 21 Nov, one
+> reviewed POST each with the Managed projection re-read after every call; they still report `paused` with
+> `archived_at`, so no prompt had to change, and the default Forward schedule list is now empty. The four
+> templates stay untouched - archiving one is a template write. The `rules.refrozen` writer L-035 asked for
+> landed the same day and registered all four hashable lanes. Every lane's rules hash is now
 > computable and asserted in CI (L-036, L-037 closed 20 Nov 2026). DESIGN.md is the v0.1 baseline,
 > partially superseded.
 
