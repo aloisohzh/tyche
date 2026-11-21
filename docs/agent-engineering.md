@@ -95,9 +95,13 @@ generation time by `is_trading_day` (L-019). Live cards: `dep_00vzb9h4ezawwl4thn
   clock, the calendar phase, and the live playbook ids with their frozen rules hashes - and no numeric
   caps, because agent-rules forbids restating them anywhere a prompt could drift (L-033). A run already in
   flight is refused, and the request is journaled as `scout.requested`.
-- **Gap:** the calendar drift check is alert-only and is carried in a *paused* schedule's
-  `initial_events`, so on the card path it does not run. `scripts/deploy_calendar_check.py` builds it;
-  wiring it to a live trigger is open work.
+- **Calendar drift runs on the fire that fires.** The clause started life in the paused `tyche-hourly`
+  Forward schedule (`scripts/deploy_calendar_check.py`), where nothing would ever execute it; since
+  2026-11-21 it is part of the authored card brief (`CALENDAR DRIFT` in
+  `scripts/deploy_two_fire_automation.py`), so the 08:05 premarket fire WebFetches the NYSE page, runs
+  `tyche calendar-check --source data/nyse-calendar.txt --json` once a day, and turns a non-zero exit into
+  a Problems line plus a `calendar.check` event. It stays alert-only on purpose: re-pinning the calendar is
+  `scripts/refresh_calendar.py` under the operator's hand, never a run step.
 - The 1-2 min protection monitor remains a draft prerequisite for the options lane
   ([ADR 0013](adr/0013-protection-monitor.md) + [its draft contract](runbooks/intraday-protection-monitor.md));
   it is not deployed.

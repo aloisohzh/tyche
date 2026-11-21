@@ -199,8 +199,12 @@ JS parse error blanks the whole page while every Python test stays green (L-040)
 `market_calendar.py` owns session phases, the trading-day gate (`is_trading_day`), half-days, the
 event overlay from `config/events.yaml` and `evaluate()`/`--json` used by the cards to decide whether to
 run at all. `nyse_calendar.py` parses the published NYSE calendar and diffs it against the pinned one so
-drift is detected rather than assumed; the drift *check job* is currently attached only to a paused
-schedule, so it does not run unattended (open work).
+drift is detected rather than assumed. The check runs unattended from 2026-11-21: the live desk card brief
+carries a CALENDAR DRIFT clause that WebFetches the NYSE page at the first premarket fire of the day, runs
+`tyche calendar-check --source data/nyse-calendar.txt --json`, and reports any diff to the operator instead
+of applying it (`scripts/deploy_two_fire_automation.py`). Like every perimeter instruction the clause is
+prompt-level, and deliberately so: the pinned tables remain the gate until the operator re-pins them with
+`scripts/refresh_calendar.py`, which is a review step, not a run step.
 
 ### 8. Notifications
 

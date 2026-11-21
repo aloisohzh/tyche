@@ -31,6 +31,9 @@ dist/
 # `tyche persist` is run against them (ADR 0009), and never committed.
 /runs/
 /data/research/
+# The NYSE page a calendar-drift check saves is re-fetchable scratch, not evidence: the check's report
+# is the artifact, the dump is not.
+/data/nyse-calendar.txt
 # Transient broker feeds carry the paper account id in raw payloads; never tracked.
 /data/feed-*/
 /data/work-*/

@@ -1,5 +1,11 @@
 """Deploy the daily alert-only NYSE calendar check into the tyche-hourly playbook.
 
+SUPERSEDED 2026-11-21. This clause was written for the *paused* `tyche-hourly` Forward schedule, which
+nothing fires, so the check it installs cannot run. The live carrier is the desk card brief:
+`CALENDAR DRIFT` in `scripts/deploy_two_fire_automation.py`, pushed onto both scheduled desk cards with
+`--apply-update <deployment_id>`. The script stays because the paused schedule still holds the older
+wording; do not read a green run here as the check being live.
+
 Adds a CALENDAR CHECK clause to the schedule initial_events (pre-market, once per
 day): the desk WebFetches nyse.com/trade/hours-calendars, saves the readable
 output, and runs `tyche calendar-check --json`. A non-zero exit (drift or uncertain

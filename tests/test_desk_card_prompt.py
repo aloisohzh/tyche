@@ -37,3 +37,21 @@ def test_premarket_and_close_authority_and_contracts_survive_the_edit():
     markers = _module().prompt_markers(_module().card_prompt((date(2026, 12, 1), date(2026, 12, 31))))
     assert all(markers.values()), markers
     assert "the executor may submit paper orders" in _module().PROMPT
+
+
+def test_calendar_drift_check_is_premarket_alert_only_and_never_self_applying():
+    """The clause the paused schedule used to carry alone is now on the fire that runs (L-019's
+    live object is the card, so a check nobody schedules is a check that does not happen)."""
+    prompt = _module().card_prompt((date(2026, 12, 1), date(2026, 12, 31)))
+    assert "CALENDAR DRIFT" in prompt
+    clause = prompt.split("CALENDAR DRIFT", 1)[1].split("\n\n", 1)[0]
+    clause = " ".join(clause.split())  # the prompt wraps for reading; the contract does not
+    assert "08:05 premarket only" in clause and "Skip at the 12:05 and 15:05 fires" in clause
+    assert "tyche calendar-check --source" in clause and "--json" in clause
+    assert "scripts/refresh_calendar.py" in clause and "calendar.check" in clause
+    # Alert-only means the run cannot act on its own finding, in either direction.
+    for guard in ("Never edit config", "never invent a", "not a reason to skip or to trade"):
+        assert guard in clause
+    assert "UNCERTAIN, not a pass" in clause
+    # L-033 discipline: the clause points at the tables and the command, never at their contents.
+    assert not any(year in clause for year in ("2026", "2027", "2028"))

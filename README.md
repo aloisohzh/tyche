@@ -16,7 +16,10 @@ writes the daily narrative. The LLM never sizes or submits an order.
 > **Current state (21 Nov 2026):** the paper desk is running end to end - deterministic kernel, MCP
 > execution behind the paper-only allowlist, hash-chained journal, Telegram sentinel, four pinned
 > Qoder Cloud Agents (desk v31, researcher v17, executor v15, risk auditor v7), a propose-and-arm exit card,
-> and a Level 0 protection tick that nothing schedules yet. 571 tests pass. What is real, partial
+> and a Level 0 protection tick that nothing schedules yet. 572 tests pass. The 08:05 premarket fire also
+> runs the alert-only NYSE drift check (`tyche calendar-check`), so the pinned trading calendar is compared
+> with what the exchange publishes instead of assumed; a diff reaches the operator digest, never a config
+> edit. What is real, partial
 > and planned is itemised in the [refinement audit](docs/reviews/2026-11-20-platform-refinement-audit.md)
 > and the [playbook roster](playbook/INDEX.yaml); the live rules are in
 > [docs/agent-rules.md](docs/agent-rules.md). Known open defects are tracked as lessons, not hidden:

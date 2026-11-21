@@ -101,6 +101,20 @@ is session close minus 45 minutes (15:15 ET normally, 12:15 ET on early closes).
 the 12:05 fire is the last check inside the session, and its alert is notice for the operator, not an
 order. A late or skipped fire never authorizes catch-up with stale quotes.
 
+CALENDAR DRIFT (08:05 premarket only, once per day, alert-only): the gate above reads the pinned
+calendar tables, which can go stale against what NYSE publishes. At the first premarket fire of the day
+WebFetch https://www.nyse.com/trade/hours-calendars, save the readable output to data/nyse-calendar.txt
+(gitignored scratch, never committed), and run
+`tyche calendar-check --source data/nyse-calendar.txt --json`. Exit 0 means the tables still match: put
+one IN SYNC line in the run report and nothing more. Exit 1 is drift or an uncertain parse: put the
+report's `changes` and `new_years` - or its `warnings` when the parse was incomplete - in the digest's
+Problems section with the operator action "review and re-pin via scripts/refresh_calendar.py", and
+journal one `calendar.check` event for the run. Never edit config or the cron day lists from a run, never
+invent a closure date the page did not state, and never let a finding change today's gate: the pinned
+tables govern until the operator re-pins them, so drift is a note on the run, not a reason to skip or to
+trade. An unavailable or unreadable page is UNCERTAIN, not a pass: say so and carry on. Skip at the 12:05
+and 15:05 fires.
+
 BOOTSTRAP: repo mount /data/workspace/tyche. Install editable --no-deps if tyche is missing; run
 tyche journal-verify and tyche halt-status --json. halted=true blocks buys while approved de-risking
 sells may still run. Restore the verified Drive journal lineage at
@@ -281,6 +295,7 @@ def sanitize(result: dict) -> dict:
 def prompt_markers(events: str) -> dict:
     return {
         "has_calendar_gate": "tyche calendar --json" in events,
+        "has_calendar_drift_check": "tyche calendar-check --source" in events,
         "has_half_day_cutoff": "12:15 ET" in events,
         "has_after_hours_guard": "AFTER_HOURS" in events,
         "has_execution_gate": "execution_enabled" in events,
@@ -336,9 +351,13 @@ def main() -> None:
             path.unlink(missing_ok=True)
         print(json.dumps(sanitize(result), indent=2))
         return
-    for key in missing:
-        if not values.get(key):
-            raise SystemExit(f"missing from .env: {key}")
+    # Secrets are a create-path requirement: an update payload carries no environment_variables, so
+    # the card keeps the ones it was built with and this script must not demand local copies of
+    # values it will never send (L-023: it could not even read them back).
+    if "--apply-update" not in sys.argv and "--emit-update" not in sys.argv:
+        for key in missing:
+            if not values.get(key):
+                raise SystemExit(f"missing from .env: {key}")
     agent = req(values, "GET", f"/agents/{AGENT_ID}")
     version = agent.get("version")
     if not isinstance(version, int):
@@ -409,9 +428,20 @@ def main() -> None:
         before = req(values, "GET", f"/deployments/{deployment_id}")
         if not str(before.get("name", "")).startswith("Tyche desk"):
             raise SystemExit("refusing to update a deployment that is not the Tyche desk card")
+        pinned = (before.get("agent") or {}).get("version")
+        if not isinstance(pinned, int):
+            raise SystemExit(f"{deployment_id}: agent pin is {pinned!r}, not an exact compiled "
+                             "version; refusing to write a brief onto a card whose build we cannot name")
         req(values, "POST", f"/deployments/{deployment_id}",
             update_payload(cron, window, prompt_text))
         after = req(values, "GET", f"/deployments/{deployment_id}")
+        keep = ("name", "description", "status", "agent", "environment_id", "vault_ids", "metadata",
+                "resources", "schedule")
+        drift = [k for k in keep
+                 if json.dumps(before.get(k), sort_keys=True) != json.dumps(after.get(k), sort_keys=True)]
+        if drift:
+            raise SystemExit(f"{deployment_id}: fields {drift} moved under a prompt write - only "
+                             "initial_events may change; inspect the cloud state before the next fire")
         events = json.dumps(after.get("initial_events") or [])
         schedule = after.get("schedule") or {}
         checks = prompt_markers(events)
@@ -419,6 +449,7 @@ def main() -> None:
             "updated": deployment_id,
             "name": after.get("name"),
             "status": after.get("status"),
+            "agent_pin": (after.get("agent") or {}).get("version"),
             "cron": f"{schedule.get('expression')} {schedule.get('timezone')}",
             "upcoming_runs_at": schedule.get("upcoming_runs_at"),
             "prompt_sha256": hashlib.sha256(events.encode()).hexdigest()[:16],
