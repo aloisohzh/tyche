@@ -8,13 +8,40 @@ This file is the source of truth for the cloud configuration; export and pin the
 | Role | Tools / MCP | Vault | Owns (files) | May not |
 |---|---|---|---|---|
 | Coordinator (Desk Head) | orchestration, read artifacts | none | `reports/` narrative, delegation | size, submit, hold trade tools |
-| Researcher | quote/news MCP (read-only) | none | `reports/<date>-research.md` | submit, write journal |
+| Researcher | quote/news MCP (read-only) incl. `quote_order_book`, so a thesis can cite a two-sided executable quote (L-017) | none | `reports/<date>-research.md` | submit, write journal |
 | Risk auditor | read-only (plan, journal, quotes) | none | `reports/<date>-audit.md`, drawdown report | agree under pressure; submit |
 | Executor | **sim trade tools + moomoo MCP** | moomoo vault | `plans/`, `journal/` (single writer) | act without auditor approval + human arm |
 | Advisor | model-only consult | none | advice in coordinator context | tools, files |
 
 Handbook rule in the coordinator prompt: *"never let the executor act on the researcher's output
 without the auditor's approval."* Auditor runs in a separate thread so it cannot be talked into agreeing.
+
+## Skills (procedures, loaded on demand)
+
+Procedure text lives in `skills/<role>/<name>/SKILL.md` in this repo, version-controlled and guarded by
+[tests/test_skills.py](../tests/test_skills.py); the prompts keep permissions and hard rules only. The
+cloud copies, installed 2026-11-21 and pinned to the template that uses them:
+
+| Skill | Cloud id | Pinned version | Template | Loaded by |
+|---|---|---|---|---|
+| `sentinel-digest` | `skill_00w5eiyk0bl6o8wz2yd8` | `1795250714818439` | `tmpl_004fa008901a6c256bd0ed3f` (desk) | the 12:05 watch fire |
+| `exact-order-audit` | `skill_00w5ej0prnz0h36xnfvm` | `1795250715940121` | `tmpl_ae317cc0626a4fcc8fa8fad6` (auditor) | before an exact-order verdict |
+| `paper-submit-protocol` | `skill_00w5ej2wczbb5vfl1bq9` | `1795250717073039` | `tmpl_bc25a5c313827d53894fd7ff` (executor) | before any broker write |
+
+Mechanics that are not obvious from either API's docs:
+
+- **Content and attachment are two different surfaces.** The body only moves through
+  `POST /api/v1/cloud/skills` (multipart zip, one top-level directory named exactly like the
+  `name:` field); no MCP tool writes skill content. Attachment is an ordinary Forward template write -
+  `skills: [{type: custom, skill_id, version, enabled}]` - so `scripts/deploy_role_skills.py` does both.
+- A skill is read from `/data/.agent/skills/<name>/SKILL.md` with the `Read` tool when the agent decides
+  it applies, so every role bound to a skill must keep `Read`, and a skill can never carry a rule that
+  must hold on a turn where it does not load. Those rules stay verbatim in the prompt.
+- `latest_version` is an opaque epoch-microsecond string, not a sequence number, and it is `null` once
+  every version is deleted. Pin it verbatim; `PUT /skills/{id}` is deprecated, a change means creating a
+  new version and re-pinning.
+- The compiled agent's own skill list is what runs, so verify the agent (L-021/L-046), not just the
+  template. Deleting a skill deletes all of its versions.
 
 ## Delegation contract (coordinator prompt must state)
 
@@ -62,13 +89,21 @@ withholds new non-defensive entries at low conviction; sells and defensive entri
   group the running pin never had (L-046), and it is the compiled version the roster and the cards pin.
 - When a script writes back a nested object it did not author (a roster, a tool matrix), deep-copy the whole
   object and mutate only the named rows - a filtered rebuild deletes rows (L-045).
+- A before/after guard only works if **both sides go through the same projection**. Capturing a template
+  through one reducer and verifying it through another reported a changed field that had not changed,
+  which is worse than no guard: it trains you to wave the alarm past (L-047).
+- Skill pins live in `latest_version` form (an epoch-microsecond string) while roster and card pins are
+  integers; the two never convert into each other, so record both verbatim.
 
 ## Cadence (what is deployed, 2026-11-20)
 
 One Qoder **Managed card per month**, built by `scripts/deploy_two_fire_automation.py`:
 cron `5 8,12,15 <trading-day list> <month> *` in `America/New_York`, trading days filtered at
 generation time by `is_trading_day` (L-019). Live cards: `dep_00vzb9h4ezawwl4thnva` (Nov,
-2026-11-19..30) and `dep_00vzd8d5rdfr4w0denqh` (Dec, 2026-12-01..31), both `active`, agent pin v31 (moved off v28 by the 2026-11-21 re-pin; each card's prompt, cron and env keys verified unchanged).
+2026-11-19..30) and `dep_00vzd8d5rdfr4w0denqh` (Dec, 2026-12-01..31), both `active`, agent pin v32 (v28 -> v31
+by the 2026-11-21 stale-caps re-pin, then v31 -> v32 the same day when the desk template took `sentinel-digest`;
+each card's prompt, cron and env keys verified byte-identical through both moves, and only the `agent` block was
+ever sent).
 
 - **08:05 pre-market** and **15:05 close** are decision fires. **12:05 is watch-and-shout only**: it
   may open, change or close nothing, and messages only on a breach or an exit-less lot

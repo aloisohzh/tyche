@@ -412,3 +412,42 @@ and advisor `qmodel_38max`.
   version, so no roster re-pin is needed for them. `vaults` is not an update
   parameter (400). Same for `environment_variables` edits (verified on the
   executor allowlist change 2026-11-18: compile stayed v2).
+
+## Skills installed - 2026-11-21 (Phase 2, operator batch approval)
+
+Bodies uploaded by `POST /api/v1/cloud/skills` (multipart zip, one top-level dir named like the
+`name:` field), then attached by `POST /templates/{id}` with `{name, skills}` and nothing else. Driver:
+`scripts/deploy_role_skills.py`; every write was dry-run first, verified against
+`plans/phase2/surface-2026-11-21.json` after, and the compiled agent diffed version to version.
+
+| write | target | before | after |
+|---|---|---|---|
+| create `sentinel-digest` | cloud skill | none | `skill_00w5eiyk0bl6o8wz2yd8` v`1795250714818439` |
+| create `exact-order-audit` | cloud skill | none | `skill_00w5ej0prnz0h36xnfvm` v`1795250715940121` |
+| create `paper-submit-protocol` | cloud skill | none | `skill_00w5ej2wczbb5vfl1bq9` v`1795250717073039` |
+| attach | desk `tmpl_004fa008901a6c256bd0ed3f` | `skills []`, agent v31 | 1 skill, agent v32 |
+| attach | auditor `tmpl_ae317cc0626a4fcc8fa8fad6` | `skills []`, agent v7 | 1 skill, agent v8 |
+| attach | executor `tmpl_bc25a5c313827d53894fd7ff` | `skills []`, agent v15 | 1 skill, agent v16 |
+| grant `quote_order_book` | researcher `tmpl_875834770244a9e35c7f6499` | 24 MCP tools enabled, agent v17 | 25 enabled, agent v18 (P2-TOOL-1, L-017) |
+| roster re-pin | desk `multiagent` | researcher 17 / auditor 7 / executor 15 / advisor `qmodel_38max` | 18 / 8 / 16 / advisor unchanged |
+| card re-pin | `dep_00vzb9h4ezawwl4thnva`, `dep_00vzd8d5rdfr4w0denqh` | agent pin v31 | v32; brief, cron, mounts, env and vaults byte-identical |
+
+Amendment lines to the quirks above, learned on this pass:
+
+- Skill *content* has no MCP tool: `update_agent`/template tools can pin a skill but never carry a body.
+  The only write path is the Managed multipart endpoint (or Settings -> local-to-cloud sync).
+- The `skills` entry needs the opaque `latest_version` string, not `latest`; the archive keeps one
+  top-level directory equal to the skill name or the platform rejects the package.
+- Attaching to a template bumps that template's compiled agent (desk 31 -> 32), which is what the cards
+  pin, so a skills write is never "prompt-only": the card re-pin is part of the change.
+- A desk `multiagent` re-pin does *not* move the desk compiled agent (still v32) because the agent holds
+  child refs as `"latest"`; the integer pins live on the template and resolve at session creation.
+- Researcher got no skill in this batch; its procedure text moves in Phase 3 with its own skill.
+- Probe leftovers cleared with operator approval: `skill_00w579ewkegowr95anak` deleted (deletes all
+  versions), probe template `tmpl_59018e806b0a0b450d71328b` and `agent_00w57anoaeozkg8l8he0` archived,
+  probe sessions `sess_00w57b8f0kh6ov5dcpuv` / `sess_00w57drq4wi68ccb1x4c` archived, and the stale
+  `tyche-2026-11-19-observe-0455-PRIVATE-full.zip` (`file_00vxs3pn70lj4q8fn7ew`) deleted once the idle
+  session holding it (`sess_00vxozjod4o3m1sff40c`) was archived.
+- Still parked: **P2-SEC** (Telegram token, chat id and account allowlist sit in the desk template's
+  `environment_variables`, returned in plaintext; the agreed shape to evaluate is reading them from the
+  private Drive mount in `scripts/telegram.py`). Phase 3 prompt trimming has not started.
