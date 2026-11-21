@@ -40,8 +40,12 @@ realized          fills, fees, exit kind, realized R and %   (post-trade, journa
 ```
 
 Legacy plans without `pipeline` render as "derived" on the dashboard; new plans render
-"journaled". The gate is enforced by `tyche execute` (withheld + `gate.wait` journal event)
-and must be honored by the executor on the MCP path (docs/agent-engineering.md).
+"journaled". The gate is enforced in code on both submit paths, not by prompt compliance:
+`tyche execute` withholds a `wait` order and journals `gate.wait`, and the lifecycle path blocks a
+low-conviction entry before it can reserve (`src/tyche/lifecycle.py:485`, which calls the same
+`act_wait` the plan builder stamps at `src/tyche/pipeline.py:148`). The executor's instruction repeats
+the rule as a backstop and journals `gate.wait` on the MCP path (docs/agent-engineering.md); a `wait`
+order stays unsubmitted even if the model ignores it.
 
 ## Panels
 

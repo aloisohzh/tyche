@@ -232,8 +232,6 @@ failure, so a retry cannot silently duplicate (L-004), and there is no inbound p
   **`OrderIntent.strategy_id` defaulting to `"PB-001"`** (`models.py:134`) while `tyche strategy-score`
   defaults to `PB-004` (`cli.py:1231`). Both are misattribution hazards: a lane that forgets to set the id
   books its trades under the ballast strategy, and ledger scoring filters on that field.
-- **Act/wait is enforced in code on both paths** (`pipeline.py:148`, `lifecycle.py:485`), but
-  `docs/dashboard.md` still describes the MCP path as prompt-honored. The doc understates the kernel.
 - **No `rules.refrozen` producer** exists, so a re-registration is provable in CI (declared hash ==
   kernel hash) but not journaled at the moment it happens (L-035).
 - **One generated directory, four provenances.** `desk-site/web/` mixes exporter output, another script's

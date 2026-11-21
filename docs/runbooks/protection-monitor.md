@@ -1,4 +1,8 @@
-# Runbook: hourly paper trade lifecycles
+# Runbook: intraday protection as it runs today (desk fires + lifecycle)
+
+This is the operational path: what checks an open lot, how often, and what it may do. The finer-grained
+deterministic monitor in [ADR 0013](../adr/0013-protection-monitor.md) is a **separate, undeployed design** and
+its draft contract is [intraday-protection-monitor.md](intraday-protection-monitor.md).
 
 Status (2026-11-20): **the lifecycle workflow is not separately scheduled; it runs inside the two
 active desk cards, and nothing submits without the envelope + audit + reserve gates.**
@@ -50,6 +54,7 @@ not proof that an order is terminal. Fresh evidence and revised audited contract
 are required before operator approval.
 
 This supersedes the minute-level monitor proposal in [ADR 0013](../adr/0013-protection-monitor.md)
+(draft contract: [intraday-protection-monitor.md](intraday-protection-monitor.md))
 for the initial long-stock/ETF implementation only. It does not enable options.
 
 ## Operator decisions

@@ -95,7 +95,7 @@ generation time by `is_trading_day` (L-019). Live cards: `dep_00vzb9h4ezawwl4thn
   `initial_events`, so on the card path it does not run. `scripts/deploy_calendar_check.py` builds it;
   wiring it to a live trigger is open work.
 - The 1-2 min protection monitor remains a draft prerequisite for the options lane
-  ([ADR 0013](adr/0013-protection-monitor.md) + [protection-monitor runbook](runbooks/protection-monitor.md));
+  ([ADR 0013](adr/0013-protection-monitor.md) + [its draft contract](runbooks/intraday-protection-monitor.md));
   it is not deployed.
 - Skip holidays; window-bound; archive after the deadline.
 

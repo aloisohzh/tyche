@@ -267,6 +267,33 @@ def test_prd_capability_statuses_use_the_fixed_vocabulary() -> None:
     )
 
 
+PRD_HEADER_VERSION = re.compile(r"\|\s*\*\*Version\*\*\s*\|\s*(\d+\.\d+)\s*\|")
+PRD_HISTORY_ROW = re.compile(r"^\|\s*\*{0,2}v(\d+\.\d+)\*{0,2}\s*\|", re.MULTILINE)
+CHANGELOG_ROW = re.compile(r"^\|\s*\d{4}-\d{2}-\d{2}\s*\|\s*\*{0,2}v(\d+\.\d+)", re.MULTILINE)
+
+
+def _newest(versions: list[str]) -> str:
+    return max(versions, key=lambda raw: tuple(int(part) for part in raw.split(".")))
+
+
+def test_the_prd_header_version_is_its_own_latest_row() -> None:
+    """v1.3 shipped with the header still reading 1.2, so the file that dates every other claim was itself
+    undated. Header, PRD version history and CHANGELOG must name the same newest PRD version."""
+    prd = _doc("documentation/PRD.md")
+    header = PRD_HEADER_VERSION.search(prd)
+    assert header, "the PRD header no longer carries a Version row to check"
+    history = PRD_HISTORY_ROW.findall(prd)
+    assert history, "the PRD has no version-history rows to check the header against"
+    changes = CHANGELOG_ROW.findall(_doc("documentation/CHANGELOG.md"))
+    assert changes, "CHANGELOG.md records no PRD versions"
+    assert header.group(1) == _newest(history), (
+        f"PRD header says {header.group(1)} but its own history reaches v{_newest(history)}"
+    )
+    assert _newest(history) == _newest(changes), (
+        f"PRD history ends at v{_newest(history)}, CHANGELOG at v{_newest(changes)}"
+    )
+
+
 def test_every_feed_file_the_hosted_function_reads_is_published() -> None:
     """A data file the Function reads but the publisher never stages serves the last publish forever.
 

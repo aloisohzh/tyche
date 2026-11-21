@@ -43,12 +43,16 @@ structures cap the loss but do not manage exits or rolls.
   against session minutes. A missed cadence is never silently ignored.
 - **Single-writer journal.** Monitor ticks share the hash-chained journal
   (ADR 0005) with desk runs, so journal appends take a cross-process lock
-  (kernel change, small) and the schedule keeps `max_concurrent_runs: 1`.
+  (`journal_lock` at `src/tyche/journal.py:35` - nonblocking and local-filesystem
+  only, already implemented as of 2026-11-21, so a contended tick skips rather than
+  waits) and the schedule keeps `max_concurrent_runs: 1`.
   Ticks are read-only against broker state; they submit nothing themselves.
 
 The full contract — watchlist schema, trigger kinds, tick flow, contention
 rules, alert formats, and the pre-options drill — lives in
-[docs/runbooks/protection-monitor.md](../runbooks/protection-monitor.md).
+[docs/runbooks/intraday-protection-monitor.md](../runbooks/intraday-protection-monitor.md)
+(draft for review, nothing deployed). [docs/runbooks/protection-monitor.md](../runbooks/protection-monitor.md)
+is what runs today: the lifecycle checks inside the three desk fires.
 
 ## Consequences
 
