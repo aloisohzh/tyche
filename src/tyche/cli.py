@@ -36,6 +36,7 @@ from tyche.market_calendar import (
     generate_schedules,
 )
 from tyche.models import AccountSnapshot, PlannedOrder, Side, TradePlan, apply_fill
+from tyche.monitor_cli import app as monitor_app
 from tyche.nyse_calendar import diff_calendar, parse_nyse_page
 from tyche.persist import persist_run
 from tyche.pipeline import build_order_pipeline, build_plan_pipeline
@@ -51,6 +52,7 @@ app = typer.Typer(add_completion=False, help="Regime-aware ETF rotation agent.")
 app.add_typer(lifecycle_app, name="lifecycle")
 app.add_typer(tactical_app, name="tactical")
 app.add_typer(events_app, name="events")
+app.add_typer(monitor_app, name="monitor")
 console = Console()
 
 

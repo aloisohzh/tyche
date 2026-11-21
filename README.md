@@ -93,6 +93,7 @@ blocked orders, and appends a hash-chained event to `journal/events.jsonl`.
 | `tyche journal-verify` | Verify the audit journal hash chain |
 | `tyche halt-status --json` | Report the effective kill-switch state across both flags |
 | `tyche strategies [--json]` | Show which playbook lanes are live, what decides each one, and its frozen rules hash |
+| `tyche monitor tick --quotes ... --journal ... [--record]` | Level 0 protection check: read a book, a quote file and the journal, then journal `monitor.breach` / `.clear` / `.heartbeat`. Writes nothing without `--record` and never submits anything ([runbook](docs/runbooks/intraday-protection-monitor.md)) |
 | `python dashboard/server.py` | Local operator desk on <http://127.0.0.1:8765> (loopback only, no auth) |
 
 ## Layout

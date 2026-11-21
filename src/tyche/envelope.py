@@ -46,7 +46,12 @@ SOURCE_LABEL = {
 
 @dataclass(frozen=True)
 class ExitLevel:
-    """The protective level an open position is supposed to have, and its provenance."""
+    """The protective level an open position is supposed to have, and its provenance.
+
+    `entry` is the validated plan the level came from, carried so a consumer can resolve
+    what the level is *stated against* (an option's stop is an underlying price) without
+    re-deriving it. Drafting never reads it; the Level 0 monitor does.
+    """
 
     symbol: str
     stop: float
@@ -55,6 +60,7 @@ class ExitLevel:
     setup_hash: str | None = None
     strategy_id: str | None = None
     direction: str = "bullish"
+    entry: WatchlistEntry | None = None
 
 
 @dataclass
@@ -119,7 +125,7 @@ def exit_levels(events: list[dict]) -> tuple[dict[str, ExitLevel], list[str]]:
                 symbol=symbol, stop=entry.stop, source="journal_contract",
                 setup_id=payload.get("setup_id") or entry.setup_id or None,
                 setup_hash=payload.get("setup_hash"), strategy_id=payload.get("strategy_id"),
-                direction=entry.direction,
+                direction=entry.direction, entry=entry,
             )
             continue
         stop = payload.get("stop_price", payload.get("stop"))
@@ -146,7 +152,7 @@ def _watchlist_levels(watchlist: Watchlist | None) -> dict[str, ExitLevel]:
             continue
         out.setdefault(entry.symbol, ExitLevel(
             symbol=entry.symbol, stop=entry.stop, source="watchlist",
-            setup_id=entry.setup_id or None, direction=entry.direction,
+            setup_id=entry.setup_id or None, direction=entry.direction, entry=entry,
         ))
     return out
 

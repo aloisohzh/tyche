@@ -38,7 +38,7 @@ Note: ~7 daily marks make Sharpe a noisy estimate. The honest play is a **smooth
 | Risk card: every cap keyed and asserted by a test | `config/risk.yaml` + `tests/test_risk.py` | partial (needs competition deltas) |
 | Position limits, drawdown response, **kill switch (tested)** | risk kernel + halt runbook + [drill PASS record](../validation/2026-11-18-kill-switch-drill.md) | evidenced |
 | Liquidity/spread gate, fee model, EOD reconcile | risk kernel + fee engine + reconcile report | planned |
-| Options leg-group lifecycle + synthetic protection | playbook + monitor; defined-risk only | planned |
+| Options leg-group lifecycle + synthetic protection | `src/tyche/monitor.py` + [Level 0 drill rehearsal](../validation/2026-11-21-synthetic-breach-drill.md); defined-risk only, options still disabled | partial (detector built and rehearsed; nothing scheduled, live-session drill leg owed) |
 | Pre-registration + honest "unvalidated" labeling | `docs/validation/` | planned |
 
 ## Reusability & documentation — 15%

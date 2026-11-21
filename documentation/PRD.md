@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Version** | 1.5 |
+| **Version** | 1.6 |
 | **Last revised** | 2026-11-21 |
 | **Supersedes** | [../DESIGN.md](../DESIGN.md) §2/§11 as the statement of current scope (DESIGN.md stays as the v0.1 baseline) |
 | **How it is built** | [architecture.md](architecture.md) |
@@ -112,7 +112,7 @@ These are requirements in the strict sense: a change that breaks one is not a re
 | Cloud execution via Moomoo MCP (paper) | implemented | executor v15 tool grants, `docs/agent-engineering.md` | submission is agent-side by design; Python never submits in the cloud |
 | Local execution via `moomoo` CLI | implemented | `cli.py:516-668` | preview exits 2; real accounts blocked |
 | In-memory paper broker | implemented (test/demo) | `broker/base.py:14` | explicitly not evidence of a broker fill |
-| Intraday protection monitor (1-2 min) | planned (rung 1.5 shipped, rung 0-1 not) | [../docs/adr/0013-protection-monitor.md](../docs/adr/0013-protection-monitor.md) (still `proposed`) + its contract [../docs/runbooks/intraday-protection-monitor.md](../docs/runbooks/intraday-protection-monitor.md); no `monitor` command is registered in `src/tyche/cli.py` | the gap that makes the scalp lane's exits a manual watch today. The operator picked the pre-armed bounded exit and that piece is built (row above); the tick, the bark and the drill are still open, so detection remains the three desk fires |
+| Intraday protection monitor (Level 0 tick) | partial (rung 0 built 2026-11-21; the bounded exit at rung 1.5 is shipped; rungs 1 and 2 are not) | `src/tyche/monitor.py`, `src/tyche/monitor_cli.py`, registered at `src/tyche/cli.py:55`; `tests/test_monitor_tick.py` (23 tests); drill [../docs/validation/2026-11-21-synthetic-breach-drill.md](../docs/validation/2026-11-21-synthetic-breach-drill.md); [ADR 0013](../docs/adr/0013-protection-monitor.md) (still `proposed`) + its contract [../docs/runbooks/intraday-protection-monitor.md](../docs/runbooks/intraday-protection-monitor.md) | The tick is a pure function over files: a runner must write `quotes.json` and invoke it, and **no schedule does that yet**, so detection on an open lot is still the three desk fires. It evaluates `synthetic_stop` and `defined_risk` level crosses (a bearish put is watched on its underlying, upwards) and types PB-001 ballast `rebalance` so an alert is never read as an exit; `time_exit` (scalp flatten) is not a monitor row. Nothing is journaled without `--record`, `--at` replay cannot record, and a tick that could not judge exits `2` rather than reporting "no breaches". Per-tick Telegram routing needs its own approval (§7) |
 
 ### 5.4 Evidence and audit
 
@@ -148,7 +148,7 @@ These are requirements in the strict sense: a change that breaks one is not a re
 | Scout (idea generation) | partial | researcher role + premarket fire; manual trigger `server.py:2265`; `watchlist.py`, `reports/*-research.md` | scheduled and manual discovery both work; the researcher prompt still does not consult the live lane id set, and changing that prompt is a re-pin needing operator approval. The manual run starts the researcher alone, so it can propose nothing that reaches a broker |
 | Ideas consumed downstream | partial | `tyche events add` → `config/events.yaml` → gate halves budget | operator triage is the link; nothing auto-promotes an idea into a plan |
 | Telegram sentinel | implemented (outbound only) | `scripts/telegram.py`, runbook | at-least-once semantics; no inbound approvals (L-003/L-006) |
-| CI (ruff + pytest) | implemented | `.github/workflows/ci.yml` | 530 tests; a red pipeline blocks every later phase (L-034) |
+| CI (ruff + pytest) | implemented | `.github/workflows/ci.yml` | 553 tests; a red pipeline blocks every later phase (L-034) |
 
 ## 6. Non-functional requirements
 
@@ -222,7 +222,7 @@ Ordered by how much they can cost, not by effort.
 | Stale caps in prompts (1) and Scout honoring the live lane ids (§5.6) | one re-pin of the researcher/auditor prompts, which is a new build and needs approval |
 | `rules.refrozen` producer (2) | a kernel writer plus a journal assertion; deferred by decision while the freeze-source fix is verified in use |
 | Calendar drift trigger (7) | a live schedule object to attach the check to; `scripts/deploy_calendar_check.py` already builds it |
-| Intraday protection monitor (§5.3) | decided 2026-11-21: rung 1.5 (pre-armed bounded exit) is built, Level 2 stays declined. Still open: approval to build the Level 0 tick at the 5-minute tier, then the synthetic-breach drill |
+| Intraday protection monitor (§5.3) | decided 2026-11-21: rung 1.5 (pre-armed bounded exit) is built, Level 2 stays declined; rung 0 (`tyche monitor tick`) was approved and is built, with a pinned-clock synthetic-breach rehearsal recorded. Still open: a runner that feeds the tick a quote file on a schedule, the live-session drill leg that needs the operator, and a separate decision on rung 1 Telegram bark routing |
 | Hosted operator console proven unattended (11) | one signed-in browser read of `control/status` and one arm/disarm round trip; the Secrets themselves are present and synced, and the gateway 401s any check from here |
 | Telegram bot token | the deployments/sessions API returns `environment_variables` in plaintext, which is why `cloud_api.py` whitelists every payload before it reaches a browser (L-038); rotating the token itself is an operator action outside the repo |
 
@@ -251,10 +251,15 @@ Named here so the desk's next steps are auditable; the first bullet is now part 
   residual-debt list folded into this file's §7.
 - **Phase 6 (protection, in pieces).** The operator chose the pre-armed bounded exit over an alert-only
   watchdog (ADR 0013 runbook §0). Shipped in v1.5: the kernel drafts a sell-only note from the open book and the
-  stops it journaled, and the desk arms it in one click (desk v0.8.0). Still open in the same ladder: the
-  detector (`tyche monitor tick`), the bark, and the drill that has to pass before options are enabled.
-- **Deferred, needs a decision:** the `rules.refrozen` writer, the backtest harness, the monitor tick and bark
-  (ADR 0013 rungs 0-1), and narrowing the ETF universe further to equity-only.
+  stops it journaled, and the desk arms it in one click (desk v0.8.0). Shipped in v1.6: rung 0 - `tyche monitor
+  tick` evaluates every journaled level against a quote file at a 5-minute tier, journals
+  `monitor.heartbeat` / `.breach` / `.clear` / `.gap` / `.error`, de-duplicates by transition and fails closed when
+  it could not judge; the synthetic-breach drill runs it end to end on a pinned clock and its record is under
+  [../docs/validation/](../docs/validation/2026-11-21-synthetic-breach-drill.md). Still open in the same ladder: a
+  scheduled runner that supplies fresh quotes (the tick reads files, so this is a card/schedule decision, not a
+  kernel one), the wall-clock drill leg with the operator present, the bark, and only then any queueing behaviour.
+- **Deferred, needs a decision:** the `rules.refrozen` writer, the backtest harness, the monitor's bark (ADR 0013
+  rung 1) and narrowing the ETF universe further to equity-only.
 
 ## 9. Version history
 
@@ -268,6 +273,7 @@ Named here so the desk's next steps are auditable; the first bullet is now part 
 | **v1.3** | 2026-11-21 | Phase 4b: scheduled daily checks and Run Scout (desk v0.7.0-v0.7.1). `scripts/cloud_api.py` is a whitelisting cloud client - it drops `environment_variables`, `initial_events`, mounts and vault ids before anything reaches a browser (L-038) - and the desk reads the cadence card that owns a date, pauses and resumes it and fires one run, with the pause re-read from the platform before it is reported. Run Scout starts the researcher session alone; no envelope, halt or approval path is touched. Two defects this increment found and fixed: `evaluate()` was handed a `date` where it needs a `datetime`, and a raw newline inside a JS string made the whole desk fail to parse while every Python test stayed green (L-040, now a test). |
 | **v1.4** | 2026-11-21 | Phase 5 close-out: no capability changed status, the **evidence** behind them was re-checked against the code. 40 of 42 §5 rows held; six defects were fixed - PB-002/PB-003 cited a shared id ternary rather than the `options_enabled` gate, the lifecycle `reserve` range overshot by a line, `quote_order_book` read like repo code when it is an MCP read tool enabled on the executor, two test counts were stale, and the header still said 1.2 under a v1.3 table (now a test). §7 gained the unlinted `dashboard/` tree, the narrow-viewport approval clip, the publish-on-hold truth and a gated-items table naming each closing condition. [../docs/dashboard.md](../docs/dashboard.md) no longer calls the act/wait gate prompt-honored: `lifecycle.py:485` blocks it in code. ADR 0013 finally has the contract it promised: [../docs/runbooks/intraday-protection-monitor.md](../docs/runbooks/intraday-protection-monitor.md), a draft for review with nothing deployed. |
 | **v1.5** | 2026-11-21 | ADR 0013's rung 1.5 built: `src/tyche/envelope.py` drafts the operator's exit note from the book the desk shows plus the stops the plans journaled, `tyche propose-envelope` and the desk's Propose/Arm card turn it into a same-day sell-only envelope only when the operator clicks, and `risk.exit_collar_pct` (5%) became the single exit number the operator owns (desk v0.8.0). Nothing in it detects a breach - the tick is still unbuilt - and nothing in it can write `data/approvals.json` except the arm click. §7 gained the reason PB-001 ballast gets no drafted line (the rotation stop is computed at `rotation.py:351-353` and never journaled). |
+| **v1.6** | 2026-11-21 | ADR 0013's rung 0 built. `src/tyche/monitor.py` + `tyche monitor tick` (`src/tyche/cli.py:55`) evaluate every journaled or entered protective level against a quote file at the 5-minute tier and journal `monitor.heartbeat` / `.breach` / `.clear` / `.gap` / `.error`: nothing is written without `--record`, `--at` replay cannot record, an unjudgeable tick exits `2` instead of saying "no breaches", and episodes de-duplicate by transition. `scripts/drill_synthetic_breach.py` rehearses runbook §8 on a pinned clock ([record](../docs/validation/2026-11-21-synthetic-breach-drill.md)) and caught a real defect on the way: exposure and coverage were being measured from the journal's append stamp rather than the payload's market time, which reported 386,832 s of naked risk for a 135 s breach. Fixed and guarded (L-043). Suite 530 → 553. Not claimed: a schedule that runs the tick, per-tick alert routing, or the operator-present live-session drill leg. |
 
 **Maintenance rule.** A change to a capability's status, a new lane, a new agent or a new external
 integration is a PRD edit with a version bump and a [CHANGELOG.md](CHANGELOG.md) row, landed in the same

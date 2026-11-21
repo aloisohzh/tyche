@@ -1,6 +1,8 @@
 # ADR 0013: Intraday protection monitor
 
-Status: Proposed, 18 November 2026 (design draft — implementation pending; hard prerequisite for options per [0012](0012-options-protection.md)).
+Status: Proposed, 18 November 2026 (rung 0 - the detector - implemented 2026-11-21 and not yet scheduled; the
+alert routing below still needs its own approval. Hard prerequisite for options per
+[0012](0012-options-protection.md)).
 
 ## Context
 
@@ -23,10 +25,12 @@ structures cap the loss but do not manage exits or rolls.
   `time_exit`/`rebalance` only → 5 min alert-only. No watchlist, no schedule
   fire (gate skips).
 - **Deterministic trigger evaluation.** A new kernel command
-  (`tyche monitor tick`, not yet implemented) consumes the watchlist + fresh
+  (`tyche monitor tick`, implemented 2026-11-21) consumes the watchlist + fresh
   quote JSON and emits `monitor.heartbeat` / `monitor.breach` /
   `monitor.clear` events. The LLM perimeter fetches quotes and relays events;
-  it never decides whether a level breached.
+  it never decides whether a level breached. What is built is the evaluation and
+  the journaling only: no schedule runs the tick, and the defensive-intent and
+  Telegram legs below are still unapproved.
 - **Breach → de-risk path, never new entries.** A breach queues a defensive
   sell/close intent through the kernel → auditor → executor `always_ask`
   confirmation, plus an immediate Telegram sentinel alert. The act/wait gate
@@ -50,8 +54,10 @@ structures cap the loss but do not manage exits or rolls.
 
 The full contract — watchlist schema, trigger kinds, tick flow, contention
 rules, alert formats, and the pre-options drill — lives in
-[docs/runbooks/intraday-protection-monitor.md](../runbooks/intraday-protection-monitor.md)
-(draft for review, nothing deployed). [docs/runbooks/protection-monitor.md](../runbooks/protection-monitor.md)
+[docs/runbooks/intraday-protection-monitor.md](../runbooks/intraday-protection-monitor.md),
+whose §2-§3 and §8 now describe rung 0 as built, and whose §9 build order lists what is still open: the quote
+path, per-tick alert routing, the scheduled-tick lock demonstration, the live-session drill run and heartbeat
+coverage in the EOD digest. Nothing is scheduled. [docs/runbooks/protection-monitor.md](../runbooks/protection-monitor.md)
 is what runs today: the lifecycle checks inside the three desk fires.
 
 ## Consequences

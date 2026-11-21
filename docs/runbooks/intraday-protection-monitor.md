@@ -1,14 +1,21 @@
-# Runbook: intraday protection monitor (ADR 0013) - draft contract
+# Runbook: intraday protection monitor (ADR 0013) - Level 0 built, nothing scheduled
 
-**Status (2026-11-21): PARTLY DECIDED, PARTLY BUILT. Read §0 first.** The operator picked the pre-armed bounded
-exit (rung 1.5) and that piece is now in the code: the kernel drafts an exit note from the open book, the desk
-arms it. What is *not* built is the detector: [ADR 0013](../adr/0013-protection-monitor.md) is still `Proposed`,
-there is no `tyche monitor` command (verified: `src/tyche/cli.py` contains no `monitor` registration), no monitor
-schedule, no cadence ladder and no drill. Nothing in §2-§9 has been deployed, and writing §0 changed no cloud
-object, created no schedule and granted no submission rights. What actually protects open lots today is the three
-desk fires documented in [protection-monitor.md](protection-monitor.md) (08:05 / 12:05 / 15:05 ET, the 12:05 fire
-watch-and-shout only), plus - for a lot the desk is looking at - an armed note the operator signed in advance.
-Read §2 onward as the contract to approve *before* anything is built, not as an operational instruction.
+**Status (2026-11-21): LEVEL 0 BUILT; THE SCHEDULE AND RUNG 1 ARE NOT. Read §0 first.** The operator picked the
+pre-armed bounded exit (rung 1.5) and that piece is in the code: the kernel drafts an exit note from the open
+book, the desk arms it. Built since: the Level 0 detector - `tyche monitor tick`
+([src/tyche/monitor.py](../../src/tyche/monitor.py), [src/tyche/monitor_cli.py](../../src/tyche/monitor_cli.py),
+23 tests in [tests/test_monitor_tick.py](../../tests/test_monitor_tick.py)) - the `monitor.*` events, de-duplication
+by transition, the fail-closed no-go path, `--at` replay, and a synthetic-breach drill recorded at
+[../validation/2026-11-21-synthetic-breach-drill.md](../validation/2026-11-21-synthetic-breach-drill.md).
+Still not built: any schedule that runs the tick (§9 step 2 - the command reads files, judges and exits; nothing
+invokes it), per-tick Telegram routing (rung 1 is unapproved), and the live-session leg of that drill.
+[ADR 0013](../adr/0013-protection-monitor.md) is still `Proposed`, no cloud object changed, and no tier described
+here carries submission rights. What actually protects open lots today is the three desk fires documented in
+[protection-monitor.md](protection-monitor.md) (08:05 / 12:05 / 15:05 ET, the 12:05 fire watch-and-shout only),
+plus - for a lot the desk is looking at - an armed note the operator signed in advance, and a tick the operator
+can always run by hand.
+Read §2 as the contract Level 0 now implements, §3-§7 as the parts still awaiting a schedule or a decision, and
+§8-§9 for what is proven versus what is still owed.
 
 Scope boundary, unchanged by anything proposed here: the platform is paper-only (
 [ADR 0002](../adr/0002-paper-only.md)), research and idea generation stay separate from paper execution, and
@@ -22,8 +29,8 @@ The ladder discussed with the operator, in the order a lot "grows up":
 
 | Rung | What happens on a confirmed breach | Status after 2026-11-21 |
 |---|---|---|
-| 0 | The tick evaluates and journals; nothing leaves the journal | not built - still needs `tyche monitor tick` (§2, §9 step 1) |
-| 1 | Plus an urgent Telegram bark | not built (needs rung 0 to detect anything) |
+| 0 | The tick evaluates and journals; nothing leaves the journal | **built 2026-11-21** - `tyche monitor tick`, recorded by a pinned-clock drill (§2, §8, §9 step 1). Not scheduled: nothing runs it unless someone types the command |
+| 1 | Plus an urgent Telegram bark | not built - rung 0 now detects, so this is a routing decision rather than a dependency (§7) |
 | 1.5 | Plus a bounded exit note the operator signed **in advance**, executed without a per-order tap | **built** - the part that did not need a new detector |
 | 2 | The system decides and submits on its own | declined, as Level 2 is in §4 |
 
@@ -106,38 +113,48 @@ tyche monitor tick --book data/watchlist.json --quotes <run-dir>/quotes.json \
 - **Per-trade protection identity comes from the plan contract**, not from the watchlist: `OrderPipeline` at
   `src/tyche/models.py:254` carries `invalidation` (`:260`), `protection_type` (`:261`, one of
   `synthetic_stop | defined_risk | time_exit | rebalance`), `roll_plan` (`:262`) and `action` (`:264`).
-- **Exit codes.** `0` evaluated; `1` the calendar gate says do not run (weekend, holiday, outside the regular
-  session - `tyche calendar --json`, `is_trading_day`); `2` inputs unreadable or invalid. Code `2` must never be
-  reported as "no breaches".
+- **Exit codes.** `0` evaluated *and* `0` when nothing is watched (the tick prints `NOTHING WATCHED ... this is
+  not an all-clear`, so the reading, not the code, carries the verdict); `1` the calendar gate says do not run
+  (weekend, holiday, outside the regular session - `tyche calendar --json`, `is_trading_day`), and the tick writes
+  nothing; `2` inputs unreadable or invalid, a quote is missing or stale, a `--positions` file matches none of the
+  journaled levels, or the journal is contended or broken. Code `2` must never be reported as "no breaches".
 - **`--at` is replay only** and cannot combine with `--record` (same rule as `tactical tick`,
   `tactical_cli.py:122`). A naive clock raises; the tick requires a timezone-aware clock (`tactical.py:130`).
 - **Output events** (free-form types, hash-chained like everything else):
 
 | Event | Payload | Emitted when |
 |---|---|---|
-| `monitor.heartbeat` | `tick_at`, `cadence_seconds`, `watched`, `breached`, `coverage_ok`, `quote_age_seconds`, `phase` | every tick that evaluated |
-| `monitor.breach` | `symbol`, `strategy_id`, `protection_type`, `level`, `observed_price`, `observed_at`, `episode_id`, `exit_ref` | a level transitions clear -> breached (once per episode) |
+| `monitor.heartbeat` | `tick_at`, `cadence_seconds`, `watched`, `breached`, `new_breaches`, `cleared`, `coverage_ok`, `quote_age_seconds`, `phase`, `skipped_levels` | every tick that evaluated |
+| `monitor.breach` | `symbol`, `strategy_id`, `protection_type`, `level`, `observed_price`, `observed_at`, `episode_id`, `exit_ref`, `level_source`, `quote_symbol`, `direction` | a level transitions clear -> breached (once per episode) |
 | `monitor.clear` | same identity + `episode_id`, `duration_seconds` | the price returns inside the level, closing the episode |
 | `monitor.gap` | `last_heartbeat_at`, `missed_seconds`, `cadence_seconds` | a tick finds the previous heartbeat older than 2x the active cadence |
 | `monitor.error` | `reason`, `input_path` | unreadable/invalid book, stale quote, clock problem - **fail closed, shout** |
+
+Two payload timestamps carry the whole audit trail, and both are read as *market* time, not write time:
+`observed_at` (the quote print the breach was judged on) and `tick_at` (the clock this tick evaluated against).
+`duration_seconds` and `missed_seconds` derive from them, so a late append or a replay days later cannot stretch
+an episode that was already over - the journal's `ts` answers "when did the writer get to it", which is not a risk
+statement (L-043).
 
 The tick **never sizes an order and never decides to submit**. At Level 1 it may only reference an exit that is
 already covered by an approved lifecycle grant, and record that a confirmed exit is due.
 
 ## 3. Trigger kinds and the cadence ladder
 
-| `protection_type` | Trigger the tick evaluates | Cadence | Unattended action (proposed) |
-|---|---|---|---|
-| `synthetic_stop` | last/quote <= `stop` (long) or >= `stop` (long-put hedge leg) | 1-2 min | alert; Level 1 queues the granted exit |
-| `defined_risk` | underlying stop, `option_exit_minutes_before_close`, DTE floor | 2 min | alert; loss already capped by structure |
-| `time_exit` | `exit_at`, scalp `deadline`/flatten (`src/tyche/scalp.py:152`) | 2 min | alert; a missed flatten is an incident (section 6) |
-| `rebalance` (PB-001 ballast) | regime/vol drift versus the frozen rotation rules | 5 min, **alert-only** | never exits; the next rebalance does |
+| `protection_type` | Trigger the tick evaluates | Cadence | Unattended action (proposed) | In the tick today |
+|---|---|---|---|---|
+| `synthetic_stop` | last/quote <= `stop` (long) or >= `stop` (long-put hedge leg) | 1-2 min | alert; Level 1 queues the granted exit | yes - direction-aware price-vs-level test |
+| `defined_risk` | underlying stop, `option_exit_minutes_before_close`, DTE floor | 2 min | alert; loss already capped by structure | the underlying stop only, watched on the option's own symbol via `underlying`; the exit-before-close and DTE floors are not evaluated |
+| `time_exit` | `exit_at`, scalp `deadline`/flatten (`src/tyche/scalp.py:152`) | 2 min | alert; a missed flatten is an incident (section 6) | no - `LevelKind` (`src/tyche/monitor.py:41`) has no `time_exit` row; the scalp flatten stays the desk fire's job |
+| `rebalance` (PB-001 ballast) | regime/vol drift versus the frozen rotation rules | 5 min, **alert-only** | never exits; the next rebalance does | typed `rebalance` so an alert is never read as an exit, and a level cross alerts; there is no drift check |
 
-- Cadence = the strictest type on the watch. Empty watchlist or no open lot => the tick exits `1` and burns
-  nothing, which is what keeps ballast-only days cheap.
+- Cadence = the strictest type on the watch. An empty watch costs one cheap exit-`0` run, and the report says
+  `status: empty` with no heartbeat, so it cannot be misread as an all-clear (§2).
 - ~195 ticks/day at 2 min over a full session; ~78 at 5 min. **While `options_enabled: false`
   (`config/tactical.yaml:3`) the 1-2 min tiers buy nothing**, so the build starts at the 5-min alert-only tier.
-  Cadence is the first knob to turn down if runs cost more than expected.
+  Cadence is the first knob to turn down if runs cost more than expected. It is a runner argument
+  (`--cadence-seconds`, default 300), not a config field: `setup_hash` folds the whole loaded `AppConfig` into
+  every open plan, so a new config knob would re-bind them all and `tactical_cli.py` would refuse their envelopes.
 
 ## 4. What the monitor may and may not do
 
@@ -222,30 +239,43 @@ stays an open gap and must appear in the EOD report until closed.
 
 ## 8. Acceptance test (pre-options drill)
 
-Local, deterministic, zero broker writes first; the cloud rehearsal is a separate approval.
+Local, deterministic, zero broker writes first; the cloud rehearsal is a separate approval. Statuses below are as
+of 2026-11-21; the drill's own numbers are in
+[../validation/2026-11-21-synthetic-breach-drill.md](../validation/2026-11-21-synthetic-breach-drill.md).
 
 1. **Unit** (`tests/test_monitor_tick.py`, new): a breached stop with a fresh quote emits exactly one
    `monitor.breach`; the second tick at the same price emits nothing; returning inside the level emits
    `monitor.clear`; a stale quote or invalid book exits `2` and emits `monitor.error`, not "no breaches"; a
    naive clock and `--at` + `--record` both raise; the empty-watchlist tick emits no heartbeat.
+   **done** - 23 tests, all six clauses covered plus the calendar gate and the CLI surface.
 2. **Gap**: a heartbeat older than 2x cadence emits `monitor.gap` and one urgent alert, and a lock-contended
    tick skips without writing to the chain out of order (`tyche journal-verify` green).
+   **partly done** - the gap event and the contended-journal skip are tested; the "one urgent alert" half waits on
+   rung 1 routing, which is not approved (§7).
 3. **Replay**: `--at` over a journaled day reproduces the same breach set - the guard is a pure function of its
    inputs, which is what makes an LLM-free breach decision reviewable.
+   **done** - including episode ids, which is why exposure is measured from the payload's market time rather than
+   the append stamp (L-043).
 4. **Synthetic-breach drill** (recorded under `../validation/`, the gate ADR 0013 imposes before options):
    a synthetic lot on a synthetic quote, timed end to end - breach -> detection -> alert delivered -> operator
    confirmation -> exit reserved (never submitted in the drill). Pass criteria: measured latency stated;
    `protection.gap` count zero for a handled episode; **zero broker writes proven** by diffing broker order
    history before and after plus a journal fingerprint before and after; no envelope, config or approval file
    touched; digest text reviewed for the exact fields above.
+   **rehearsed, not closed** - `scripts/drill_synthetic_breach.py` runs the chain of legs on a pinned clock with
+   the real command objects and passes (detection 1 breach / 0 duplicates / 0 gaps, reserve authorized and not
+   submitted, 11 protected files hash-identical, both paper accounts' order histories unchanged). Two of its
+   legs cannot pass off-session: *alert delivered* needs rung 1 routing, and *operator confirmation* needs the
+   operator. A wall-clock run inside a live session is still owed before this counts as closed.
 5. **Prompt/CI coupling**: extend `tests/test_desk_card_prompt.py` so a future edit cannot hand the guard card
    submission rights, and keep `prompt_markers()` true on the desk card. The existing guard that fails if a feed
    file stops being published (`tests/test_docs_consistency.py`) is the pattern to follow: the test must be able
    to fail on the defect it names.
+   **open** - the monitor ships no prompt or card, so nothing has coupled it yet.
 
-Failing any of 1-4, the monitor is not deployed and options stay blocked. This draft deliberately stops short of
-implementation: the operator reviews the contract first, then decides whether to build Level 0 at the 5-minute
-tier.
+Failing any of 1-4, the monitor is not deployed and options stay blocked. Rungs 1-4 of the ladder are settled in
+code; what remains before options per [ADR 0012](../adr/0012-options-protection.md) is the live-session drill run
+and the §9 rows still open.
 
 ## 9. Build order (with what is already settled)
 
@@ -253,13 +283,13 @@ tier.
 |---|---|---|
 | 0 | Make the suite trustworthy evidence again (scalp clock bomb) | done 2026-11-20 |
 | 0b | Rung 1.5: draft the bounded exit note from the open book, arm it from the desk (§0) | done 2026-11-21 - detector-independent, so it shipped first |
-| 1 | `tyche monitor tick` + `monitor.*` events, `--dry-run` default | open - this document is its spec |
-| 2 | Bind the tick to the existing quote path so a tick stays cheap and bounded | open; **note** `scripts/mcp_prices.py` merges *daily klines* into `data/prices.csv` and is not an intraday quote source - a 1-minute path is new work |
-| 3 | Alert through `scripts/telegram.py send-digest` with tick-attributed delivery state | partly done as the 12:05 dry-run fire; per-tick attribution and delivery-failure handling open |
-| 4 | Confirm the cross-process journal lock before the first scheduled tick | code exists (`journal.py:35`); demonstration on the real schedule still open |
-| 5 | Alert de-duplication by transition | open (section 7) |
-| 6 | Synthetic-breach drill under `../validation/` | open (section 8) |
-| 7 | Heartbeat coverage in the EOD digest and last-tick age stated at every fire | open |
+| 1 | `tyche monitor tick` + `monitor.*` events, `--dry-run` default | done 2026-11-21 - the tick writes nothing unless `--record` is passed, and a replay clock (`--at`) excludes `--record` |
+| 2 | Bind the tick to the existing quote path so a tick stays cheap and bounded | open; **note** `scripts/mcp_prices.py` merges *daily klines* into `data/prices.csv` and is not an intraday quote source - a 1-minute path is new work. The tick reads a quote *file*, so the binding is a runner, not a kernel change |
+| 3 | Alert through `scripts/telegram.py send-digest` with tick-attributed delivery state | partly done as the 12:05 dry-run fire; the drill renders the urgent digest and never sends it (rung 1 unapproved); per-tick attribution and delivery-failure handling open |
+| 4 | Confirm the cross-process journal lock before the first scheduled tick | code exists (`journal.py:35`) and a contended tick is now proven to skip without touching the chain; demonstration on the real schedule still open, because there is no real schedule |
+| 5 | Alert de-duplication by transition | done 2026-11-21 - the repeat tick in the drill emitted a heartbeat and no second breach |
+| 6 | Synthetic-breach drill under `../validation/` | partly done 2026-11-21 - pinned-clock rehearsal recorded; wall-clock live-session run with the operator still owed (§8.4) |
+| 7 | Heartbeat coverage in the EOD digest and last-tick age stated at every fire | open - the tick already reports `coverage_ok` and `quote_age_seconds`; nothing reads them into a digest yet |
 
 The decision record behind sections 3, 4 and 9 is
 [docs/reviews/2026-11-20-protection-guard-plan.md](../reviews/2026-11-20-protection-guard-plan.md): cadence

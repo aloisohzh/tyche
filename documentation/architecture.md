@@ -107,6 +107,11 @@ Theses, classification and validation status are in [../playbook/](../playbook/R
    match, unresolved-order check, daily cap, deadlines) and writes a durable reservation *before* one
    submit is authorized. A submit is never treated as a fill (L-012, L-015, L-016).
 
+`monitor.py` + `monitor_cli.py` watch the levels those three gates journaled (ADR 0013 rung 0): a tick reads a
+book, a quote file and the journal, emits `monitor.*` events and exits `2` when it could not judge - never as "no
+breaches". It is deliberately not a fourth gate: it sizes nothing, authorizes nothing, widens nothing and submits
+nothing, and no schedule runs it yet.
+
 `trade_risk.py` computes R-multiple expectancy from journaled fills so round trips close
 ([ADR 0016](../docs/adr/0016-per-trade-risk-budget.md)); `strategy_ledger.py` scores a lane for
 mount/retire decisions.
