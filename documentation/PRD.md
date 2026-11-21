@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Version** | 1.4 |
+| **Version** | 1.5 |
 | **Last revised** | 2026-11-21 |
 | **Supersedes** | [../DESIGN.md](../DESIGN.md) §2/§11 as the statement of current scope (DESIGN.md stays as the v0.1 baseline) |
 | **How it is built** | [architecture.md](architecture.md) |
@@ -107,11 +107,12 @@ These are requirements in the strict sense: a change that breaks one is not a re
 | Drawdown ladder, daily loss, turnover and order budgets | implemented | `risk.py:108-114,146-151` | soft halves buys, hard blocks them |
 | Per-trade risk budget + R-multiple expectancy | implemented | `trade_risk.py:173`, ADR 0016 | needs canonically journaled fills; unattributed fills are reported, never guessed |
 | Operator envelope (bounded same-day authorization) | implemented | `approvals.py`, `data/approvals.json`, desk arm/disarm | `sim_trade_input_order` executes immediately inside it - no platform popup (L-014) |
+| Exit-note drafting from the open book (propose, then arm) | implemented (local desk + CLI) | `envelope.py` (`propose_exit_envelope`, `exit_levels`), `tyche propose-envelope` (`cli.py:1231`), `server.py` (`propose_envelope`, `arm_envelope({"use_draft": true})`, `_draft_summary`), route `/api/approvals/propose`; `tests/test_envelope_proposal.py`, drafting block in `tests/test_desk_controls.py` | Rung 1.5 of ADR 0013 (see [runbook §0](../docs/runbooks/intraday-protection-monitor.md)). Floors come from the journaled stop widened by `risk.exit_collar_pct`; `setup_hash` is copied verbatim (it folds in the account id and config hash, `tactical.py:72`), so a line that cannot be bound is flagged unbound instead of passed off as bound. Options and bearish puts are refused; the draft file is gitignored and only Arm writes `data/approvals.json`. Detection is untouched: this shortens the confirm leg, not the gap between checks |
 | Lifecycle decide/tick/reserve gate | implemented | `lifecycle.py:386,597`, `lifecycle_cli.py:241-332` | reservation is durable before one submit; largest test suite |
 | Cloud execution via Moomoo MCP (paper) | implemented | executor v15 tool grants, `docs/agent-engineering.md` | submission is agent-side by design; Python never submits in the cloud |
 | Local execution via `moomoo` CLI | implemented | `cli.py:516-668` | preview exits 2; real accounts blocked |
 | In-memory paper broker | implemented (test/demo) | `broker/base.py:14` | explicitly not evidence of a broker fill |
-| Intraday protection monitor (1-2 min) | planned | [../docs/adr/0013-protection-monitor.md](../docs/adr/0013-protection-monitor.md) (still `proposed`) + its draft contract [../docs/runbooks/intraday-protection-monitor.md](../docs/runbooks/intraday-protection-monitor.md); no `monitor` command is registered in `src/tyche/cli.py` | the gap that makes the scalp lane's exits a manual watch today; the guard pieces that do exist are listed in that draft |
+| Intraday protection monitor (1-2 min) | planned (rung 1.5 shipped, rung 0-1 not) | [../docs/adr/0013-protection-monitor.md](../docs/adr/0013-protection-monitor.md) (still `proposed`) + its contract [../docs/runbooks/intraday-protection-monitor.md](../docs/runbooks/intraday-protection-monitor.md); no `monitor` command is registered in `src/tyche/cli.py` | the gap that makes the scalp lane's exits a manual watch today. The operator picked the pre-armed bounded exit and that piece is built (row above); the tick, the bark and the drill are still open, so detection remains the three desk fires |
 
 ### 5.4 Evidence and audit
 
@@ -127,9 +128,10 @@ These are requirements in the strict sense: a change that breaks one is not a re
 
 | Capability | Status | Evidence | Gap / note |
 |---|---|---|---|
-| Local desk with overview/strategy/risk/automation/controls views | implemented | `dashboard/static/index.html`, `server.py:1505` (`build_state`), routes `server.py:2338-2400` | version + changelog in `app.js:8`, currently `0.7.1` |
-| Halt and envelope arm/disarm from the desk | implemented | `server.py:1902` (`halt_control`), `1862`/`1823` (arm/disarm); routes `server.py:2368-2386` | path-limited commit + push; the kill switch and envelope keep one intent path each |
-| Hosted desk snapshot + control proxy | implemented | `desk-site/`, `scripts/export_dashboard.py`, `handler.ts` | `functions/` is authored inside the export target; refresh-on-load, no polling (L-022). Republished 2026-11-21 with the `/schedule` route live; the console's write path stays inert until two Secret values are entered in Site Settings (§7 item 11) |
+| Local desk with overview/strategy/risk/automation/controls views | implemented | `dashboard/static/index.html`, `server.py:1505` (`build_state`), routes `server.py:2338-2400` | version + changelog in `app.js`, currently `0.8.0` |
+| Halt and envelope arm/disarm from the desk | implemented | `server.py` (`halt_control`, `arm_envelope`, `disarm_envelope`, `propose_envelope`) + their `/api/*` routes | path-limited commit + push; the kill switch and envelope keep one intent path each. Arm has three doors - fresh bounds, re-arm the last note, or arm the drafted exit note - and remains the only writer of `data/approvals.json` |
+| Exit-note card on the desk (drafted lines, sources, refusals) | implemented (local desk only) | `renderApproval` in `dashboard/static/app.js`, `_draft_summary` in `server.py`, `.draft-block` rules in `style.css` | the hosted console shows no Propose/Arm buttons: the Sites Function has no Python and no journal to read them from. A draft not dated today cannot be armed, and an empty proposal deletes the previous draft |
+| Hosted desk snapshot + control proxy | implemented | `desk-site/`, `scripts/export_dashboard.py`, `handler.ts` | `functions/` is authored inside the export target; refresh-on-load, no polling (L-022). Republished 2026-11-21 with the `/schedule` route live; the three Secrets the Function declares are present and synced, but the console's runtime behaviour is unverified from here (§7 item 11) |
 | Per-strategy enable/disable control in the UI | implemented | `src/tyche/lanes.py:82` (`set_enabled`), `server.py:1966` (`toggle_strategy`) + route `2386`, `handler.ts:298` (`action === "strategy"`), `tests/test_strategy_switches.py`; state lives in `data/strategies.json` | local and hosted desks both write the same unhashed switch file; a toggle blocks entries but never an exit, and moves no rules hash (L-037). The file is created on the first toggle, and its absence is normal: `read_overrides` (`lanes.py:44`) falls back to the lane config rather than to "everything on" |
 | Scheduled daily checks: see the cadence, switch it, fire one now | implemented (times read-only by decision) | `server.py:2047` (`build_schedule`), `2102` (`schedule_control`), routes `2338`/`2392`; `scripts/cloud_api.py:119,135,143,148`; `app.js:1179,1237` | pause/resume/run-now are journaled and the pause is re-read from the platform before it is reported as done; fire times and timezone are shown but not editable, because they live in the card's cron and again in its prompt (operator decision, Phase 4b) |
 | "Run Scout" trigger in the UI | implemented | `server.py:2155` (`scout_brief`), `2265` (`start_scout`), routes `2344`/`2398`; `scripts/cloud_api.py:209,231`; `app.js:1270,1313` | starts the researcher session alone - no executor, no auditor, no envelope, nothing that can submit; a second concurrent run is refused and the start is journaled as `scout.requested`. The session has no repo mount, so the brief carries the clock, the live lane ids and their hashes |
@@ -146,7 +148,7 @@ These are requirements in the strict sense: a change that breaks one is not a re
 | Scout (idea generation) | partial | researcher role + premarket fire; manual trigger `server.py:2265`; `watchlist.py`, `reports/*-research.md` | scheduled and manual discovery both work; the researcher prompt still does not consult the live lane id set, and changing that prompt is a re-pin needing operator approval. The manual run starts the researcher alone, so it can propose nothing that reaches a broker |
 | Ideas consumed downstream | partial | `tyche events add` → `config/events.yaml` → gate halves budget | operator triage is the link; nothing auto-promotes an idea into a plan |
 | Telegram sentinel | implemented (outbound only) | `scripts/telegram.py`, runbook | at-least-once semantics; no inbound approvals (L-003/L-006) |
-| CI (ruff + pytest) | implemented | `.github/workflows/ci.yml` | 499 tests; a red pipeline blocks every later phase (L-034) |
+| CI (ruff + pytest) | implemented | `.github/workflows/ci.yml` | 529 tests; a red pipeline blocks every later phase (L-034) |
 
 ## 6. Non-functional requirements
 
@@ -193,14 +195,25 @@ Ordered by how much they can cost, not by effort.
 10. **Approval cards clip horizontally below ~390 px.** Pre-existing `.approval-*` / `.mode-*` / `.tbl` rules,
     not introduced by the Phase 4 cards (verified by diff); the new schedule and Scout cards are
     overflow-safe at the same width. Fix: stack the approval grid at a narrow breakpoint.
-11. **The hosted desk is only as fresh as its last feed publish.** The Controls view reads and writes the live
+11. **PB-001 computes a stop it never journals, so ballast lots cannot be pre-armed.**
+    `rotation.py:351-353` derives `stop_price` from `initial_stop_pct: 0.08` and puts it on the intent, but the
+    rotation path does not journal a `protected_setup` and the ballast has no watchlist entry, so
+    `exit_levels` (`src/tyche/envelope.py:93`) finds nothing to protect and the drafting card reports those
+    positions as refused with a reason. This matches ADR 0013's alert-only stance for `rebalance` protection -
+    ballast is meant to exit at the next rebalance, not at a stop - but it was undocumented until rung 1.5 made
+    the absence visible on today's book (SPY + EFA both refused). Fix if ballast stops are ever wanted: journal
+    the computed stop as the entry's protective level, which is a freeze-relevant change to PB-001's contract.
+12. **The hosted desk is only as fresh as its last feed publish.** The Controls view reads and writes the live
     cloud card directly, but the hosted page serves `desk-site/web/data/*.json` from `main`, and those files are
     a snapshot of whenever `scripts/publish_desk_data.py` last ran (2026-11-21). Nothing refreshes them by
     itself, and that is by design: `handler.ts:8-10` keeps the cloud token off the server so only one path can
     change cadence, which means the hosted snapshot advances on push rather than pretending to be live.
-    **Still open:** the operator console needs `TYCHE_GITHUB_PAT` and `TYCHE_OPERATOR_PASSPHRASE` entered in
-    Site Settings before its write path works; until then `handler.ts:271-274` answers 503 naming exactly what
-    is missing, and the read-only desk is unaffected.
+    **Not a gap, and this was claimed wrongly once:** all three Secrets the Function declares
+    (`TYCHE_FORWARD_PAT`, `TYCHE_GITHUB_PAT`, `TYCHE_OPERATOR_PASSPHRASE`) are present with
+    `sync_state: synced`, so the operator console is configured. A Function's `required_secret_names` is a
+    *dependency list*, not a gap report - presence and sync only come from the secrets detail. **Still
+    unverified:** the console's live behaviour, because the site gateway answers 401 to unauthenticated
+    requests; the `operator_configured` read has to be done from a signed-in browser.
 
 ### Blocked on an operator decision, with what each one needs
 
@@ -209,8 +222,8 @@ Ordered by how much they can cost, not by effort.
 | Stale caps in prompts (1) and Scout honoring the live lane ids (§5.6) | one re-pin of the researcher/auditor prompts, which is a new build and needs approval |
 | `rules.refrozen` producer (2) | a kernel writer plus a journal assertion; deferred by decision while the freeze-source fix is verified in use |
 | Calendar drift trigger (7) | a live schedule object to attach the check to; `scripts/deploy_calendar_check.py` already builds it |
-| Intraday protection monitor (§5.3) | review of [../docs/runbooks/intraday-protection-monitor.md](../docs/runbooks/intraday-protection-monitor.md), then a Level 0 build at the 5-minute tier and a synthetic-breach drill before options |
-| Hosted operator console writes (11) | `TYCHE_GITHUB_PAT` and `TYCHE_OPERATOR_PASSPHRASE` entered in Site Settings; the repo cannot carry them and the publish/push hold was released on 2026-11-21 |
+| Intraday protection monitor (§5.3) | decided 2026-11-21: rung 1.5 (pre-armed bounded exit) is built, Level 2 stays declined. Still open: approval to build the Level 0 tick at the 5-minute tier, then the synthetic-breach drill |
+| Hosted operator console proven unattended (11) | one signed-in browser read of `control/status` and one arm/disarm round trip; the Secrets themselves are present and synced, and the gateway 401s any check from here |
 | Telegram bot token | the deployments/sessions API returns `environment_variables` in plaintext, which is why `cloud_api.py` whitelists every payload before it reaches a browser (L-038); rotating the token itself is an operator action outside the repo |
 
 Closed during this refinement and kept off the list: the desk server had no documented launch command
@@ -236,8 +249,12 @@ Named here so the desk's next steps are auditable; the first bullet is now part 
   Each change bumps `app.js` `VERSION` and adds a `CHANGELOG` entry.
 - **Phase 5 (validation).** End-to-end rehearsal of the new controls, honest status re-audit, and a
   residual-debt list folded into this file's §7.
-- **Deferred, needs a decision:** the `rules.refrozen` writer, the backtest harness, the protection
-  monitor (ADR 0013), and narrowing the ETF universe further to equity-only.
+- **Phase 6 (protection, in pieces).** The operator chose the pre-armed bounded exit over an alert-only
+  watchdog (ADR 0013 runbook §0). Shipped in v1.5: the kernel drafts a sell-only note from the open book and the
+  stops it journaled, and the desk arms it in one click (desk v0.8.0). Still open in the same ladder: the
+  detector (`tyche monitor tick`), the bark, and the drill that has to pass before options are enabled.
+- **Deferred, needs a decision:** the `rules.refrozen` writer, the backtest harness, the monitor tick and bark
+  (ADR 0013 rungs 0-1), and narrowing the ETF universe further to equity-only.
 
 ## 9. Version history
 
@@ -250,6 +267,7 @@ Named here so the desk's next steps are auditable; the first bullet is now part 
 | **v1.2** | 2026-11-20 | Phase 4a: operator strategy switches. `src/tyche/lanes.py` owns `data/strategies.json`, the kernel resolves enablement through it after the freeze check, `tyche strategies` prints it, and both desks can flip a lane (desk v0.6.0). A toggle is deliberately not a rules change: no hash moves, no lineage entry, and exits keep running while entries block (L-037). Scout honoring the live set is still open because it is a prompt change, hence a re-pin. |
 | **v1.3** | 2026-11-21 | Phase 4b: scheduled daily checks and Run Scout (desk v0.7.0-v0.7.1). `scripts/cloud_api.py` is a whitelisting cloud client - it drops `environment_variables`, `initial_events`, mounts and vault ids before anything reaches a browser (L-038) - and the desk reads the cadence card that owns a date, pauses and resumes it and fires one run, with the pause re-read from the platform before it is reported. Run Scout starts the researcher session alone; no envelope, halt or approval path is touched. Two defects this increment found and fixed: `evaluate()` was handed a `date` where it needs a `datetime`, and a raw newline inside a JS string made the whole desk fail to parse while every Python test stayed green (L-040, now a test). |
 | **v1.4** | 2026-11-21 | Phase 5 close-out: no capability changed status, the **evidence** behind them was re-checked against the code. 40 of 42 §5 rows held; six defects were fixed - PB-002/PB-003 cited a shared id ternary rather than the `options_enabled` gate, the lifecycle `reserve` range overshot by a line, `quote_order_book` read like repo code when it is an MCP read tool enabled on the executor, two test counts were stale, and the header still said 1.2 under a v1.3 table (now a test). §7 gained the unlinted `dashboard/` tree, the narrow-viewport approval clip, the publish-on-hold truth and a gated-items table naming each closing condition. [../docs/dashboard.md](../docs/dashboard.md) no longer calls the act/wait gate prompt-honored: `lifecycle.py:485` blocks it in code. ADR 0013 finally has the contract it promised: [../docs/runbooks/intraday-protection-monitor.md](../docs/runbooks/intraday-protection-monitor.md), a draft for review with nothing deployed. |
+| **v1.5** | 2026-11-21 | ADR 0013's rung 1.5 built: `src/tyche/envelope.py` drafts the operator's exit note from the book the desk shows plus the stops the plans journaled, `tyche propose-envelope` and the desk's Propose/Arm card turn it into a same-day sell-only envelope only when the operator clicks, and `risk.exit_collar_pct` (5%) became the single exit number the operator owns (desk v0.8.0). Nothing in it detects a breach - the tick is still unbuilt - and nothing in it can write `data/approvals.json` except the arm click. §7 gained the reason PB-001 ballast gets no drafted line (the rotation stop is computed at `rotation.py:351-353` and never journaled). |
 
 **Maintenance rule.** A change to a capability's status, a new lane, a new agent or a new external
 integration is a PRD edit with a version bump and a [CHANGELOG.md](CHANGELOG.md) row, landed in the same

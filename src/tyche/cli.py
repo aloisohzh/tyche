@@ -21,6 +21,7 @@ from tyche.broker import (
     snapshot_from_dir,
 )
 from tyche.config import load_config
+from tyche.envelope import propose_exit_envelope
 from tyche.events_cli import app as events_app
 from tyche.execution_state import daily_usage
 from tyche.halt import effective_halt, repo_halt_path, set_halt
@@ -1225,6 +1226,98 @@ def authorize(
         "today": today.isoformat(),
     }))
     raise typer.Exit(0 if authorized else 1)
+
+
+@app.command("propose-envelope")
+def propose_envelope(
+    account: Path = typer.Option(..., "--account", help="Verified paper AccountSnapshot JSON."),
+    journal_path: Path = typer.Option(Path("journal/events.jsonl"), "--journal"),
+    book: Path = typer.Option(Path("data/watchlist.json"), "--watchlist",
+                              help="Fallback levels for positions with no journaled contract."),
+    out: Path = typer.Option(Path("data/approvals.proposed.json"), "--out"),
+    config_root: Path = typer.Option(Path("."), "--config-root"),
+    collar: float | None = typer.Option(None, "--collar-pct",
+                                        help="Override risk.exit_collar_pct (floor width below the stop)."),
+    at: str = typer.Option("", "--at", help="ISO timestamp for 'today' (default: now)."),
+    as_json: bool = typer.Option(False, "--json", help="Emit the draft payload instead of a table."),
+) -> None:
+    """Draft the operator's exit note from what is held and the stops already journaled.
+
+    Read-only against the broker and the journal. It writes the DRAFT file and never
+    `data/approvals.json`: arming is the operator's click, and a proposal that could
+    auto-arm would be an approval written by the wrong party.
+    """
+    config = load_config(config_root)
+    pct = config.risk.exit_collar_pct if collar is None else collar
+    try:
+        now = datetime.fromisoformat(at) if at else datetime.now(UTC)
+    except ValueError as exc:
+        raise typer.BadParameter(f"--at must be an ISO timestamp: {exc}") from exc
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=UTC)
+    today = now.astimezone(ET).date()
+
+    def report(payload: dict, code: int) -> None:
+        if as_json:
+            console.print_json(json.dumps(payload, default=str))
+        elif message := payload.get("error"):
+            console.print(f"[red]{message}[/]")
+        raise typer.Exit(code)
+
+    if not account.is_file():
+        report({"draft": False, "error": f"no snapshot at {account}; run 'tyche snapshot' first"}, 1)
+    if not journal_path.is_file():
+        report({"draft": False, "error": f"no journal at {journal_path}; levels are read from it"}, 1)
+    ok, _, error = verify_chain(journal_path)
+    if not ok:
+        report({"draft": False, "error": f"journal integrity: {error}"}, 1)
+    try:
+        snapshot = AccountSnapshot.model_validate_json(account.read_text(encoding="utf-8"))
+    except ValidationError as exc:
+        report({"draft": False, "error": f"snapshot invalid: {exc.errors()[0]['msg']}"}, 1)
+        return
+    watchlist = None
+    problems: list[str] = []
+    if book.is_file():
+        try:
+            watchlist = Watchlist.model_validate_json(book.read_text(encoding="utf-8"))
+        except ValidationError as exc:
+            problems.append(f"watchlist ignored ({book}): {exc.errors()[0]['msg']}")
+
+    proposal = propose_exit_envelope(
+        snapshot, read_events(journal_path), today=today, collar_pct=pct,
+        max_orders_per_day=config.risk.max_orders_per_day, watchlist=watchlist,
+        options_enabled=config.tactical.options_enabled, now=now,
+    )
+    payload = proposal.as_payload()
+    payload["problems"] = problems + proposal.problems
+    payload["out"] = str(out)
+    if not proposal.armable:
+        payload["draft"] = False
+        payload["error"] = "nothing to propose: no open paper position has a usable stop"
+        if out.is_file():  # a stale draft must not sit there looking armable
+            out.unlink()
+        report(payload, 1)
+        return
+    out.parent.mkdir(parents=True, exist_ok=True)
+    # The same shape the desk writes: the batch plus where every number came from. The desk
+    # reader also accepts a bare batch, but one file should not mean two formats.
+    out.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
+    payload["draft"] = True
+    if not as_json:
+        table = Table(title=f"Draft exit note for {today} - collar {pct:.1%} below each stop (DRAFT, not armed)")
+        table.add_column("Symbol"); table.add_column("Sell up to"); table.add_column("Floor")
+        table.add_column("Stop"); table.add_column("Level from"); table.add_column("Bound")
+        for row in proposal.lines:
+            table.add_row(row["symbol"], str(row["max_qty"]), f"{row['limit_min']:.2f}",
+                          f"{row['stop']:.2f}", row["source_label"], "yes" if row["bound"] else "no")
+        console.print(table)
+        for row in proposal.skipped:
+            console.print(f"[yellow]not proposed[/] {row['symbol']}: {row['why']}")
+        for problem in payload["problems"]:
+            console.print(f"[red]problem[/] {problem}")
+        console.print(f"Draft written to {out}. Arm it from the desk Risk panel; nothing arms itself.")
+    report(payload, 0)
 
 
 @app.command("strategies")

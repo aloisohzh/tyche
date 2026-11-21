@@ -47,6 +47,17 @@ def test_published_price_floor_matches_config() -> None:
     assert f"| Min price | ${price:.2f} | ${price:.2f} |" in _doc("docs/risk-card.md")
 
 
+def test_published_exit_collar_matches_config() -> None:
+    """The exit collar is the one number the operator owns in the armed-exit path.
+
+    If it drifts out of the card, the operator is arming a bound they never read.
+    """
+    collar = _risk()["exit_collar_pct"]
+    card = _doc("docs/risk-card.md")
+    assert f"`exit_collar_pct` = {collar:.0%} below the stop the plan journaled" in card
+    assert "data/approvals.proposed.json" in card and "gitignored" in card
+
+
 def _playbook_dir() -> Path:
     return ROOT / "playbook"
 

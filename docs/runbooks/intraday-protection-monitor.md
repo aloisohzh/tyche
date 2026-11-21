@@ -1,18 +1,69 @@
 # Runbook: intraday protection monitor (ADR 0013) - draft contract
 
-**Status (2026-11-21): DRAFT FOR REVIEW. Nothing here is deployed.** [ADR 0013](../adr/0013-protection-monitor.md)
-is still `Proposed`; there is no `tyche monitor` command (verified: `src/tyche/cli.py` contains no `monitor`
-registration), no monitor schedule, no cadence ladder and no drill. Writing this file changes no cloud object,
-creates no schedule and grants no submission rights. What actually protects open lots today is the three desk
-fires documented in [protection-monitor.md](protection-monitor.md) (08:05 / 12:05 / 15:05 ET, the 12:05 fire
-watch-and-shout only). Read this document as the contract to approve *before* anything is built, not as an
-operational instruction.
+**Status (2026-11-21): PARTLY DECIDED, PARTLY BUILT. Read §0 first.** The operator picked the pre-armed bounded
+exit (rung 1.5) and that piece is now in the code: the kernel drafts an exit note from the open book, the desk
+arms it. What is *not* built is the detector: [ADR 0013](../adr/0013-protection-monitor.md) is still `Proposed`,
+there is no `tyche monitor` command (verified: `src/tyche/cli.py` contains no `monitor` registration), no monitor
+schedule, no cadence ladder and no drill. Nothing in §2-§9 has been deployed, and writing §0 changed no cloud
+object, created no schedule and granted no submission rights. What actually protects open lots today is the three
+desk fires documented in [protection-monitor.md](protection-monitor.md) (08:05 / 12:05 / 15:05 ET, the 12:05 fire
+watch-and-shout only), plus - for a lot the desk is looking at - an armed note the operator signed in advance.
+Read §2 onward as the contract to approve *before* anything is built, not as an operational instruction.
 
 Scope boundary, unchanged by anything proposed here: the platform is paper-only (
 [ADR 0002](../adr/0002-paper-only.md)), research and idea generation stay separate from paper execution, and
 paper execution stays separate from live execution. **No tier of the monitor gets a live path, and Level 2
 (automatic exit submission) is out of scope for this draft.** The env/allowlist/order-type gate in `risk.py` is
 the same gate a monitor-queued intent would have to pass; the monitor does not widen it.
+
+## 0. Decided on 2026-11-21: the operator chose the pre-armed bounded exit (rung 1.5)
+
+The ladder discussed with the operator, in the order a lot "grows up":
+
+| Rung | What happens on a confirmed breach | Status after 2026-11-21 |
+|---|---|---|
+| 0 | The tick evaluates and journals; nothing leaves the journal | not built - still needs `tyche monitor tick` (§2, §9 step 1) |
+| 1 | Plus an urgent Telegram bark | not built (needs rung 0 to detect anything) |
+| 1.5 | Plus a bounded exit note the operator signed **in advance**, executed without a per-order tap | **built** - the part that did not need a new detector |
+| 2 | The system decides and submits on its own | declined, as Level 2 is in §4 |
+
+The reason for 1.5 rather than 1 is availability, not ambition: the operator is not near a phone all day and
+should not have to invent numbers for a plan they did not write. And "in advance" cannot mean a broker-side stop,
+because the sim offers Limit/Market only and a resting limit sell placed below the market fills immediately at
+market ([ADR 0012](../adr/0012-options-protection.md)). So the pre-placed order has to live inside the platform,
+as an armed operator envelope (`src/tyche/approvals.py`) rather than as a resting broker order.
+
+**What is now in the code** (`src/tyche/envelope.py`, `tyche propose-envelope` at `src/tyche/cli.py:1231`,
+`/api/approvals/propose` and `arm_envelope({"use_draft": true})` in `dashboard/server.py`, covered by
+`tests/test_envelope_proposal.py` and the drafting block of `tests/test_desk_controls.py`):
+
+- The kernel **proposes**: one sell line per open paper position, quantity from the broker book the desk is
+  already showing, floor from the stop the plan journaled at entry (`payload.protected_setup`, else
+  `payload.stop_price`, else the watchlist level), widened by `risk.exit_collar_pct`.
+- The operator **arms**: the desk's Arm click re-dates the draft, relabels it
+  `operator (dashboard, drafted from open positions)` and writes `data/approvals.json`. Nothing else writes that
+  file, and a draft older than today's ET date is refused - so the numbers always come from the book and levels
+  on screen now.
+- The operator owns exactly one number: the collar (`config/risk.yaml`, `exit_collar_pct: 0.05`, valid 0-0.20).
+  The plan owns every stop. That split is the whole point - the human sets tolerance, not price levels.
+- Refusals are reported, not guessed. No journaled level and no watchlist level means no line; an option position
+  means no line (there is no verified contract to sell against at this layer); a bearish put means no line
+  because it exits by buying back. `setup_hash` is copied verbatim from the journal because it folds in the
+  account id and the config hash (`src/tyche/tactical.py:72`), and a line whose hash is missing is flagged
+  *unbound* - the tactical lane refuses an unbound line (`src/tyche/tactical_cli.py:265`).
+- Drafting is a **local desk and CLI action only**. The hosted Sites Function has no Python and no journal, so the
+  buttons do not appear on the hosted console. A hosted draft would have to be published into the feed by
+  `scripts/publish_desk_data.py`, and `test_every_feed_file_the_hosted_function_reads_is_published` is the guard
+  that would catch that omission.
+
+**What rung 1.5 does not do.** It shortens the *human-confirm* leg, not the *detection* leg. Until rung 0 exists,
+detection is still the three desk fires (08:05 / 12:05 / 15:05 ET), so an armed note only helps for a breach the
+desk happens to be looking at - which is why the build order below still starts with the tick. Arming a note also
+grants nothing new: it is the same envelope the Pre-approve path already writes, with sell lines only, and the
+kill switch still outranks it.
+
+**Sequencing the operator agreed to**: propose-and-arm card (done) -> Level 0 monitor tick at the 5-minute tier ->
+synthetic-breach drill (§8) -> only then discuss Level 1 bark routing and any queueing behaviour.
 
 ## 1. The gap this closes, and the pieces that already exist
 
@@ -201,6 +252,7 @@ tier.
 | # | Step | State |
 |---|---|---|
 | 0 | Make the suite trustworthy evidence again (scalp clock bomb) | done 2026-11-20 |
+| 0b | Rung 1.5: draft the bounded exit note from the open book, arm it from the desk (§0) | done 2026-11-21 - detector-independent, so it shipped first |
 | 1 | `tyche monitor tick` + `monitor.*` events, `--dry-run` default | open - this document is its spec |
 | 2 | Bind the tick to the existing quote path so a tick stays cheap and bounded | open; **note** `scripts/mcp_prices.py` merges *daily klines* into `data/prices.csv` and is not an intraday quote source - a 1-minute path is new work |
 | 3 | Alert through `scripts/telegram.py send-digest` with tick-attributed delivery state | partly done as the 12:05 dry-run fire; per-tick attribution and delivery-failure handling open |

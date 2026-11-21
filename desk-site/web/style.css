@@ -806,6 +806,12 @@ ul { margin: 0; padding: 0; list-style: none; }
 .halt-reason { width: 100%; min-width: 0; margin-top: 12px; }
 .kill-btn { margin-top: 12px; width: 100%; }
 #kill-control-body .kill-state { margin-top: 4px; }
+.draft-block { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--sep-hair); }
+.draft-block .card-kicker { display: block; margin-bottom: 8px; }
+.draft-refused { margin-top: 10px; font-size: 11.5px; color: var(--label-3); }
+.draft-refused summary { cursor: pointer; font-weight: 600; }
+.draft-refused ul { margin: 8px 0 0; padding-left: 18px; line-height: 1.6; }
+.draft-block .env-form-actions { flex-wrap: wrap; }
 
 /* ============================ v0.2: plain-language labels ============================ */
 .k-label { font-family: var(--font-ui); font-size: 11.5px; font-weight: 600; color: var(--label-2); }

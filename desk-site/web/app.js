@@ -5,8 +5,17 @@ const $ = (sel) => document.querySelector(sel);
 const esc = (s) => String(s ?? "").replace(/[—–]/g, "-").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const hy = (s) => String(s ?? "").replace(/[—–]/g, "-");
 
-const VERSION = "0.7.1";
+const VERSION = "0.8.0";
 const CHANGELOG = [
+  {
+    version: "0.8.0", date: "2026-11-21", title: "Draft the exit note from what you actually hold",
+    items: [
+      "The approval card gained Propose exit note: it reads the open paper positions, takes the stop each plan journaled when it entered, widens that by config/risk.yaml exit_collar_pct and drafts a same-day, sell-only envelope you can arm in one click.",
+      "Each drafted line says where its level came from (protected setup, journaled stop or watchlist) and whether it is bound to a setup hash. Positions that get no line are listed with the reason instead of a guessed number.",
+      "Drafting writes data/approvals.proposed.json only, and that file is gitignored. data/approvals.json stays the exclusive product of Arm, so a draft cannot become an approval by accident - and arming a draft that is not dated today is refused.",
+      "Drafting is a local-desk action: the hosted console has no journal and no Python kernel, so the buttons do not appear there.",
+    ],
+  },
   {
     version: "0.7.1", date: "2026-11-21", title: "Open the desk on one panel",
     items: [
@@ -842,6 +851,38 @@ function renderApproval() {
       <p class="table-note" style="padding:8px 0 0">Buys need a limit ceiling; sells need a limit floor. The executor only submits within these bounds, and the envelope expires at the end of today (ET).</p>
     </div>` : "";
 
+  const draft = a.draft;
+  const lines = (draft && draft.lines) || [];
+  const canDraft = canControl && !LIVE;
+  const draftRows = lines.map((l) => `<tr>
+      <td><strong>${esc(l.symbol)}</strong></td>
+      <td class="num mono">${l.max_qty ?? "-"}</td>
+      <td class="num mono">${money(l.limit_min)}</td>
+      <td class="num mono">${l.stop == null ? "-" : money(l.stop)}</td>
+      <td>${esc(l.source_label || l.source || "drafted line")}</td>
+      <td>${l.bound ? '<span class="chip ok-chip">bound</span>' : '<span class="chip">unbound</span>'}</td>
+    </tr>`).join("");
+  const refused = (draft && draft.refused) || [];
+  const draftHtml = `
+    <div class="draft-block">
+      <span class="card-kicker">Exit note drafted from open positions</span>
+      ${draft && draft.unreadable ? '<p class="table-note">The drafted note on disk is unreadable. Press Propose to rebuild it.</p>' : ""}
+      ${draftRows ? `<div class="tbl-scroll"><table class="tbl approval-tbl">
+        <thead><tr><th>Symbol</th><th class="num">Sell up to</th><th class="num">Floor</th><th class="num">Stop</th><th>Level from</th><th>Setup</th></tr></thead>
+        <tbody>${draftRows}</tbody></table></div>`
+        : '<p class="table-note">Nothing drafted. Propose reads what you hold, takes the stop each plan journaled when it entered, and writes a same-day sell-only note you can arm in one click. No numbers are invented here: a position with no journaled stop is reported, not guessed at.</p>'}
+      ${draft && lines.length && !draft.dated_today ? `<p class="table-note">Drafted ${esc(draft.as_of || "earlier")} - not today, so it cannot be armed. Propose again.</p>` : ""}
+      ${refused.length ? `<details class="draft-refused"><summary>${refused.length} position(s) not drafted - why</summary>
+        <ul>${refused.map((r) => `<li><strong>${esc(r.symbol)}</strong> - ${esc(r.why)}</li>`).join("")}</ul></details>` : ""}
+      ${draft && draft.collar_pct != null ? `<p class="table-note">Floors sit ${pct(draft.collar_pct)} under the journaled stop. That margin is the one number you own: <code>exit_collar_pct</code> in config/risk.yaml.</p>` : ""}
+      <div class="env-form-actions">
+        ${canDraft ? '<button class="btn btn-primary" id="draft-propose" type="button">Propose exit note</button>' : ""}
+        ${canDraft && lines.length && draft.dated_today ? '<button class="btn" id="draft-arm" type="button">Arm this exit note</button>' : ""}
+      </div>
+      ${canDraft ? '<p class="mode-hint">Arming approves these exact bounds for today only. It lets a defensive sell fire while you are away; it never authorises a buy, and the kill-switch still overrides it.</p>'
+        : `<p class="mode-hint">${LIVE ? "Drafting runs on the local desk - the hosted console has no journal or Python kernel to read." : "Read-only snapshot - drafting and arming run on the live desk."}</p>`}
+    </div>`;
+
   body.innerHTML = `
     <div class="approval-grid">
       <div class="approval-info">
@@ -851,7 +892,7 @@ function renderApproval() {
         <div class="approval-control">${modeSeg}</div>
         ${envForm}
       </div>
-      <div class="approval-envelope">${envelopeHtml}</div>
+      <div class="approval-envelope">${envelopeHtml}${draftHtml}</div>
     </div>`;
 
   if (canControl) {
@@ -862,6 +903,10 @@ function renderApproval() {
     if (cancel) cancel.addEventListener("click", () => { $("#env-form").hidden = true; });
     const submit = $("#env-submit");
     if (submit) submit.addEventListener("click", submitEnvelope);
+    const propose = $("#draft-propose");
+    if (propose) propose.addEventListener("click", proposeDraft);
+    const draftArm = $("#draft-arm");
+    if (draftArm) draftArm.addEventListener("click", armDraft);
   }
 }
 
@@ -1031,6 +1076,49 @@ async function armAuto() {
     await fetchAll(true);
   } catch (e) {
     showToast("Auto arm failed: " + e.message, true);
+  }
+}
+
+async function proposeDraft() {
+  const btn = $("#draft-propose");
+  if (btn) { btn.disabled = true; btn.textContent = "Drafting..."; }
+  try {
+    const j = await controlPost("/api/approvals/propose", "propose");
+    if (j.approvals) STATE.approvals = j.approvals;
+    const p = j.proposal || {};
+    const why = (p.skipped || []).length === 1 ? ": " + p.skipped[0].why : "";
+    showToast(p.proposed
+      ? `Drafted ${p.proposed} exit line(s) - ${p.refused || 0} position(s) left out. Review, then Arm.`
+      : `Nothing to draft${why}`, !p.proposed);
+    renderApproval();
+  } catch (e) {
+    showToast("Propose failed: " + e.message, true);
+    renderApproval();
+  }
+}
+
+async function armDraft() {
+  const d = (STATE.approvals || {}).draft;
+  const lines = (d && d.lines) || [];
+  if (!lines.length) { showToast("Nothing drafted - press Propose first", true); return; }
+  if (!d.dated_today) { showToast("That draft is not dated today - press Propose again", true); return; }
+  const summary = lines.map((l) => `sell ${l.max_qty} ${l.symbol} at >= ${money(l.limit_min)} (stop ${money(l.stop)})`).join("\n");
+  const unbound = lines.filter((l) => !l.bound).length;
+  const text = `Arm this exit note for today (ET)?\n\n${summary}\n\nMax orders: ${d.max_orders} · floors ${pct(d.collar_pct)} under each journaled stop.\n`
+    + (unbound ? `${unbound} line(s) carry no setup hash - the tactical lane refuses an unbound line.`
+      : "Every line is bound to its journaled setup.")
+    + "\n\nSells inside these bounds can then fire without a per-order tap. No buys. Expires at the end of today.";
+  if (!confirm(text)) return;
+  const btn = $("#draft-arm");
+  if (btn) { btn.disabled = true; btn.textContent = "Arming..."; }
+  try {
+    const j = await controlPost("/api/approvals/arm", "arm", { use_draft: true });
+    showToast(j.pushed ? "Exit note armed - bounded defensive sells valid today (cloud synced)"
+      : "Armed locally; cloud push failed: " + (j.git_error || "unknown"), !j.pushed);
+    await fetchAll(true);
+  } catch (e) {
+    showToast("Arm failed: " + e.message, true);
+    if (btn) { btn.disabled = false; btn.textContent = "Arm this exit note"; }
   }
 }
 

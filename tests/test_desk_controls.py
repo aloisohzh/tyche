@@ -5,6 +5,7 @@ import importlib.util
 import json
 from datetime import datetime
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -38,6 +39,7 @@ def desk(srv, tmp_path, monkeypatch):
     effective_halt = srv.effective_halt
     monkeypatch.setattr(srv, "effective_halt", lambda journal_dir, root: effective_halt(journal_dir, tmp_path))
     monkeypatch.setattr(srv, "APPROVALS", data / "approvals.json")
+    monkeypatch.setattr(srv, "APPROVAL_DRAFT", data / "approvals.proposed.json")
     monkeypatch.setattr(srv, "DATA_DIR", data)
     monkeypatch.setattr(srv, "_git_push_approvals", lambda message: (False, "git disabled in test"))
     monkeypatch.setattr(srv, "_git_push_paths", lambda message, paths: (False, "git disabled in test"))
@@ -193,3 +195,144 @@ def test_build_state_snapshots_map(srv, desk, monkeypatch):
     assert state["snapshots"]["***748"]["nav"] == 999101.96
     blob = json.dumps(state)
     assert FAKE_CHALLENGE_ID not in blob and FAKE_PERSONAL_ID not in blob
+
+
+# ------------------------------------------------------------------ exit-note drafting
+PLAN = {
+    "symbol": "US.MSFT", "sleeve": "equity", "strategy": "PB-002 tactical break",
+    "entry_low": 490.0, "entry_high": 495.0, "stop": 470.0, "target": 540.0,
+    "expiry": "2026-12-31", "direction": "bullish", "setup_id": "TAC-20261119-MSFT-L4",
+}
+SETUP_HASH = "a9a899f896ac0353cd85043aba118e3fda5d315477fcdabebe07a0c079199d25"
+
+
+def feed_desk(srv, monkeypatch, rows, *, env="paper"):
+    """Put one paper book on the desk and freeze the collar the drafter reads."""
+    monkeypatch.setattr(srv, "live_broker_snapshot", lambda: (None, None))
+    monkeypatch.setattr(srv, "broker_capture", lambda: None)
+    monkeypatch.setattr(srv, "load_cloud_runs", list)
+    monkeypatch.setattr(srv, "cloud_snapshot", lambda runs: None)
+    monkeypatch.setattr(srv, "load_snapshot", lambda: {
+        "account": "***598", "env": env, "cash": 10_000.0, "positions": rows,
+    })
+    risk = SimpleNamespace(exit_collar_pct=0.05, max_orders_per_day=6)
+    monkeypatch.setattr(srv, "load_config",
+                        lambda root: SimpleNamespace(risk=risk, tactical=SimpleNamespace(options_enabled=False)))
+
+
+def row(symbol="US.MSFT", qty=39, cost=480.0, last=500.0):
+    return {"symbol": symbol, "quantity": qty, "avg_cost": cost, "last_price": last}
+
+
+def journaled_entry(srv, **payload):
+    srv.append_event(srv.JOURNAL, "order.requested",
+                     {"symbol": "US.MSFT", "side": "buy", "quantity": 39, "setup_hash": SETUP_HASH,
+                      "strategy_id": "PB-002", "protected_setup": PLAN, **payload})
+
+
+def test_propose_drafts_from_what_the_desk_is_showing(srv, desk, monkeypatch):
+    journaled_entry(srv)
+    feed_desk(srv, monkeypatch, [row()])
+    out = srv.propose_envelope()
+    assert out["ok"] is True
+    line = out["proposal"]["lines"][0]
+    assert (line["symbol"], line["max_qty"], line["bound"]) == ("US.MSFT", 39, True)
+    assert line["limit_min"] == pytest.approx(446.5) and line["source"] == "journal_contract"
+    assert out["proposal"]["draft_file"].endswith("approvals.proposed.json")
+    assert srv.APPROVAL_DRAFT.is_file()
+    # Drafting must not touch the file the executor reads.
+    assert not srv.APPROVALS.exists()
+    assert out["approvals"]["mode"] == "manual"
+
+
+def test_propose_with_an_empty_book_drafts_nothing(srv, desk, monkeypatch):
+    journaled_entry(srv)
+    feed_desk(srv, monkeypatch, [])
+    out = srv.propose_envelope()
+    assert out["ok"] is True and out["proposal"]["proposed"] == 0
+    assert not srv.APPROVAL_DRAFT.exists() and not srv.APPROVALS.exists()
+
+
+def test_propose_refuses_a_broken_journal(srv, desk, monkeypatch):
+    journaled_entry(srv)
+    feed_desk(srv, monkeypatch, [row()])
+    lines = srv.JOURNAL.read_text(encoding="utf-8").splitlines()
+    srv.JOURNAL.write_text(lines[0].replace(SETUP_HASH, "0" * 64) + "\n", encoding="utf-8")
+    out = srv.propose_envelope()
+    assert out["ok"] is False and "journal integrity" in out["error"]
+    assert not srv.APPROVAL_DRAFT.exists()
+
+
+def test_propose_refuses_a_non_paper_feed(srv, desk, monkeypatch):
+    journaled_entry(srv)
+    feed_desk(srv, monkeypatch, [row()], env="live")
+    out = srv.propose_envelope()
+    assert out["ok"] is False and "paper-only" in out["error"]
+
+
+def test_propose_refuses_options_and_reports_them(srv, desk, monkeypatch):
+    journaled_entry(srv)
+    feed_desk(srv, monkeypatch, [row(), row("US.MSFT261231C460000"), row("US.SPY", 21)])
+    out = srv.propose_envelope()
+    refused = {r["symbol"]: r["why"] for r in out["proposal"]["skipped"]}
+    assert "verified contract" in refused["US.MSFT261231C460000"]
+    assert "no journaled stop" in refused["US.SPY"]
+    assert out["proposal"]["proposed"] == 1
+    assert [line["symbol"] for line in out["proposal"]["lines"]] == ["US.MSFT"]
+
+
+def test_duplicate_feed_rows_are_never_merged_into_one_line(srv, desk, monkeypatch):
+    journaled_entry(srv)
+    feed_desk(srv, monkeypatch, [row(), row(qty=10)])
+    out = srv.propose_envelope()
+    assert out["proposal"]["proposed"] == 1
+    assert "duplicate position row" in out["proposal"]["skipped"][0]["why"]
+
+
+def test_arm_from_draft_is_the_only_writer_of_the_envelope(srv, desk, monkeypatch):
+    journaled_entry(srv)
+    feed_desk(srv, monkeypatch, [row()])
+    srv.propose_envelope()
+    out = srv.arm_envelope({"use_draft": True})
+    assert out["ok"] and out["armed"] and out["pushed"] is False
+    saved = json.loads(srv.APPROVALS.read_text(encoding="utf-8"))
+    today = datetime.now(srv.ET).date().isoformat()
+    assert saved["as_of"] == today and saved["approved_by"] == "operator (dashboard, drafted from open positions)"
+    assert not saved["note"].startswith("DRAFT ONLY") and "armed from the open-position draft" in saved["note"]
+    assert saved["orders"][0]["setup_hash"] == SETUP_HASH  # bound to the journaled setup, unedited
+    assert saved["orders"][0]["limit_min"] == pytest.approx(446.5)
+    assert out["approvals"]["mode"] == "armed" and out["approvals"]["auto_active"] is True
+
+
+def test_arm_from_draft_refuses_a_stale_note(srv, desk):
+    srv.APPROVAL_DRAFT.write_text(json.dumps({
+        "as_of": "2026-11-18", "approved_at": "2026-11-18T13:30:00Z", "approved_by": "kernel draft",
+        "max_orders": 3, "orders": [{"symbol": "US.MSFT", "side": "sell", "max_qty": 39, "limit_min": 400.0}],
+    }), encoding="utf-8")
+    out = srv.arm_envelope({"use_draft": True})
+    assert out["ok"] is False and "not today" in out["error"]
+    assert not srv.APPROVALS.exists()
+
+
+def test_arm_without_a_draft_or_without_the_desk_book(srv, desk):
+    assert srv.arm_envelope({"use_draft": True})["ok"] is False
+    assert "Propose first" in srv.arm_envelope({"use_draft": True})["error"]
+
+
+def test_an_empty_proposal_clears_a_stale_draft(srv, desk, monkeypatch):
+    feed_desk(srv, monkeypatch, [row()])
+    srv.APPROVAL_DRAFT.write_text(json.dumps({"as_of": "2026-11-18", "orders": []}), encoding="utf-8")
+    out = srv.propose_envelope()
+    assert out["proposal"]["proposed"] == 0 and out["proposal"]["draft_cleared"] is True
+    assert not srv.APPROVAL_DRAFT.exists()
+    assert out["approvals"]["draft"] is None
+
+
+def test_desk_state_shows_the_waiting_draft(srv, desk, monkeypatch):
+    journaled_entry(srv)
+    feed_desk(srv, monkeypatch, [row()])
+    srv.propose_envelope()
+    draft = srv.build_approvals()["draft"]
+    assert draft["dated_today"] is True and draft["collar_pct"] == 0.05
+    assert draft["lines"][0]["symbol"] == "US.MSFT" and draft["lines"][0]["bound"] is True
+    assert draft["refused"] == []

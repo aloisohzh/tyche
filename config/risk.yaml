@@ -20,6 +20,10 @@ competition_order_cap: 200
 option_risk_per_trade_pct: 0.0075
 max_option_premium_pct: 0.25
 max_limit_deviation_pct: 0.03
+# The one exit number the operator owns: a drafted exit floor sits this far under the
+# stop the plan journaled. Wide enough that a normal gap still fills, bounded enough that
+# a collapse is a decision rather than a market order. Not entry limit drift (line above).
+exit_collar_pct: 0.05
 min_order_notional: 500.0
 min_price: 1.00
 soft_drawdown_pct: 0.04

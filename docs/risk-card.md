@@ -55,6 +55,30 @@ membership and sim-account-list presence before any submit.
 | Orders/day ≤ internal budget | `orders.daily_count` | `max_orders_per_day` | `test_daily_order_count` |
 | Daily turnover ≤ cap (buys) | `turnover.daily` | `max_daily_turnover_pct` | `test_turnover_cap`, `test_turnover_exemption_for_de_risking_sells` |
 
+## Operator authorization: the envelope and the one exit number the operator owns
+
+Autonomy inside this platform is bounded by a dated, signed `ApprovalBatch`
+(`data/approvals.json`), never by a model's confidence. Two facts are worth stating
+plainly because they decide what the operator is actually agreeing to:
+
+| Fact | Where | Test |
+|---|---|---|
+| A drafted exit sell sits `exit_collar_pct` = 5% below the stop the plan journaled | `risk.exit_collar_pct` (0 < x <= 0.20), applied in `src/tyche/envelope.py` | `test_the_collar_is_the_only_operator_number_and_it_widens_downward` |
+| Only the operator's arm click writes `data/approvals.json`; drafting writes `data/approvals.proposed.json`, which is gitignored | `propose_exit_envelope` (drafts) vs `arm_envelope` (approves) in `dashboard/server.py` | `test_arm_from_draft_is_the_only_writer_of_the_envelope` |
+
+The collar is deliberately the *only* number in that path the operator sets. Stops,
+quantities and symbols come from the journal and the broker book; anything the kernel
+cannot ground (no journaled stop, an option with no verified contract, a bearish put
+that exits by buying back) is refused with a reason rather than filled in with a guess.
+An envelope carries no `max_notional` on purpose: a sell that fills *above* its floor
+would consume budget an exit note was never measuring, and quantity plus the floor
+already bound it. Same-day validity is kept — a note dated yesterday protects yesterday's
+book, so arming it is refused.
+
+Related caps: `option_risk_per_trade_pct`, `max_option_premium_pct` (option lanes) and
+`max_limit_deviation_pct`, which is entry-limit drift and a different quantity from the
+exit collar above.
+
 ## Competition maxima vs tyche internal discipline
 
 The kernel enforces tyche's stricter internal budget; the competition maxima are

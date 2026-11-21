@@ -19,6 +19,10 @@ dist/
 !/data/approvals.example.json
 !/data/halt.json
 !/data/strategies.json
+# The kernel's drafted exit note (proposed bounds, never an approval). Covered by /data/*.json
+# today, stated explicitly because a draft must not reach the cloud mount even if that changes:
+# only Arm writes data/approvals.json.
+/data/approvals.proposed.json
 /journal/
 /plans/
 /reports/

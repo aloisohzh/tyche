@@ -33,9 +33,11 @@ import yaml  # noqa: E402
 
 from tyche.approvals import ApprovalBatch, envelope_usage  # noqa: E402
 from tyche.config import load_config  # noqa: E402
+from tyche.envelope import propose_exit_envelope  # noqa: E402
 from tyche.halt import effective_halt, set_halt  # noqa: E402
 from tyche.journal import append_event, read_events, verify_chain  # noqa: E402
 from tyche.lanes import read_state, set_enabled  # noqa: E402
+from tyche.models import AccountSnapshot, Position, looks_like_option  # noqa: E402
 from tyche.market_calendar import (
     ET,
     SessionPhase,
@@ -327,6 +329,9 @@ JOURNAL = ROOT / "journal" / "events.jsonl"
 HALT = ROOT / "journal" / "halt.json"
 REPO_HALT = ROOT / "data" / "halt.json"
 APPROVALS = ROOT / "data" / "approvals.json"
+# Kernel-drafted exit note (gitignored). Drafting is cheap and repeatable; only Arm writes
+# the envelope, so a draft can never become an approval by accident.
+APPROVAL_DRAFT = ROOT / "data" / "approvals.proposed.json"
 DRILL_DIR = ROOT / "plans" / "drill-2026-11-18"
 VALIDATION = ROOT / "docs" / "validation" / "2026-11-18-kill-switch-drill.md"
 PORT = 8765
@@ -1456,6 +1461,37 @@ def sentinel_fallback() -> list[dict]:
 EVENTS: list[dict] = []
 
 
+def _draft_summary(today: date) -> dict | None:
+    """The kernel's drafted exit note if one is waiting on the desk - a draft, never binding.
+
+    Only `arm_envelope` turns these numbers into an approval, so the desk can show them
+    (and survive a reload) without any risk that displaying a draft authorises a trade.
+    """
+    if not APPROVAL_DRAFT.is_file():
+        return None
+    try:
+        raw = json.loads(APPROVAL_DRAFT.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {"unreadable": True}
+    if not isinstance(raw, dict):
+        return {"unreadable": True}
+    batch = raw.get("envelope") if isinstance(raw.get("envelope"), dict) else raw
+    lines = raw.get("lines") or [
+        {"symbol": o.get("symbol"), "max_qty": o.get("max_qty"), "limit_min": o.get("limit_min"),
+         "stop": None, "source": "drafted line", "bound": bool(o.get("setup_hash"))}
+        for o in (batch.get("orders") or []) if isinstance(o, dict)]
+    return {
+        "generated_at": raw.get("generated_at") or batch.get("approved_at"),
+        "as_of": batch.get("as_of"),
+        "dated_today": batch.get("as_of") == today.isoformat(),
+        "collar_pct": raw.get("collar_pct"),
+        "max_orders": batch.get("max_orders"),
+        "note": str(batch.get("note") or ""),
+        "lines": lines,
+        "refused": raw.get("skipped") or [],
+    }
+
+
 def build_approvals() -> dict:
     """Operator approval state from the existing envelope system (single source of truth).
 
@@ -1474,6 +1510,7 @@ def build_approvals() -> dict:
         "used": used,
         "max_orders": 0,
         "envelope": None,
+        "draft": _draft_summary(today),
         "mode": "manual",
         "auto_active": False,
         "reason": "No pre-approved envelope - every order needs per-order operator confirmation at the desk console.",
@@ -1820,6 +1857,101 @@ def build_automation() -> dict:
 
 
 # ---------------------------------------------------------------- http
+def _draft_book() -> tuple[AccountSnapshot | None, list[dict]]:
+    """The positions the desk is showing, as the paper snapshot the drafter reads.
+
+    Precedence mirrors build_state (challenge feed first) and is re-derived on click rather
+    than reused from the page, because an operator arms an exit note against what is held
+    now. Quantity is taken as sellable: a capture row carries no settlement split, and the
+    envelope's per-line quantity cap is a ceiling, so a T+1 lot simply cannot be sold yet.
+    """
+    live_snap, _ = live_broker_snapshot()
+    snap = live_snap or broker_capture() or cloud_snapshot(load_cloud_runs()) or load_snapshot()
+    if not snap:
+        return None, [{"symbol": "-", "why": "no broker snapshot on the desk; fetch one before drafting"}]
+    if str(snap.get("env") or "paper") != "paper":
+        return None, [{"symbol": "-", "why": "the desk feed is not a paper account; exit notes are paper-only"}]
+    positions, skipped, seen = [], [], set()
+    for row in snap.get("positions") or []:
+        symbol = str(row.get("symbol") or "")
+        if not symbol:
+            continue
+        if looks_like_option(symbol):
+            skipped.append({"symbol": symbol,
+                            "why": "option exit needs a verified contract, not a drafted floor"})
+            continue
+        if symbol in seen:
+            skipped.append({"symbol": symbol, "why": "duplicate position row in the feed; not drafted"})
+            continue
+        try:
+            qty = int(row.get("quantity") or 0)
+            cost = float(row.get("avg_cost") or 0)
+            last = float(row.get("last_price") or 0)
+        except (TypeError, ValueError):
+            skipped.append({"symbol": symbol, "why": "capture row unreadable; not drafted"})
+            continue
+        if qty < 1:
+            skipped.append({"symbol": symbol, "why": "no quantity to protect"})
+            continue
+        seen.add(symbol)
+        positions.append(Position(symbol=symbol, quantity=qty, avg_cost=cost, last_price=last))
+    snapshot = AccountSnapshot(account_id=str(snap.get("account") or "desk"), cash=float(snap.get("cash") or 0),
+                               positions=positions, env="paper", source="manual")
+    return snapshot, skipped
+
+
+def _shown(path: Path) -> str:
+    """A path for the operator to read: repo-relative when it is inside the repo."""
+    try:
+        return path.relative_to(ROOT).as_posix()
+    except ValueError:
+        return path.as_posix()
+
+
+def propose_envelope() -> dict:
+    """Draft the operator's exit note: one bounded sell per open position and its stop.
+
+    Writes `data/approvals.proposed.json` only, and that file is gitignored. `arm_envelope`
+    stays the single writer of the live envelope, so drafting cannot authorise anything -
+    it just puts the numbers in front of the one party allowed to approve them.
+    """
+    valid, _, error = verify_chain(JOURNAL)
+    if not valid:
+        return {"ok": False, "error": f"journal integrity: {error}; nothing drafted"}
+    snapshot, skipped = _draft_book()
+    if snapshot is None:
+        return {"ok": False, "error": skipped[0]["why"]}
+    config = load_config(ROOT)
+    book = DATA_DIR / "watchlist.json"
+    watchlist = None
+    if book.is_file():
+        try:
+            watchlist = Watchlist.model_validate_json(book.read_text(encoding="utf-8"))
+        except ValueError:
+            skipped.append({"symbol": _shown(book),
+                            "why": "watchlist unreadable; no fallback levels used"})
+    try:
+        proposal = propose_exit_envelope(
+            snapshot, read_events(JOURNAL), today=datetime.now(ET).date(),
+            collar_pct=config.risk.exit_collar_pct, max_orders_per_day=config.risk.max_orders_per_day,
+            watchlist=watchlist, options_enabled=config.tactical.options_enabled,
+        )
+    except ValueError as exc:
+        return {"ok": False, "error": f"nothing drafted: {exc}"}
+    payload = proposal.as_payload()
+    payload["skipped"] = proposal.skipped + skipped
+    if proposal.armable:
+        # The whole proposal, not just the batch: the desk re-reads this file after a reload
+        # so the operator still sees where each floor came from before deciding to arm.
+        APPROVAL_DRAFT.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
+        payload["draft_file"] = _shown(APPROVAL_DRAFT)
+    elif APPROVAL_DRAFT.is_file():
+        # An empty proposal must not leave yesterday's bounds sitting there looking armable.
+        APPROVAL_DRAFT.unlink()
+        payload["draft_cleared"] = True
+    return scrub({"ok": True, "proposal": payload, "approvals": build_approvals()})
+
+
 def disarm_envelope() -> dict:
     """Revert to manual: remove the envelope and propagate to the cloud mount via git.
 
@@ -1862,12 +1994,34 @@ def _git_push_approvals(message: str) -> tuple[bool, str | None]:
 def arm_envelope(body: dict) -> dict:
     """Operator pre-approval from the desk: write a bounded same-day envelope.
 
-    reuse_last re-dates the last disarmed envelope (the operator re-approves its
-    bounds for today); otherwise the body must carry explicit order lines.
+    use_draft arms the kernel's exit note for the open book (dated today only, so the
+    floors always come from the positions and stops on the desk right now); reuse_last
+    re-dates the last disarmed envelope (the operator re-approves its bounds for today);
+    otherwise the body must carry explicit order lines.
     Propagates to the cloud mount via a path-limited commit, mirroring disarm.
     """
     today = datetime.now(ET).date()
-    if body.get("reuse_last"):
+    if body.get("use_draft"):
+        if not APPROVAL_DRAFT.is_file():
+            return {"ok": False, "error": "No drafted exit note. Press Propose first."}
+        try:
+            raw = json.loads(APPROVAL_DRAFT.read_text(encoding="utf-8"))
+            candidate = raw.get("envelope") if isinstance(raw, dict) and isinstance(raw.get("envelope"), dict) else raw
+        except (json.JSONDecodeError, OSError):
+            return {"ok": False, "error": "Drafted exit note is unreadable."}
+        if not isinstance(candidate, dict):
+            return {"ok": False, "error": "Drafted exit note carries no envelope lines."}
+        # A draft is only as current as the book and levels it was read from; yesterday's
+        # note protects yesterday's positions, so it re-dates rather than re-arms.
+        if str(candidate.get("as_of")) != today.isoformat():
+            return {"ok": False, "error": f"Drafted exit note is dated {candidate.get('as_of')}, not today. "
+                                          "Press Propose to draft one from the current book."}
+        candidate["as_of"] = today.isoformat()
+        candidate["approved_at"] = datetime.now(UTC).isoformat()
+        candidate["approved_by"] = "operator (dashboard, drafted from open positions)"
+        note = str(candidate.get("note") or "").removeprefix("DRAFT ONLY - not armed. ")
+        candidate["note"] = (note + " | armed from the open-position draft via dashboard").strip(" |")[:400]
+    elif body.get("reuse_last"):
         backup = APPROVALS.with_name("approvals.disarmed.json")
         source = backup if backup.is_file() else APPROVALS
         if not source.is_file():
@@ -2354,9 +2508,11 @@ class Handler(SimpleHTTPRequestHandler):
             self.path = "/index.html"
         super().do_GET()
 
-    def _body(self) -> dict:
+    def _body(self, *, optional: bool = False) -> dict:
         length = int(self.headers.get("Content-Length") or 0)
         if length <= 0 or length > 64_000:
+            if optional and length <= 0:
+                return {}
             raise ValueError("empty or oversized request body")
         data = json.loads(self.rfile.read(length))
         if not isinstance(data, dict):
@@ -2370,6 +2526,15 @@ class Handler(SimpleHTTPRequestHandler):
                 self._json(disarm_envelope())
             except Exception as exc:  # noqa: BLE001
                 self._json({"error": str(exc)}, 500)
+            return
+        if path == "/api/approvals/propose":
+            # Drafting takes no parameters - the numbers all come from the journal, the
+            # broker feed and config/risk.yaml - but the client always posts a body.
+            try:
+                self._body(optional=True)
+                self._json(propose_envelope())
+            except Exception as exc:  # noqa: BLE001
+                self._json({"error": str(exc)}, 400)
             return
         if path == "/api/approvals/arm":
             try:

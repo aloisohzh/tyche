@@ -153,6 +153,8 @@ class RiskPolicy(BaseModel):
     max_daily_turnover_pct: float = 0.50
     max_orders_per_day: int = 6
     max_limit_deviation_pct: float = 0.03
+    # How far below the journaled stop a proposed exit floor may sit (envelope drafts).
+    exit_collar_pct: float = Field(default=0.05, gt=0.0, le=0.20)
     min_order_notional: float = 500.0
     min_price: float = 1.00
     soft_drawdown_pct: float = 0.04
