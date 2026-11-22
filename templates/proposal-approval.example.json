@@ -1,0 +1,24 @@
+{
+  "proposals": [
+    {
+      "n": 1,
+      "lane": "PB-004 scalp (EXAMPLE ONLY - not a live proposal)",
+      "action": "BUY",
+      "symbol": "US.SPY",
+      "qty": "10",
+      "entry": "limit 672.40, regular session, request expires in 90s",
+      "value": "USD 6,724 (about 6.7% of NAV)",
+      "stop": "668.90 (-0.5%)",
+      "target": "677.60 (+0.8%)",
+      "exit_by": "15:15 ET today - session flatten, no overnight hold",
+      "risk": "max loss about USD 35 at the stop",
+      "direction": "bullish",
+      "horizon": "intraday",
+      "thesis": "Pullback to the opening range low with breadth still positive; expecting a retest of the morning high.",
+      "invalidation": "A close below 668.90 or breadth turning negative before 11:00 ET.",
+      "notes": [
+        "Envelope, exact-order audit and reserve still run after your approve; approval authorizes only this proposal."
+      ]
+    }
+  ]
+}

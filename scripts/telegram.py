@@ -1,11 +1,17 @@
 """Telegram Bot API helper for the tyche sentinel. Token from gitignored .env.
 
-Commands: chat-id, send, render-digest, send-digest, listen.
+Commands: chat-id, send, render-digest, send-digest, render-proposal, wait-for-reply, listen.
 `render-digest <json-file|->` is offline; `send-digest` uses the same template.
+`render-proposal <json-file|->` is offline; `wait-for-reply <json-file> [--timeout S]` sends the
+same numbered previews and waits (10 minutes by default, 15 at most) for the operator's explicit
+`/approve N` or `/deny N`. Silence is a timeout, a free-text reply (question or change) is handed
+back to the desk unapproved, and nothing but `/approve N` from the allowlisted chat ever approves.
 `listen` is the inbound bridge: it relays
 operator questions to a desk session and surfaces pending always_ask tool
 approvals (e.g. paper order submissions) for explicit /approve or /deny.
 It NEVER auto-approves; only the allowlisted chat can drive it.
+Only one program may read the bot's updates at a time: `wait-for-reply` and `listen` must never
+run together.
 """
 from __future__ import annotations
 
@@ -18,6 +24,7 @@ import sys
 import time
 import urllib.parse
 import urllib.request
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import cloud_api
@@ -33,6 +40,8 @@ RESOLUTION_EVENTS = {"user.tool_confirmation", "agent.tool_result", "agent.mcp_t
 MAX_PREVIEW = 1500
 MAX_MESSAGE = 3900
 SEND_TIMEOUT = 60
+# Injection points for the wait loop's clock; tests replace them, production never does.
+_now = time.time
 
 
 def env() -> dict:
@@ -635,10 +644,288 @@ def listen() -> None:
         save_state(state)
 
 
+# ------------------------------------------------------------- proposal approval (wait-for-reply)
+#
+# The desk card sends an entry proposal here and waits for the operator's answer during the fire. The
+# platform never asks about a paper submit (only cancel/modify are always_ask), so this is the only
+# place an explicit, numbered, allowlisted yes exists for a new entry. The contract is deliberately
+# narrow: `/approve N` is the one approving input; `/deny N`, silence past the deadline, a free-text
+# reply, a transport failure and a second getUpdates consumer all leave the proposal unapproved.
+
+PROPOSAL_REQUIRED = {"n", "lane", "action", "symbol", "qty", "entry", "value", "stop", "target",
+                     "exit_by", "thesis", "invalidation"}
+PROPOSAL_OPTIONAL = {"direction", "horizon", "edge", "bear_case", "risk", "notes"}
+MAX_PROPOSALS = 6
+WAIT_DEFAULT = 600
+WAIT_MAX = 900
+WAIT_POLL = 20
+WAIT_SKEW = 5
+WAIT_COMMANDS = {"/approve", "/deny", "/pending", "/help", "/start"}
+
+
+def load_proposals(data: object) -> list[dict]:
+    """Validate the proposal file: the full package or nothing. A proposal without its exit plan
+    (stop, target and exit-by) is rejected before anything reaches the operator, so a preview can
+    never show less than what approval would authorize."""
+    rows = data.get("proposals") if isinstance(data, dict) else data
+    if not isinstance(rows, list) or not rows or len(rows) > MAX_PROPOSALS:
+        raise ValueError(f"proposals must be a list of 1 to {MAX_PROPOSALS} objects")
+    out: list[dict] = []
+    seen: set[int] = set()
+    for row in rows:
+        item = _digest_object(row, PROPOSAL_REQUIRED, PROPOSAL_OPTIONAL)
+        n = item["n"]
+        if not isinstance(n, int) or isinstance(n, bool) or not 1 <= n <= 999:
+            raise ValueError("proposal n must be an integer from 1 to 999")
+        if n in seen:
+            raise ValueError(f"proposal number {n} is used twice")
+        seen.add(n)
+        clean: dict = {"n": n}
+        for key in sorted(PROPOSAL_REQUIRED - {"n"}):
+            clean[key] = _digest_text(item[key], 24 if key == "symbol" else
+                                      12 if key in ("action", "qty") else 240)
+        for key in sorted(PROPOSAL_OPTIONAL & item.keys()):
+            clean[key] = _digest_lines(item[key]) if key == "notes" else _digest_text(item[key])
+        out.append(clean)
+    return out
+
+
+def proposal_ref(proposals: list[dict]) -> str:
+    """Content ref over the validated proposals: an approval is bound to exactly this text."""
+    return digest_ref(json.dumps(proposals, sort_keys=True, ensure_ascii=False))
+
+
+def _clock_text(epoch: float) -> str:
+    moment = datetime.fromtimestamp(epoch, UTC)
+    sgt = moment + timedelta(hours=8)
+    return f"{moment:%H:%M} UTC / {sgt:%H:%M} SGT"
+
+
+def render_proposal(proposal: dict, deadline: float | None = None, ref: str | None = None) -> str:
+    """One numbered preview per proposal, always with the exit plan. Approval wording is fixed."""
+    p = proposal
+    n = p["n"]
+    out = [
+        f"<b>TYCHE PROPOSAL #{n} - APPROVAL REQUIRED</b>",
+        f"<b>{esc(p['action'])} {esc(p['qty'])} {esc(p['symbol'])}</b>",
+        f"<b>Strategy</b>: {esc(p['lane'])}",
+        f"Entry: {esc(p['entry'])} | Value: {esc(p['value'])}",
+    ]
+    if "direction" in p or "horizon" in p:
+        out.append(" | ".join(f"{k.capitalize()}: {esc(p[k])}" for k in ("direction", "horizon") if k in p))
+    out += ["", "<b>Exit plan</b>",
+            f"- Stop: {esc(p['stop'])}", f"- Target: {esc(p['target'])}", f"- Exit by: {esc(p['exit_by'])}"]
+    if "risk" in p:
+        out.append(f"- Risk: {esc(p['risk'])}")
+    out += ["", f"<b>Thesis</b>: {esc(p['thesis'])}", f"<b>Invalidation</b>: {esc(p['invalidation'])}"]
+    for key in ("edge", "bear_case"):
+        if key in p:
+            out.append(f"<b>{key.replace('_', ' ').capitalize()}</b>: {esc(p[key])}")
+    if p.get("notes"):
+        out += ["", "<b>Notes</b>"] + ["- " + esc(line) for line in p["notes"]]
+    by = f"by {_clock_text(deadline)}" if deadline else "within the window"
+    out += ["", (f"Reply <code>/approve {n}</code> or <code>/deny {n} [reason]</code> {by}. "
+                 "Ask a question in plain text and the desk answers here. A requested change counts as "
+                 "a no: the desk rebuilds, re-audits and sends a fresh preview with a new number. "
+                 "No reply by the deadline is a no. Nothing is submitted without your explicit "
+                 "/approve.")]
+    if ref:
+        out.append(f"<i>proposal ref: {ref}</i>")
+    rendered = mask_ids("\n".join(out))
+    if len(rendered.encode("utf-16-le")) // 2 > MAX_DIGEST:
+        raise ValueError(f"Proposal #{n} preview exceeds {MAX_DIGEST} characters; shorten the prose")
+    return rendered
+
+
+def wait_state_path(source: Path) -> Path:
+    return source.with_name(source.name + ".wait.json")
+
+
+def _notify(chat_id: str, text: str) -> None:
+    """Best-effort chat feedback; a failed acknowledgement never changes a decision."""
+    try:
+        api("sendMessage", {"chat_id": chat_id, "text": text[:MAX_MESSAGE], "parse_mode": "HTML"})
+    except (OSError, ValueError, SystemExit) as error:
+        print(f"telegram send failed: {error}", flush=True)
+
+
+def _decide(state: dict, n: int, result: str, reason: str | None) -> None:
+    state["decisions"][str(n)] = {
+        "result": result, "reason": reason,
+        "at": datetime.fromtimestamp(_now(), UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+
+
+def _pending(state: dict, proposals: list[dict]) -> list[int]:
+    return [p["n"] for p in proposals if str(p["n"]) not in state["decisions"]]
+
+
+def handle_wait_message(state: dict, proposals: list[dict], chat_id: str, text: str) -> str | None:
+    """Apply one allowlisted message. Returns the free-text reply when the message was neither a
+    command nor a decision, so the caller can hand it back to the desk."""
+    parts = text.split(maxsplit=2)
+    command = parts[0].lower().split("@")[0] if parts else ""
+    pending = _pending(state, proposals)
+    if command in ("/approve", "/deny"):
+        verb = "Approved" if command == "/approve" else "Denied"
+        if len(parts) < 2 or not parts[1].isdigit():
+            _notify(chat_id, f"Usage: {command} N - the number is required, nothing is {verb.lower()} "
+                             f"without it. Pending: {', '.join(map(str, pending)) or 'none'}.")
+            return None
+        n = int(parts[1])
+        if n in pending:
+            result = "approved" if command == "/approve" else "denied"
+            reason = parts[2] if command == "/deny" and len(parts) > 2 else None
+            _decide(state, n, result, reason)
+            _notify(chat_id, f"{verb} #{n}" + (f" ({esc(reason)})" if reason else "") + ". "
+                    + ("The desk now runs the exact-order audit and reserve before one paper order; "
+                       "a submit is not a fill." if result == "approved"
+                       else "The desk records your no and submits nothing for it."))
+        elif str(n) in state["decisions"]:
+            _notify(chat_id, f"Proposal #{n} is already {state['decisions'][str(n)]['result']}; "
+                             "a fresh preview carries a new number.")
+        else:
+            _notify(chat_id, f"No pending proposal #{n}. Pending: "
+                             f"{', '.join(map(str, pending)) or 'none'}.")
+        return None
+    if command in ("/pending", "/help", "/start") or command.startswith("/"):
+        _notify(chat_id, f"Pending: {', '.join(map(str, pending)) or 'none'}. Reply /approve N or "
+                         "/deny N [reason]; plain text is a question or a change and approves nothing.")
+        return None
+    state["replies"].append({"text": text, "at": datetime.fromtimestamp(_now(), UTC)
+                             .strftime("%Y-%m-%dT%H:%M:%SZ")})
+    _notify(chat_id, "Noted. The desk will answer, or rebuild the proposal if you asked for a change. "
+                     f"Proposal(s) {', '.join(map(str, pending)) or 'none'} stay unapproved until you "
+                     "send /approve N.")
+    return text
+
+
+def wait_result(state: dict, proposals: list[dict], outcome: str) -> dict:
+    decisions = state["decisions"]
+
+    def by(kind: str) -> list[int]:
+        return sorted(int(n) for n, d in decisions.items() if d["result"] == kind)
+
+    return {
+        "outcome": outcome,
+        "ref": state["ref"],
+        "approved": by("approved"),
+        "denied": by("denied"),
+        "timed_out": by("timeout"),
+        "pending": _pending(state, proposals),
+        "reply": state["replies"][-1] if state["replies"] else None,
+        "deadline": datetime.fromtimestamp(state["deadline"], UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "decisions": decisions,
+    }
+
+
+def wait_for_reply(source: Path, chat_id: str, timeout: int = WAIT_DEFAULT) -> dict:
+    """Send the previews (once) and wait for numbered decisions from the allowlisted chat.
+
+    State lives next to the proposal file, keyed by the proposals' content ref, so running the same
+    command again resumes the same window without a second preview (the desk does that after
+    answering a question), while a rebuilt proposal starts a fresh window with a fresh preview.
+    Outcomes: decided (every proposal answered), reply (free text handed back; pending stay
+    pending), timeout (undecided proposals recorded as timeout, which the desk treats as a no),
+    conflict (another getUpdates consumer; nothing decided, exit 2).
+    """
+    if not isinstance(timeout, int) or not 30 <= timeout <= WAIT_MAX:
+        raise ValueError(f"timeout must be 30..{WAIT_MAX} seconds")
+    proposals = load_proposals(json.loads(source.read_text(encoding="utf-8-sig")))
+    ref = proposal_ref(proposals)
+    state_path = wait_state_path(source)
+    state = None
+    if state_path.exists():
+        previous = json.loads(state_path.read_text(encoding="utf-8"))
+        if previous.get("ref") == ref:
+            state = previous
+    if state is None:
+        # Forget every update the bot has queued: an old "/approve 1" must never answer this preview.
+        stale = api("getUpdates", {"offset": -1, "timeout": 0})["result"]
+        offset = max(u["update_id"] for u in stale) + 1 if stale else 0
+        sent_at = _now()
+        state = {"ref": ref, "offset": offset, "sent_at": sent_at, "deadline": sent_at + timeout,
+                 "decisions": {}, "replies": []}
+        for proposal in proposals:
+            _send_html(render_proposal(proposal, state["deadline"], ref), chat_id, ref)
+        state_path.write_text(json.dumps(state, indent=1), encoding="utf-8")
+    outcome = None
+    while outcome is None:
+        remaining = state["deadline"] - _now()
+        if not _pending(state, proposals):
+            outcome = "decided"
+            break
+        if remaining <= 0:
+            for n in _pending(state, proposals):
+                _decide(state, n, "timeout", None)
+                _notify(chat_id, f"No reply by the deadline: proposal #{n} is treated as denied. "
+                                 "Nothing was submitted for it.")
+            outcome = "timeout"
+            break
+        try:
+            updates = api("getUpdates", {"offset": state["offset"],
+                                         "timeout": max(1, min(WAIT_POLL, int(remaining)))})["result"]
+        except SystemExit as error:
+            if "conflict" in str(error).lower():
+                print("another getUpdates consumer is running (listen?); nothing decided", flush=True)
+                outcome = "conflict"
+                break
+            raise
+        except OSError as error:
+            print(f"getUpdates failed ({error}); retrying", flush=True)
+            continue
+        for update in updates:
+            state["offset"] = update["update_id"] + 1
+            message = update.get("message") or {}
+            if str((message.get("chat") or {}).get("id")) != str(chat_id):
+                continue
+            if message.get("date", 0) < state["sent_at"] - WAIT_SKEW:
+                continue
+            text = (message.get("text") or "").strip()
+            if text and handle_wait_message(state, proposals, chat_id, text) is not None:
+                outcome = "reply"
+        state_path.write_text(json.dumps(state, indent=1), encoding="utf-8")
+    state_path.write_text(json.dumps(state, indent=1), encoding="utf-8")
+    return wait_result(state, proposals, outcome)
+
+
 def main() -> None:
     if len(sys.argv) < 2:
-        raise SystemExit("Usage: telegram.py chat-id|send|render-digest|send-digest|listen")
+        raise SystemExit("Usage: telegram.py chat-id|send|render-digest|send-digest|"
+                         "render-proposal|wait-for-reply|listen")
     command = sys.argv[1]
+    if command == "render-proposal":
+        if len(sys.argv) != 3:
+            raise SystemExit("Usage: telegram.py render-proposal <json-file|->")
+        try:
+            source = (sys.stdin.read() if sys.argv[2] == "-"
+                      else Path(sys.argv[2]).read_text(encoding="utf-8-sig"))
+            proposals = load_proposals(json.loads(source))
+            ref = proposal_ref(proposals)
+            print("\n\n".join(render_proposal(p, None, ref) for p in proposals))
+        except (ValueError, TypeError, OSError) as error:
+            raise SystemExit(f"Invalid proposals (nothing sent): {error}") from error
+        return
+    if command == "wait-for-reply":
+        args = sys.argv[2:]
+        timeout = WAIT_DEFAULT
+        if "--timeout" in args:
+            timeout = int(args[args.index("--timeout") + 1])
+            args = [a for i, a in enumerate(args)
+                    if i not in (args.index("--timeout"), args.index("--timeout") + 1)]
+        if len(args) != 1:
+            raise SystemExit("Usage: telegram.py wait-for-reply <json-file> [--timeout seconds]")
+        chat_id = env().get("TELEGRAM_CHAT_ID")
+        if not chat_id:
+            raise SystemExit("TELEGRAM_CHAT_ID missing from .env; run chat-id first")
+        try:
+            result = wait_for_reply(Path(args[0]), chat_id, timeout)
+        except (ValueError, TypeError, OSError) as error:
+            raise SystemExit(f"Invalid proposals (nothing sent, nothing approved): {error}") from error
+        print(json.dumps(result, indent=1))
+        if result["outcome"] == "conflict":
+            raise SystemExit(2)
+        return
     if command in {"render-digest", "send-digest"}:
         if len(sys.argv) != 3:
             raise SystemExit(f"Usage: telegram.py {command} <json-file|->")

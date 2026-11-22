@@ -44,6 +44,8 @@ dist/
 /research/youtube/raw/
 .env
 .telegram-bridge.json
+# wait-for-reply state, written next to a run-local proposal file
+*.wait.json
 *.qoder.site
 .cloud-release/
 
