@@ -66,7 +66,7 @@ as an armed operator envelope (`src/tyche/approvals.py`) rather than as a restin
 **What rung 1.5 does not do.** It shortens the *human-confirm* leg, not the *detection* leg. Until rung 0 exists,
 detection is still the three desk fires (08:05 / 12:05 / 15:05 ET), so an armed note only helps for a breach the
 desk happens to be looking at - which is why the build order below still starts with the tick. Arming a note also
-grants nothing new: it is the same envelope the Pre-approve path already writes, with sell lines only, and the
+grants nothing new: it is the same envelope Within my bounds already writes (ADR 0018), with sell lines only, and the
 kill switch still outranks it.
 
 **Sequencing the operator agreed to**: propose-and-arm card (done) -> Level 0 monitor tick at the 5-minute tier ->

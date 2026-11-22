@@ -2,7 +2,7 @@
 name: paper-submit-protocol
 description: Use before any broker write on a tyche paper run - entry, exit, cancel, modify or reconciliation - and whenever a submit timed out or came back with an uncertain status. Trigger on every approved order the desk is about to act on.
 role: executor
-version: 1
+version: 2
 ---
 
 # Paper submit protocol
@@ -24,8 +24,8 @@ Submit with `sim_trade_input_order` only while `now < submit_before`. It is alwa
 ## 5. An uncertain outcome blocks retry
 On a timeout, transport error or unclear status, read `sim_trade_history_order_list` before any further write; if the broker shows the order, submit nothing and journal what you found. Only status 4 at full cumulative quantity is proven terminal; status 5 is not, so treat it as unresolved and report the lot as unprotected.
 
-## 6. Exactly one gap per request_id
-When an approved exit cannot be armed, journal one `protection.gap` for that request_id via `tyche events add`, resolution `gate.wait` or `expired`, never invented. Before re-arming, check journal and broker history; if still live, journal nothing.
+## 6. One gap per request_id
+When an approved exit cannot be armed, journal one `protection.gap` for that request_id with `tyche record-order protection.gap --data '{...}'`, resolution `gate.wait` or `expired`, never invented. Before re-arming, check journal and broker history; if still live, journal nothing.
 
 ## 7. Hand back evidence
-Return paths and hashes for capture, plan, reserve, receipt and rows.
+Return paths and hashes for capture, plan, reserve, receipt, rows.

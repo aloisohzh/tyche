@@ -275,7 +275,26 @@ Afterwards append one line here with the date, session id, each command's HTTP o
 showed next. No cap, gate, schedule, vault or env value changes as part of this drill, and nothing in it
 arms a pre-approved envelope.
 
-## Proposal approval from Telegram - `wait-for-reply` (built 2026-11-22, NOT yet on the cards)
+## Proposal approval from Telegram - `wait-for-reply` (built 2026-11-22, live on the permanent card)
+
+**Two trading modes (ADR 0018, 2026-11-22).** The desk is in one of two modes, decided by whether a
+same-day `data/approvals.json` exists when the fire runs:
+
+- **Ask me** (no envelope, the default): the `/approve N` below is the whole yes. Each proposal carries
+  an `order` block (symbol, side, qty, limit, exit floor, setup hash when the lane binds one); the
+  preview prints "Your approve authorizes: ..." from it. On `/approve N`, `wait-for-reply` writes the
+  approved numbers with their order blocks to `<file>.approved.json`, and the desk runs
+  `tyche approve-telegram <file>`, which journals one `approval.telegram` event per approved order.
+  `tyche authorize`, `tyche tactical reserve` and `tyche tactical scalp` then build their authority
+  from today's journaled approvals (`telegram_batch`) and run the same deterministic gate as the
+  envelope, for exactly those orders and no others. An approved proposal without an `order` block is
+  reported and authorizes nothing.
+- **Within my bounds** (same-day envelope armed from the desk): no Telegram ask; the desk submits
+  inside the bounds. The 15:05 ET fire can trade this way while the operator sleeps.
+
+The kill-switch overrides both. The brief's wording for the two modes is in
+`scripts/deploy_two_fire_automation.py` and reaches the permanent card only on the operator's go,
+between fires.
 
 The platform never asks about a paper submit (only cancel/modify are `always_ask`), so until now the
 only yes for a new entry lived in the console thread. `scripts/telegram.py wait-for-reply` gives the
@@ -315,7 +334,7 @@ Rules that keep it safe:
 - Tests: `tests/test_telegram_approval.py` (decision paths, allowlist, stale, resume, conflict,
   timeout bounds) and `tests/test_desk_card_prompt.py` (the brief's PROPOSAL APPROVAL clause).
 
-Rollout: LIVE from Mon 23 Nov 2026 08:05 ET. The operator created the permanent desk card
+Rollout: LIVE from Mon 23 Nov 2026 08:05 ET (single-approval wording; the two-mode brief above is a later write). The operator created the permanent desk card
 `dep_00w9n1b9mkb9cjkalhcv` on 22 Nov from current `main`, so its brief carries the PROPOSAL APPROVAL
 paragraph (`scripts/deploy_two_fire_automation.py`, marker `has_proposal_approval`). No supervised live
 run of the command preceded that; the first real proposal is the first live run, which is acceptable

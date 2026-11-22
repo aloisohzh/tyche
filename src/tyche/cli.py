@@ -11,7 +11,16 @@ from pydantic import ValidationError
 from rich.console import Console
 from rich.table import Table
 
-from tyche.approvals import ApprovalBatch, authorize_order, envelope_totals, envelope_usage
+from tyche.approvals import (
+    TELEGRAM_APPROVAL_EVENT,
+    ApprovalBatch,
+    TelegramApproval,
+    authorize_order,
+    envelope_totals,
+    envelope_usage,
+    resolve_batch,
+    telegram_approvals,
+)
 from tyche.broker import (
     MoomooCli,
     MoomooCliError,
@@ -895,7 +904,7 @@ def halt_status(
 def record_order(
     event: str = typer.Argument(
         ...,
-        help="order.requested, order.submitted, order.filled, order.rejected, halt.skip or gate.wait.",
+        help="order.requested, order.submitted, order.filled, order.rejected, halt.skip, gate.wait or protection.gap.",
     ),
     data: str = typer.Option(..., "--data", help="JSON object with the event payload."),
     journal_path: Path = typer.Option(Path("journal/events.jsonl"), "--journal"),
@@ -908,6 +917,7 @@ def record_order(
         "order.rejected",
         "halt.skip",
         "gate.wait",
+        "protection.gap",
     }
     if event not in allowed:
         raise typer.BadParameter(f"event must be one of {sorted(allowed)}")
@@ -917,6 +927,12 @@ def record_order(
         raise typer.BadParameter(f"--data must be valid JSON: {exc}") from exc
     if not isinstance(payload, dict):
         raise typer.BadParameter("--data must be a JSON object")
+    if event == "protection.gap":
+        # One gap per request_id, with the resolution the lane actually observed (never invented).
+        if not payload.get("request_id"):
+            raise typer.BadParameter("protection.gap requires request_id")
+        if payload.get("resolution") not in ("gate.wait", "expired"):
+            raise typer.BadParameter("protection.gap resolution must be gate.wait or expired")
     if event == "order.filled":
         missing = [
             key
@@ -1208,17 +1224,16 @@ def authorize(
 
     if side == "buy" and effective_halt(journal_path.parent, journal_path.resolve().parent.parent).get("halted"):
         deny("kill-switch engaged - buys blocked, de-risking sells still allowed")
-    if not path.is_file():
-        deny(f"no envelope at {path}; operator has not pre-approved any batch")
-    try:
-        batch = ApprovalBatch.model_validate_json(path.read_text(encoding="utf-8"))
-    except ValidationError as exc:
-        deny(f"envelope invalid: {exc.errors()[0]['msg']}")
     valid, _, error = verify_chain(journal_path)
     if not valid:
         deny(f"journal integrity: {error}")
+    events = read_events(journal_path)
+    # Within my bounds (same-day envelope) wins; otherwise today's journaled Telegram approvals.
+    batch, mode, how = resolve_batch(path, events, today)
+    if batch is None:
+        deny(how)
     used = envelope_usage(journal_path, today)
-    used_qty, used_notional = envelope_totals(read_events(journal_path), today, symbol, side)
+    used_qty, used_notional = envelope_totals(events, today, symbol, side)
     # Legacy envelope checks are stock-only; options use the exact-contract tactical gate.
     from tyche.models import looks_like_option
     if looks_like_option(symbol):
@@ -1228,11 +1243,76 @@ def authorize(
         used_qty=used_qty, used_notional=used_notional,
     )
     console.print_json(json.dumps({
-        "authorized": authorized, "reason": reason, "used": used,
+        "authorized": authorized, "reason": reason, "mode": mode, "authority": how, "used": used,
         "max_orders": batch.max_orders, "as_of": batch.as_of.isoformat(),
         "today": today.isoformat(),
     }))
     raise typer.Exit(0 if authorized else 1)
+
+
+@app.command("approve-telegram")
+def approve_telegram(
+    proposals: Path = typer.Argument(..., help="The proposal file given to scripts/telegram.py wait-for-reply."),
+    journal_path: Path = typer.Option(Path("journal/events.jsonl"), "--journal"),
+    at: str = typer.Option("", "--at", help="ISO timestamp for 'today' (default: now UTC)."),
+) -> None:
+    """Ask me: journal the operator's Telegram /approve N as today's order authorization.
+
+    Reads `<proposals>.approved.json`, which `wait-for-reply` writes only from the numbered
+    `/approve` branch, and appends one `approval.telegram` event per approved proposal that
+    carries an `order` block. Idempotent per (ref, n). An approved proposal without an
+    `order` block is reported and authorizes nothing: the yes must name the exact order.
+    Exit 0 when at least one approval is journaled or already was, 1 otherwise.
+    """
+    try:
+        now = datetime.fromisoformat(at) if at else datetime.now(UTC)
+    except ValueError as exc:
+        raise typer.BadParameter(f"--at must be an ISO timestamp: {exc}") from exc
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=UTC)
+    today = now.astimezone(ET).date()
+    sidecar = proposals.with_name(proposals.name + ".approved.json")
+
+    def finish(payload: dict, code: int) -> None:
+        console.print_json(json.dumps({**payload, "today": today.isoformat()}, default=str))
+        raise typer.Exit(code)
+
+    if not sidecar.is_file():
+        finish({"journaled": [], "error": f"no approvals at {sidecar}; wait-for-reply approved nothing"}, 1)
+    try:
+        data = json.loads(sidecar.read_text(encoding="utf-8"))
+        ref = str(data["ref"])
+        rows = data["approved"]
+        assert isinstance(rows, list)
+    except (json.JSONDecodeError, OSError, KeyError, TypeError, AssertionError):
+        finish({"journaled": [], "error": f"{sidecar} is unreadable or not a wait-for-reply approval file"}, 1)
+    valid, _, error = verify_chain(journal_path)
+    if not valid:
+        finish({"journaled": [], "error": f"journal integrity: {error}"}, 1)
+    already = {(a.ref, a.n) for a in telegram_approvals(read_events(journal_path), today)}
+    journaled: list[dict] = []
+    skipped: list[dict] = []
+    with journal_lock(journal_path):
+        for row in rows:
+            n = row.get("n") if isinstance(row, dict) else None
+            order = row.get("order") if isinstance(row, dict) else None
+            if not isinstance(order, dict):
+                skipped.append({"n": n, "why": "approved proposal carries no order block; nothing authorized"})
+                continue
+            try:
+                approval = TelegramApproval.model_validate({
+                    **order, "as_of": today, "ref": ref, "n": n, "decided_at": str(row.get("decided_at") or "")})
+            except ValidationError as exc:
+                skipped.append({"n": n, "why": f"order block invalid: {exc.errors()[0]['msg']}"})
+                continue
+            if (approval.ref, approval.n) in already:
+                journaled.append({**approval.model_dump(mode="json"), "already": True})
+                continue
+            append_locked(journal_path, TELEGRAM_APPROVAL_EVENT, approval.model_dump(mode="json"))
+            journaled.append(approval.model_dump(mode="json"))
+    finish({"ref": ref, "journaled": journaled, "skipped": skipped,
+            "note": "Authorization for exactly these orders today; audit and reserve still run before one paper order."},
+           0 if journaled else 1)
 
 
 @app.command("propose-envelope")

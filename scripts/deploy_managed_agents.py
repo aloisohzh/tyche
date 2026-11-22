@@ -22,6 +22,7 @@ Discipline carried over from the lessons it was written against:
     python scripts/deploy_managed_agents.py export
     python scripts/deploy_managed_agents.py diff coordinator --file plans/managed-migration/desk-new.md
     python scripts/deploy_managed_agents.py apply-system coordinator --file ... --apply
+    python scripts/deploy_managed_agents.py create-skill midday-watch --apply
     python scripts/deploy_managed_agents.py publish-skill exact-order-audit
     python scripts/deploy_managed_agents.py pin-card dep_00vzb9h4ezawwl4thnva --apply
     python scripts/deploy_managed_agents.py attach auditor --skill-id skill_x --version 179... --apply
@@ -60,18 +61,44 @@ ROLE_AGENTS = {
     "auditor": "agent_00w96t16mwxkx3l9vi9i",
     "executor": "agent_00w96uc82lhxc3n8xzvv",
 }
-# skill directory name -> the Managed skill object that holds its versions, and the role that pins it.
+# skill directory name -> the Managed skill object that holds its versions, the folder under skills/
+# it lives in, and the roles that pin it. A skill under skills/shared/ is pinned on several agents from
+# ONE cloud object, so the body never forks (L-033). `id` None means the cloud object does not exist yet:
+# run `create-skill <name> --apply`, paste the returned id here, then `publish-skill` / `attach`.
 # A new version here moves nothing: an agent keeps running the version it pins until `attach` re-pins it.
 SKILLS = {
-    "sentinel-digest": {"id": "skill_00w5eiyk0bl6o8wz2yd8", "role": "coordinator"},
-    "exact-order-audit": {"id": "skill_00w5ej0prnz0h36xnfvm", "role": "auditor"},
-    "paper-submit-protocol": {"id": "skill_00w5ej2wczbb5vfl1bq9", "role": "executor"},
+    "sentinel-digest": {"id": "skill_00w5eiyk0bl6o8wz2yd8", "dir": "coordinator", "roles": ["coordinator"]},
+    "exact-order-audit": {"id": "skill_00w5ej0prnz0h36xnfvm", "dir": "auditor", "roles": ["auditor"]},
+    "paper-submit-protocol": {"id": "skill_00w5ej2wczbb5vfl1bq9", "dir": "executor", "roles": ["executor"]},
+    # PR A (2026-11-22): written in the repo, not yet created on the platform.
+    "lifecycle-contract": {"id": None, "dir": "shared", "roles": ["coordinator", "executor"]},
+    "midday-watch": {"id": None, "dir": "coordinator", "roles": ["coordinator"]},
+    "proposal-approval": {"id": None, "dir": "coordinator", "roles": ["coordinator"]},
+    "scout-data-suite": {"id": None, "dir": "researcher", "roles": ["researcher"]},
+    "event-discovery": {"id": None, "dir": "researcher", "roles": ["researcher"]},
+    "youtube-inbox": {"id": None, "dir": "researcher", "roles": ["researcher"]},
+    "lifecycle-review": {"id": None, "dir": "auditor", "roles": ["auditor"]},
+    "broker-capture": {"id": None, "dir": "executor", "roles": ["executor"]},
 }
+
+
+def _skill_path(name: str) -> Path:
+    return SKILLS_DIR / SKILLS[name]["dir"] / name / "SKILL.md"
+
+
+def _skill_id(name: str) -> str:
+    skill_id = SKILLS[name]["id"]
+    if not skill_id:
+        raise SystemExit(f"{name}: no cloud skill object yet; run `create-skill {name} --apply` and record its id")
+    return skill_id
+
+
 NAME_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 # the file stem each role's prompt export keeps, for compatibility with tests/test_skills.py
 EXPORT_STEM = {"coordinator": "desk", "researcher": "researcher", "auditor": "auditor",
                "executor": "executor"}
-CARD_IDS = ("dep_00vzb9h4ezawwl4thnva", "dep_00vzd8d5rdfr4w0denqh")
+# the permanent weekday desk card (the monthly cards were archived 2026-11-22)
+CARD_IDS = ("dep_00w9n1b9mkb9cjkalhcv",)
 
 
 def _now() -> str:
@@ -351,8 +378,7 @@ def _frontmatter(path: Path) -> dict[str, str]:
 
 def _pack(name: str) -> Path:
     """Build the one top-level directory the platform demands, named exactly like the frontmatter name."""
-    role = SKILLS[name]["role"]
-    path = SKILLS_DIR / role / name / "SKILL.md"
+    path = _skill_path(name)
     fields = _frontmatter(path)
     fm_name, desc = fields.get("name", ""), fields.get("description", "")
     problems = []
@@ -413,15 +439,16 @@ def _post_multipart(path: str, parts: list, apply: bool) -> dict:
 def cmd_publish_skill(args) -> None:
     """Add an immutable version to an existing Managed skill; pins are a separate, deliberate step."""
     name = args.skill
-    skill_id = SKILLS[name]["id"]
-    role = SKILLS[name]["role"]
+    skill_id = _skill_id(name)
+    roles = SKILLS[name]["roles"]
+    rel = _skill_path(name).relative_to(ROOT).as_posix()
     zip_path = _pack(name)
     before = cloud_api.req("GET", f"/skills/{skill_id}")
-    current = next((s.get("version") for s in (_agent(role).get("skills") or [])
-                    if s.get("skill_id") == skill_id), None)
-    print(f"skill {name} ({skill_id}) role {role}")
-    print(f"  latest_version now {before.get('latest_version')}; {role} pins {current}")
-    print(f"  package {zip_path.name} {zip_path.stat().st_size} bytes from skills/{role}/{name}/SKILL.md")
+    pins = {r: next((s.get("version") for s in (_agent(r).get("skills") or [])
+                     if s.get("skill_id") == skill_id), None) for r in roles}
+    print(f"skill {name} ({skill_id}) roles {roles}")
+    print(f"  latest_version now {before.get('latest_version')}; pins {pins}")
+    print(f"  package {zip_path.name} {zip_path.stat().st_size} bytes from {rel}")
     if not args.apply:
         print("  body sent: the zip only. display_title and metadata are immutable and are not re-sent.")
         return
@@ -433,21 +460,54 @@ def cmd_publish_skill(args) -> None:
     print(f"  ack version {version}; skill latest_version {after.get('latest_version')}; "
           f"{len(rows)} version(s) on record: {[r.get('version') for r in rows]}")
     body = _version_content(skill_id, version or after.get("latest_version"))
-    local = (SKILLS_DIR / role / name / "SKILL.md").read_text(encoding="utf-8")
+    local = _skill_path(name).read_text(encoding="utf-8")
     if body is None:
         print("  content round-trip: shape unknown, not claimed. Keys seen printed above.")
     elif body.splitlines() == local.splitlines():
         note = " (line endings normalised in transit; the text is the same)" if body != local else ""
-        print(f"  content round-trip: MATCHES skills/{role}/{name}/SKILL.md "
-              f"{len(body)} chars{note}")
+        print(f"  content round-trip: MATCHES {rel} {len(body)} chars{note}")
     else:
         diff = [l for l in difflib.unified_diff(local.splitlines(), body.splitlines(),
                                                 fromfile="local", tofile="cloud", lineterm="")][:20]
-        print(f"  content round-trip: DIFFERS from skills/{role}/{name}/SKILL.md "
-              f"{len(body)} chars vs {len(local)}")
+        print(f"  content round-trip: DIFFERS from {rel} {len(body)} chars vs {len(local)}")
         print("\n".join(diff))
-    print(f"  nothing re-pinned: {role} still runs {current} until "
-          f"`attach {role} --skill-id {skill_id} --version {version or after.get('latest_version')} --apply`")
+    new_version = version or after.get("latest_version")
+    for r in roles:
+        print(f"  nothing re-pinned: {r} still runs {pins[r]} until "
+              f"`attach {r} --skill-id {skill_id} --version {new_version} --apply`")
+
+
+def cmd_create_skill(args) -> None:
+    """Create the Managed skill object for a repo skill that has none yet (first version included).
+
+    One multipart POST to /skills, the same shape the retired deploy_role_skills.py used on 2026-11-21.
+    The platform answers with the skill id and its first latest_version: record the id in SKILLS, then
+    `attach <role> --skill-id <id> --version <latest_version> --add --apply` for each role, and finish
+    with `pin-card`, because a skills write bumps the agent version the card pins.
+    """
+    name = args.skill
+    if SKILLS[name]["id"]:
+        raise SystemExit(f"{name} already exists as {SKILLS[name]['id']}; use publish-skill for a new version")
+    zip_path = _pack(name)
+    rel = _skill_path(name).relative_to(ROOT).as_posix()
+    roles = SKILLS[name]["roles"]
+    parts = [
+        ("display_title", f"tyche {'/'.join(roles)} {name}"),
+        ("metadata", json.dumps({"roles": roles, "source_path": rel,
+                                 "managed_by": "scripts/deploy_managed_agents.py"})),
+        ("files", (zip_path.name, zip_path.read_bytes(), "application/zip")),
+    ]
+    print(f"create skill {name} for roles {roles} from {rel} ({zip_path.stat().st_size} bytes)")
+    item = _post_multipart("/skills", parts, args.apply)
+    if not args.apply:
+        return
+    skill_id = item.get("id") or item.get("item", {}).get("id")
+    latest = item.get("latest_version") or item.get("item", {}).get("latest_version")
+    print(f"  created {skill_id} latest_version {latest}")
+    print(f"  next: set SKILLS[{name!r}]['id'] = {skill_id!r} in this file, then for each role:")
+    for r in roles:
+        print(f"    attach {r} --skill-id {skill_id} --version {latest} --add --apply")
+    print("  then pin-card for the live desk card.")
 
 
 def _version_content(skill_id: str, version: str) -> str | None:
@@ -599,6 +659,11 @@ def main(argv=None) -> None:
     k.add_argument("skill", choices=sorted(SKILLS))
     k.add_argument("--apply", action="store_true")
     k.set_defaults(func=cmd_publish_skill)
+
+    n = sub.add_parser("create-skill", help="create the cloud object for a repo skill that has none yet")
+    n.add_argument("skill", choices=sorted(n for n, s in SKILLS.items() if not s["id"]))
+    n.add_argument("--apply", action="store_true")
+    n.set_defaults(func=cmd_create_skill)
 
     c = sub.add_parser("pin-card")
     c.add_argument("card", choices=sorted(CARD_IDS))

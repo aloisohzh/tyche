@@ -54,7 +54,7 @@ def test_arm_fresh_envelope(srv, desk):
     assert saved["as_of"] == datetime.now(srv.ET).date().isoformat()
     assert saved["approved_by"] == "operator (dashboard)"
     assert saved["max_orders"] == 2
-    assert out["approvals"]["mode"] == "armed"
+    assert out["approvals"]["mode"] == "bounds"
     assert out["approvals"]["auto_active"] is True
 
 
@@ -68,7 +68,7 @@ def test_arm_rejects_invalid_line(srv, desk):
 def test_arm_reuse_last_requires_backup(srv, desk):
     out = srv.arm_envelope({"reuse_last": True})
     assert out["ok"] is False
-    assert "No previous envelope" in out["error"]
+    assert "No previous bounds" in out["error"]
 
 
 def test_arm_reuse_last_falls_back_to_current(srv, desk):
@@ -119,7 +119,7 @@ def test_halt_control_rejects_non_bool(srv, desk):
 def test_halt_overrides_armed_envelope(srv, desk):
     srv.arm_envelope({"max_orders": 2, "orders": LINES})
     out = srv.halt_control({"halted": True, "reason": "override test"})
-    assert out["approvals"]["mode"] == "armed"
+    assert out["approvals"]["mode"] == "bounds"
     assert out["approvals"]["auto_active"] is False
     assert out["approvals"]["halted"] is True
 
@@ -242,7 +242,7 @@ def test_propose_drafts_from_what_the_desk_is_showing(srv, desk, monkeypatch):
     assert srv.APPROVAL_DRAFT.is_file()
     # Drafting must not touch the file the executor reads.
     assert not srv.APPROVALS.exists()
-    assert out["approvals"]["mode"] == "manual"
+    assert out["approvals"]["mode"] == "ask"
 
 
 def test_propose_with_an_empty_book_drafts_nothing(srv, desk, monkeypatch):
@@ -301,7 +301,7 @@ def test_arm_from_draft_is_the_only_writer_of_the_envelope(srv, desk, monkeypatc
     assert not saved["note"].startswith("DRAFT ONLY") and "armed from the open-position draft" in saved["note"]
     assert saved["orders"][0]["setup_hash"] == SETUP_HASH  # bound to the journaled setup, unedited
     assert saved["orders"][0]["limit_min"] == pytest.approx(446.5)
-    assert out["approvals"]["mode"] == "armed" and out["approvals"]["auto_active"] is True
+    assert out["approvals"]["mode"] == "bounds" and out["approvals"]["auto_active"] is True
 
 
 def test_arm_from_draft_refuses_a_stale_note(srv, desk):

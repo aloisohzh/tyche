@@ -1,6 +1,6 @@
 # Runbook: YouTube research inbox (options + macro playlists)
 
-Status: **fetch lane implemented 2026-11-19; cloud clause APPLIED 2026-11-19
+Status: **fetch lane implemented 2026-11-19; link inbox added 2026-11-22 (PR A); cloud clause APPLIED 2026-11-19
 00:16 UTC** (operator-approved via explicit target+diff confirmation;
 researcher compile v7→v8, desk roster re-pinned 8/2/7 + advisor).
 Perimeter: ADR 0015 (research-only), ADR 0006 (LLM outside the kernel),
@@ -35,8 +35,18 @@ of scope until the operator widens it.
 
 ```bash
 pip install -e ".[research]"          # once per environment
-python scripts/fetch_youtube_insights.py --limit 5
+python scripts/fetch_youtube_insights.py --limit 5 --raw-dir <drive-locker>/youtube
+python scripts/fetch_youtube_insights.py --video https://youtu.be/<id> --no-playlists
 ```
+
+- Operator-provided links (2026-11-22, PR A): paste one URL or video id per line into
+  `research/youtube/inbox.txt` (committed, comments allowed) or pass `--video`; they are
+  fetched before the playlists and indexed with `playlist: inbox`. `--raw-dir` copies each new
+  transcript to the private Drive locker so the cloud researcher can read it when no summary
+  exists. Summaries go in `docs/research/youtube/<video_id>.md` (format in that folder's README).
+- Why the desk machine: the cloud researcher has no shell and its web tool returns the player,
+  not the captions; YouTube blocks caption requests from most cloud addresses. Keep the fetch
+  on the laptop or a laptop Claude session, not inside a desk fire.
 
 - Reads both playlist RSS feeds, skips videos already indexed, fetches at most
   `--limit` new transcripts per playlist per run (1 s pause between fetches).

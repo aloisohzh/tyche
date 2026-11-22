@@ -16,8 +16,15 @@
       "horizon": "intraday",
       "thesis": "Pullback to the opening range low with breadth still positive; expecting a retest of the morning high.",
       "invalidation": "A close below 668.90 or breadth turning negative before 11:00 ET.",
+      "order": {
+        "symbol": "US.SPY",
+        "side": "buy",
+        "qty": 10,
+        "limit": 672.40,
+        "exit_floor": 665.50
+      },
       "notes": [
-        "Envelope, exact-order audit and reserve still run after your approve; approval authorizes only this proposal."
+        "Ask me mode: your approve is the order authorization for exactly the order block above (tyche approve-telegram journals it). Exact-order audit and reserve still run before one paper order."
       ]
     }
   ]

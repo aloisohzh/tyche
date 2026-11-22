@@ -1,0 +1,2 @@
+# Paste one YouTube link or video id per line. Lines starting with # are ignored.
+# python scripts/fetch_youtube_insights.py --raw-dir <drive>/youtube  (desk machine)

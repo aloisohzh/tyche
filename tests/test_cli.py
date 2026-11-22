@@ -257,3 +257,16 @@ def test_record_order_filled_requires_canonical_payload(tmp_path: Path) -> None:
         ],
     )
     assert bad.exit_code != 0
+
+
+def test_record_order_protection_gap_needs_request_and_resolution(tmp_path: Path) -> None:
+    journal_path = tmp_path / "events.jsonl"
+    runner = CliRunner()
+    base = ["record-order", "protection.gap", "--journal", str(journal_path), "--data"]
+    ok = runner.invoke(app, base + [json.dumps({"request_id": "req-1", "resolution": "expired"})])
+    assert ok.exit_code == 0, ok.output
+    assert json.loads(journal_path.read_text(encoding="utf-8").strip())["type"] == "protection.gap"
+    no_request = runner.invoke(app, base + [json.dumps({"resolution": "expired"})])
+    assert no_request.exit_code != 0
+    invented = runner.invoke(app, base + [json.dumps({"request_id": "req-1", "resolution": "filled"})])
+    assert invented.exit_code != 0

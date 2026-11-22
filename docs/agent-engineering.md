@@ -48,6 +48,22 @@ were found contradicting the code they describe, L-048):
 | `exact-order-audit` | `skill_00w5ej0prnz0h36xnfvm` | `1795256506833674` | auditor | before an exact-order verdict |
 | `paper-submit-protocol` | `skill_00w5ej2wczbb5vfl1bq9` | `1795256578842546` | executor | before any broker write |
 
+Round two (PR A, 2026-11-22; review doc "Desk agent skills round two"): written under `skills/` and guarded
+by the same tests, **not yet created on the platform**. `scripts/deploy_managed_agents.py create-skill <name>
+--apply` creates each object; the id then goes into its `SKILLS` row before `attach ... --add` per role and
+`pin-card`. A skill under `skills/shared/` is one cloud object pinned on several agents.
+
+| Skill | Pinned on | Loaded by |
+|---|---|---|
+| `lifecycle-contract` (shared) | coordinator, executor | any lifecycle-lane step |
+| `midday-watch` | coordinator | the 12:05 fire |
+| `proposal-approval` | coordinator | the Telegram wait at 08:05 / 15:05 |
+| `scout-data-suite`, `event-discovery`, `youtube-inbox` | researcher | discovery delegations |
+| `lifecycle-review` | auditor | a lifecycle plan or adoption review |
+| `broker-capture` | executor | the start of every executor delegation |
+
+The prompt trim that lets these replace text (PR B) waits for one clean fire with the skills attached.
+
 Mechanics that are not obvious from either API's docs:
 
 - **Content and attachment are two different surfaces.** The body only moves through
