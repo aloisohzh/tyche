@@ -101,6 +101,11 @@ reports the stamp, so the signed-in acceptance read answers which commit the liv
 `build.ts` is deliberately `unstamped`: a fresh clone must not claim a provenance it does not have.
 `write --allow-off-main` exists for a deliberate preview and leaves the branch name in the stamp.
 
+`desk-site/web/` must be exported with `--live` (`window.TYCHE_LIVE`), never as the default snapshot:
+from 21 Nov (6fbef62) to 22 Nov the committed `index.html` carried `window.TYCHE_SNAPSHOT`, so the hosted
+page read `data/automation.json` and showed "Static snapshot · Nov 21" while the Function's live
+`/automation` read went uncalled. `tests/test_hosted_desk_mode.py` fails the suite if that recurs.
+
 ## API plumbing (from the conventions overview)
 
 - Gateway: **Managed `https://api.qoder.com/api/v1/cloud`** is where the desk is authored and where its
