@@ -148,7 +148,7 @@ These are requirements in the strict sense: a change that breaks one is not a re
 | Independent per-order risk audit | implemented | auditor v12, `reports/<date>-audit.md`, `skills/auditor/exact-order-audit` | auditor has no clock or shell: its times/hashes are desk-head claims (L-024) |
 | Scout (idea generation) | partial | researcher v19 role + premarket fire; manual trigger `server.py:2265`; `watchlist.py`, `reports/*-research.md` | the pinned arsenal now defers to the run brief's live lane ids, so a switched-off lane is research rather than a proposal; the manual run still starts the researcher alone, so it can propose nothing that reaches a broker |
 | Ideas consumed downstream | partial | `tyche events add` → `config/events.yaml` → gate halves budget | operator triage is the link; nothing auto-promotes an idea into a plan |
-| Telegram sentinel | implemented (outbound) | `scripts/telegram.py`, [../docs/runbooks/sentinel-telegram.md](../docs/runbooks/sentinel-telegram.md) | at-least-once semantics; inbound approvals stay the operator's local `listen` bridge, PC-required and stopped by decision (L-003/L-006). Its session discovery was re-based on the cloud API so it can bind a card-fired run (L-051); posting a confirmation or interrupt against a **live** fire is still undrilled |
+| Telegram sentinel | implemented (outbound digests; in-fire proposal approval live from 2026-11-23) | `scripts/telegram.py`, [../docs/runbooks/sentinel-telegram.md](../docs/runbooks/sentinel-telegram.md) | at-least-once semantics for digests. New entries need an explicit numbered `/approve N` from the allowlisted chat through `wait-for-reply` during the fire; silence, free text, a failed send or a second consumer is a no. The PC-bound `listen` bridge was retired 2026-11-22 (it competed for the same `getUpdates` stream); cancel/modify asks stay in the Qoder console |
 | CI (ruff + pytest) | implemented | `.github/workflows/ci.yml` | 607 tests; a red pipeline blocks every later phase (L-034) |
 
 ## 6. Non-functional requirements
@@ -239,8 +239,9 @@ Ordered by how much they can cost, not by effort.
     `/interrupt` now POST to `/sessions/{id}/events` on the cloud base, and the endpoint plus the
     `user.message` envelope are proven by `cloud_api.start_scout_run`; posting `user.tool_confirmation` or
     `user.interrupt` against a fire in progress has not been exercised, because doing so against a closed
-    session is itself a live write. The drill is scheduled and written up - Mon 23 Nov, the 12:05 ET
-    monitor-phase fire, chosen because stopping that run cannot leave an order half-submitted: see
+    session is itself a live write. **Closed as not planned on 2026-11-22**: the operator retired the
+    listener, so those writes have no caller; the operator's yes now reaches a live fire through
+    `wait-for-reply`, exercised by the first real proposal on the permanent card from 23 Nov. See
     [../docs/runbooks/sentinel-telegram.md](../docs/runbooks/sentinel-telegram.md).
 14. **The hosted desk reads the Managed base in code, and the site now publishes that code.** The local half
     landed on 21 Nov: `dashboard/server.py`'s automation panel lists the cadence through `cloud_api.cards()` and

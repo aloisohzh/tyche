@@ -6,12 +6,11 @@ Commands: chat-id, send, render-digest, send-digest, render-proposal, wait-for-r
 same numbered previews and waits (10 minutes by default, 15 at most) for the operator's explicit
 `/approve N` or `/deny N`. Silence is a timeout, a free-text reply (question or change) is handed
 back to the desk unapproved, and nothing but `/approve N` from the allowlisted chat ever approves.
-`listen` is the inbound bridge: it relays
-operator questions to a desk session and surfaces pending always_ask tool
-approvals (e.g. paper order submissions) for explicit /approve or /deny.
-It NEVER auto-approves; only the allowlisted chat can drive it.
-Only one program may read the bot's updates at a time: `wait-for-reply` and `listen` must never
-run together.
+`listen` is the retired (2026-11-22) PC-bound inbound bridge, kept as an emergency fallback only: it
+relays operator questions to a desk session and surfaces pending always_ask tool approvals for
+explicit /approve or /deny. It NEVER auto-approves; only the allowlisted chat can drive it.
+Only one program may read the bot's updates at a time: running `listen` while the desk card is live
+makes every fire's `wait-for-reply` end in conflict, i.e. a no.
 """
 from __future__ import annotations
 
