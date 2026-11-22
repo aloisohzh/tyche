@@ -424,6 +424,12 @@ def patch_cloud(monkeypatch, fake: FakeCloud) -> FakeCloud:
 
 NOV = "dep_00vzb9h4ezawwl4thnva"
 DEC = "dep_00vzd8d5rdfr4w0denqh"
+PERMANENT = "dep_00w9n1b9mkb9cjkalhcv"
+
+
+def test_bridge_binds_to_the_permanent_card_only() -> None:
+    """The monthly cards were paused on 2026-11-22; a bridge still reading them would bind nothing new."""
+    assert bridge.DESK_CARD_IDS == (PERMANENT,)
 
 
 def run_row(run_id: str, at: str, session_id: str | None) -> dict:
@@ -437,7 +443,7 @@ def test_newest_run_spans_both_cards(monkeypatch) -> None:
               run_row("drun_1", "2026-11-20T13:05:00Z", "sess_old")],
         DEC: [],
     }))
-    found = bridge.cloud_api.newest_run(bridge.DESK_CARD_IDS)
+    found = bridge.cloud_api.newest_run((NOV, DEC))
     assert found["run"]["session_id"] == "sess_new"
     assert found["run"]["card"] == NOV
     assert found["failed_cards"] == []
@@ -446,6 +452,7 @@ def test_newest_run_spans_both_cards(monkeypatch) -> None:
 
 
 def test_run_without_session_is_not_bindable(monkeypatch) -> None:
+    monkeypatch.setattr(bridge, "DESK_CARD_IDS", (NOV, DEC))  # the sweep rules, on two cards
     patch_cloud(monkeypatch, FakeCloud(runs={
         NOV: [run_row("drun_3", "2026-11-21T08:05:00Z", None),
               run_row("drun_2", "2026-11-20T20:05:00Z", "sess_real")],
@@ -457,6 +464,7 @@ def test_run_without_session_is_not_bindable(monkeypatch) -> None:
 def test_transient_miss_on_runs_is_retried(monkeypatch) -> None:
     """The runs route has 404'd once and answered next call for a card that exists. One miss must not
     be reported as 'the desk never fired'."""
+    monkeypatch.setattr(bridge, "DESK_CARD_IDS", (NOV, DEC))
     fake = patch_cloud(monkeypatch, FakeCloud(
         runs={NOV: [run_row("drun_2", "2026-11-20T20:05:00Z", "sess_new")], DEC: []},
         flaky={f"/deployments/{NOV}/runs?limit=3"}))
@@ -467,6 +475,7 @@ def test_transient_miss_on_runs_is_retried(monkeypatch) -> None:
 def test_unreadable_card_is_reported_not_fatal(monkeypatch, capsys) -> None:
     """One card that cannot be read must not hide the other's run, and must not pass itself off as
     'the desk never fired'."""
+    monkeypatch.setattr(bridge, "DESK_CARD_IDS", (NOV, DEC))
 
     def boom(card_id, limit=8):
         if card_id == DEC:

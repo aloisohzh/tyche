@@ -40,9 +40,10 @@ bound IM channel); delivery lives in the run instructions instead.
   failure is recorded but never blocks risk work; no tokens/credentials/full account
   ids in messages or logs. Use the existing helper with explicit Telegram HTML when
   the new structured renderer is unavailable; do not bypass it with raw curl.
-- What fires: the two Managed desk cards, `dep_00vzb9h4ezawwl4thnva` (Nov) and
-  `dep_00vzd8d5rdfr4w0denqh` (Dec), at 08:05, 12:05 and 15:05 America/New_York on their own
-  trading-day sets; the midday fire is watch-and-shout only. The Forward schedules `tyche-premarket`,
+- What fires: the permanent Managed desk card `dep_00w9n1b9mkb9cjkalhcv` (created 2026-11-22,
+  window 2026-11-23.., Mon-Fri 08:05, 12:05 and 15:05 America/New_York with holidays gated in-run;
+  it replaced the Nov/Dec monthly cards `dep_00vzb9h4ezawwl4thnva` and `dep_00vzd8d5rdfr4w0denqh`,
+  paused the same day). The midday fire is watch-and-shout only. The Forward schedules `tyche-premarket`,
   `tyche-eod`, `tyche-eod-halfday` and the five others were archived on 21 Nov 2026: they run nothing, they
   are not notification owners, and they no longer appear in the default Forward schedule list
   (plans/managed-migration/queue.md W8).
@@ -198,8 +199,8 @@ reads. The Forward base 404s a card-fired session, which is what made this bridg
 - **State**: `.telegram-bridge.json` (gitignored) holds the getUpdates offset,
   bound session, event cursor, pending approvals and a decision log. First run
   drains stale updates so old messages are never replayed into the desk.
-- **Commands**: `/session latest` (bind the newest session any desk card started - it reads
-  `/deployments/{card}/runs` for both cards and takes the newest run that has a session; a card it
+- **Commands**: `/session latest` (bind the newest session the desk card started - it reads
+  `/deployments/{card}/runs` for every card in `DESK_CARD_IDS` and takes the newest run that has a session; a card it
   cannot read is reported on stderr instead of being counted as "never fired") or
   `/session <sess_id>`; `/status`; `/pending`; `/approve N`; `/deny N [reason]`;
   `/interrupt`; `/help`. Any other text is relayed as `user.message`; the desk

@@ -31,10 +31,12 @@ import cloud_api
 
 ROOT = Path(__file__).resolve().parents[1]
 STATE_PATH = ROOT / ".telegram-bridge.json"
-# The two live desk cards, both authored by scripts/deploy_two_fire_automation.py. Their runs are the
-# only source of a session id worth binding to: the Forward schedules listed here before are paused,
-# fire nothing, and 404 on the sessions a card started (queue.md W7).
-DESK_CARD_IDS = ("dep_00vzb9h4ezawwl4thnva", "dep_00vzd8d5rdfr4w0denqh")
+# The live desk card, authored by scripts/deploy_two_fire_automation.py: the permanent weekday card
+# created 2026-11-22, which replaced the Nov/Dec monthly cards (dep_00vzb9h4ezawwl4thnva and
+# dep_00vzd8d5rdfr4w0denqh, paused the same day and archived after the first clean fire). Its runs are
+# the only source of a session id worth binding to: the Forward schedules listed here before are
+# archived, fire nothing, and 404 on the sessions a card started (queue.md W7).
+DESK_CARD_IDS = ("dep_00w9n1b9mkb9cjkalhcv",)
 ASK_EVENTS = {"agent.tool_use", "agent.mcp_tool_use"}
 RESOLUTION_EVENTS = {"user.tool_confirmation", "agent.tool_result", "agent.mcp_tool_result"}
 MAX_PREVIEW = 1500
