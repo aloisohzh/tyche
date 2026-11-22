@@ -157,7 +157,7 @@ ul { margin: 0; padding: 0; list-style: none; }
 .topbar-status { display: flex; align-items: center; gap: 8px; margin-left: auto; flex-wrap: wrap; justify-content: flex-end; }
 .topbar-controls { display: flex; align-items: center; gap: 12px; }
 .clock { font-size: 12px; color: var(--label-2); white-space: nowrap; }
-.workspace-main { max-width: 1580px; margin: 0 auto; padding: 28px 32px 40px; outline: none; }
+.workspace-main { max-width: 1580px; margin: 0 auto; padding: 28px 32px 88px; outline: none; }
 
 /* ============================ views / tabs ============================ */
 .view { display: none; }
@@ -260,7 +260,7 @@ ul { margin: 0; padding: 0; list-style: none; }
 .theme-btn[aria-pressed="true"] { background: var(--accent-tint); color: var(--accent); }
 
 /* ============================ overview: stat grid ============================ */
-.stat-grid { display: grid; grid-template-columns: 1.35fr 1.1fr 1.05fr .9fr; gap: 14px; margin-bottom: 20px; }
+.stat-grid { display: grid; grid-template-columns: 1.5fr 1fr 1fr; gap: 14px; margin-bottom: 20px; }
 .stat-card { padding: 20px 22px; position: relative; min-height: 140px; border-radius: 18px; overflow: hidden; }
 .stat-label { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 11.5px; font-weight: 500; color: var(--label-2); }
 .stat-value { font-size: clamp(26px, 2.3vw, 35px); font-weight: 550; letter-spacing: -1.1px; line-height: 1.15; margin-top: 15px; white-space: nowrap; }
@@ -305,7 +305,7 @@ ul { margin: 0; padding: 0; list-style: none; }
 .equity-controls { display: flex; align-items: center; gap: 10px; }
 .equity-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 16px; margin-top: 20px; padding-bottom: 18px; border-bottom: 1px solid var(--sep-hair); }
 .estat { display: flex; flex-direction: column; gap: 6px; }
-.estat b { font-size: 17px; font-weight: 550; letter-spacing: -.4px; }
+.estat b { font-size: 17px; font-weight: 550; letter-spacing: -.4px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .estat .chip { align-self: flex-start; }
 .chart-wrap { position: relative; margin-top: 18px; }
 .chart-wrap svg { width: 100%; height: auto; display: block; overflow: visible; }
@@ -672,7 +672,7 @@ ul { margin: 0; padding: 0; list-style: none; }
   .workspace-body { margin-left: 200px; }
   .topbar { padding-inline: 24px; gap: 14px; }
   .workspace-main { padding-inline: 24px; }
-  .stat-grid { grid-template-columns: 1.3fr 1.05fr 1fr .85fr; gap: 11px; }
+  .stat-grid { grid-template-columns: 1.4fr 1fr 1fr; gap: 11px; }
   .portfolio-grid { grid-template-columns: minmax(0, 1.5fr) minmax(280px, 1fr); }
   .stage-grid { grid-template-columns: repeat(3, 1fr); }
   .exp-grid { grid-template-columns: 1fr 1fr; }
@@ -839,7 +839,7 @@ ul { margin: 0; padding: 0; list-style: none; }
 /* ============================ v0.3: trader scorecard ============================ */
 .scorecard { padding: 22px 24px 4px; border-radius: 18px; margin-bottom: 20px; }
 .scorecard .section-heading { margin-bottom: 18px; align-items: flex-start; }
-.score-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+.score-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(138px, 1fr)); gap: 12px; }
 .score-tile {
   display: flex; flex-direction: column; gap: 7px; padding: 15px 16px; min-width: 0;
   border-radius: 13px; background: var(--bg-elevated-2); border: 1px solid var(--sep-hair);
@@ -850,7 +850,7 @@ ul { margin: 0; padding: 0; list-style: none; }
 .score-tile:first-child { background: var(--accent-tint); border-color: color-mix(in srgb, var(--accent) 22%, transparent); }
 .score-tile:first-child::before { opacity: .9; }
 .score-label { font: 600 10px/1.4 var(--font-ui); letter-spacing: .07em; text-transform: uppercase; color: var(--label-3); }
-.score-value { font-size: 23px; font-weight: 600; letter-spacing: -.7px; line-height: 1.1; color: var(--label); white-space: nowrap; }
+.score-value { font-size: clamp(16px, 1.3vw, 22px); font-weight: 600; letter-spacing: -.6px; line-height: 1.1; color: var(--label); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .score-value.pos { color: var(--pos); } .score-value.neg { color: var(--neg); }
 .score-sub { font-size: 10px; color: var(--label-4); line-height: 1.5; }
 .scorecard .table-note { padding: 16px 0 14px; }
@@ -1076,7 +1076,7 @@ ul { margin: 0; padding: 0; list-style: none; }
 .order-tbl { min-width: 1180px; }
 .order-tbl td { vertical-align: top; }
 .tbl .notes-cell {
-  max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  min-width: 220px; max-width: 360px; white-space: normal; line-height: 1.45;
   color: var(--label-3); font-size: 12px;
 }
 .nowrap { white-space: nowrap; }
@@ -1226,3 +1226,21 @@ ul { margin: 0; padding: 0; list-style: none; }
   .admin-lock-inner { padding: 12px 14px; }
   .strat-ctl { flex-wrap: wrap; justify-content: flex-end; }
 }
+/* --- plain-language tooltips (hover or focus the dotted term) --- */
+.tip { position: relative; text-decoration: underline dotted; text-decoration-color: var(--label-4); text-underline-offset: 3px; cursor: help; }
+.tip::after {
+  content: attr(data-tip); position: absolute; left: 0; bottom: calc(100% + 8px); width: max-content; max-width: 260px;
+  padding: 8px 10px; border-radius: 8px; background: var(--label); color: var(--bg-elevated);
+  font-size: 11px; font-weight: 400; line-height: 1.4; letter-spacing: 0; text-transform: none; white-space: normal;
+  opacity: 0; pointer-events: none; transition: opacity .15s; z-index: 70; box-shadow: 0 6px 18px rgba(0,0,0,.18);
+}
+.tip:hover::after, .tip:focus-visible::after { opacity: 1; }
+th .tip::after, .num .tip::after { left: auto; right: 0; }
+th .tip::after { bottom: auto; top: calc(100% + 6px); }
+.stat-label .tip, .brief-k .tip, .ev-sub .tip { text-decoration-color: var(--label-4); }
+.brief-section-label .tip::after { font-weight: 400; }
+
+/* --- status under a card name in the schedule table --- */
+.cal-card-status { margin-top: 6px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 10.5px; }
+.cal-card-status b { font-weight: 600; }
+
