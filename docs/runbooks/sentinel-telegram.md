@@ -72,6 +72,7 @@ bound IM channel); delivery lives in the run instructions instead.
 ## Local commands
 
 - `scripts/telegram.py chat-id` — derive chat id from `getUpdates`.
+- `scripts/telegram.py render-proposal <json|->` — offline preview of an entry proposal; `wait-for-reply <json> [--timeout S]` sends it and waits for `/approve N` or `/deny N` (see the proposal approval section).
 - `scripts/telegram.py send "<text>"` — connection check / manual alert / digest.
   Normalizes Markdown or HTML to Telegram HTML (`parse_mode=HTML`), masks account
   ids, caps length, appends a stable content ref (`ref: <8 hex>`, sha256 of the
@@ -263,6 +264,53 @@ approved or denied through the bridge.
 Afterwards append one line here with the date, session id, each command's HTTP outcome and what `/status`
 showed next. No cap, gate, schedule, vault or env value changes as part of this drill, and nothing in it
 arms a pre-approved envelope.
+
+## Proposal approval from Telegram - `wait-for-reply` (built 2026-11-22, NOT yet on the cards)
+
+The platform never asks about a paper submit (only cancel/modify are `always_ask`), so until now the
+only yes for a new entry lived in the console thread. `scripts/telegram.py wait-for-reply` gives the
+desk a numbered, allowlisted, time-boxed yes on Telegram during the fire itself. It reuses the bot
+token and chat id already on the cards; no new secret, no PAT, no new deployment, and the session
+talks only to Telegram, never to the Cloud API.
+
+How it works, from the operator's side:
+
+1. The desk builds the proposal file (`templates/proposal-approval.example.json` is the shape: entry,
+   size, value, stop, target, exit-by, thesis, invalidation; a file missing any exit field is rejected
+   before anything is sent) and runs `python scripts/telegram.py wait-for-reply <file>`.
+2. One preview per proposal arrives, numbered, with the full exit plan, the deadline in UTC and SGT,
+   and a content ref. The window is 10 minutes by default and 15 at most (`--timeout`, seconds).
+3. Reply `/approve N` or `/deny N [reason]`. The desk acknowledges each. Any plain text is handed
+   back to the desk as a question or a change request: the proposal stays unapproved, the desk
+   answers (question) or rebuilds under a new number with a fresh preview (change). Running the same
+   command again resumes the same window; a rebuilt file starts a new one.
+4. No reply by the deadline: the desk says so in the chat and records `timeout`, which the brief
+   treats as a no. Nothing is ever approved by silence, by free text, or by a message from another chat.
+
+What the command returns (JSON on stdout, last thing printed): `outcome` in `decided | reply | timeout
+| conflict`, plus `approved`, `denied`, `timed_out`, `pending`, the last `reply`, the `deadline` and
+every decision with its time. Only a number under `approved` may open the existing envelope, audit and
+reserve path, and only for the proposal with that ref.
+
+Rules that keep it safe:
+
+- Stale updates are forgotten before the preview goes out (`getUpdates offset=-1`), and a message
+  dated before the preview is ignored, so yesterday's `/approve 1` never answers today's proposal.
+- **One consumer at a time.** Telegram serves `getUpdates` to one caller; a second one gets
+  `409 Conflict`. The laptop `listen` must be OFF whenever a desk run may call `wait-for-reply`,
+  and the command treats a Conflict as `outcome: conflict`, exit 2, nothing decided. Running both
+  also makes them steal each other's updates: the listener's offset state moves under it.
+- State sits next to the proposal file (`<file>.wait.json`), keyed by the proposals' content ref.
+- Transport failures follow `send`: exit 2 is UNCONFIRMED; the desk treats any non-zero exit as a no.
+- Tests: `tests/test_telegram_approval.py` (decision paths, allowlist, stale, resume, conflict,
+  timeout bounds) and `tests/test_desk_card_prompt.py` (the brief's PROPOSAL APPROVAL clause).
+
+Rollout: the card paragraph (PROPOSAL APPROVAL in `scripts/deploy_two_fire_automation.py`, marker
+`has_proposal_approval`) is in the repo but is written to the live cards only with the operator's
+explicit go, between fires, after a supervised manual run of the command. First test planned Mon 23
+Nov between the 08:05 and 12:05 ET fires (about 22:30-00:30 SGT) in a manual, proposals-only desk
+session with no submit; the Tue 01:05 SGT listener drill above is the fallback. Until the write, the
+scheduled fires behave exactly as before this section was added.
 
 ## Cloud bridge (no PC) — Sites function experiment, ARCHIVED 2026-11-18
 

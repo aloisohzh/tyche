@@ -116,3 +116,20 @@ def test_calendar_drift_check_is_premarket_alert_only_and_never_self_applying():
     assert "UNCERTAIN, not a pass" in clause
     # L-033 discipline: the clause points at the tables and the command, never at their contents.
     assert not any(year in clause for year in ("2026", "2027", "2028"))
+
+
+def test_proposal_approval_is_explicit_numbered_and_never_automatic():
+    """The Telegram wait step adds a gate in front of the submit path; it must never read as a way
+    around the envelope, audit and reserve, and only the command's `approved` list may open it."""
+    prompt = _module().card_prompt((date(2026, 12, 1), date(2026, 12, 31)))
+    clause = " ".join(prompt.split("PROPOSAL APPROVAL (TELEGRAM WAIT", 1)[1].split("\n\n", 1)[0].split())
+    for must in ("08:05 and 15:05 fires", "wait-for-reply", "render-proposal",
+                 "templates/proposal-approval.example.json", "stop, target, exit-by",
+                 "10-minute window", "`approved`", "envelope, exact-order audit, reserve",
+                 "any free-text reply is a no", "A requested change is a no", "new number",
+                 "never approve on the operator's behalf", "never submit after the window",
+                 "The 12:05 fire never runs this step"):
+        assert must in clause, must
+    assert _module().prompt_markers(prompt)["has_proposal_approval"]
+    # The midday clause is untouched by the addition.
+    assert "MIDDAY (12:05 ET, WATCH AND SHOUT ONLY)" in prompt
