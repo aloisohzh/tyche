@@ -707,7 +707,8 @@ def render_proposal(proposal: dict, deadline: float | None = None, ref: str | No
     n = p["n"]
     out = [
         f"<b>TYCHE PROPOSAL #{n} - APPROVAL REQUIRED</b>",
-        f"<b>{esc(p['action'])} {esc(p['qty'])} {esc(p['symbol'])}</b> ({esc(p['lane'])})",
+        f"<b>{esc(p['action'])} {esc(p['qty'])} {esc(p['symbol'])}</b>",
+        f"<b>Strategy</b>: {esc(p['lane'])}",
         f"Entry: {esc(p['entry'])} | Value: {esc(p['value'])}",
     ]
     if "direction" in p or "horizon" in p:

@@ -104,7 +104,7 @@ def test_duplicate_or_bad_numbers_and_oversize_lists_are_rejected() -> None:
 def test_preview_shows_full_package_including_exits_and_masks_ids() -> None:
     rows = bridge.load_proposals([proposal(notes=["account 9000001 paper"])])
     text = bridge.render_proposal(rows[0], 1_000_600.0, bridge.proposal_ref(rows))
-    for fact in ("BUY 10 US.SPY", "limit 672.40", "USD 6,724", "Stop: 668.90", "Target: 677.60",
+    for fact in ("BUY 10 US.SPY", "Strategy</b>: PB-004 scalp", "limit 672.40", "USD 6,724", "Stop: 668.90", "Target: 677.60",
                  "Exit by: 15:15 ET", "Thesis", "Invalidation", "/approve 1", "/deny 1",
                  "No reply by the deadline is a no", "UTC", "SGT"):
         assert fact in text, fact
