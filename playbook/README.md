@@ -54,5 +54,6 @@ trade behind them.
 | PB-004 | [Intraday momentum scalp](PB-004-intraday-momentum-scalp.md) | **live** | the deterministic breakout lane in `config/scalp.yaml`; rules `72077d5d4808`, the lane's first computable hash (L-036 fixed 2026-11-20). Submission still gated by the executor's rollout hold |
 | PB-005 | Defined-risk option vertical | parked | **conflicts with the instrument rules:** a vertical is a spread, and desk/auditor policy allows standard single-leg long calls and puts only. Do not trade without an ADR |
 | PB-006 | Sector rotation heat | planned | relative-strength sleeve; renumbered from the PB-004 collision in L-029 |
+| PB-007 | [Fib 50% pullback](PB-007-fib50-pullback.md) | **live** (disabled) | swing mean reversion with an SMA50/200 regime filter on daily bars; `kind: fib_pullback` in `config/strategies/pb-007.yaml`, plans through the lifecycle lane (ADR 0017); ships `enabled: false`, first run is a plumbing test |
 
-Write a playbook only when you intend to trade it this window. Do not scaffold all six for show.
+Write a playbook only when you intend to trade it this window. Do not scaffold all seven for show.

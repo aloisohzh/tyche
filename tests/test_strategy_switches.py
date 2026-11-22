@@ -14,7 +14,7 @@ from tyche.lanes import read_overrides, read_state, set_enabled
 from tyche.pipeline import rules_hash
 
 ROOT = Path(__file__).resolve().parents[1]
-LANE_IDS = ("PB-001", "PB-002", "PB-003", "PB-004")
+LANE_IDS = ("PB-001", "PB-002", "PB-003", "PB-004", "PB-007")
 
 
 @pytest.fixture

@@ -481,7 +481,7 @@ def decide(plan: LifecyclePlan, book: LifecycleBook, market: MarketSnapshot,
             result.action, result.reason = "blocked", "strategy disabled"
             return result
         from tyche.pipeline import act_wait
-        sleeve = config.universe.sleeve_by_symbol().get(plan.symbol)
+        sleeve = config.sleeve_map(plan.strategy_id).get(plan.symbol)
         if act_wait(Side.BUY, sleeve, market.conviction, False) == "wait":
             result.action, result.reason = "blocked", "low-conviction act/wait gate"
             return result
@@ -550,17 +550,23 @@ def decide(plan: LifecyclePlan, book: LifecycleBook, market: MarketSnapshot,
                            ))
     if result.action == "buy":
         strategy = config.strategy_by_id(plan.strategy_id)
-        symbols = set(config.universe.by_symbol())
+        # ADR 0017: a scoped lane is capped and attributed over its own symbols, never the ballast's.
+        symbols = config.scope_symbols(plan.strategy_id)
         held_notional = sum(p.market_value for p in market.snapshot.positions if p.underlying in symbols)
         pending_notional = sum(o.notional for o in pending_intents if o.side == Side.BUY and o.underlying in symbols)
         if held_notional + pending_notional + intent.notional > strategy.allocation_cap * market.broker_nav:
             result.action, result.reason = "blocked", "risk gate: strategy allocation cap"
             return result
         asset = config.universe.by_symbol().get(plan.symbol)
+        name_cap = None
         if asset is not None:
+            name_cap = min(strategy.max_weight, asset.max_weight)
+        elif plan.symbol in symbols:
+            name_cap = strategy.max_weight
+        if name_cap is not None:
             name_notional = sum(p.market_value for p in market.snapshot.positions if p.underlying == plan.symbol)
             name_notional += sum(o.notional for o in pending_intents if o.side == Side.BUY and o.underlying == plan.symbol)
-            if name_notional + intent.notional > min(strategy.max_weight, asset.max_weight) * market.broker_nav:
+            if name_notional + intent.notional > name_cap * market.broker_nav:
                 result.action, result.reason = "blocked", "risk gate: strategy asset cap"
                 return result
     policy = config.risk
@@ -570,7 +576,7 @@ def decide(plan: LifecyclePlan, book: LifecycleBook, market: MarketSnapshot,
             "max_order_notional_pct": policy.max_order_notional_pct / 2,
         })
     verdict = evaluate_intent(intent, market.snapshot, policy, risk_state, quote.last,
-                              set(config.universe.by_symbol()), config.universe.sleeve_by_symbol(),
+                              config.scope_symbols(plan.strategy_id), config.sleeve_map(plan.strategy_id),
                               config.strategy_by_id(plan.strategy_id).sleeve_caps[
                                   market.regime.value
                               ].as_dict() if result.action == "buy" else None)
@@ -580,7 +586,7 @@ def decide(plan: LifecyclePlan, book: LifecycleBook, market: MarketSnapshot,
                                          or "quantity adjustment requires re-plan")
         return result
     if result.action == "buy":
-        sleeve = config.universe.sleeve_by_symbol().get(plan.symbol)
+        sleeve = config.sleeve_map(plan.strategy_id).get(plan.symbol)
         phase_orders = sum(evaluate(o.created_at).phase == gate.phase for o in today_orders)
         phase_orders += sum(
             r.account_hash == key and r.order_id not in broker_ids

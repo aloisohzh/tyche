@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
 from typing import Literal
 
@@ -27,6 +28,9 @@ PLAYBOOK_LANES: dict[str, tuple[str, str]] = {
     "PB-002": ("config/tactical.yaml", "tactical"),
     "PB-003": ("config/tactical.yaml", "tactical_options"),
     "PB-004": ("config/scalp.yaml", "scalp"),
+    # ADR 0017: a swing lane on its own daily-bar scanner; its yaml follows the convention and carries
+    # `kind: fib_pullback`, so the rotation switch logic (the file's own `enabled`) applies unchanged.
+    "PB-007": ("config/strategies/pb-007.yaml", "fib_pullback"),
 }
 
 
@@ -98,9 +102,14 @@ class SleeveCaps(BaseModel):
 
 
 class StrategyConfig(BaseModel):
+    """Rotation lane parameters (PB-001). `kind` defaults to rotation so existing files are unchanged."""
     id: str = Field(pattern=r"^PB-\d{3}$")
+    kind: Literal["rotation"] = "rotation"
     allocation_cap: float = Field(default=0.95, gt=0, le=0.95)
     enabled: bool = True
+    # Rotation trades the whole shared universe; the scope accessor returns it. Kept for symmetry
+    # with lanes that own their own symbol set (ADR 0017).
+    symbols: None = None
     lookbacks: list[int] = [63, 126, 252]
     lookback_weights: list[float] = [0.5, 0.3, 0.2]
     skip_days: int = 5
@@ -133,6 +142,103 @@ class StrategyConfig(BaseModel):
             if key not in self.sleeve_caps:
                 raise ValueError(f"sleeve_caps missing regime '{key}'")
         return self
+
+
+class FibRegime(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    sma_fast: int = Field(default=50, ge=2)
+    sma_slow: int = Field(default=200, ge=2)
+    slope_bars: int = Field(default=10, ge=1)
+
+    @model_validator(mode="after")
+    def _order(self) -> FibRegime:
+        if self.sma_fast >= self.sma_slow:
+            raise ValueError("sma_fast must be shorter than sma_slow")
+        return self
+
+
+class FibLeg(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    lookback: int = Field(default=30, ge=5)
+    max_high_age: int = Field(default=15, ge=1)
+    min_high_age: int = Field(default=2, ge=1)
+    min_leg_atr: float = Field(default=3.0, gt=0)
+    atr_period: int = Field(default=14, ge=2)
+
+    @model_validator(mode="after")
+    def _order(self) -> FibLeg:
+        if not self.min_high_age <= self.max_high_age < self.lookback:
+            raise ValueError("require min_high_age <= max_high_age < lookback")
+        return self
+
+
+class FibLevels(BaseModel):
+    """Retracement ratios measured from the swing high: 0.5 = halfway back to the swing low."""
+    model_config = ConfigDict(extra="forbid")
+    entry: float = Field(default=0.5, gt=0, lt=1)
+    zone_top: float = Field(default=0.382, gt=0, lt=1)
+    zone_bottom: float = Field(default=0.618, gt=0, lt=1)
+    stop_level: float = Field(default=0.786, gt=0, lt=1)
+    stop_atr_buffer: float = Field(default=0.10, ge=0, le=1)
+
+    @model_validator(mode="after")
+    def _order(self) -> FibLevels:
+        if not self.zone_top < self.entry <= self.zone_bottom < self.stop_level:
+            raise ValueError("require zone_top < entry <= zone_bottom < stop_level")
+        return self
+
+
+class FibPullbackConfig(BaseModel):
+    """PB-007 fib 50% pullback: a swing lane on daily bars, planned through the lifecycle contract.
+
+    Carries the same cap fields the lifecycle gate reads from the rotation model
+    (`allocation_cap`, `max_weight`, `sleeve_caps`) so one `decide()` serves both kinds.
+    """
+    model_config = ConfigDict(allow_inf_nan=False, extra="forbid")
+    id: str = Field(pattern=r"^PB-\d{3}$")
+    kind: Literal["fib_pullback"]
+    enabled: bool = False
+    sleeve: Sleeve = "equity"
+    symbols: list[str] = Field(min_length=1)
+    allocation_cap: float = Field(default=0.20, gt=0, le=0.95)
+    max_weight: float = Field(default=0.10, gt=0, le=0.38)
+    regime: FibRegime = FibRegime()
+    leg: FibLeg = FibLeg()
+    fib: FibLevels = FibLevels()
+    min_reward_risk: float = Field(default=1.5, ge=1)
+    risk_per_trade_pct: float = Field(default=0.005, gt=0, le=0.01)
+    max_notional_pct: float = Field(default=0.10, gt=0, le=0.38)
+    max_open: int = Field(default=4, ge=1)
+    max_hold_sessions: int = Field(default=10, ge=1, le=60)
+    max_spread_pct: float = Field(default=0.003, gt=0, le=0.01)
+    min_avg_dollar_volume: float = Field(default=50_000_000.0, ge=0)
+    min_bars: int = Field(default=260, ge=50)
+    no_entry_event_kinds: list[str] = Field(default_factory=lambda: ["FOMC", "CPI", "PCE"])
+
+    @model_validator(mode="after")
+    def _consistent(self) -> FibPullbackConfig:
+        if len(self.symbols) != len(set(self.symbols)):
+            raise ValueError("duplicate fib_pullback symbols")
+        if any(not re.match(r"^[A-Z]{2}\.[A-Z0-9.]+$", symbol) for symbol in self.symbols):
+            raise ValueError("fib_pullback symbols must look like US.XXXX")
+        if self.max_open > len(self.symbols):
+            raise ValueError("max_open exceeds the fib_pullback universe")
+        if self.max_notional_pct > self.max_weight + 1e-9:
+            raise ValueError("max_notional_pct must not exceed max_weight")
+        if self.min_bars < self.regime.sma_slow + self.regime.slope_bars:
+            raise ValueError("min_bars must cover sma_slow plus slope_bars")
+        return self
+
+    @property
+    def sleeve_caps(self) -> dict[RegimeKey, SleeveCaps]:
+        """The lane's own sleeve is capped at its allocation in every regime; it owns nothing else."""
+        caps = {"equity": 0.0, "defensive": 0.0, "real_asset": 0.0, "credit": 0.0}
+        caps[self.sleeve] = self.allocation_cap
+        one = SleeveCaps(**caps)
+        return {"risk_on": one, "neutral": one, "risk_off": one}
+
+
+AnyStrategyConfig = StrategyConfig | FibPullbackConfig
 
 
 class RiskPolicy(BaseModel):
@@ -243,7 +349,7 @@ class AppConfig(BaseModel):
     tactical: TacticalConfig = Field(default_factory=TacticalConfig)
     scalp: ScalpConfig = Field(default_factory=ScalpConfig)
     universe: UniverseConfig
-    strategies: list[StrategyConfig]
+    strategies: list[AnyStrategyConfig]
     risk: RiskPolicy
     root: Path = Field(exclude=True)
 
@@ -256,20 +362,55 @@ class AppConfig(BaseModel):
             raise ValueError("duplicate strategy ids in config/strategies")
         return self
 
-    def strategy_by_id(self, strategy_id: str) -> StrategyConfig:
+    def strategy_by_id(self, strategy_id: str) -> AnyStrategyConfig:
         for strategy in self.strategies:
             if strategy.id == strategy_id:
                 return strategy
         raise KeyError(f"unknown strategy id: {strategy_id}")
 
+    def rotation_strategies(self) -> list[StrategyConfig]:
+        """The strategies `tyche plan` can run; scoped lanes plan through their own command."""
+        return [s for s in self.strategies if isinstance(s, StrategyConfig)]
+
+    def scope_symbols(self, strategy_id: str) -> set[str]:
+        """The symbols a strategy may buy (ADR 0017): its own scope, else the shared universe."""
+        strategy = self.strategy_by_id(strategy_id)
+        if strategy.symbols:
+            return set(strategy.symbols)
+        return set(self.universe.by_symbol())
+
+    def sleeve_map(self, strategy_id: str | None = None) -> dict[str, Sleeve]:
+        """symbol -> sleeve. For a scoped strategy only its own symbols; otherwise the universe
+        plus every scoped lane, which is what fill attribution and the scorecard need."""
+        if strategy_id is not None:
+            strategy = self.strategy_by_id(strategy_id)
+            if strategy.symbols:
+                return {symbol: strategy.sleeve for symbol in strategy.symbols}
+            return self.universe.sleeve_by_symbol()
+        sleeves: dict[str, Sleeve] = dict(self.universe.sleeve_by_symbol())
+        for strategy in self.strategies:
+            if strategy.symbols:
+                sleeves.update({symbol: strategy.sleeve for symbol in strategy.symbols})
+        return sleeves
+
     def rules_path(self, strategy_id: str) -> Path:
         """The file whose bytes freeze this playbook id (see PLAYBOOK_LANES)."""
         return rules_path_for(self.root, strategy_id)
 
+    def _lane_label(self, strategy_id: str) -> str:
+        lane = PLAYBOOK_LANES.get(strategy_id)
+        if lane is not None:
+            return lane[1]
+        try:
+            return self.strategy_by_id(strategy_id).kind
+        except KeyError:
+            return "rotation"
+
     def _lane_enabled(self, strategy_id: str) -> bool:
         """Whether the lane owning this id is on, across all three config shapes."""
         lane = PLAYBOOK_LANES.get(strategy_id, (None, "rotation"))[1]
-        if lane == "rotation":
+        if lane in ("rotation", "fib_pullback"):
+            # Every config/strategies/<id>.yaml lane, whatever its kind, is switched by its own file.
             return self.strategy_by_id(strategy_id).enabled
         if lane == "tactical":
             return self.tactical.enabled
@@ -297,7 +438,7 @@ class AppConfig(BaseModel):
             rows.append(
                 {
                     "strategy_id": strategy_id,
-                    "lane": PLAYBOOK_LANES.get(strategy_id, (None, "rotation"))[1],
+                    "lane": self._lane_label(strategy_id),
                     "rules_file": self.rules_path(strategy_id).relative_to(self.root).as_posix(),
                     "lane_config_enabled": lane_default,
                     "operator_override": enabled if source == SOURCE_LABEL else None,
@@ -340,7 +481,9 @@ def load_config(root: Path) -> AppConfig:
         raise FileNotFoundError(f"no strategy configs in {config_dir / 'strategies'}")
     strategies = []
     for path in strategy_paths:
-        strategy = StrategyConfig.model_validate(_read_yaml(path))
+        raw = _read_yaml(path)
+        model = FibPullbackConfig if raw.get("kind") == "fib_pullback" else StrategyConfig
+        strategy = model.model_validate(raw)
         if path.stem != strategy.id.lower():
             raise ValueError(
                 f"strategy file {path.name} does not match id {strategy.id} "
@@ -357,6 +500,21 @@ def load_config(root: Path) -> AppConfig:
     if scalp.enabled and set(scalp.symbols) & (
             set(universe.by_symbol()) | (set(tactical.symbols) if tactical.enabled else set())):
         raise ValueError("scalp symbols must not overlap ballast/tactical ownership")
+    owned: dict[str, str] = {symbol: "ballast universe" for symbol in universe.by_symbol()}
+    if tactical.enabled:
+        owned.update({symbol: "tactical lane" for symbol in tactical.symbols})
+    if scalp.enabled:
+        owned.update({symbol: "scalp lane" for symbol in scalp.symbols})
+    for strategy in strategies:
+        if not strategy.symbols or not strategy.enabled:
+            continue
+        clash = sorted(set(strategy.symbols) & set(owned))
+        if clash:
+            raise ValueError(
+                f"{strategy.id} symbols {clash} already belong to the {owned[clash[0]]}; "
+                "one lane owns a symbol (ADR 0014/0017)"
+            )
+        owned.update({symbol: f"{strategy.id} scope" for symbol in strategy.symbols})
     if tactical.enabled and (sum(s.allocation_cap for s in strategies if s.enabled)
                              + tactical.stock_allocation_cap + risk.max_option_premium_pct
                              > risk.max_gross_exposure + 1e-8):

@@ -1,0 +1,65 @@
+id: PB-007
+kind: fib_pullback
+# Off until the operator flips it (data/strategies.json or this key). Enabling also needs the
+# allocation-cap sum to fit: 25% ballast + 20% here + 45% tactical + 25% option premium > 95%,
+# so the tactical stock cap must come down (the 20% is carved from it) before this lane trades.
+enabled: false
+sleeve: equity
+# Symbol-disjoint from the ballast universe, the scalp names and the tactical test name (ADR 0014/0017).
+symbols:
+  - US.AAPL
+  - US.GOOGL
+  - US.AMZN
+  - US.META
+  - US.TSLA
+  - US.JPM
+  - US.V
+  - US.MA
+  - US.UNH
+  - US.XOM
+  - US.COST
+  - US.HD
+  - US.LLY
+  - US.NFLX
+  - US.ORCL
+  - US.WMT
+  - US.XLF
+  - US.XLE
+  - US.XLK
+  - US.XLV
+  - US.XLI
+  - US.XLY
+  - US.XLP
+  - US.XLU
+allocation_cap: 0.20
+max_weight: 0.10
+
+regime:
+  sma_fast: 50
+  sma_slow: 200
+  slope_bars: 10
+
+leg:
+  lookback: 30
+  max_high_age: 15
+  min_high_age: 2
+  min_leg_atr: 3.0
+  atr_period: 14
+
+# Retracement ratios from the swing high: entry at 50%, zone 38.2%-61.8%, stop under 78.6%.
+fib:
+  entry: 0.5
+  zone_top: 0.382
+  zone_bottom: 0.618
+  stop_level: 0.786
+  stop_atr_buffer: 0.10
+
+min_reward_risk: 1.5
+risk_per_trade_pct: 0.005
+max_notional_pct: 0.10
+max_open: 4
+max_hold_sessions: 10
+max_spread_pct: 0.003
+min_avg_dollar_volume: 50000000
+min_bars: 260
+no_entry_event_kinds: [FOMC, CPI, PCE]
