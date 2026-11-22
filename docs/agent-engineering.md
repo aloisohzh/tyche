@@ -13,7 +13,7 @@ left are two display-only panels that show a desk which no longer runs there ([P
 |---|---|---|
 | Four agents: coordinator, researcher, auditor, executor | Managed `agents` | `scripts/deploy_managed_agents.py apply-system` / `attach` / `roster`, one field group per write |
 | Three skills | Managed `skills`, each with immutable versions | `publish-skill` mints a version, `attach` pins it - deliberately two steps |
-| Two monthly desk cards | Managed `deployments` | `scripts/deploy_two_fire_automation.py` owns the brief, `pin-card` owns the agent version |
+| One permanent desk card (two monthly cards until the cut-over) | Managed `deployments` | `scripts/deploy_two_fire_automation.py` owns the brief, `pin-card` owns the agent version |
 | Environment (repo mount, Drive bucket, `setup_script`) | Managed `environments` | read-only in practice: a `config` write replaces the object wholesale and the bucket credential is write-only |
 | Vault, memory store, sessions / threads / events | Managed | not authored from this repo |
 | 4 templates, 8 archived schedules, 1 identity | Forward only, and they fire nothing | **never authored, by design.** A template write recompiles the Managed agent and can materialise a `managed_tool_config` grant the running pin never had (L-046), so the writers are in [../archive/MANIFEST.md](../archive/MANIFEST.md) and `test_no_live_script_authors_a_forward_template` keeps them out of `scripts/` |
@@ -122,17 +122,23 @@ withholds new non-defensive entries at low conviction; sells and defensive entri
 - Skill pins live in `latest_version` form (an epoch-microsecond string) while roster and card pins are
   integers; the two never convert into each other, so record both verbatim.
 
-## Cadence (what is deployed, 2026-11-21)
+## Cadence (what is deployed, 2026-11-22)
 
-One Qoder **Managed card per month**, built by `scripts/deploy_two_fire_automation.py`:
-cron `5 8,12,15 <trading-day list> <month> *` in `America/New_York`, trading days filtered at
-generation time by `is_trading_day` (L-019). Live cards: `dep_00vzb9h4ezawwl4thnva` (Nov,
-2026-11-19..30) and `dep_00vzd8d5rdfr4w0denqh` (Dec, 2026-12-01..31), both `active`, agent pin **v34**
-(v28 -> v31 stale-caps re-pin, v31 -> v32 when the desk took `sentinel-digest`, v32 -> v33 -> v34 the two
-prompt trims done through the Managed driver on 2026-11-21). Each card's prompt, cron, env *keys* and
-`initial_events` hash were asserted byte-identical through every move and only the `agent` block was sent;
-the card brief itself carries neither of the two false claims the trims removed, so no card prompt needed
-rewriting.
+**One permanent Qoder Managed card**, built by `scripts/deploy_two_fire_automation.py`: cron
+`5 8,12,15 * * 1-5` in `America/New_York` - 08:05, 12:05 and 15:05 every Monday to Friday, no end date,
+`metadata.window` open-ended (`YYYY-MM-DD..`). The cron carries no holiday list on purpose: the in-run
+`tyche calendar --json` gate is the holiday filter, so a holiday fire costs one read-only session that ends
+at its first step. This replaces the one-card-per-month design (cron `5 8,12,15 <trading-day list>
+<month> *`, days filtered by `is_trading_day` at generation time), whose weakness was that a month nobody
+regenerated was a desk that silently stopped. The monthly cards `dep_00vzb9h4ezawwl4thnva` (Nov,
+2026-11-19..30) and `dep_00vzd8d5rdfr4w0denqh` (Dec, 2026-12-01..31) stay live until the cut-over, which
+is operator-approved and lands between fires: pause both monthly cards, `--apply --start <first day>`
+(the create path refuses to add a second *active* desk card without `--allow-overlap`, because two cards
+that fire are two writers), `--verify <new id>`, then watch the new card's first 08:05 fire before the old
+cards are archived. Agent pin **v34** (v28 -> v31 stale-caps re-pin, v31 -> v32 when the desk took
+`sentinel-digest`, v32 -> v33 -> v34 the two prompt trims done through the Managed driver on 2026-11-21).
+Each card's prompt, cron, env *keys* and `initial_events` hash were asserted byte-identical through every
+move and only the `agent` block was sent.
 
 - **08:05 pre-market** and **15:05 close** are decision fires. **12:05 is watch-and-shout only**: it
   may open, change or close nothing, and messages only on a breach or an exit-less lot
@@ -155,8 +161,9 @@ rewriting.
   `archived_at` set and drops out of the default list, so the desk prompts' "the paused Forward schedules
   must remain paused" is still literally true after the write - no prompt depended on it either way.
 - **The live card is operator-switchable from the desk, not from the hosted page.** Controls reads the card
-  that owns today (`scripts/cloud_api.py:119` selects by its `metadata.window`, because two monthly cards
-  overlap at a rollover and pausing the wrong one would look like success), and `POST /api/schedule/control`
+  that owns today (`scripts/cloud_api.py` `pick_card` selects by `metadata.window`; a bounded window is a
+  monthly card, an open one the permanent card, and when both cover the day the card that still fires wins,
+  because pausing an already-paused card would look like success), and `POST /api/schedule/control`
   pauses, resumes or fires one run. Every action is journaled and the pause is **re-read** from the platform
   before the desk calls it done (`verified`). Fire times and timezone are shown read-only on purpose: they
   live in the card's cron and again in its prompt, so retuning them means rebuilding the card

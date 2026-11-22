@@ -449,6 +449,20 @@ def test_the_cadence_is_judged_on_a_session_day_inside_the_cards_window(srv):
     assert srv._cadence_reference_day("2026-10-05..2026-10-09", date(2026, 11, 21)) == date(2026, 10, 5)
     assert srv._cadence_reference_day("Nov to Dec", date(2026, 11, 21)) == date(2026, 11, 21)
     assert srv._cadence_reference_day("2026-11-30..2026-11-01", date(2026, 11, 21)) == date(2026, 11, 21)
+    # The permanent card's open window is judged on the next session day, never on the weekend asking.
+    assert srv._cadence_reference_day("2026-11-24..", date(2026, 11, 28)) == date(2026, 11, 30)
+    assert srv._cadence_reference_day("2026-11-24..", date(2026, 11, 21)) == date(2026, 11, 24)
+    assert srv._cadence_reference_day("2026-11-24", date(2026, 11, 21)) == date(2026, 11, 21)
+
+
+def test_the_permanent_weekday_card_reads_as_five_days_and_the_same_three_phases(srv, desk, fake):
+    """`5 8,12,15 * * 1-5`: no day-of-month list, so the day count comes from the weekday field, and the
+    routing labels are unchanged because the fire times are."""
+    fake(cards=[_card("dep_perm", window="2026-11-24..", cron="5 8,12,15 * * 1-5")])
+    rows = srv.build_automation()["calendar"]["schedules"]
+    assert [(r["et_time"], r["phase"], r["activity"]) for r in rows] == [
+        ("08:05", "pre_market", "plan"), ("12:05", "midday", "monitor"), ("15:05", "closing_drive", "active")]
+    assert {r["days"] for r in rows} == {5} and {r["window"] for r in rows} == {"2026-11-24.."}
 
 
 def test_the_calendar_gate_carries_no_cadence_of_its_own(srv, desk):
@@ -508,6 +522,30 @@ def test_only_the_window_covering_the_day_is_picked(cloud):
     assert cloud.pick_card(rows, datetime(2026, 11, 21).date())["id"] == "nov"
     assert cloud.pick_card(rows, datetime(2026, 12, 5).date())["id"] == "dec"
     assert cloud.pick_card(rows, datetime(2027, 1, 4).date()) is None
+
+
+def test_the_permanent_card_owns_every_day_from_its_start(cloud):
+    """`YYYY-MM-DD..` with no end is the one card that replaced the monthly ones: it owns today, next
+    month and next year, and nothing before its start."""
+    rows = [cloud.card_view({"id": "perm", "metadata": {"window": "2026-11-24.."}})]
+    for day in (date(2026, 11, 24), date(2026, 12, 31), date(2027, 6, 1)):
+        assert cloud.pick_card(rows, day)["id"] == "perm"
+    assert cloud.pick_card(rows, date(2026, 11, 23)) is None
+
+
+def test_the_card_that_still_fires_wins_a_cut_over_overlap(cloud):
+    """During the switch the paused November card sits beside the permanent one. Controls must address
+    the card that fires: pausing the already-paused one would read as success while the desk kept running."""
+    nov = cloud.card_view({"id": "nov", "status": "paused", "metadata": {"window": "2026-11-19..2026-11-30"}})
+    perm = cloud.card_view({"id": "perm", "status": "active", "metadata": {"window": "2026-11-24.."}})
+    assert cloud.pick_card([nov, perm], date(2026, 11, 25))["id"] == "perm"
+    assert cloud.pick_card([perm, nov], date(2026, 11, 25))["id"] == "perm"
+    # Before the old card is paused both fire; the dated card is named so the operator sees the overlap.
+    nov_live = cloud.card_view({"id": "nov", "status": "active", "metadata": {"window": "2026-11-19..2026-11-30"}})
+    assert cloud.pick_card([perm, nov_live], date(2026, 11, 25))["id"] == "nov"
+    # The old card alone (before the switch) and the new card alone (after the clean-up) still resolve.
+    assert cloud.pick_card([nov], date(2026, 11, 25))["id"] == "nov"
+    assert cloud.pick_card([perm], date(2027, 1, 4))["id"] == "perm"
 
 
 def test_an_unparseable_window_never_owns_a_day(cloud):

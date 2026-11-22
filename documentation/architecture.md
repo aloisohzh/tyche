@@ -17,8 +17,8 @@ one-way boundary rather than a loop.
   CONTROL PLANE (schedules, humans, notifications)
   +------------------------------------------+        +-------------------------------------+
   | Qoder Cloud Automation                   |        | Operator                            |
-  |  one card per month                      |        |  desk console + browser             |
-  |  cron 5 8,12,15 <trading days> ET        |        |  127.0.0.1:8765                     |
+  |  one permanent card                      |        |  desk console + browser             |
+  |  cron 5 8,12,15 * * 1-5 ET (Mon-Fri)     |        |  127.0.0.1:8765                     |
   |  08:05 plan | 12:05 watch-only | 15:05   |        +-----------------+-------------------+
   +-----+------------------------------------+                          |
         | delegates                                          GET /api/state, /api/automation

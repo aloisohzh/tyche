@@ -1,13 +1,19 @@
-"""Create the three-fire Qoder Cloud Automation card for the tyche paper desk.
+"""Create the permanent three-fire Qoder Cloud Automation card for the tyche paper desk.
 
-One card per month: 08:05 premarket plan fire, 12:05 midday watch-and-shout protection check,
-15:05 close fire. The midday fire shares the card and may never submit anything.
+One card, no end date: 08:05 premarket plan fire, 12:05 midday watch-and-shout protection check,
+15:05 close fire, every Monday to Friday in America/New_York. The cron knows nothing about NYSE
+holidays; the in-run `tyche calendar` gate is the holiday filter, so a holiday fire exits read-only.
+This replaced the one-card-per-month design (trading days listed in the cron, a new card each month)
+on 2026-11-22. The midday fire shares the card and may never submit anything.
 
 Reads QODER_PAT and the three runtime secret values from gitignored .env and sends
 them directly to the Cloud API. Never prints secret values.
 
-Run: .venv/Scripts/python.exe scripts/deploy_two_fire_automation.py [--month 2026-12] [--apply]
-Update a live card's prompt/cron: ... --apply-update <deployment_id> [--month 2026-11]
+Run: .venv/Scripts/python.exe scripts/deploy_two_fire_automation.py [--start 2026-11-24] [--apply]
+  --apply refuses to create a second active desk card unless --allow-overlap is given: two cards
+  that both fire are two writers (STATE below), so pause the old card first, then create.
+Update a live card's prompt only: ... --apply-update <deployment_id>
+  (its cron and metadata are re-sent exactly as the platform holds them; only initial_events moves)
 """
 from __future__ import annotations
 
@@ -15,21 +21,24 @@ import json
 import sys
 import urllib.error
 import urllib.request
-from datetime import date, timedelta
+from datetime import date, datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "src"))
-
-from tyche.market_calendar import is_trading_day
 
 BASE = "https://api.qoder.com/api/v1/cloud"
 AGENT_ID = "agent_00vtt1wjgm22o20s8ykz"
 ENVIRONMENT_ID = "env_00vtw0llz5kw0jxmu4hl"
 VAULT_ID = "vault_00vs6gjsbcxkw661ka7o"
 MEMORY_STORE_ID = "memstore_00vtw0mkv8irmz3cmpkd"
-DEFAULT_MONTH = (2026, 11)
-COMPETITION_END = date(2026, 12, 31)
+ET = ZoneInfo("America/New_York")
+# Minute 5 past 08, 12 and 15 ET, Monday to Friday, forever. Holidays are not in the cron on purpose:
+# a day list has to be regenerated every month and a stale one is a silent miss (the Nov/Dec cards), while
+# a holiday fire under this cron costs one read-only session that `tyche calendar --json` ends at once.
+DESK_CRON = "5 8,12,15 * * 1-5"
+CARD_NAME = "Tyche desk - premarket, midday and close"
+PROFILE = "three-fire-weekday"
 DESCRIPTION = (
     "Tyche paper desk: ETF ballast plus catalyst stocks and standard long options; "
     "three-fire premarket/midday/close runs, independent audits and retained position-protection review."
@@ -37,61 +46,54 @@ DESCRIPTION = (
 SECRET_KEYS = ("TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID", "TYCHE_ALLOWED_ACCOUNT_IDS")
 
 
-def _ranges(days: list[int]) -> str:
-    parts: list[str] = []
-    start = prev = days[0]
-    for day in days[1:]:
-        if day == prev + 1:
-            prev = day
-            continue
-        parts.append(str(start) if start == prev else f"{start}-{prev}")
-        start = prev = day
-    parts.append(str(start) if start == prev else f"{start}-{prev}")
-    return ",".join(parts)
+def desk_cron() -> str:
+    """The permanent weekday cron: 08:05/12:05/15:05 ET Monday to Friday; holidays are gated in-run."""
+    return DESK_CRON
 
 
-def desk_cron(start: date, end: date) -> str:
-    """Cron that fires 08:05/12:05/15:05 ET only on NYSE trading days; one month per card."""
-    if (start.year, start.month) != (end.year, end.month):
-        raise ValueError("window must stay within one month; use one card per month")
-    days = []
-    day = start
-    while day <= end:
-        if is_trading_day(day):
-            days.append(day.day)
-        day += timedelta(days=1)
-    if not days:
-        raise ValueError("window contains no trading days")
-    return f"5 8,12,15 {_ranges(days)} {start.month} *"
+def card_start(argv: list[str], today: date | None = None) -> date:
+    """First day the new card owns: --start YYYY-MM-DD, else the first weekday after today (ET)."""
+    if "--start" in argv:
+        return date.fromisoformat(argv[argv.index("--start") + 1])
+    day = (today or datetime.now(ET).date()).toordinal() + 1
+    while date.fromordinal(day).weekday() >= 5:
+        day += 1
+    return date.fromordinal(day)
 
 
-def card_month(argv: list[str]) -> tuple[int, int]:
-    if "--month" not in argv:
-        return DEFAULT_MONTH
-    year, month = argv[argv.index("--month") + 1].split("-")
-    return int(year), int(month)
+def card_name() -> str:
+    return CARD_NAME
 
 
-def card_name(month: tuple[int, int]) -> str:
-    suffix = "" if month == DEFAULT_MONTH else f" ({date(month[0], month[1], 1):%b})"
-    return "Tyche desk - premarket and close" + suffix
+def card_window(start: date) -> str:
+    """Open-ended `metadata.window`: `YYYY-MM-DD..` means from that day on, no end. The desk and the
+    hosted Function select today's card by this field (scripts/cloud_api.py pick_card)."""
+    return f"{start}.."
 
 
-def card_window(month: tuple[int, int]) -> tuple[date, date]:
-    year, mon = month
-    start = max(date(year, mon, 1), date(2026, 11, 19))
-    end = min(date(year + mon // 12, mon % 12 + 1, 1) - timedelta(days=1), COMPETITION_END)
-    return start, end
+def cadence_sentence(window: str) -> str:
+    """The CLOCK clause's first sentence, true for the card it is written onto.
+
+    A legacy monthly card (bounded window, trading-day list in its cron) may still receive a prompt
+    update, so its sentence keeps describing its own cron rather than the permanent one.
+    """
+    start, _, end = window.partition("..")
+    if end:
+        return (f"this automation fires at 08:05, 12:05 and 15:05 America/New_York only on NYSE trading "
+                f"days in the card window {start}..{end}; the cron day list already excludes weekends and "
+                f"holidays, and the calendar gate below is the backstop")
+    return (f"this automation fires at 08:05, 12:05 and 15:05 America/New_York every Monday to Friday "
+            f"from {start} with no end date; the cron knows nothing about NYSE holidays, so the calendar "
+            f"gate below is the only holiday filter and a holiday fire ends read-only")
 
 
-def card_prompt(window: tuple[date, date]) -> str:
-    return PROMPT.replace("{{WINDOW}}", f"{window[0]}..{window[1]}")
+def card_prompt(window: str) -> str:
+    return PROMPT.replace("{{CADENCE}}", cadence_sentence(window))
 
 
 PROMPT = """TYCHE THREE-FIRE PAPER DESK RUN (ARMED 2026-11-20: PER-TRADE THESES, RETRIED EXITS; MIDDAY IS ALERT-ONLY).
 
-CLOCK: this automation fires at 08:05, 12:05 and 15:05 America/New_York only on NYSE trading days in the
-card window {{WINDOW}}; the cron day list already excludes weekends and holidays. At the very start still run
+CLOCK: {{CADENCE}}. At the very start always run
 tyche calendar --json from the repo. Exit 1 means skip: weekend, NYSE holiday or outside 04:00-20:00
 ET; finish read-only with a one-line note and submit nothing. Exit 0 reports trading_day, half_day,
 session phase and events; obey them. 08:05 is the premarket plan fire. 12:05 is the midday protection
@@ -109,7 +111,7 @@ WebFetch https://www.nyse.com/trade/hours-calendars, save the readable output to
 one IN SYNC line in the run report and nothing more. Exit 1 is drift or an uncertain parse: put the
 report's `changes` and `new_years` - or its `warnings` when the parse was incomplete - in the digest's
 Problems section with the operator action "review and re-pin via scripts/refresh_calendar.py", and
-journal one `calendar.check` event for the run. Never edit config or the cron day lists from a run, never
+journal one `calendar.check` event for the run. Never edit config or the card's cron from a run, never
 invent a closure date the page did not state, and never let a finding change today's gate: the pinned
 tables govern until the operator re-pins them, so drift is a note on the run, not a reason to skip or to
 trade. An unavailable or unreadable page is UNCERTAIN, not a pass: say so and carry on. Skip at the 12:05
@@ -306,17 +308,53 @@ def prompt_markers(events: str) -> dict:
         "has_renderer_path": "send-digest" in events,
         "has_midday_watch": ("MIDDAY (12:05 ET, WATCH AND SHOUT ONLY)" in events
                              and "08:05, 12:05 and 15:05" in events),
+        "has_holiday_note": ("the only holiday filter" in events
+                             or "the cron day list already excludes" in events),
     }
 
 
-def update_payload(cron: str, window: tuple[date, date], prompt_text: str) -> dict:
+def live_window(deployment: dict) -> str:
+    window = (deployment.get("metadata") or {}).get("window")
+    if not isinstance(window, str) or ".." not in window:
+        raise SystemExit(f"{deployment.get('id')}: metadata.window is {window!r}; refusing to write a "
+                         "prompt whose CLOCK clause cannot name the card's own window")
+    return window
+
+
+def update_payload(deployment: dict, prompt_text: str) -> dict:
+    """A prompt write for a live card: its schedule and metadata are re-sent exactly as the platform
+    holds them, so the post-write drift check can insist that only `initial_events` moved. A cadence
+    change is never an update - it is a new card (L-019: the card is the live object)."""
+    schedule = deployment.get("schedule") or {}
     return {
-        "schedule": {"type": "cron", "expression": cron, "timezone": "America/New_York"},
-        "metadata": {"source": "operator", "profile": "three-fire",
-                     "window": f"{window[0]}..{window[1]}"},
+        "schedule": {"type": schedule.get("type") or "cron", "expression": schedule.get("expression"),
+                     "timezone": schedule.get("timezone")},
+        "metadata": dict(deployment.get("metadata") or {}),
         "initial_events": [{"type": "user.message",
                             "content": [{"type": "text", "text": prompt_text}]}],
     }
+
+
+def active_desk_cards(values: dict[str, str], start: date) -> list[dict]:
+    """Other desk cards that would still fire on or after `start`: a second writer (STATE in PROMPT)."""
+    rows = req(values, "GET", "/deployments?limit=50")
+    return other_writers(rows.get("data") or rows.get("items") or [], start)
+
+
+def other_writers(items: list, start: date) -> list[dict]:
+    found = []
+    for item in items:
+        if not isinstance(item, dict) or not str(item.get("name", "")).startswith("Tyche desk"):
+            continue
+        if item.get("status") == "paused":
+            continue
+        window = str((item.get("metadata") or {}).get("window") or "")
+        _, _, end = window.partition("..")
+        if end and date.fromisoformat(end) < start:
+            continue
+        found.append({"id": item.get("id"), "name": item.get("name"), "status": item.get("status"),
+                      "window": window or None})
+    return found
 
 
 def main() -> None:
@@ -335,8 +373,12 @@ def main() -> None:
         schedule = deployment.get("schedule") or {}
         print(json.dumps({
             "id": deployment.get("id"),
+            "name": deployment.get("name"),
             "status": deployment.get("status"),
+            "agent_pin": (deployment.get("agent") or {}).get("version"),
             "cron": f"{schedule.get('expression')} {schedule.get('timezone')}",
+            "permanent_weekday_cron": schedule.get("expression") == DESK_CRON,
+            "window": (deployment.get("metadata") or {}).get("window"),
             "upcoming_runs_at": schedule.get("upcoming_runs_at"),
             "prompt_sha256": hashlib.sha256(events.encode()).hexdigest()[:16],
             "prompt_chars": len(events),
@@ -362,10 +404,10 @@ def main() -> None:
     version = agent.get("version")
     if not isinstance(version, int):
         raise SystemExit("agent version unavailable; refusing to create an unpinned card")
-    month = card_month(sys.argv)
-    name = card_name(month)
-    window = card_window(month)
-    cron = desk_cron(*window)
+    start = card_start(sys.argv)
+    name = card_name()
+    window = card_window(start)
+    cron = desk_cron()
     prompt_text = card_prompt(window)
     envs = ";".join(f"{key}={values[key]}" for key in missing)
     payload = {
@@ -384,8 +426,7 @@ def main() -> None:
             {"type": "memory_store", "memory_store_id": MEMORY_STORE_ID, "access": "read_write"},
         ],
         "schedule": {"type": "cron", "expression": cron, "timezone": "America/New_York"},
-        "metadata": {"source": "operator", "profile": "three-fire",
-                     "window": f"{window[0]}..{window[1]}"},
+        "metadata": {"source": "operator", "profile": PROFILE, "window": window},
         "initial_events": [{"type": "user.message", "content": [{"type": "text", "text": prompt_text}]}],
     }
     if envs:
@@ -401,7 +442,7 @@ def main() -> None:
             'data-binary = "@' + payload_path.as_posix() + '"\n'
         )
         print(json.dumps({"staged": True, "payload_file": str(payload_path),
-                          "curl_config": str(config_path), "name": name,
+                          "curl_config": str(config_path), "name": name, "window": window,
                           "agent_version": version, "cron": payload["schedule"],
                           "prompt_chars": len(prompt_text),
                           "environment_carries": sorted(inherited & set(SECRET_KEYS)),
@@ -411,7 +452,8 @@ def main() -> None:
         deployment_id = sys.argv[sys.argv.index("--emit-update") + 1]
         payload_path = Path(sys.argv[sys.argv.index("--emit-update") + 2])
         config_path = Path(sys.argv[sys.argv.index("--emit-update") + 3])
-        payload_path.write_text(json.dumps(update_payload(cron, window, prompt_text)))
+        before = req(values, "GET", f"/deployments/{deployment_id}")
+        payload_path.write_text(json.dumps(update_payload(before, card_prompt(live_window(before)))))
         config_path.write_text(
             'url = "https://api.qoder.com/api/v1/cloud/deployments/' + deployment_id + '"\n'
             'header = "Authorization: Bearer ' + values["QODER_PAT"] + '"\n'
@@ -420,7 +462,8 @@ def main() -> None:
         )
         print(json.dumps({"staged": True, "deployment_id": deployment_id,
                           "payload_file": str(payload_path), "curl_config": str(config_path),
-                          "cron": cron, "prompt_chars": len(prompt_text)}, indent=2))
+                          "cron": (before.get("schedule") or {}).get("expression"),
+                          "window": live_window(before)}, indent=2))
         return
     if "--apply-update" in sys.argv:
         import hashlib
@@ -433,7 +476,7 @@ def main() -> None:
             raise SystemExit(f"{deployment_id}: agent pin is {pinned!r}, not an exact compiled "
                              "version; refusing to write a brief onto a card whose build we cannot name")
         req(values, "POST", f"/deployments/{deployment_id}",
-            update_payload(cron, window, prompt_text))
+            update_payload(before, card_prompt(live_window(before))))
         after = req(values, "GET", f"/deployments/{deployment_id}")
         keep = ("name", "description", "status", "agent", "environment_id", "vault_ids", "metadata",
                 "resources", "schedule")
@@ -459,12 +502,16 @@ def main() -> None:
         if not all(checks.values()):
             raise SystemExit("prompt markers missing after update; inspect cloud state")
         return
+    others = active_desk_cards(values, start)
     if "--apply" not in sys.argv:
-        print(json.dumps({"dry_run": True, "name": name, "agent_version": version,
+        print(json.dumps({"dry_run": True, "name": name, "window": window, "agent_version": version,
                           "cron": payload["schedule"], "prompt_chars": len(prompt_text),
                           "environment_carries": sorted(inherited & set(SECRET_KEYS)),
-                          "from_dotenv": missing}, indent=2))
+                          "from_dotenv": missing, "other_active_desk_cards": others}, indent=2))
         return
+    if others and "--allow-overlap" not in sys.argv:
+        raise SystemExit("refusing to create a second active desk card (two writers): pause these first "
+                         "or pass --allow-overlap: " + json.dumps(others))
     result = req(values, "POST", "/deployments", payload)
     print(json.dumps(sanitize(result), indent=2))
     deployment_id = result.get("id")
