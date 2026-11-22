@@ -71,14 +71,14 @@ SKILLS = {
     "exact-order-audit": {"id": "skill_00w5ej0prnz0h36xnfvm", "dir": "auditor", "roles": ["auditor"]},
     "paper-submit-protocol": {"id": "skill_00w5ej2wczbb5vfl1bq9", "dir": "executor", "roles": ["executor"]},
     # PR A (2026-11-22): written in the repo, not yet created on the platform.
-    "lifecycle-contract": {"id": None, "dir": "shared", "roles": ["coordinator", "executor"]},
-    "midday-watch": {"id": None, "dir": "coordinator", "roles": ["coordinator"]},
-    "proposal-approval": {"id": None, "dir": "coordinator", "roles": ["coordinator"]},
-    "scout-data-suite": {"id": None, "dir": "researcher", "roles": ["researcher"]},
-    "event-discovery": {"id": None, "dir": "researcher", "roles": ["researcher"]},
-    "youtube-inbox": {"id": None, "dir": "researcher", "roles": ["researcher"]},
-    "lifecycle-review": {"id": None, "dir": "auditor", "roles": ["auditor"]},
-    "broker-capture": {"id": None, "dir": "executor", "roles": ["executor"]},
+    "lifecycle-contract": {"id": "skill_00wa7k0k032m9t7igh4k", "dir": "shared", "roles": ["coordinator", "executor"]},
+    "midday-watch": {"id": "skill_00wa7ko2m74ea4q72wbr", "dir": "coordinator", "roles": ["coordinator"]},
+    "proposal-approval": {"id": "skill_00wa7ksz0j8xsovikb89", "dir": "coordinator", "roles": ["coordinator"]},
+    "scout-data-suite": {"id": "skill_00wa7lk0ugfep820a6ob", "dir": "researcher", "roles": ["researcher"]},
+    "event-discovery": {"id": "skill_00wa7lp0fmnlsrqgkji2", "dir": "researcher", "roles": ["researcher"]},
+    "youtube-inbox": {"id": "skill_00wa7luywxbepm4mfguu", "dir": "researcher", "roles": ["researcher"]},
+    "lifecycle-review": {"id": "skill_00wa7m04tdsshgvcupta", "dir": "auditor", "roles": ["auditor"]},
+    "broker-capture": {"id": "skill_00wa7m5vsymtchhxtajd", "dir": "executor", "roles": ["executor"]},
 }
 
 
@@ -491,9 +491,10 @@ def cmd_create_skill(args) -> None:
     zip_path = _pack(name)
     rel = _skill_path(name).relative_to(ROOT).as_posix()
     roles = SKILLS[name]["roles"]
+    # metadata values must be strings (the platform answers 400 to a list), so the roles join on "/"
     parts = [
         ("display_title", f"tyche {'/'.join(roles)} {name}"),
-        ("metadata", json.dumps({"roles": roles, "source_path": rel,
+        ("metadata", json.dumps({"roles": "/".join(roles), "source_path": rel,
                                  "managed_by": "scripts/deploy_managed_agents.py"})),
         ("files", (zip_path.name, zip_path.read_bytes(), "application/zip")),
     ]

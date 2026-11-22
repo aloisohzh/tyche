@@ -1,4 +1,4 @@
-<!-- retrieved-at 2026-11-22T10:38Z | managed agent agent_00w96t16mwxkx3l9vi9i version v1 (exported by scripts/deploy_managed_agents.py)
+<!-- retrieved-at 2026-11-22T17:07Z | managed agent agent_00w96t16mwxkx3l9vi9i version v2 (exported by scripts/deploy_managed_agents.py)
      Verbatim snapshot of the live system prompt, kept for diffing and for
      tests/test_skills.py hard-rule checks. Not the policy authority: the platform
      holds the running pin and docs/risk-card.md + config/ hold the rules. -->
