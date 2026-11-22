@@ -73,12 +73,15 @@ order stays unsubmitted even if the model ignores it.
   plaintext - L-050). The panel says what started each run (card-fired, scout, or opened elsewhere), and an
   unreachable API **blinds** it rather than refilling it from an old export or from `plans/`.
   The eight Forward schedules this panel used to enumerate are archived, so they are not read anywhere in
-  the running desk. PRD §7 item 14 is closed in code on both halves: `desk-site/functions/handler.ts` now
-  fetches `/deployments` and `/sessions` on the Managed base under `TYCHE_CLOUD_PAT`, through `cardView` and
+  the running desk. PRD §7 item 14 is closed on both halves: `desk-site/functions/handler.ts` fetches
+  `/deployments` and `/sessions` on the Managed base under `TYCHE_CLOUD_PAT`, through `cardView` and
   `sessionView` - the hosted twins of the same two projections, for the same L-050 reason - and the cadence
   rows still ride in on `base.calendar`, so the card list and the cadence table describe the same objects.
-  What is left is hosted, not code: the published Function declares `TYCHE_FORWARD_PAT` until the site is
-  republished, and that secret stays until nothing declares it.
+  That handler has been **published** since 22 Nov 05:44Z, so the hosted Orchestration panel reads the live
+  cards. Two things remain, and neither is code: the signed-in browser confirmation that the deployed edge
+  authenticates the token (the gateway 401s any check from here), and `TYCHE_FORWARD_PAT`, which
+  `delete_secret` keeps refusing with `sites_secret_in_use` even though no published Function declares it
+  any more - an inert leftover, not a reader.
 - **The cards themselves** = the only source for the Strategy view's cadence table. `card_cadence()` expands
   each card's own cron into one row per fire time and asks the kernel gate (`phase_at` → `strategy_for`)
   what that wall-clock hour routes to, so the table reads 08:05 plan / 12:05 monitor / 15:05 active with the
@@ -106,7 +109,7 @@ order stays unsubmitted even if the model ignores it.
 
 P1: pipeline board + trade detail + expectancy + equity + rejection log from the journal (local).
 P1: automation panel from the Managed base through `scripts/cloud_api.py` (PAT server-side) - **landed
-21 Nov**, with the hosted `desk-site` Function's matching read landing in code on 22 Nov; what remains of
-item 14 is the republish and the retirement of `TYCHE_FORWARD_PAT`, both hosted writes. P2: protection
-heartbeat + roll state.
+21 Nov**, with the hosted `desk-site` Function's matching read landing in code on 22 Nov and **published the
+same morning**; what is left of item 14 is a signed-in acceptance read and an inert Secret the platform will
+not delete yet. P2: protection heartbeat + roll state.
 Keep it one page; do not build a platform.

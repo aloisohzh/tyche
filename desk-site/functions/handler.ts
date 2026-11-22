@@ -7,9 +7,9 @@
 //               secret is absent or the cloud API is unreachable. Rows leave through a field
 //               whitelist only: a raw session or deployment row carries environment_variables
 //               in plaintext (L-050), so nothing here spreads an upstream body.
-// /schedule   -> the cloud automation card the local desk last published (cadence, next runs, run
-//               history). Read-only here: pausing or firing a card needs the cloud token, which stays
-//               on the operator's machine, and two write paths to one switch is how cadence drifts.
+// /schedule   -> the cadence export the local desk last published, read from the committed feed. Read-only
+//               here on purpose: this Function spends its cloud credential on GETs, and pausing or firing a
+//               card stays a local act, because two write paths to one switch is how cadence drifts.
 // /control    -> POST operator console (passphrase-gated): arm/disarm the approval envelope
 //               and engage/release the kill-switch by committing data/approvals.json and
 //               data/halt.json through the GitHub contents API. GET /control/status reports
