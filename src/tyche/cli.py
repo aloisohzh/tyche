@@ -895,7 +895,7 @@ def halt_status(
 def record_order(
     event: str = typer.Argument(
         ...,
-        help="order.requested, order.submitted, order.filled, order.rejected, halt.skip or gate.wait.",
+        help="order.requested, order.submitted, order.filled, order.rejected, halt.skip, gate.wait or protection.gap.",
     ),
     data: str = typer.Option(..., "--data", help="JSON object with the event payload."),
     journal_path: Path = typer.Option(Path("journal/events.jsonl"), "--journal"),
@@ -908,6 +908,7 @@ def record_order(
         "order.rejected",
         "halt.skip",
         "gate.wait",
+        "protection.gap",
     }
     if event not in allowed:
         raise typer.BadParameter(f"event must be one of {sorted(allowed)}")
@@ -917,6 +918,12 @@ def record_order(
         raise typer.BadParameter(f"--data must be valid JSON: {exc}") from exc
     if not isinstance(payload, dict):
         raise typer.BadParameter("--data must be a JSON object")
+    if event == "protection.gap":
+        # One gap per request_id, with the resolution the lane actually observed (never invented).
+        if not payload.get("request_id"):
+            raise typer.BadParameter("protection.gap requires request_id")
+        if payload.get("resolution") not in ("gate.wait", "expired"):
+            raise typer.BadParameter("protection.gap resolution must be gate.wait or expired")
     if event == "order.filled":
         missing = [
             key
