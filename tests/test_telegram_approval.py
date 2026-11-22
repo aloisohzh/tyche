@@ -10,7 +10,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
-import telegram as bridge  # noqa: E402
+import telegram as bridge
 
 ROOT = Path(__file__).resolve().parents[1]
 CHAT = "123"
