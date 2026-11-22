@@ -44,11 +44,16 @@ def run(*args) -> tuple[int, str]:
     return result.exit_code, " ".join(result.output.split())
 
 
-def tick(tmp_path: Path, *, record: bool = False, reason: str = "re-registered") -> tuple[int, str]:
+def tick(tmp_path: Path, *, record: bool = False, reason: str = "re-registered",
+         lanes: tuple[str, ...] = (), drill: bool = True) -> tuple[int, str]:
     journal = tmp_path / "journal" / "events.jsonl"
     args = ["rules-freeze", "--config-root", str(tmp_path), "--journal", str(journal)]
     if record:
-        args += ["--record", "--reason", reason]
+        # The test journal sits inside the test checkout, which is exactly the laptop-copy shape the
+        # ledger guard refuses, so every recording test here is a declared drill.
+        args += ["--record", "--reason", reason] + (["--drill"] if drill else [])
+    for lane in lanes:
+        args += ["--lane", lane]
     return run(*args)
 
 
@@ -265,3 +270,58 @@ def test_registration_events_keys_off_the_journal_rather_off_the_doc(tmp_path):
     assert registration_events([registered], "already on the chain") == []
     assert registration_events([replace(current, recorded=None)], "first row")[0][0] == FROZEN
     assert registration_events([replace(current, recorded="aaaaaaaaaaaa")], "moved")[0][0] == REFROZEN
+
+
+# ---------------------------------------------------------------- --lane: one reason per row
+
+
+def test_lane_filter_records_only_the_named_lane_with_its_own_reason(tmp_path):
+    """Five pending lanes under one reason string describe none of them (the 2026-11-22 Drive finding):
+    --lane lets each row carry the cause that actually applies to it."""
+    repo(tmp_path)
+    journal = tmp_path / "journal" / "events.jsonl"
+    pending_before = [s.strategy_id for s in states(tmp_path, journal) if s.needs_record]
+    assert PB in pending_before
+    code, out = tick(tmp_path, record=True, reason="PB-001 first row on this ledger", lanes=(PB,))
+    assert code == 0
+    recorded = rows(journal)
+    assert [e["payload"]["strategy"] for e in recorded] == [PB]
+    assert recorded[0]["payload"]["reason"] == "PB-001 first row on this ledger"
+    assert verify_chain(journal)[0]
+    still_pending = [s.strategy_id for s in states(tmp_path, journal) if s.needs_record]
+    assert PB not in still_pending
+    assert set(still_pending) == set(pending_before) - {PB}
+
+
+def test_lane_filter_refuses_an_unknown_lane_and_writes_nothing(tmp_path):
+    repo(tmp_path)
+    journal = tmp_path / "journal" / "events.jsonl"
+    code, out = tick(tmp_path, record=True, reason="typo", lanes=("PB-999",))
+    assert code == 2 and "not a hashable lane" in out
+    assert rows(journal) == []
+
+
+# ---------------------------------------------------------------- the ledger guard (L-056)
+
+
+def test_record_refuses_a_journal_inside_the_checkout_unless_declared_a_drill(tmp_path):
+    """Two notebooks diverged in silence on 2026-11-22; the one inside the repo is a drill copy."""
+    repo(tmp_path)
+    journal = tmp_path / "journal" / "events.jsonl"
+    code, out = tick(tmp_path, record=True, reason="would be lost", drill=False)
+    assert code == 2 and "drill copy" in out
+    assert rows(journal) == []
+    code, _ = tick(tmp_path, record=True, reason="declared drill")
+    assert code == 0
+    assert rows(journal)[0]["payload"]["ledger"] == "drill"
+
+
+def test_record_outside_the_checkout_is_the_ledger_and_needs_no_flag(tmp_path):
+    repo(tmp_path)
+    ledger = tmp_path.parent / f"{tmp_path.name}-drive" / "journal" / "events.jsonl"
+    ledger.parent.mkdir(parents=True)
+    code, _ = run("rules-freeze", "--config-root", str(tmp_path), "--journal", str(ledger),
+                  "--record", "--reason", "first row on the ledger")
+    assert code == 0
+    assert rows(ledger)[0]["payload"]["ledger"] == "ledger"
+    assert verify_chain(ledger)[0]
