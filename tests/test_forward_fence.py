@@ -9,8 +9,9 @@ Scope is authoring, plus one narrow read: `scripts/forward.py` is the client its
 base. The desk's automation panel used to be the other exception - `dashboard/server.py` read
 `/forward/schedules` and `/forward/sessions` - and it was repointed at the Managed cards on 21 Nov, so the
 running code no longer reads that base at all and `test_the_desk_itself_does_not_read_the_forward_base`
-keeps it that way. The hosted `desk-site` Function is the one reader left, and it is display-only with a
-committed-export fallback (PRD 7 item 14).
+keeps it that way. The hosted `desk-site` Function held out until 22 Nov, when its `/automation` overlay
+moved to `/api/v1/cloud` too: nothing the desk publishes reads Forward any more, and this fence now covers
+the hosted handler along with the local panel.
 """
 from __future__ import annotations
 
@@ -40,8 +41,8 @@ FENCED_WRITERS = (
 )
 
 
-# The desk's own running code, which item 14 of PRD §7 took off the Forward base.
-DESK_READERS = ("dashboard/server.py", "scripts/export_dashboard.py")
+# The desk's own running code, local and hosted, which PRD §7 item 14 took off the Forward base.
+DESK_READERS = ("dashboard/server.py", "scripts/export_dashboard.py", "desk-site/functions/handler.ts")
 
 
 def _script_sources() -> list[Path]:
@@ -70,7 +71,8 @@ def test_the_desk_itself_does_not_read_the_forward_base() -> None:
     """Reading is not authoring, but a panel that reads a retired base drifts from what the desk runs on.
 
     The automation panel used to enumerate `/forward/schedules` and `/forward/sessions`; PRD §7 item 14
-    repointed it at `cloud_api.cards()` and the Managed sessions. Nothing in the desk's own code may go back
+    repointed it at `cloud_api.cards()` and the Managed sessions, and one day later repointed the hosted
+    Function's same overlay at `/deployments` and `/sessions`. Nothing in the desk's own code may go back
     to the archived objects, or the panel starts showing a cadence that no longer fires.
     """
     offenders = []

@@ -73,10 +73,12 @@ order stays unsubmitted even if the model ignores it.
   plaintext - L-050). The panel says what started each run (card-fired, scout, or opened elsewhere), and an
   unreachable API **blinds** it rather than refilling it from an old export or from `plans/`.
   The eight Forward schedules this panel used to enumerate are archived, so they are not read anywhere in
-  the running desk. PRD §7 item 14 is therefore closed **locally**; its hosted half is not - 
-  `desk-site/functions/handler.ts` still fetches `/forward/schedules` and `/forward/sessions` with
-  `TYCHE_FORWARD_PAT` and falls back to the committed export, which now means the live hosted overlay
-  reports zero schedules while the baked file shows the cards.
+  the running desk. PRD §7 item 14 is closed in code on both halves: `desk-site/functions/handler.ts` now
+  fetches `/deployments` and `/sessions` on the Managed base under `TYCHE_CLOUD_PAT`, through `cardView` and
+  `sessionView` - the hosted twins of the same two projections, for the same L-050 reason - and the cadence
+  rows still ride in on `base.calendar`, so the card list and the cadence table describe the same objects.
+  What is left is hosted, not code: the published Function declares `TYCHE_FORWARD_PAT` until the site is
+  republished, and that secret stays until nothing declares it.
 - **The cards themselves** = the only source for the Strategy view's cadence table. `card_cadence()` expands
   each card's own cron into one row per fire time and asks the kernel gate (`phase_at` → `strategy_for`)
   what that wall-clock hour routes to, so the table reads 08:05 plan / 12:05 monitor / 15:05 active with the
@@ -90,8 +92,8 @@ order stays unsubmitted even if the model ignores it.
 - Gateway: **Managed `https://api.qoder.com/api/v1/cloud`** is where the desk is authored and where its
   agents, skills, cards, sessions, threads and events live.
   `https://api.qoder.com/api/v1/forward` is residue - four templates, the eight archived schedules, their
-  own runs - and nothing authors through it any more: see [agent-engineering.md](agent-engineering.md) and
-  [tests/test_forward_fence.py](../tests/test_forward_fence.py).
+  own runs - and nothing authors or reads through it any more: see [agent-engineering.md](agent-engineering.md)
+  and [tests/test_forward_fence.py](../tests/test_forward_fence.py), which now guards the hosted handler too.
 - Auth: `Authorization: Bearer <PAT>`; PAT created at qoder.com/cloud/pat-keys, kept in a gitignored
   `.env`, **server-side only**, never in client code or the repo.
 - Cursor pagination (`first_id`/`last_id`/`has_more`); 4 MB body limit; exponential backoff on 429/5xx
@@ -104,6 +106,7 @@ order stays unsubmitted even if the model ignores it.
 
 P1: pipeline board + trade detail + expectancy + equity + rejection log from the journal (local).
 P1: automation panel from the Managed base through `scripts/cloud_api.py` (PAT server-side) - **landed
-21 Nov**; the hosted `desk-site` Function's matching read is what is left of item 14. P2: protection
+21 Nov**, with the hosted `desk-site` Function's matching read landing in code on 22 Nov; what remains of
+item 14 is the republish and the retirement of `TYCHE_FORWARD_PAT`, both hosted writes. P2: protection
 heartbeat + roll state.
 Keep it one page; do not build a platform.
