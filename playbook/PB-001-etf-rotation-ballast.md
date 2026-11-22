@@ -8,6 +8,9 @@ classification:
   strategy_type: Momentum           # cross-asset momentum, inverse-vol weighted
   execution_style: Semi-automated   # deterministic kernel plans; entries need operator approval
   instruments: [Stocks]             # broad ETFs; no options in this sleeve
+  regime_fit: [Any]                 # the regime gate itself chooses: risk_off rotates to cash
+  direction: Long                   # long ETFs and cash only
+  validation: Sanity-checked        # LEAN smoke 2026-11-19: positive return, no edge vs cash
 ---
 
 # PB-001 - Regime-aware ETF rotation (ballast)

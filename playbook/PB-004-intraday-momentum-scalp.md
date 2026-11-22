@@ -6,6 +6,9 @@ classification:
   strategy_type: Breakout           # close through the prior N-bar high
   execution_style: Fully automated  # deterministic, but only under an operator-approved envelope
   instruments: [Stocks]             # single large-cap ETFs/semis, no options leg
+  regime_fit: [Bull]                # long breakouts need upside follow-through; bear rallies whipsaw them
+  direction: Long
+  validation: Unvalidated
 ---
 
 # PB-004 - Intraday momentum scalp (breakout)
