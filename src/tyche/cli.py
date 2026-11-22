@@ -1449,6 +1449,13 @@ def rules_freeze(
                                help="Required with --record: what moved in the bytes, and why."),
     record: bool = typer.Option(False, "--record",
                                 help="Append the rules.frozen / rules.refrozen rows. Off by default."),
+    lanes: list[str] = typer.Option([], "--lane",
+                                    help="With --record: register only these lane ids, so each row can "
+                                         "carry its own --reason. Repeatable. Default: every pending lane."),
+    drill: bool = typer.Option(False, "--drill",
+                               help="Allow --record into a journal inside the repo checkout (a laptop or CI "
+                                    "copy). Rows are stamped ledger=drill. Without it, --record only writes "
+                                    "to a journal outside the checkout: the Drive ledger."),
     as_json: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
 ) -> None:
     """Put each lane's rules hash on the journal, so a re-freeze is a record rather than git archaeology.
@@ -1462,6 +1469,15 @@ def rules_freeze(
     if record and not reason.strip():
         console.print("[bold red]NO-GO[/] --record needs --reason. A freeze row with no stated cause is "
                       "the hand-written provenance this command exists to retire (L-035).")
+        raise typer.Exit(2)
+    inside_checkout = journal_path.resolve().is_relative_to(config_root.resolve())
+    if record and inside_checkout and not drill:
+        # 2026-11-22: four freeze rows went into the gitignored laptop journal and never reached the
+        # Drive ledger the desk reads, so the two chains diverged in silence (L-056). A journal inside
+        # the checkout is a drill copy by construction; say so, or point --journal at the ledger.
+        console.print(f"[bold red]NO-GO[/] {journal_path} is inside the repo checkout, so it is a drill "
+                      "copy, not the ledger the desk reads. Pass --journal <Drive ledger path>, or "
+                      "--drill to stamp these rows ledger=drill on purpose; nothing written.")
         raise typer.Exit(2)
     states, notes = lane_states(config_root, read_events(journal_path))
     if not states:
@@ -1477,12 +1493,26 @@ def rules_freeze(
     # One refused lane holds the whole run: registering the healthy lanes around it would leave the
     # chain describing a review that has not happened yet.
     pending = [] if blocked else registration_events(states, reason or "<not recorded: check only>")
+    if lanes:
+        # One reason per row: a `--reason` that has to describe five lanes at once describes none of
+        # them, which is the hand-written provenance L-035 retired. Unknown ids are a NO-GO, not a no-op.
+        known = {state.strategy_id for state in states}
+        unknown = sorted(set(lanes) - known)
+        if unknown:
+            console.print(f"[bold red]NO-GO[/] --lane {', '.join(unknown)}: not a hashable lane "
+                          f"(known: {', '.join(sorted(known))}); nothing written.")
+            raise typer.Exit(2)
+        pending = [(event_type, payload) for event_type, payload in pending
+                   if payload["strategy"] in set(lanes)]
+    for _event_type, payload in pending:
+        payload["ledger"] = "drill" if inside_checkout else "ledger"
     report = {
         "status": outcome, "config_root": str(config_root),
         "journal": {"path": str(journal_path), "events": chain_events, "valid": chain_ok,
                     "error": chain_error},
         "lanes": [state.as_dict() for state in states], "notes": notes,
         "would_record": [{"type": event_type, "payload": payload} for event_type, payload in pending],
+        "lane_filter": sorted(set(lanes)),
     }
     written: list[dict] = []
     if record and pending:
