@@ -139,13 +139,15 @@ close", `active`, window `2026-11-23..`, pinned to the recreated desk `agent_00w
 operator from his own shell with `--apply --start 2026-11-23 --agent agent_00w96vnmjp81t0rfdqun --pin 1`
 after the two monthly cards were paused, and verified with `--verify`: all thirteen prompt markers true,
 `initial_events` sha `6b545c8310fe7937`, first run `2026-11-23T13:05:00Z`. The monthly cards
-`dep_00vzb9h4ezawwl4thnva` (Nov, 2026-11-19..30) and `dep_00vzd8d5rdfr4w0denqh` (Dec, 2026-12-01..31) are
-**paused**, not archived: they are the rollback (pause new, unpause Nov) until the permanent card has one
-clean day, and `cloud_api.pick_card` prefers the card that still fires when a paused one overlaps it. The
+`dep_00vzb9h4ezawwl4thnva` (Nov, 2026-11-19..30) and `dep_00vzd8d5rdfr4w0denqh` (Dec, 2026-12-01..31) were
+paused first and then **archived** the same evening on the operator's decision (`POST
+/deployments/{id}/archive` at 13:48:33Z and 13:48:37Z; `archived_at` set, names suffixed `_archived_<ts>`,
+status still reads `paused` by id, gone from the default list per L-053). There is deliberately no
+fallback to the monthly design: if the permanent card misbehaves, the fix is to the permanent card. The
 order that was followed, and that any future card replacement should follow, is: pause the old cards,
 `--apply --start <first day> [--agent <id>] [--pin <n>]` (the create path refuses a second *active* desk
 card without `--allow-overlap`, because two cards that fire are two writers), `--verify <new id>`, watch
-the first fire, archive. Pin history before the rebuild: v28 -> v31 stale-caps re-pin, v31 -> v32 when the
+the first fire (or, as here, on the operator's call, before it), archive. Pin history before the rebuild: v28 -> v31 stale-caps re-pin, v31 -> v32 when the
 desk took `sentinel-digest`, v32 -> v33 -> v34 the two prompt trims of 2026-11-21, v34 -> v35 -> v36 the
 roster re-pins of 2026-11-22; each card's prompt, cron, env *keys* and `initial_events` hash were asserted
 byte-identical through every move and only the `agent` block was sent.
