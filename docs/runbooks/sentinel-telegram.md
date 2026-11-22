@@ -5,7 +5,7 @@ Status: wired 2026-11-18. First rehearsal `srun_843b2035dbc452e2b7848c06` FAILED
 Remediated 2026-11-18: researcher v5+ fast data path (`scripts/mcp_prices.py`, one
 `num=370` kline call per symbol) + `timeout_ms` raised to 3600000 on all three schedules.
 Rehearsal 2 `srun_84820bb31f5900a61a3429d1` COMPLETED (27.5 min): risk alert 12:59 UTC
-and digest 13:10 UTC both delivered ok. Inbound bridge (`listen`) wired same day — see
+and digest 13:10 UTC both delivered ok. Inbound bridge (`listen`) wired same day, retired 2026-11-22 — see
 below. Operator: alois.
 
 ## Why not a Forward channel
@@ -40,9 +40,10 @@ bound IM channel); delivery lives in the run instructions instead.
   failure is recorded but never blocks risk work; no tokens/credentials/full account
   ids in messages or logs. Use the existing helper with explicit Telegram HTML when
   the new structured renderer is unavailable; do not bypass it with raw curl.
-- What fires: the two Managed desk cards, `dep_00vzb9h4ezawwl4thnva` (Nov) and
-  `dep_00vzd8d5rdfr4w0denqh` (Dec), at 08:05, 12:05 and 15:05 America/New_York on their own
-  trading-day sets; the midday fire is watch-and-shout only. The Forward schedules `tyche-premarket`,
+- What fires: the permanent Managed desk card `dep_00w9n1b9mkb9cjkalhcv` (created 2026-11-22,
+  window 2026-11-23.., Mon-Fri 08:05, 12:05 and 15:05 America/New_York with holidays gated in-run;
+  it replaced the Nov/Dec monthly cards `dep_00vzb9h4ezawwl4thnva` and `dep_00vzd8d5rdfr4w0denqh`,
+  paused the same day). The midday fire is watch-and-shout only. The Forward schedules `tyche-premarket`,
   `tyche-eod`, `tyche-eod-halfday` and the five others were archived on 21 Nov 2026: they run nothing, they
   are not notification owners, and they no longer appear in the default Forward schedule list
   (plans/managed-migration/queue.md W8).
@@ -182,11 +183,15 @@ reached Telegram — the operator saw a duplicate. Hardening in the helper:
 - `scripts/forward.py get|post|delete|env-set|qr|poll` — Forward API client (PAT from
   `.env`; `MSYS_NO_PATHCONV=1` in Git Bash).
 
-## Inbound (questions / commands) — local listener, STOPPED 2026-11-18
+## Inbound (questions / commands) — local listener, RETIRED 2026-11-22
 
-> Per the operator's decision, Telegram is an **outbound-only sentinel**; the inbound
-> listener below is stopped (restart on demand with `listen`). Order approvals are
-> handled in the Qoder console session thread, not via Telegram. Kept as a fallback.
+> **Retired by the operator's decision on 2026-11-22.** Telegram now has one inbound path: the
+> desk's own `wait-for-reply` step during a fire (section above). The listener below needed the
+> operator's PC on and competed with that step for the same `getUpdates` stream, so it is no longer
+> run for any purpose. Cancel and modify asks (the platform's only `always_ask` tools) stay in the
+> Qoder console; questions and interrupts outside a fire go there too. The code stays in
+> `scripts/telegram.py` as a documented emergency fallback only; nothing schedules it and no drill
+> depends on it. The text below is the record of how it worked.
 
 `scripts/telegram.py listen` runs on the operator's PC and bridges Telegram to a
 desk session on the Managed base (`/api/v1/cloud`): `POST /sessions/{id}/events` for
@@ -198,8 +203,8 @@ reads. The Forward base 404s a card-fired session, which is what made this bridg
 - **State**: `.telegram-bridge.json` (gitignored) holds the getUpdates offset,
   bound session, event cursor, pending approvals and a decision log. First run
   drains stale updates so old messages are never replayed into the desk.
-- **Commands**: `/session latest` (bind the newest session any desk card started - it reads
-  `/deployments/{card}/runs` for both cards and takes the newest run that has a session; a card it
+- **Commands**: `/session latest` (bind the newest session the desk card started - it reads
+  `/deployments/{card}/runs` for every card in `DESK_CARD_IDS` and takes the newest run that has a session; a card it
   cannot read is reported on stderr instead of being counted as "never fired") or
   `/session <sess_id>`; `/status`; `/pending`; `/approve N`; `/deny N [reason]`;
   `/interrupt`; `/help`. Any other text is relayed as `user.message`; the desk
@@ -227,7 +232,12 @@ Run it: `MSYS_NO_PATHCONV=1 .venv/Scripts/python scripts/telegram.py listen`
 
 Verification status 2026-11-18: bind + history scan + `/status` + question
 relay smoke-tested against rehearsal session `sess_00vvadnsde5fkxq15t9z`;
-### Drill scheduled: Mon 23 Nov 12:05 ET fire (PRD §7 item 13)
+### Drill CANCELLED 2026-11-22 (was Mon 23 Nov 12:05 ET fire, PRD §7 item 13)
+
+> Cancelled with the listener's retirement. The claim it was going to test (the operator's yes
+> reaching a live fire) is now exercised by `wait-for-reply` at the first real proposal on the
+> permanent card, from Mon 23 Nov 08:05 ET. The `user.tool_confirmation` and `user.interrupt`
+> writes stay undrilled and unneeded while the listener is retired. Record kept below as written.
 
 What is unproven is the **write** envelope against a session that is currently running. `/approve`, `/deny`
 and `/interrupt` now POST to `/sessions/{id}/events` on the cloud base, and the endpoint plus the
@@ -297,20 +307,23 @@ Rules that keep it safe:
 - Stale updates are forgotten before the preview goes out (`getUpdates offset=-1`), and a message
   dated before the preview is ignored, so yesterday's `/approve 1` never answers today's proposal.
 - **One consumer at a time.** Telegram serves `getUpdates` to one caller; a second one gets
-  `409 Conflict`. The laptop `listen` must be OFF whenever a desk run may call `wait-for-reply`,
-  and the command treats a Conflict as `outcome: conflict`, exit 2, nothing decided. Running both
-  also makes them steal each other's updates: the listener's offset state moves under it.
+  `409 Conflict`, which the command treats as `outcome: conflict`, exit 2, nothing decided. The
+  laptop listener was retired on 2026-11-22 for exactly this reason, so in normal operation nothing
+  else reads the bot; if anyone ever starts `listen` again, every fire's proposals time out as a no.
 - State sits next to the proposal file (`<file>.wait.json`), keyed by the proposals' content ref.
 - Transport failures follow `send`: exit 2 is UNCONFIRMED; the desk treats any non-zero exit as a no.
 - Tests: `tests/test_telegram_approval.py` (decision paths, allowlist, stale, resume, conflict,
   timeout bounds) and `tests/test_desk_card_prompt.py` (the brief's PROPOSAL APPROVAL clause).
 
-Rollout: the card paragraph (PROPOSAL APPROVAL in `scripts/deploy_two_fire_automation.py`, marker
-`has_proposal_approval`) is in the repo but is written to the live cards only with the operator's
-explicit go, between fires, after a supervised manual run of the command. First test planned Mon 23
-Nov between the 08:05 and 12:05 ET fires (about 22:30-00:30 SGT) in a manual, proposals-only desk
-session with no submit; the Tue 01:05 SGT listener drill above is the fallback. Until the write, the
-scheduled fires behave exactly as before this section was added.
+Rollout: LIVE from Mon 23 Nov 2026 08:05 ET. The operator created the permanent desk card
+`dep_00w9n1b9mkb9cjkalhcv` on 22 Nov from current `main`, so its brief carries the PROPOSAL APPROVAL
+paragraph (`scripts/deploy_two_fire_automation.py`, marker `has_proposal_approval`). No supervised live
+run of the command preceded that; the first real proposal is the first live run, which is acceptable
+because every failure mode of the step is a no. A dry run is available any time from the laptop:
+`telegram.py wait-for-reply templates/proposal-approval.example.json` (sends one example preview to
+the allowlisted chat, submits nothing). Close-fire (15:05 ET, 04:05 SGT) proposals time out as a no
+while the operator sleeps; that is the step working as designed, and it shows as `timed_out` in the
+digest's Proposals section.
 
 ## Cloud bridge (no PC) — Sites function experiment, ARCHIVED 2026-11-18
 
