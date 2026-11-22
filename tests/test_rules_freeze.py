@@ -282,7 +282,7 @@ def test_lane_filter_records_only_the_named_lane_with_its_own_reason(tmp_path):
     journal = tmp_path / "journal" / "events.jsonl"
     pending_before = [s.strategy_id for s in states(tmp_path, journal) if s.needs_record]
     assert PB in pending_before
-    code, out = tick(tmp_path, record=True, reason="PB-001 first row on this ledger", lanes=(PB,))
+    code, _ = tick(tmp_path, record=True, reason="PB-001 first row on this ledger", lanes=(PB,))
     assert code == 0
     recorded = rows(journal)
     assert [e["payload"]["strategy"] for e in recorded] == [PB]
