@@ -1149,14 +1149,19 @@ ul { margin: 0; padding: 0; list-style: none; }
 .admin-cards-wrap { position: relative; }
 .admin-cards { display: flex; flex-direction: column; gap: 14px; }
 .admin-cards .approval-card { margin-bottom: 0; }
-.admin-zone[data-locked="true"] .admin-cards { filter: blur(2.5px) saturate(.55); opacity: .34; pointer-events: none; user-select: none; }
-.admin-locked { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 12px; }
+/* Locked: nothing is blurred or greyed - the figures stay readable and the buttons that change
+   something are shown with a lock glyph and route to the unlock card instead. */
+.admin-locked { display: flex; margin-bottom: 14px; }
 .admin-lock-inner {
-  display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center;
-  max-width: 400px; padding: 22px 26px; border-radius: 16px;
-  background: var(--mat-thick); backdrop-filter: blur(6px);
-  border: 1px solid var(--sep); box-shadow: var(--shadow-2);
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; width: 100%;
+  padding: 12px 16px; border-radius: 12px;
+  background: var(--fill-2); border: 1px solid var(--sep);
 }
+.admin-lock-inner p { margin: 0; flex: 1 1 320px; font-size: 12.5px; color: var(--label-3); }
+.btn-locked { display: inline-flex; align-items: center; }
+.lock-glyph { width: 13px; height: 13px; flex-shrink: 0; vertical-align: -2px; margin-right: 5px; opacity: .8; }
+.mode-opt.is-locked { cursor: pointer; }
+.strat-ctl { display: flex; align-items: center; gap: 10px; }
 .lock-badge {
   width: 42px; height: 42px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center;
   color: var(--accent); background: var(--accent-tint);
@@ -1218,7 +1223,6 @@ ul { margin: 0; padding: 0; list-style: none; }
   .info-row-card > .ctl-icon { display: none; }
   .info-row-card > .ctl-side { grid-column: 1; }
   .info-row { grid-template-columns: 1fr; gap: 2px; }
-  .admin-locked { position: static; padding: 0; }
-  .admin-zone[data-locked="true"] .admin-cards { opacity: .3; }
-  .admin-lock-inner { width: 100%; max-width: none; padding: 20px 18px; }
+  .admin-lock-inner { padding: 12px 14px; }
+  .strat-ctl { flex-wrap: wrap; justify-content: flex-end; }
 }
