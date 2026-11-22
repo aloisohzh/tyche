@@ -15,7 +15,7 @@ from __future__ import annotations
 import csv
 import hashlib
 import math
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field

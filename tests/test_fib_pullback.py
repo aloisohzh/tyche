@@ -15,7 +15,14 @@ from tyche.lifecycle import LifecycleBook, LifecyclePlan
 from tyche.pipeline import rules_hash
 from tyche.strategies import LIFECYCLE_GENERATORS
 from tyche.strategies.fib_pullback import (
-    Bar, build_plan, impulse_leg, level, load_ohlc, scan, signal, size,
+    Bar,
+    build_plan,
+    impulse_leg,
+    level,
+    load_ohlc,
+    scan,
+    signal,
+    size,
 )
 from tyche.strategy_ledger import score
 from tyche.trade_risk import compute_expectancy
@@ -131,7 +138,7 @@ def test_scan_ranks_by_confluence_then_reward_risk_and_respects_slots():
     data = {"US.AAPL": bars(), "US.XLF": bars(trend=0.05)}
     result = scan(data, c, 100_000, "h", NOW)
     assert len(result.plans) == 1
-    assert [s.symbol for s in result.signals][0] == result.plans[0].symbol
+    assert next(s.symbol for s in result.signals) == result.plans[0].symbol
     assert "ranked below" in next(v for k, v in result.rejected.items() if k != result.plans[0].symbol and k in data)
     held = scan(data, c, 100_000, "h", NOW, open_symbols={"US.AAPL"})
     assert held.plans == [] and "held" in held.rejected["US.AAPL"]
