@@ -232,16 +232,22 @@ def test_no_live_code_reaches_into_the_archive() -> None:
     assert not offenders, "live code references the archive:\n" + "\n".join(offenders)
 
 
+REGIMES = {"Bull", "Bear", "Range", "Any"}
+DIRECTIONS = {"Long", "Long puts", "Both"}
+
+
 @pytest.mark.parametrize("dimension,vocabulary", [
     ("holding_period", {"Scalping", "Intraday", "Swing", "Position", "Long-term"}),
     ("strategy_type", {"Trend following", "Mean reversion", "Momentum", "Breakout", "Arbitrage",
                        "Market making", "Event-driven", "Statistical/quantitative"}),
     ("execution_style", {"Manual", "Semi-automated", "Fully automated"}),
+    ("direction", DIRECTIONS),
+    ("validation", {"Unvalidated", "Sanity-checked", "Validated"}),
 ])
 def test_playbook_classification_uses_the_frozen_vocabulary(
     dimension: str, vocabulary: set[str]
 ) -> None:
-    """Four independent dimensions, fixed words: Scout and the dashboard filter on these."""
+    """Independent dimensions, fixed words: Scout and the dashboard filter on these."""
     offenders = []
     for path in sorted(_playbook_dir().glob("PB-*.md")):
         matter = _front_matter(path)
@@ -250,6 +256,34 @@ def test_playbook_classification_uses_the_frozen_vocabulary(
         if value is None or (dimension != "instruments" and value not in vocabulary):
             offenders.append(f"{path.name}: {dimension}={value!r}")
     assert not offenders, f"unknown {dimension} value(s): {offenders}"
+
+
+def test_playbook_regime_fit_is_a_list_from_the_vocabulary() -> None:
+    """A setup may suit several regimes, so regime_fit is a list; the words are still fixed."""
+    for path in sorted(_playbook_dir().glob("PB-*.md")):
+        fit = (_front_matter(path).get("classification") or {}).get("regime_fit")
+        assert isinstance(fit, list) and fit, f"{path.name}: regime_fit must be a non-empty list"
+        assert set(fit) <= REGIMES, f"{path.name}: {fit}"
+
+
+def test_roster_tags_only_on_fileless_rows_and_match_the_table() -> None:
+    """Tags live in the playbook file when there is one; INDEX.yaml carries them only for placeholders,
+    and the README table must show the same regime/direction for every row (one source each)."""
+    table = {m.group(1): (m.group(2).strip(), m.group(3).strip()) for m in re.finditer(
+        r"^\| (PB-\d{3}) \| [^|]+ \| [^|]+ \| ([^|]+) \| ([^|]+) \|", _doc("playbook/README.md"), re.MULTILINE)}
+    for entry in _roster():
+        pid = entry["id"]
+        assert pid in table, f"{pid}: README table row lacks Regime fit / Direction cells"
+        if entry.get("file"):
+            assert "tags" not in entry, f"{pid}: tags belong in the playbook front matter, not INDEX.yaml"
+            matter = _front_matter(ROOT / entry["file"])["classification"]
+            fit, direction = matter["regime_fit"], matter["direction"]
+        else:
+            tags = entry.get("tags") or {}
+            fit, direction = tags.get("regime_fit"), tags.get("direction")
+            assert isinstance(fit, list) and set(fit) <= REGIMES, f"{pid}: INDEX.yaml tags.regime_fit {fit!r}"
+            assert direction in DIRECTIONS, f"{pid}: INDEX.yaml tags.direction {direction!r}"
+        assert table[pid] == (", ".join(fit), direction), f"{pid}: README table {table[pid]} != tags {(fit, direction)}"
 
 
 def test_playbook_instruments_are_stocks_and_options_only() -> None:

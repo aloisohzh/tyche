@@ -6,6 +6,9 @@ classification:
   strategy_type: Trend following | Mean reversion | Momentum | Breakout | Arbitrage | Market making | Event-driven | Statistical/quantitative
   execution_style: Manual | Semi-automated | Fully automated
   instruments: [Stocks, Options]
+  regime_fit: [Bull, Bear, Range, Any]   # list: every regime the setup is meant to run in
+  direction: Long | Long puts | Both
+  validation: Unvalidated | Sanity-checked | Validated
 ---
 
 # PB-XXX - <setup name>
@@ -16,8 +19,9 @@ classification:
 - **Sleeve:** ballast / event / intraday / options
 - **Env:** paper (competition)
 
-Pick one value per classification dimension (README.md fixes the vocabulary); `instruments` is the only
-list, because a setup can hold both stocks and options.
+Pick one value per classification dimension (README.md fixes the vocabulary); `instruments` and
+`regime_fit` are the only lists, because a setup can hold both stocks and options and can suit more
+than one regime. `validation` must match the Validation line in the body.
 
 ## Thesis
 One paragraph: what market behavior this exploits.

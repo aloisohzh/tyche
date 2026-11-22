@@ -9,6 +9,9 @@
 #     `data/strategies.json` (src/tyche/lanes.py); neither is a doc change, so this roster claims neither;
 #   - the rules hash lives in the playbook body and is computed by the kernel, never hand-written.
 #
+# `tags:` (regime_fit, direction) appear ONLY on rows with `file: null`: a playbook file carries them in
+# its front matter, and the test refuses a second copy here so the two cannot drift.
+#
 # `tests/test_docs_consistency.py` asserts this roster, the front matter and the config files agree.
 playbooks:
   - id: PB-001
@@ -27,11 +30,17 @@ playbooks:
     file: null
     config: config/tactical.yaml
     status: planned
+    tags:
+      regime_fit: [Bull, Range]
+      direction: Long
 
   - id: PB-003
     file: null
     config: config/tactical.yaml
     status: planned
+    tags:
+      regime_fit: [Range]
+      direction: Both
 
   - id: PB-004
     file: playbook/PB-004-intraday-momentum-scalp.md
@@ -42,11 +51,17 @@ playbooks:
     file: null
     config: null
     status: parked
+    tags:
+      regime_fit: [Any]
+      direction: Both
 
   - id: PB-006
     file: null
     config: null
     status: planned
+    tags:
+      regime_fit: [Bull]
+      direction: Long
 
   # Fib 50% pullback swing lane (ADR 0017): kind fib_pullback in config/strategies/pb-007.yaml,
   # plans through the lifecycle contract. Ships enabled: false; "live" here means a pre-registered

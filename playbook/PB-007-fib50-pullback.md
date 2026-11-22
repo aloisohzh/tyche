@@ -6,6 +6,9 @@ classification:
   strategy_type: Mean reversion    # buy the pullback into the 50% retracement of an impulse leg
   execution_style: Fully automated # deterministic scanner; entries only under an operator-approved lifecycle
   instruments: [Stocks]            # large caps and sector ETFs, no options leg
+  regime_fit: [Bull, Range]        # SMA50/200 filter keeps it out of downtrending names by construction
+  direction: Long
+  validation: Unvalidated
 ---
 
 # PB-007 - Fib 50% pullback (trend-filtered mean reversion)
