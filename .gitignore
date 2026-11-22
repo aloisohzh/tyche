@@ -54,3 +54,5 @@ dist/
 Thumbs.db
 .idea/
 .vscode/
+# Per-machine Claude Code permission rules (the laptop's one-folder allow rule for plans/managed-migration/*)
+.claude/settings.local.json
