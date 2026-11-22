@@ -44,6 +44,13 @@ FENCED_WRITERS = (
 # The desk's own running code, local and hosted, which PRD §7 item 14 took off the Forward base.
 DESK_READERS = ("dashboard/server.py", "scripts/export_dashboard.py", "desk-site/functions/handler.ts")
 
+# Everything the hosted desk is built from: the Function, its build stamp, and the exported web bundle's
+# source. The Sites platform binds a Secret to a release for as long as a published Function names it, so
+# the Forward-era credential and the Forward label must stay out of all of it (PRD §7 item 14).
+HOSTED_SOURCES = ("desk-site/functions", "dashboard/static")
+FORWARD_SECRET = re.compile(r"TYCHE_FORWARD_PAT")
+FORWARD_LABEL = re.compile(r"Forward API")
+
 
 def _script_sources() -> list[Path]:
     return sorted(p for p in SCRIPTS.glob("*.py") if p.name != FORWARD_CLIENT)
@@ -85,6 +92,34 @@ def test_the_desk_itself_does_not_read_the_forward_base() -> None:
     assert not offenders, (
         "the desk is back on the Forward plane; the cadence lives on the Managed cards "
         "(see scripts/deploy_managed_agents.py) and the runs on /sessions:\n" + "\n".join(offenders)
+    )
+
+
+def test_nothing_the_desk_publishes_names_the_forward_secret() -> None:
+    """The hosted Secret can only be deleted once no live release references it.
+
+    `delete_secret` refused `TYCHE_FORWARD_PAT` with `sites_secret_in_use` after the 22 Nov republish, so the
+    name must not come back in anything the Sites publish ships: the Function sources, the build stamp, or
+    the desk script and styles that `scripts/export_dashboard.py` copies into `desk-site/web/`. The visible
+    "Forward API" label is fenced with it, because a desk that says it reads Forward invites someone to
+    mount the credential again.
+    """
+    offenders = []
+    for rel in HOSTED_SOURCES:
+        for path in sorted((ROOT / rel).rglob("*")):
+            if not path.is_file() or path.suffix not in {".ts", ".js", ".mjs", ".html", ".css", ".json"}:
+                continue
+            text = path.read_text(encoding="utf-8", errors="replace")
+            short = path.relative_to(ROOT).as_posix()
+            if FORWARD_SECRET.search(text):
+                offenders.append(f"{short}: names TYCHE_FORWARD_PAT")
+            if FORWARD_LABEL.search(text):
+                offenders.append(f"{short}: labels its source as the Forward API")
+            if FORWARD_BASE.search(text):
+                offenders.append(f"{short}: names the Forward base")
+    assert not offenders, (
+        "the hosted desk names the retired Forward plane again; it reads the Managed base under "
+        "TYCHE_CLOUD_PAT and nothing else:\n" + "\n".join(offenders)
     )
 
 
