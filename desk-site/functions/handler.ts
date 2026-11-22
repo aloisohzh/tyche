@@ -2,12 +2,14 @@
 //
 // /state      -> latest sanitized desk state committed to the public repo (the desk's
 //               push-back refreshes it; the Python builders stay the single source of truth).
-// /automation -> live Forward schedule/session health via a server-side PAT, overlaid on the
+// /automation -> live Managed card/session health via a server-side PAT, overlaid on the
 //               committed deterministic calendar; degrades to the committed export when the
-//               secret is absent or Forward is unreachable.
-// /schedule   -> the cloud automation card the local desk last published (cadence, next runs, run
-//               history). Read-only here: pausing or firing a card needs the cloud token, which stays
-//               on the operator's machine, and two write paths to one switch is how cadence drifts.
+//               secret is absent or the cloud API is unreachable. Rows leave through a field
+//               whitelist only: a raw session or deployment row carries environment_variables
+//               in plaintext (L-050), so nothing here spreads an upstream body.
+// /schedule   -> the cadence export the local desk last published, read from the committed feed. Read-only
+//               here on purpose: this Function spends its cloud credential on GETs, and pausing or firing a
+//               card stays a local act, because two write paths to one switch is how cadence drifts.
 // /control    -> POST operator console (passphrase-gated): arm/disarm the approval envelope
 //               and engage/release the kill-switch by committing data/approvals.json and
 //               data/halt.json through the GitHub contents API. GET /control/status reports
@@ -19,9 +21,11 @@
 
 const REPO_RAW = "https://raw.githubusercontent.com/aloisohzh/tyche/main/desk-site/web/data";
 const REPO_ROOT_RAW = REPO_RAW.replace("/desk-site/web/data", "");
-const FORWARD_BASE = "https://api.qoder.com/api/v1/forward";
+const CLOUD_BASE = "https://api.qoder.com/api/v1/cloud";
 const GH_REPO = "aloisohzh/tyche";
 const TIMEOUT_MS = 8000;
+// The desk's Research Scout tag, same literal scripts/cloud_api.py files into session metadata.
+const SCOUT_KIND = "tyche-scout";
 
 function env(name: string): string | undefined {
   return Deno.env.get(name);
@@ -55,32 +59,67 @@ async function fetchJson(url: string, headers?: Record<string, string>): Promise
   }
 }
 
-function slimSchedule(d: Json): Json {
+function rows(payload: Json): Json[] {
+  const list = payload.data ?? payload.items;
+  return Array.isArray(list) ? list.filter((r): r is Json => typeof r === "object" && r !== null) : [];
+}
+
+// Mirrors scripts/cloud_api.py card_view(): cadence and status, never prompt, mounts or secrets.
+function cardView(d: Json): Json {
+  const schedule = (d.schedule as Json) || {};
+  const metadata = (d.metadata as Json) || {};
+  const agent = (d.agent as Json) || {};
+  const reason = d.paused_reason;
+  const upcoming = schedule.upcoming_runs_at;
   return {
     id: d.id,
     name: d.name,
-    description: d.description,
     status: d.status,
-    trigger_policy: d.trigger_policy,
-    initial_events_version: d.initial_events_version,
-    template_id: d.template_id,
+    paused: d.status === "paused",
+    paused_reason: reason && typeof reason === "object" ? (reason as Json).type : reason ?? null,
+    cron: schedule.expression ?? null,
+    timezone: schedule.timezone ?? null,
+    next_runs: Array.isArray(upcoming) ? upcoming : [],
+    last_run: schedule.last_run_at ?? null,
+    window: metadata.window ?? null,
+    agent: { id: agent.id, version: agent.version },
     updated_at: d.updated_at,
   };
 }
 
-function slimSession(d: Json): Json {
-  const template = (d.template as Json) || {};
+// Mirrors scripts/cloud_api.py session_view(): identity, state and credits, key by key.
+function sessionView(d: Json): Json {
+  const usage = (d.usage as Json) || {};
+  const stats = (d.stats as Json) || {};
+  const agent = (d.agent as Json) || {};
+  const metadata = (d.metadata as Json) || {};
   return {
     id: d.id,
     title: d.title,
     status: d.status,
-    source_type: d.source_type,
-    template: { id: template.id, name: template.name },
-    stats: d.stats,
-    usage: d.usage,
-    metadata: d.metadata,
     created_at: d.created_at,
+    updated_at: d.updated_at,
+    agent: agent.id ?? null,
+    kind: metadata.kind ?? null,
+    deployment_id: d.deployment_id ?? null,
+    usage: {
+      total_credits: usage.total_credits ?? null,
+      model_credits: usage.model_credits ?? null,
+      sandbox_runtime_credits: usage.sandbox_runtime_credits ?? null,
+    },
+    stats: {
+      active_seconds: stats.active_seconds ?? null,
+      duration_seconds: stats.duration_seconds ?? null,
+    },
   };
+}
+
+// Mirrors dashboard/server.py session_origin(): a deployment_id means a card fired it, the Scout tag
+// means the desk's research button did, and anything else was opened elsewhere rather than scheduled.
+function sessionOrigin(row: Json): string {
+  if (row.deployment_id) return "card";
+  if (row.kind) return row.kind === SCOUT_KIND ? "scout" : String(row.kind);
+  return "manual";
 }
 
 async function handleState(): Promise<Response> {
@@ -125,7 +164,7 @@ async function handleAutomation(): Promise<Response> {
     base = { ok: false, source: "committed export unreachable", schedules: [], sessions: [], calendar: null };
   }
 
-  const pat = Deno.env.get("TYCHE_FORWARD_PAT");
+  const pat = Deno.env.get("TYCHE_CLOUD_PAT");
   if (!pat) {
     return json({ ...base, live: false, secret_configured: false });
   }
@@ -133,18 +172,17 @@ async function handleAutomation(): Promise<Response> {
   try {
     const headers = { authorization: "Bearer " + pat, accept: "application/json" };
     const [sched, sess] = await Promise.all([
-      fetchJson(FORWARD_BASE + "/schedules?limit=20", headers),
-      fetchJson(FORWARD_BASE + "/sessions?limit=12", headers),
+      fetchJson(CLOUD_BASE + "/deployments?limit=20", headers),
+      fetchJson(CLOUD_BASE + "/sessions?limit=12", headers),
     ]);
-    const schedules = (((sched.data as Json[]) || [])).map(slimSchedule);
-    const sessions = (((sess.data as Json[]) || [])).map(slimSession);
+    const sessions = rows(sess).map(sessionView).map((s) => ({ ...s, origin: sessionOrigin(s) }));
     return json({
       ok: true,
       live: true,
       secret_configured: true,
-      source: "live - api.qoder.com/api/v1/forward",
+      source: "live - api.qoder.com/api/v1/cloud",
       fetched_at: new Date().toISOString(),
-      schedules,
+      schedules: rows(sched).map(cardView),
       sessions,
       calendar: base.calendar ?? null,
     });
@@ -154,7 +192,7 @@ async function handleAutomation(): Promise<Response> {
       ok: false,
       live: false,
       secret_configured: true,
-      source: "Forward API unreachable - committed export",
+      source: "cloud API unreachable - committed export",
       fetched_at: new Date().toISOString(),
     });
   }
