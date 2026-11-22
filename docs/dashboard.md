@@ -79,9 +79,13 @@ order stays unsubmitted even if the model ignores it.
   rows still ride in on `base.calendar`, so the card list and the cadence table describe the same objects.
   That handler has been **published** since 22 Nov 05:44Z, so the hosted Orchestration panel reads the live
   cards. Two things remain, and neither is code: the signed-in browser confirmation that the deployed edge
-  authenticates the token (the gateway 401s any check from here), and `TYCHE_FORWARD_PAT`, which
-  `delete_secret` keeps refusing with `sites_secret_in_use` even though no published Function declares it
-  any more - an inert leftover, not a reader.
+  authenticates the token (the gateway 401s any check from here), and `TYCHE_FORWARD_PAT`, which the
+  Sites console refuses to delete ("a live release still uses this Secret") even though no published Function
+  declares it any more - an inert leftover, not a reader. Nothing under `desk-site/functions/` or
+  `dashboard/static/` names that Secret or the Forward base, and
+  `test_nothing_the_desk_publishes_names_the_forward_secret` keeps it that way, so the hold is the
+  platform's: it counts a superseded release as live. The way out is a fresh publish from a clean `main`
+  (which retires that release) and then the delete, both from the Qoder IDE, between fires.
 - **The cards themselves** = the only source for the Strategy view's cadence table. `card_cadence()` expands
   each card's own cron into one row per fire time and asks the kernel gate (`phase_at` → `strategy_for`)
   what that wall-clock hour routes to, so the table reads 08:05 plan / 12:05 monitor / 15:05 active with the

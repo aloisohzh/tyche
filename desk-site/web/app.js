@@ -5,8 +5,14 @@ const $ = (sel) => document.querySelector(sel);
 const esc = (s) => String(s ?? "").replace(/[—–]/g, "-").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const hy = (s) => String(s ?? "").replace(/[—–]/g, "-");
 
-const VERSION = "0.10.0";
+const VERSION = "0.10.1";
 const CHANGELOG = [
+  {
+    version: "0.10.1", date: "2026-11-22", title: "The desk stops labelling its cloud read as Forward",
+    items: [
+      "Three labels still said the live desk refreshed from the retired Forward plane. It has read the Managed cards and sessions since 22 Nov, so the live-mode note, the unreachable toast and the snapshot banner now say so. No data path changed.",
+    ],
+  },
   {
     version: "0.10.0", date: "2026-11-22", title: "The cadence table shows the cards that actually fire",
     items: [
@@ -129,7 +135,7 @@ const CHANGELOG = [
     items: [
       "Fortuna-aligned redesign: five views (Overview, Strategy, Risk & Execution, Automation, Controls).",
       "Journal-derived state with hash-chain verification; cloud run bundles as the challenge-account feed.",
-      "Live Qoder Sites Function: state from the repo feed, automation from the Forward API (PAT server-side).",
+      "Live Qoder Sites Function: state from the repo feed, automation from the Managed cloud API (PAT server-side).",
       "Order-approval panel wired to the bounded envelope system with disarm control.",
       "Kill-switch drill evidence, market-calendar phase routing, instrumentation completeness.",
     ],
@@ -414,7 +420,7 @@ async function fetchAll(manual = false) {
   }
   if (!SNAPSHOT && AUTO && !AUTO.ok && !autoErrorShown) {
     autoErrorShown = true;
-    showToast("Forward API unreachable - showing cached local schedule export", true);
+    showToast("Cloud API unreachable - showing cached local schedule export", true);
   }
   if (btn) setTimeout(() => btn.classList.remove("spinning"), 450);
 }
@@ -2101,7 +2107,7 @@ function setup() {
     const banner = $("#snapshot-banner");
     banner.innerHTML = `<span class="snap-tag">read-only snapshot</span>` +
       `<span class="snap-built">built ${esc(dualTime(SNAPSHOT.built_at))}</span>` +
-      `<span>Data is frozen at build time - the live desk refreshes from the journal and Forward API. Theme, filters, sorting and the drawer still work.</span>`;
+      `<span>Data is frozen at build time - the live desk refreshes from the journal and the Managed cloud API. Theme, filters, sorting and the drawer still work.</span>`;
     banner.hidden = false;
   }
   document.querySelectorAll(".theme-btn").forEach((b) => b.addEventListener("click", () => setTheme(b.dataset.themeSet)));
