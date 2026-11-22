@@ -55,10 +55,10 @@ PACK_DIR = EXPORT_DIR / "packed"
 
 # role -> the Managed agent that runs it. "coordinator" is the desk head itself.
 ROLE_AGENTS = {
-    "coordinator": "agent_00vtt1wjgm22o20s8ykz",
+    "coordinator": "agent_00w96vnmjp81t0rfdqun",
     "researcher": "agent_00w940w68fw1saabz6oz",
-    "auditor": "agent_00vtx8g7k1534t7w9eve",
-    "executor": "agent_00vtx8mfbxerk6vxmny5",
+    "auditor": "agent_00w96t16mwxkx3l9vi9i",
+    "executor": "agent_00w96uc82lhxc3n8xzvv",
 }
 # skill directory name -> the Managed skill object that holds its versions, and the role that pins it.
 # A new version here moves nothing: an agent keeps running the version it pins until `attach` re-pins it.
