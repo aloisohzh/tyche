@@ -23,7 +23,7 @@ LIVE_PROMPTS = ROOT / "templates" / "prompts" / "live"
 CARD_SCRIPT = ROOT / "scripts" / "deploy_two_fire_automation.py"
 
 BODY_CHAR_BUDGET = 2500
-ROLES = {"coordinator", "researcher", "auditor", "executor"}
+ROLES = {"coordinator", "researcher", "auditor", "executor", "shared"}
 
 # Numbers that belong to config/ or docs/risk-card.md. A skill may name the key, never the value.
 FORBIDDEN_NUMBERS = (
