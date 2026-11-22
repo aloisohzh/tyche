@@ -19,6 +19,8 @@
 // The browser never sees the PATs. Only selected (slimmed) fields are returned, never raw
 // upstream bodies or exception text.
 
+import { BUILD } from "./build.ts";
+
 const REPO_RAW = "https://raw.githubusercontent.com/aloisohzh/tyche/main/desk-site/web/data";
 const REPO_ROOT_RAW = REPO_RAW.replace("/desk-site/web/data", "");
 const CLOUD_BASE = "https://api.qoder.com/api/v1/cloud";
@@ -417,6 +419,7 @@ export async function handleRequest(req: Request): Promise<Response> {
     return json({
       ok: true,
       service: "tyche-desk-adapter",
+      build: BUILD,
       endpoints: ["/state", "/automation", "/schedule", "/control"],
     });
   }

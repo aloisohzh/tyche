@@ -28,6 +28,8 @@ const masked = (s) => /^\*\*\*\d{3}$/.test(String(s || ""));
 {
   const r = await call("");
   check("health 200", r.status === 200 && r.body.ok === true, JSON.stringify(r.body));
+  check("health carries a build stamp", !!r.body.build && typeof r.body.build.sha === "string",
+    "sha=" + (r.body.build && r.body.build.sha) + " branch=" + (r.body.build && r.body.build.branch));
 }
 // 2. state from public repo raw
 {
