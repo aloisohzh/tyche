@@ -121,7 +121,7 @@ def test_calendar_drift_check_is_premarket_alert_only_and_never_self_applying():
 def test_proposal_approval_is_explicit_numbered_and_never_automatic():
     """The Telegram wait step adds a gate in front of the submit path; it must never read as a way
     around the envelope, audit and reserve, and only the command's `approved` list may open it."""
-    prompt = _module().card_prompt((date(2026, 12, 1), date(2026, 12, 31)))
+    prompt = _module().card_prompt(PERMANENT)
     clause = " ".join(prompt.split("PROPOSAL APPROVAL (TELEGRAM WAIT", 1)[1].split("\n\n", 1)[0].split())
     for must in ("08:05 and 15:05 fires", "wait-for-reply", "render-proposal",
                  "templates/proposal-approval.example.json", "stop, target, exit-by",
