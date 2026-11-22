@@ -6,6 +6,9 @@ Commands: chat-id, send, render-digest, send-digest, render-proposal, wait-for-r
 same numbered previews and waits (10 minutes by default, 15 at most) for the operator's explicit
 `/approve N` or `/deny N`. Silence is a timeout, a free-text reply (question or change) is handed
 back to the desk unapproved, and nothing but `/approve N` from the allowlisted chat ever approves.
+In "Ask me" mode (no same-day envelope) that approve IS the order authorization: each proposal
+carries an `order` block, the approve lands in `<file>.approved.json`, and `tyche approve-telegram
+<file>` journals it so the kernel gate passes for exactly that order and nothing else.
 `listen` is the retired (2026-11-22) PC-bound inbound bridge, kept as an emergency fallback only: it
 relays operator questions to a desk session and surfaces pending always_ask tool approvals for
 explicit /approve or /deny. It NEVER auto-approves; only the allowlisted chat can drive it.
@@ -655,7 +658,11 @@ def listen() -> None:
 
 PROPOSAL_REQUIRED = {"n", "lane", "action", "symbol", "qty", "entry", "value", "stop", "target",
                      "exit_by", "thesis", "invalidation"}
-PROPOSAL_OPTIONAL = {"direction", "horizon", "edge", "bear_case", "risk", "notes"}
+PROPOSAL_OPTIONAL = {"direction", "horizon", "edge", "bear_case", "risk", "notes", "order"}
+# The exact order an approve authorizes ("Ask me" mode). Required in that mode: an approved
+# proposal without it is reported by `tyche approve-telegram` and authorizes nothing.
+ORDER_REQUIRED = {"symbol", "side", "qty", "limit"}
+ORDER_OPTIONAL = {"multiplier", "setup_hash", "exit_floor"}
 MAX_PROPOSALS = 6
 WAIT_DEFAULT = 600
 WAIT_MAX = 900
@@ -686,9 +693,41 @@ def load_proposals(data: object) -> list[dict]:
             clean[key] = _digest_text(item[key], 24 if key == "symbol" else
                                       12 if key in ("action", "qty") else 240)
         for key in sorted(PROPOSAL_OPTIONAL & item.keys()):
-            clean[key] = _digest_lines(item[key]) if key == "notes" else _digest_text(item[key])
+            if key == "order":
+                clean[key] = _clean_order(item[key])
+            else:
+                clean[key] = _digest_lines(item[key]) if key == "notes" else _digest_text(item[key])
         out.append(clean)
     return out
+
+
+def _clean_order(value: object) -> dict:
+    """The machine-readable order behind the prose: symbol, side, qty, limit, and for a buy the
+    exit floor its protective sell is approved at. Numbers, not text, so the kernel gate can
+    bind the approve to exactly this order."""
+    item = _digest_object(value, ORDER_REQUIRED, ORDER_OPTIONAL)
+    symbol = _digest_text(item["symbol"], 24)
+    side = str(item["side"]).strip().lower()
+    if side not in ("buy", "sell"):
+        raise ValueError("order.side must be buy or sell")
+    qty, limit = item["qty"], item["limit"]
+    if not isinstance(qty, int) or isinstance(qty, bool) or qty <= 0:
+        raise ValueError("order.qty must be a positive integer")
+    if not isinstance(limit, (int, float)) or isinstance(limit, bool) or not 0 < limit < float("inf"):
+        raise ValueError("order.limit must be a positive number; market orders are never approved")
+    clean: dict = {"symbol": symbol, "side": side, "qty": qty, "limit": float(limit)}
+    multiplier = item.get("multiplier", 1)
+    if multiplier not in (1, 100) or isinstance(multiplier, bool):
+        raise ValueError("order.multiplier must be 1 or 100")
+    clean["multiplier"] = multiplier
+    if "setup_hash" in item:
+        clean["setup_hash"] = _digest_text(item["setup_hash"], 80)
+    if "exit_floor" in item:
+        floor = item["exit_floor"]
+        if side != "buy" or not isinstance(floor, (int, float)) or isinstance(floor, bool) or not 0 < floor < limit:
+            raise ValueError("order.exit_floor is for a buy only and must sit below the entry limit")
+        clean["exit_floor"] = float(floor)
+    return clean
 
 
 def proposal_ref(proposals: list[dict]) -> str:
@@ -714,6 +753,8 @@ def render_proposal(proposal: dict, deadline: float | None = None, ref: str | No
     ]
     if "direction" in p or "horizon" in p:
         out.append(" | ".join(f"{k.capitalize()}: {esc(p[k])}" for k in ("direction", "horizon") if k in p))
+    if "order" in p:
+        out.append(order_text(p["order"]))
     out += ["", "<b>Exit plan</b>",
             f"- Stop: {esc(p['stop'])}", f"- Target: {esc(p['target'])}", f"- Exit by: {esc(p['exit_by'])}"]
     if "risk" in p:
@@ -738,8 +779,44 @@ def render_proposal(proposal: dict, deadline: float | None = None, ref: str | No
     return rendered
 
 
+def order_text(order: dict) -> str:
+    """What an approve authorizes, in one line: the kernel gate binds to exactly these numbers."""
+    bound = "&lt;=" if order["side"] == "buy" else "&gt;="
+    text = (f"<b>Your approve authorizes</b>: {order['side'].upper()} {order['qty']} {esc(order['symbol'])} "
+            f"limit {bound} {order['limit']:g}")
+    if order.get("multiplier", 1) != 1:
+        text += f" (x{order['multiplier']})"
+    if "exit_floor" in order:
+        text += f", protective sell down to {order['exit_floor']:g}"
+    return text + ". Nothing else."
+
+
 def wait_state_path(source: Path) -> Path:
     return source.with_name(source.name + ".wait.json")
+
+
+def approved_path(source: Path) -> Path:
+    return source.with_name(source.name + ".approved.json")
+
+
+def write_approved(source: Path, state: dict, proposals: list[dict]) -> None:
+    """The hand-off to the kernel: every `/approve N` decision with the proposal's `order` block.
+
+    Written from the wait loop only, so the file holds nothing the numbered approve branch did
+    not decide; `tyche approve-telegram` journals it as today's order authorization ("Ask me").
+    Rewritten on every save, so a resumed window or a denied number never leaves a stale yes.
+    """
+    rows = []
+    for proposal in proposals:
+        decision = state["decisions"].get(str(proposal["n"]))
+        if decision and decision["result"] == "approved":
+            rows.append({"n": proposal["n"], "decided_at": decision["at"], "symbol": proposal["symbol"],
+                         "order": proposal.get("order")})
+    path = approved_path(source)
+    if rows:
+        path.write_text(json.dumps({"ref": state["ref"], "approved": rows}, indent=1), encoding="utf-8")
+    elif path.exists():
+        path.unlink()
 
 
 def _notify(chat_id: str, text: str) -> None:
@@ -807,10 +884,12 @@ def wait_result(state: dict, proposals: list[dict], outcome: str) -> dict:
     def by(kind: str) -> list[int]:
         return sorted(int(n) for n, d in decisions.items() if d["result"] == kind)
 
+    orders = {p["n"]: p.get("order") for p in proposals}
     return {
         "outcome": outcome,
         "ref": state["ref"],
         "approved": by("approved"),
+        "approved_orders": [{"n": n, "order": orders.get(n)} for n in by("approved")],
         "denied": by("denied"),
         "timed_out": by("timeout"),
         "pending": _pending(state, proposals),
@@ -887,6 +966,7 @@ def wait_for_reply(source: Path, chat_id: str, timeout: int = WAIT_DEFAULT) -> d
                 outcome = "reply"
         state_path.write_text(json.dumps(state, indent=1), encoding="utf-8")
     state_path.write_text(json.dumps(state, indent=1), encoding="utf-8")
+    write_approved(source, state, proposals)
     return wait_result(state, proposals, outcome)
 
 

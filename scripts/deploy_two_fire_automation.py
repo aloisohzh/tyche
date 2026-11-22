@@ -18,6 +18,7 @@ Update a live card's prompt only: ... --apply-update <deployment_id>
   (its cron and metadata are re-sent exactly as the platform holds them; only initial_events moves)
 Any card write lands between fires only, with the operator's explicit go: the 2026-11-22 PROPOSAL
 APPROVAL paragraph (Telegram wait-for-reply) is in this file but is NOT on the live cards until that write.
+The two-mode wording (ASK ME / WITHIN MY BOUNDS, 2026-11-22) likewise waits for the operator's go between fires.
 """
 from __future__ import annotations
 
@@ -224,32 +225,41 @@ positions, no open proposals, no pending orders and no discovery due, finish wit
 and say so.
 
 ORDERS: re-read config/tactical.yaml at every fire. When the lane is enabled and execution_enabled
-is true, the executor may submit paper orders under the approved envelope; when either is false,
-entries are proposals only. Options stay disabled until their own entry/exit validation. Broker
-writes follow the PB-001 lifecycle contract: the executor is the only writer; require a same-day
-exact setup/config/account-bound entry AND exit envelope, a fresh independent exact-order audit and
-a successful tyche reserve persisted before ONE paper regular-session limit order with request_id
-as text strictly before submit_before. Paper only; live trading is forbidden; no shorts, spreads,
-naked options, scaling or automatic re-entry. A receipt is not a fill; reconcile afterwards.
-Timeouts, partial fills and uncertain statuses block retry and escalate to the digest. Cancel and
-modify need separate per-action operator confirmation. When the envelope lacks an exit line, no
-entry. Never widen the universe, raise caps or flip a gate in a run; config changes are operator-only.
+is true, the executor may submit paper orders under today's operator authority; when either is false,
+entries are proposals only. The authority has exactly two modes, read from data/approvals.json at the
+fire: WITHIN MY BOUNDS when a same-day envelope exists (submit inside it, no Telegram ask), otherwise
+ASK ME (no envelope: an entry is submitted only after the operator's Telegram /approve N in this run,
+journaled with `tyche approve-telegram`). Never write, edit or re-date the envelope. Options stay
+disabled until their own entry/exit validation. Broker writes follow the PB-001 lifecycle contract:
+the executor is the only writer; require a same-day exact setup/config/account-bound entry AND exit
+authorization (the envelope's lines, or the approved proposal's `order` block with its exit_floor), a
+fresh independent exact-order audit and a successful tyche reserve persisted before ONE paper
+regular-session limit order with request_id as text strictly before submit_before. Paper only; live
+trading is forbidden; no shorts, spreads, naked options, scaling or automatic re-entry. A receipt is
+not a fill; reconcile afterwards. Timeouts, partial fills and uncertain statuses block retry and
+escalate to the digest. Cancel and modify need separate per-action operator confirmation. When the
+authority lacks an exit line, no entry. Never widen the universe, raise caps or flip a gate in a run;
+config changes are operator-only.
 
-PROPOSAL APPROVAL (TELEGRAM WAIT, 2026-11-22): at the 08:05 and 15:05 fires, an entry proposal may be
-submitted only after the operator approves it on Telegram during this run. Write the proposals to a
-private run-local JSON following templates/proposal-approval.example.json with the complete package -
-entry, size, value, stop, target, exit-by, thesis, invalidation - preview with
+PROPOSAL APPROVAL (TELEGRAM WAIT, 2026-11-22): in ASK ME mode (no same-day data/approvals.json), at
+the 08:05 and 15:05 fires, an entry proposal may be submitted only after the operator approves it on
+Telegram during this run. Write the proposals to a private run-local JSON following
+templates/proposal-approval.example.json with the complete package - entry, size, value, stop, target,
+exit-by, thesis, invalidation - and the `order` block (symbol, side, qty, limit, exit_floor, and
+setup_hash when the lane binds one) naming the exact order the approve authorizes; preview with
 `python scripts/telegram.py render-proposal <file>`, then run
 `python scripts/telegram.py wait-for-reply <file>` (10-minute window; never pass a longer --timeout).
-The command's JSON result is the only authority: a number listed under `approved` authorizes the
-existing envelope, exact-order audit, reserve and ONE paper order for exactly that proposal, and nothing
-else does - `denied`, `timed_out`, `pending`, `conflict`, a non-zero exit or any free-text reply is a
-no. A question comes back as outcome `reply`: answer it with `send` and run the same wait-for-reply
-command again (it resumes the same window). A requested change is a no: record it, rebuild the
-proposal under a new number, re-audit and send the fresh preview. Never reuse a number within a fire,
-never approve on the operator's behalf, never submit after the window, and list every proposal with
-its decision in the digest's Proposals section. The 12:05 fire never runs this step. Cancel and modify
-asks stay on the console/bridge path unchanged.
+The command's JSON result is the only authority: a number listed under `approved` authorizes
+`tyche approve-telegram <file>` (which journals that yes as today's order authorization), then the
+exact-order audit, reserve and ONE paper order for exactly that proposal, and nothing else does -
+`denied`, `timed_out`, `pending`, `conflict`, a non-zero exit or any free-text reply is a no. A
+question comes back as outcome `reply`: answer it with `send` and run the same wait-for-reply command
+again (it resumes the same window). A requested change is a no: record it, rebuild the proposal under
+a new number, re-audit and send the fresh preview. Never reuse a number within a fire, never approve
+on the operator's behalf, never submit after the window, and list every proposal with its decision in
+the digest's Proposals section. In WITHIN MY BOUNDS mode (same-day envelope) skip this step: trade
+inside the envelope without asking, and still list the entries in the digest. The 12:05 fire never
+runs this step. Cancel and modify asks stay on the console/bridge path unchanged.
 
 BUDGET: PB-001 ballast 25%, tactical stock cap 45%, aggregate option premium cap 25%, cash >=5%,
 gross <=95%.

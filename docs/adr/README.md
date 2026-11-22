@@ -21,6 +21,7 @@ One decision per file. Format: context → decision → consequences → status.
 | [0015](0015-external-research-perimeter.md) | External research perimeter: local LEAN validation lane + journaled charting | accepted (amended: hosted QC MCP needs paid node) |
 | [0016](0016-per-trade-risk-budget.md) | Per-trade risk budget (1% NAV) + R-multiple expectancy; Kelly deferred | accepted (implemented 2026-11-18) |
 | [0017](0017-strategy-kind-and-scope.md) | Strategy `kind` + per-strategy symbol scope; scoped lanes plan through the lifecycle contract (PB-007) | accepted (implemented 2026-11-22) |
+| [0018](0018-two-trading-modes.md) | Two trading modes: Ask me (journaled Telegram `/approve` is the order authorization, no envelope) or Within my bounds (same-day envelope, no ask); kill-switch overrides both | accepted (implemented 2026-11-22; card brief write pending) |
 
 Parked decisions (post-window) are listed in the
 [2026-11-18 review](../reviews/2026-11-18-design-review.md), not written as ADRs yet.
