@@ -1,10 +1,11 @@
 # PB-004 scalp is the primary lane (2026-11-19 operator direction). The tactical
-# lane is enabled only for the MSFT lifecycle mechanics test: scalp symbols must
-# not overlap a lane that can also trade them, so the universe is MSFT alone.
+# lane is enabled for the MSFT lifecycle mechanics test plus, from 2026-11-23, five low-beta
+# defensives (operator thesis: risk-off rotation into staples/healthcare, long only). Scalp
+# symbols must not overlap a lane that can also trade them.
 enabled: true
 options_enabled: false
 execution_enabled: true
-symbols: [US.MSFT]
+symbols: [US.MSFT, US.KO, US.PG, US.JNJ, US.PEP, US.MCD]
 etf_symbols: []
 stock_allocation_cap: 0.45
 max_name_weight: 0.20
