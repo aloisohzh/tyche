@@ -47,3 +47,11 @@ playbooks:
     file: null
     config: null
     status: planned
+
+  # Fib 50% pullback swing lane (ADR 0017): kind fib_pullback in config/strategies/pb-007.yaml,
+  # plans through the lifecycle contract. Ships enabled: false; "live" here means a pre-registered
+  # file and a hashable config, the switch is the lane's own enabled key or data/strategies.json.
+  - id: PB-007
+    file: playbook/PB-007-fib50-pullback.md
+    config: config/strategies/pb-007.yaml
+    status: live

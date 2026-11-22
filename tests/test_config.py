@@ -35,7 +35,9 @@ def test_load_repo_config() -> None:
     assert "SIM-DEMO-US" in config.risk.account_allowlist
     assert config.strategy_by_id("PB-001").top_n == 4
     assert config.strategy_by_id("PB-001").enabled is True
-    assert config.enabled_strategies() == config.strategies
+    assert config.enabled_strategies() == [config.strategy_by_id("PB-001")]  # PB-007 ships disabled
+    assert config.rotation_strategies() == [config.strategy_by_id("PB-001")]
+    assert config.strategy_by_id("PB-007").kind == "fib_pullback"
     with pytest.raises(KeyError):
         config.strategy_by_id("PB-999")
 

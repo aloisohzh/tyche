@@ -36,11 +36,11 @@ from tyche.market_calendar import (
     generate_hourly_schedules,
     generate_schedules,
 )
-from tyche.models import AccountSnapshot, PlannedOrder, Side, TradePlan, apply_fill
+from tyche.models import AccountSnapshot, OrderIntent, PlannedOrder, Side, TradePlan, apply_fill
 from tyche.monitor_cli import app as monitor_app
 from tyche.nyse_calendar import diff_calendar, parse_nyse_page
 from tyche.persist import persist_run
-from tyche.pipeline import build_order_pipeline, build_plan_pipeline
+from tyche.pipeline import build_order_pipeline, build_plan_pipeline, rules_hash
 from tyche.risk import RiskState, evaluate_intent
 from tyche.strategies import build_intents, fit_turnover_budget, rotation_targets
 from tyche.strategy_ledger import StrategyPolicy
@@ -282,8 +282,12 @@ def plan(
             raise typer.BadParameter(str(exc)) from exc
         if not strategy.enabled:
             raise typer.BadParameter(f"strategy {strategy_id} is disabled")
+        if strategy.kind != "rotation":
+            raise typer.BadParameter(
+                f"strategy {strategy_id} is a {strategy.kind} lane; it plans through its own command"
+            )
     else:
-        enabled = config.enabled_strategies()
+        enabled = [s for s in config.rotation_strategies() if s.enabled]
         if len(enabled) != 1:
             ids = ", ".join(s.id for s in enabled) or "none"
             raise typer.BadParameter(
@@ -743,7 +747,7 @@ def expectancy(
 ) -> None:
     """Fee-net R-multiple expectancy from closed round trips in the journal (ADR 0016)."""
     config = load_config(config_root)
-    report = compute_expectancy(read_events(journal_path), config.universe.sleeve_by_symbol())
+    report = compute_expectancy(read_events(journal_path), config.sleeve_map())
     if as_json:
         console.print_json(data=report.model_dump(mode="json"))
         return
@@ -1455,6 +1459,92 @@ def rules_freeze(
     raise typer.Exit({"registered": 0, "pending": 1, "blocked": 2}[outcome])
 
 
+@app.command("fib-scan")
+def fib_scan(
+    bars: Path = typer.Option(..., "--bars", help="Long CSV date,symbol,open,high,low,close[,volume]."),
+    book: Path = typer.Option(..., "--book", help="Where to write the LifecycleBook of proposals."),
+    account: Path | None = typer.Option(None, "--account", help="Account snapshot JSON (NAV source)."),
+    strategy_id: str = typer.Option("PB-007", "--strategy"),
+    as_of: str | None = typer.Option(None, "--as-of", help="Use bars up to this ISO date only."),
+    flat_by: str | None = typer.Option(None, "--flat-by", help="Latest holding deadline (ISO date), e.g. the window's last session."),
+    held: str = typer.Option("", "--held", help="Comma-separated symbols already held or planned; skipped."),
+    config_root: Path = typer.Option(Path.cwd(), "--config-root"),
+    journal_path: Path = typer.Option(Path("journal/events.jsonl"), "--journal"),
+    record: bool = typer.Option(False, "--record", help="Journal plan.created for the proposals (R attribution needs it)."),
+    json_out: bool = typer.Option(False, "--json"),
+) -> None:
+    """Deterministic fib-pullback scan: daily bars -> lifecycle plan proposals (no approval, no order).
+
+    Proposals are unapproved. They take the usual path: preview, researcher review, exact-order
+    audit and the operator's `tyche lifecycle approve`. With --record the scan journals one
+    plan.created carrying each intent's limit and stop, which is what fee-net R later reads.
+    """
+    from tyche.lifecycle import LifecycleBook
+    from tyche.market_calendar import evaluate
+    from tyche.strategies.fib_pullback import file_sha256, load_ohlc, scan
+
+    config = load_config(config_root)
+    try:
+        strategy = config.strategy_by_id(strategy_id)
+    except KeyError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    if strategy.kind != "fib_pullback":
+        raise typer.BadParameter(f"{strategy_id} is a {strategy.kind} lane, not fib_pullback")
+    try:
+        cutoff = date.fromisoformat(as_of) if as_of else None
+        latest = date.fromisoformat(flat_by) if flat_by else None
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    if not bars.is_file():
+        raise typer.BadParameter(f"bars file not found: {bars}")
+    snapshot, _, _ = _load_account(account)
+    now = datetime.now(UTC)
+    gate = evaluate(now, root=config_root)
+    open_symbols = {s.strip() for s in held.split(",") if s.strip()}
+    open_symbols |= {p.symbol for p in snapshot.positions}
+    result = scan(load_ohlc(bars, cutoff), strategy, snapshot.nav, rules_hash(config_root, strategy_id), now,
+                  open_symbols=open_symbols, event_names=[e.get("name", "") for e in gate.events],
+                  bars_sha256=file_sha256(bars), latest_deadline=latest)
+    book.parent.mkdir(parents=True, exist_ok=True)
+    proposals = LifecycleBook(plans=result.plans, news_checked_at=now, news_feed_ok=False)
+    book.write_text(proposals.model_dump_json(indent=2), encoding="utf-8")
+    if record and result.plans:
+        orders = [{"intent": OrderIntent(
+            symbol=plan.symbol, side=Side.BUY, quantity=plan.quantity, limit_price=plan.entry_high,
+            stop_price=plan.stop.price, strategy_id=strategy_id, setup_id=plan.plan_id,
+            reason=f"{strategy_id} fib pullback proposal; unapproved",
+        ).model_dump(mode="json"), "plan_hash": plan.fingerprint()} for plan in result.plans]
+        append_event(journal_path, "plan.created", {
+            "plan_path": str(book), "strategy_id": strategy_id, "source": "tyche fib-scan",
+            "plan": {"as_of": result.as_of.isoformat() if result.as_of else None, "nav": snapshot.nav,
+                     "account_id": snapshot.account_id, "strategy_id": strategy_id,
+                     "rules_hash": result.rules_hash, "bars_sha256": result.bars_sha256, "orders": orders},
+        })
+    summary = {
+        "strategy_id": strategy_id, "as_of": result.as_of.isoformat() if result.as_of else None,
+        "rules_hash": result.rules_hash, "nav": snapshot.nav, "bars_sha256": result.bars_sha256,
+        "book": str(book), "recorded": bool(record and result.plans),
+        "plans": [{"plan_id": p.plan_id, "plan_hash": p.fingerprint(), "symbol": p.symbol,
+                   "quantity": p.quantity, "entry_low": p.entry_low, "entry_high": p.entry_high,
+                   "stop": p.stop.price, "target": p.take_profit.price,
+                   "entry_expires_at": p.entry_expires_at.isoformat(),
+                   "exit_deadline": p.exit_deadline.isoformat()} for p in result.plans],
+        "signals_without_slot": [s.symbol for s in result.signals if s.symbol not in {p.symbol for p in result.plans}],
+        "rejected": result.rejected,
+        "authorization": "none; preview, review, audit and tyche lifecycle approve are still required",
+    }
+    if json_out:
+        console.print_json(json.dumps(summary))
+        return
+    console.print(f"{strategy_id} scan as of {summary['as_of']} (rules {result.rules_hash}): "
+                  f"{len(result.plans)} proposal(s) -> {book}")
+    for row in summary["plans"]:
+        console.print(f"  {row['symbol']}: qty {row['quantity']} zone {row['entry_low']}-{row['entry_high']} "
+                      f"stop {row['stop']} target {row['target']} hash {row['plan_hash'][:12]}")
+    for symbol, why in sorted(result.rejected.items()):
+        console.print(f"  skip {symbol}: {why}")
+
+
 @app.command("strategy-score")
 def strategy_score(
     strategy_id: str = typer.Option("PB-004", "--strategy"),
@@ -1472,7 +1562,7 @@ def strategy_score(
     if not ok:
         raise typer.BadParameter(f"journal integrity: {error} or journal missing")
     config = load_config(config_root)
-    sleeves = {asset.symbol: asset.sleeve for asset in config.universe.assets}
+    sleeves = dict(config.sleeve_map())
     sleeves.update({symbol: sleeve for symbol in config.scalp.symbols})
     policy = StrategyPolicy(min_closed=min_closed, min_expectancy_r=min_expectancy_r,
                             min_profit_factor=min_profit_factor, max_drawdown_pct=max_drawdown_pct)
