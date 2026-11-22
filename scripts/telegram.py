@@ -6,12 +6,11 @@ Commands: chat-id, send, render-digest, send-digest, render-proposal, wait-for-r
 same numbered previews and waits (10 minutes by default, 15 at most) for the operator's explicit
 `/approve N` or `/deny N`. Silence is a timeout, a free-text reply (question or change) is handed
 back to the desk unapproved, and nothing but `/approve N` from the allowlisted chat ever approves.
-`listen` is the inbound bridge: it relays
-operator questions to a desk session and surfaces pending always_ask tool
-approvals (e.g. paper order submissions) for explicit /approve or /deny.
-It NEVER auto-approves; only the allowlisted chat can drive it.
-Only one program may read the bot's updates at a time: `wait-for-reply` and `listen` must never
-run together.
+`listen` is the retired (2026-11-22) PC-bound inbound bridge, kept as an emergency fallback only: it
+relays operator questions to a desk session and surfaces pending always_ask tool approvals for
+explicit /approve or /deny. It NEVER auto-approves; only the allowlisted chat can drive it.
+Only one program may read the bot's updates at a time: running `listen` while the desk card is live
+makes every fire's `wait-for-reply` end in conflict, i.e. a no.
 """
 from __future__ import annotations
 
@@ -31,10 +30,12 @@ import cloud_api
 
 ROOT = Path(__file__).resolve().parents[1]
 STATE_PATH = ROOT / ".telegram-bridge.json"
-# The two live desk cards, both authored by scripts/deploy_two_fire_automation.py. Their runs are the
-# only source of a session id worth binding to: the Forward schedules listed here before are paused,
-# fire nothing, and 404 on the sessions a card started (queue.md W7).
-DESK_CARD_IDS = ("dep_00vzb9h4ezawwl4thnva", "dep_00vzd8d5rdfr4w0denqh")
+# The live desk card, authored by scripts/deploy_two_fire_automation.py: the permanent weekday card
+# created 2026-11-22, which replaced the Nov/Dec monthly cards (dep_00vzb9h4ezawwl4thnva and
+# dep_00vzd8d5rdfr4w0denqh, paused the same day and archived after the first clean fire). Its runs are
+# the only source of a session id worth binding to: the Forward schedules listed here before are
+# archived, fire nothing, and 404 on the sessions a card started (queue.md W7).
+DESK_CARD_IDS = ("dep_00w9n1b9mkb9cjkalhcv",)
 ASK_EVENTS = {"agent.tool_use", "agent.mcp_tool_use"}
 RESOLUTION_EVENTS = {"user.tool_confirmation", "agent.tool_result", "agent.mcp_tool_result"}
 MAX_PREVIEW = 1500
