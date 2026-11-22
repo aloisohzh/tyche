@@ -90,6 +90,17 @@ order stays unsubmitted even if the model ignores it.
   09:05/10:05/16:05 ET fires no card makes. Blind stays blind - unreadable cards leave the table empty and
   saying so, rather than drawing a remembered cadence.
 
+## Publishing the hosted Function
+
+The Sites Function is published from the operator's working tree, not from `origin/main`, which is how
+two commits on an already-merged branch reached production on 22 Nov while `main` still served the old
+handler. `scripts/stamp_desk_build.py` is the guard: `check` refuses unless HEAD is a clean checkout of
+`origin/main`; `write` runs that check and fills `desk-site/functions/build.ts` with the commit, branch,
+dirty flag and time; `restore` blanks it again after the publish. The health route (`/app`, `/health`)
+reports the stamp, so the signed-in acceptance read answers which commit the live site runs. The committed
+`build.ts` is deliberately `unstamped`: a fresh clone must not claim a provenance it does not have.
+`write --allow-off-main` exists for a deliberate preview and leaves the branch name in the stamp.
+
 ## API plumbing (from the conventions overview)
 
 - Gateway: **Managed `https://api.qoder.com/api/v1/cloud`** is where the desk is authored and where its
