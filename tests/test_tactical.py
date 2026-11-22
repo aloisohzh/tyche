@@ -537,3 +537,38 @@ def test_normalization_skips_venues_without_two_sided_market():
     ]}]}]
     q = normalize_quotes(quotes, books, [])[0]
     assert q.bid == 731.7 and q.ask == 732.17
+
+
+def test_exact_reservation_runs_on_a_journaled_telegram_approval_without_an_envelope(tmp_path, monkeypatch):
+    """Ask me mode: no data/approvals.json anywhere; the operator's /approve N, journaled with the
+    proposal's order block (setup-bound, with its exit floor), is the whole yes for exactly that order."""
+    args = case(True)
+    args[7].tactical.execution_enabled = True  # synthetic drill only
+    proposal = ready(args)["orders"][0]
+    now = NOW + timedelta(seconds=120)
+    paths = write_cli_case(tmp_path, args)
+    assert not paths["envelope"].exists()
+    journal = tmp_path / "events.jsonl"
+    append_event(journal, "tactical.monitor", {"state": args[6].model_dump(mode="json")})
+    approval = {"as_of": NOW.date().isoformat(), "ref": "ab12cd34", "n": 1, "symbol": OPT, "side": "buy",
+                "qty": 1, "limit": 6.1, "multiplier": 100, "setup_hash": proposal["setup_hash"],
+                "exit_floor": 0.01, "decided_at": NOW.isoformat()}
+    monkeypatch.setattr("tyche.tactical_cli.now_utc", lambda: now)
+    monkeypatch.setattr("tyche.tactical_cli.load_config", lambda _: args[7])
+    cmd = ["tactical", "reserve", "--symbol", OPT, "--journal", str(journal), "--config-root", str(tmp_path)]
+    for key, path in paths.items():
+        cmd.extend(["--" + key, str(path)])
+    runner = CliRunner()
+    nothing = runner.invoke(app, cmd)
+    assert nothing.exit_code == 1 and "no Telegram approval journaled today" in nothing.output
+    append_event(journal, "approval.telegram", {**approval, "setup_hash": "someone-elses-setup"})
+    unbound = runner.invoke(app, cmd)
+    assert unbound.exit_code == 1 and "bind the complete setup" in unbound.output
+    append_event(journal, "approval.telegram", approval)
+    first = runner.invoke(app, cmd)
+    assert first.exit_code == 0, first.output
+    payload = json.loads(first.stdout)
+    assert payload["authorized"] and payload["request"]["authorization"] == {"kind": "telegram", "as_of": NOW.date().isoformat()}
+    assert runner.invoke(app, cmd).exit_code == 1  # one yes, one order
+    assert len([e for e in read_events(journal) if e["type"] == "order.requested"]) == 1
+    assert verify_chain(journal)[0]

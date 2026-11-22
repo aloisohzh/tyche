@@ -370,7 +370,7 @@
         <div class="page-heading">
           <div>
             <h1>Orchestration</h1>
-            <p>The desk trades on a schedule in the cloud, even when your PC is off. Every order is either confirmed by you or inside a pre-approved envelope. The cadence is the set of automation cards below: each carries its own cron, window and pinned agent version, and the one whose window owns today's date is the one that fires. The session history comes from the same Managed API, read server-side so the access token never reaches the browser. The Forward schedules the desk ran on until 21 Nov are archived, so they are no longer listed here.</p>
+            <p>The desk trades on a schedule in the cloud, even when your PC is off. Every entry is either approved by you on Telegram during the fire (Ask me) or inside bounds you armed for the day (Within my bounds). The cadence is the set of automation cards below: each carries its own cron, window and pinned agent version, and the one whose window owns today's date is the one that fires. The session history comes from the same Managed API, read server-side so the access token never reaches the browser. The Forward schedules the desk ran on until 21 Nov are archived, so they are no longer listed here.</p>
           </div>
           <div class="heading-aside"><span class="pill live-pill" id="automation-source"><i class="dot"></i><span>Connecting…</span></span></div>
         </div>
@@ -469,7 +469,7 @@
                 <div class="roster-node"><strong>executor</strong><span>broker reads + gated sim writes</span><code class="mono">agent_00vtx8mfbx…</code></div>
               </div>
             </div>
-            <p class="table-note">Children start with no tools. Every sim order needs approval unless it is inside your pre-approved envelope. Challenge account only - live and crypto tools are never mounted.</p>
+            <p class="table-note">Children start with no tools. Every sim order needs your Telegram /approve unless it is inside the bounds you armed for the day. Challenge account only - live and crypto tools are never mounted.</p>
           </div>
         </div>
       </section>
@@ -479,7 +479,7 @@
         <div class="page-heading">
           <div>
             <h1>Controls</h1>
-            <p>Operator settings in one place. The approval envelope, the strategy switches, the scheduled checks, Scout and the kill-switch are grouped below and stay locked for visitors - unlock with the operator passphrase to change them. Data sources and known gaps are listed underneath for everyone.</p>
+            <p>Operator settings in one place. The trading mode (Ask me or Within my bounds), the strategy switches, the scheduled checks, Scout and the kill-switch are grouped below and stay locked for visitors - unlock with the operator passphrase to change them. Data sources and known gaps are listed underneath for everyone.</p>
           </div>
         </div>
 
@@ -580,7 +580,7 @@
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10.5" width="15" height="10" rx="2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/><circle cx="12" cy="15.5" r="1.4"/></svg>
                 </span>
                 <strong>Read-only for visitors</strong>
-                <p>The approval envelope, the strategy switches, the daily checks, Scout and the kill-switch cannot be changed while locked. Unlock above to make changes; viewing always stays open.</p>
+                <p>The trading mode, the strategy switches, the daily checks, Scout and the kill-switch cannot be changed while locked. Unlock above to make changes; viewing always stays open.</p>
                 <button class="btn" id="admin-jump" type="button">Go to unlock</button>
               </div>
             </div>
@@ -607,7 +607,7 @@
             </span>
             <div class="ctl-main">
               <h3>Telegram alerts</h3>
-              <p class="control-sub">The cloud desk pushes risk alerts and digests to Telegram (<span class="mono">@tyche_sentinel_bot</span>) - no PC needed. Order approval is not sent through Telegram; you approve at this desk, per order or with a pre-approved envelope.</p>
+              <p class="control-sub">The cloud desk pushes risk alerts and digests to Telegram (<span class="mono">@tyche_sentinel_bot</span>) - no PC needed. In Ask me mode the desk also sends each entry proposal here during the fire and waits for your <span class="mono">/approve N</span>; in Within my bounds it trades inside the bounds you armed at this desk without asking.</p>
             </div>
             <div class="ctl-side"><span class="pill live-pill live"><i class="dot"></i><span>Delivering</span></span></div>
           </div>

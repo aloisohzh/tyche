@@ -139,14 +139,28 @@ def test_calendar_drift_check_is_premarket_alert_only_and_never_self_applying():
     assert not any(year in clause for year in ("2026", "2027", "2028"))
 
 
+def test_orders_clause_names_the_two_modes_and_forbids_writing_the_envelope():
+    """Ask me or Within my bounds, decided by the same-day envelope at the fire; the run may read that
+    file and never author it, so a mode can only be set by the operator from the desk."""
+    prompt = _module().card_prompt(PERMANENT)
+    clause = " ".join(prompt.split("ORDERS:", 1)[1].split("\n\n", 1)[0].split())
+    for must in ("exactly two modes", "WITHIN MY BOUNDS when a same-day envelope exists", "no Telegram ask",
+                 "otherwise ASK ME", "Telegram /approve N in this run", "tyche approve-telegram",
+                 "Never write, edit or re-date the envelope", "entry AND exit authorization",
+                 "`order` block with its exit_floor", "ONE paper"):
+        assert must in clause, must
+    assert "the executor may submit paper orders" in clause
+
+
 def test_proposal_approval_is_explicit_numbered_and_never_automatic():
     """The Telegram wait step adds a gate in front of the submit path; it must never read as a way
     around the envelope, audit and reserve, and only the command's `approved` list may open it."""
     prompt = _module().card_prompt(PERMANENT)
     clause = " ".join(prompt.split("PROPOSAL APPROVAL (TELEGRAM WAIT", 1)[1].split("\n\n", 1)[0].split())
     for must in ("08:05 and 15:05 fires", "wait-for-reply", "render-proposal",
-                 "templates/proposal-approval.example.json", "stop, target, exit-by",
-                 "10-minute window", "`approved`", "envelope, exact-order audit, reserve",
+                 "templates/proposal-approval.example.json", "stop, target, exit-by", "`order` block",
+                 "10-minute window", "`approved`", "tyche approve-telegram", "exact-order audit, reserve",
+                 "in ASK ME mode", "In WITHIN MY BOUNDS mode (same-day envelope) skip this step",
                  "any free-text reply is a no", "A requested change is a no", "new number",
                  "never approve on the operator's behalf", "never submit after the window",
                  "The 12:05 fire never runs this step"):

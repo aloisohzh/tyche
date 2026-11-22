@@ -6,7 +6,7 @@ Serves the single-page dashboard and four JSON endpoints:
   /api/schedule    the cloud automation card that owns today: cadence, next runs, run history
   /api/scout       the manual researcher lane: status, history and the brief it would send
 
-Operator controls (local desk only): kill-switch, approval-envelope arm/disarm, playbook switches,
+Operator controls (local desk only): kill-switch, trading mode (Ask me / Within my bounds), playbook switches,
 pause/resume/fire-now on the cadence card, and starting a Scout run. No order entry. Full account ids
 are redacted to ***NNN before anything leaves this process.
 """
@@ -31,7 +31,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 import yaml  # noqa: E402
 
-from tyche.approvals import ApprovalBatch, envelope_usage  # noqa: E402
+from tyche.approvals import ApprovalBatch, envelope_usage, telegram_approvals  # noqa: E402
 from tyche.config import load_config  # noqa: E402
 from tyche.envelope import propose_exit_envelope  # noqa: E402
 from tyche.halt import effective_halt, set_halt  # noqa: E402
@@ -1476,16 +1476,21 @@ def _draft_summary(today: date) -> dict | None:
 
 
 def build_approvals() -> dict:
-    """Operator approval state from the existing envelope system (single source of truth).
+    """Operator approval state: which of the two trading modes is on today, from the envelope file.
 
-    armed  = a valid same-day envelope exists -> executor auto-submits within bounds.
-    manual = no valid envelope -> every order needs per-order operator confirmation.
-    The kill-switch overrides auto: halted => no new entries regardless of envelope.
+    bounds = "Within my bounds": a valid same-day envelope exists -> the executor submits inside
+             it with no Telegram ask (for fires while the operator sleeps).
+    ask    = "Ask me": no valid envelope -> during a fire the desk previews each proposal on
+             Telegram and the operator's /approve N is the whole yes, journaled as approval.telegram.
+    The kill-switch overrides both: halted => no new entries regardless of mode.
     """
     today = datetime.now(ET).date()
     halt = effective_halt(JOURNAL.parent, ROOT)
     halted = bool(halt.get("halted"))
     used = envelope_usage(JOURNAL, today)
+    asked = [{"n": a.n, "ref": a.ref, "symbol": a.symbol, "side": a.side, "qty": a.qty, "limit": a.limit,
+              "exit_floor": a.exit_floor, "decided_at": a.decided_at}
+             for a in telegram_approvals(read_events(JOURNAL), today)]
     out = {
         "generated_at": datetime.now(UTC).isoformat(),
         "today_et": today.isoformat(),
@@ -1494,16 +1499,21 @@ def build_approvals() -> dict:
         "max_orders": 0,
         "envelope": None,
         "draft": _draft_summary(today),
-        "mode": "manual",
+        "mode": "ask",
         "auto_active": False,
-        "reason": "No pre-approved envelope - every order needs per-order operator confirmation at the desk console.",
+        "telegram_approvals": asked,
+        "last_bounds": APPROVALS.is_file() or APPROVALS.with_name("approvals.disarmed.json").is_file(),
+        "reason": ("Ask me: the desk previews each proposal on Telegram during the fire and submits only "
+                   "what you /approve. No envelope is needed."),
     }
+    if halted:
+        out["reason"] = "Ask me, but the kill-switch is engaged - no new entries at all."
     if not APPROVALS.is_file():
         return scrub(out)
     try:
         batch = ApprovalBatch.model_validate_json(APPROVALS.read_text(encoding="utf-8"))
     except ValueError as exc:
-        out["reason"] = "Envelope invalid - falling back to per-order confirmation."
+        out["reason"] = "Envelope file is invalid, so the desk is in Ask me: every entry waits for your Telegram /approve."
         out["error"] = str(exc)[:200]
         return scrub(out)
     env = batch.model_dump(mode="json")
@@ -1511,14 +1521,16 @@ def build_approvals() -> dict:
     out["envelope"] = env
     out["max_orders"] = batch.max_orders
     if not batch.valid_on(today):
-        out["reason"] = f"Envelope dated {batch.as_of} is not valid today ({today}) - per-order confirmation only."
+        out["reason"] = (f"Bounds dated {batch.as_of} expired, so today is Ask me: entries wait for your Telegram "
+                         "/approve. Re-arm to go back to Within my bounds.")
     elif halted:
-        out["mode"] = "armed"
-        out["reason"] = "Envelope valid today, but kill-switch engaged - no new entries."
+        out["mode"] = "bounds"
+        out["reason"] = "Within my bounds is armed for today, but the kill-switch is engaged - no new entries."
     else:
-        out["mode"] = "armed"
+        out["mode"] = "bounds"
         out["auto_active"] = True
-        out["reason"] = f"Envelope armed for {today}: auto-submit within approved bounds ({used}/{batch.max_orders} used)."
+        out["reason"] = (f"Within my bounds for {today}: the desk submits inside these bounds without asking "
+                         f"({used}/{batch.max_orders} orders used).")
     return scrub(out)
 
 
@@ -1945,7 +1957,7 @@ def propose_envelope() -> dict:
 
 
 def disarm_envelope() -> dict:
-    """Revert to manual: remove the envelope and propagate to the cloud mount via git.
+    """Switch to Ask me: remove the envelope and propagate to the cloud mount via git.
 
     Path-limited commit so concurrent in-progress files are never swept in. A backup
     copy is kept locally (untracked) so the operator can re-arm by re-committing it.
@@ -1959,7 +1971,7 @@ def disarm_envelope() -> dict:
     try:
         subprocess.run(["git", "add", "--", "data/approvals.json"], cwd=ROOT, check=True, capture_output=True)
         subprocess.run(
-            ["git", "commit", "-m", "Disarm auto approval envelope (operator via dashboard)", "--", "data/approvals.json"],
+            ["git", "commit", "-m", "Switch to Ask me: disarm approval envelope (operator via dashboard)", "--", "data/approvals.json"],
             cwd=ROOT, check=True, capture_output=True,
         )
         subprocess.run(["git", "push", "origin", "main"], cwd=ROOT, check=True, capture_output=True)
@@ -2017,7 +2029,7 @@ def arm_envelope(body: dict) -> dict:
         backup = APPROVALS.with_name("approvals.disarmed.json")
         source = backup if backup.is_file() else APPROVALS
         if not source.is_file():
-            return {"ok": False, "error": "No previous envelope to re-arm. Use Pre-approve to define bounds."}
+            return {"ok": False, "error": "No previous bounds to re-arm. Define fresh bounds first."}
         try:
             candidate = json.loads(source.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError):
@@ -2041,7 +2053,7 @@ def arm_envelope(body: dict) -> dict:
     except (ValueError, TypeError) as exc:
         return {"ok": False, "error": f"Envelope invalid: {str(exc)[:300]}"}
     APPROVALS.write_text(batch.model_dump_json(indent=2), encoding="utf-8")
-    pushed, git_error = _git_push_approvals("Arm auto approval envelope (operator via dashboard)")
+    pushed, git_error = _git_push_approvals("Within my bounds: arm approval envelope (operator via dashboard)")
     return {"ok": True, "armed": True, "pushed": pushed, "git_error": git_error, "approvals": build_approvals()}
 
 

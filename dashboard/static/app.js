@@ -5,8 +5,16 @@ const $ = (sel) => document.querySelector(sel);
 const esc = (s) => String(s ?? "").replace(/[—–]/g, "-").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const hy = (s) => String(s ?? "").replace(/[—–]/g, "-");
 
-const VERSION = "0.10.1";
+const VERSION = "0.11.0";
 const CHANGELOG = [
+  {
+    version: "0.11.0", date: "2026-11-22", title: "Two trading modes: Ask me, or Within my bounds",
+    items: [
+      "Manual, Auto and Pre-approve are gone. The desk is either in Ask me (the default: during a fire it previews each proposal on Telegram and submits only what you /approve - that approve is the whole yes, no envelope needed) or Within my bounds (you arm today's bounds here and the desk submits inside them without asking, for fires while you sleep).",
+      "Within my bounds keeps the one-click re-arm of your last bounds as a button inside it, next to defining fresh bounds and arming the drafted exit note.",
+      "The kill-switch still overrides both modes. The card lists today's Telegram approvals so you can see what Ask me has authorized.",
+    ],
+  },
   {
     version: "0.10.1", date: "2026-11-22", title: "The desk stops labelling its cloud read as Forward",
     items: [
@@ -141,7 +149,7 @@ const CHANGELOG = [
     ],
   },
 ];
-const DESK_CONTRACT = "Tyche v" + VERSION + " - read-only desk - order entry lives in the executor behind per-order operator confirmation or a bounded envelope - account ids redacted to ***NNN - no live trading - journal is the only truth.";
+const DESK_CONTRACT = "Tyche v" + VERSION + " - read-only desk - order entry lives in the executor behind the operator's Telegram /approve (Ask me) or a same-day bounded envelope (Within my bounds) - account ids redacted to ***NNN - no live trading - journal is the only truth.";
 
 let STATE = null;
 let AUTO = null;
@@ -803,6 +811,11 @@ function renderKill() {
     <ul class="kill-timeline">${items}</ul>`;
 }
 
+function modeLabel(a) {
+  if (a.mode === "bounds") return a.auto_active ? "Within my bounds · armed" : "Within my bounds · kill-switch";
+  return a.halted ? "Ask me · kill-switch" : "Ask me · Telegram /approve";
+}
+
 function renderApproval() {
   const a = STATE.approvals;
   const pill = $("#approval-mode-pill");
@@ -811,15 +824,15 @@ function renderApproval() {
     body.innerHTML = '<p class="table-note">Approval state unavailable.</p>';
     return;
   }
-  const armed = a.mode === "armed";
+  const bounds = a.mode === "bounds";
   const active = a.auto_active === true;
-  pill.className = "pill " + (active ? "live-pill live" : armed ? "kill armed" : "live-pill cached");
-  pill.querySelector("span").textContent = active ? "Pre-approved · envelope armed" : armed ? "Armed · kill-switch" : "Manual · per-order";
+  pill.className = "pill " + (active ? "live-pill live" : bounds ? "kill armed" : "live-pill cached");
+  pill.querySelector("span").textContent = modeLabel(a);
   pill.title = hy(a.reason || "");
 
   const env = a.envelope;
   const canControl = controlsEnabled();
-  const modeState = !armed ? "manual" : String(env?.approved_by || "").includes("auto re-arm") ? "auto" : "pre";
+  const modeState = bounds ? "bounds" : "ask";
   let envelopeHtml;
   if (env && Array.isArray(env.orders) && env.orders.length) {
     const rows = env.orders.map((o) => {
@@ -835,16 +848,24 @@ function renderApproval() {
         <tbody>${rows}</tbody>
       </table></div>
       <div class="approval-budget">
-        <span class="card-kicker">Envelope budget · ${used}/${max} used today</span>
+        <span class="card-kicker">Bounds budget · ${used}/${max} used today</span>
         <div class="budget-track"><div class="budget-fill" style="width:${pctUsed}%"></div></div>
       </div>`;
   } else {
-    envelopeHtml = '<p class="table-note">No pre-approved batch. Every order waits for your explicit confirmation at the desk console.</p>';
+    envelopeHtml = '<p class="table-note">No bounds armed. The desk asks you on Telegram during each fire and submits only what you /approve.</p>';
   }
+  const asked = Array.isArray(a.telegram_approvals) ? a.telegram_approvals : [];
+  const askedHtml = asked.length ? `
+      <div class="tbl-scroll"><table class="tbl approval-tbl">
+        <thead><tr><th>#</th><th>Symbol</th><th>Side</th><th class="num">Qty</th><th class="num">Limit</th><th class="num">Exit floor</th></tr></thead>
+        <tbody>${asked.map((t) => `<tr><td class="mono">${t.n}</td><td><strong>${esc(t.symbol)}</strong></td><td>${esc(t.side)}</td><td class="num mono">${t.qty}</td><td class="num mono">${money(t.limit)}</td><td class="num mono">${t.exit_floor == null ? "-" : money(t.exit_floor)}</td></tr>`).join("")}</tbody>
+      </table></div>
+      <p class="table-note">Approved by you on Telegram today (ET). Each line authorizes exactly that order, once.</p>`
+    : '<p class="table-note">Nothing approved on Telegram yet today.</p>';
 
   const validTag = env
-    ? (env.valid_today ? '<span class="chip ok-chip">Valid today</span>' : '<span class="chip">Stale · not today</span>')
-    : '<span class="chip">No envelope</span>';
+    ? (env.valid_today ? '<span class="chip ok-chip">Bounds valid today</span>' : '<span class="chip">Bounds expired · not today</span>')
+    : '<span class="chip">No bounds</span>';
   const haltTag = a.halted ? '<span class="chip halt-chip">Kill-switch armed</span>' : "";
   const haltNote = a.halted ? '<p class="table-note halt-note">Kill-switch engaged - no new entries regardless of mode.</p>' : "";
 
@@ -852,17 +873,28 @@ function renderApproval() {
     `<button class="mode-opt${modeState === mode ? " on" : ""}" data-mode="${mode}"${canControl ? "" : " disabled"} title="${esc(hint)}">${esc(label)}</button>`;
   const modeSeg = `
     <div class="mode-seg" role="group" aria-label="Trading mode">
-      ${modeBtn("manual", "Manual", "Every order needs your explicit confirmation at the desk.")}
-      ${modeBtn("auto", "Auto", "Re-arm your last approved bounds for today - one click.")}
-      ${modeBtn("pre", "Pre-approve", "Define a fresh bounded envelope for unattended runs.")}
+      ${modeBtn("ask", "Ask me", "During each fire the desk previews every proposal on Telegram and submits only what you /approve. No envelope.")}
+      ${modeBtn("bounds", "Within my bounds", "Arm today's bounds here; the desk submits inside them without asking, for fires while you sleep.")}
     </div>
     <p class="mode-hint">${canControl
-      ? "Manual confirms every order. Auto re-uses your last approved bounds for today. Pre-approve defines fresh bounds. The kill-switch overrides all modes."
+      ? "Ask me: your Telegram /approve is the whole yes. Within my bounds: no ask, the desk trades inside today's bounds only. The kill-switch overrides both."
       : (LIVE ? "View-only - unlock the operator console above to change the trading mode. Everyone can refresh." : "Read-only snapshot - trading mode is selectable on the live desk.")}</p>`;
+  const hasLast = Boolean(env) || Boolean(a.last_bounds);
+  const boundsPanel = canControl ? `
+    <div class="env-form" id="bounds-panel"${bounds ? "" : " hidden"}>
+      <div class="env-form-head"><span class="card-kicker">Within my bounds · today (ET)</span></div>
+      <p class="table-note" style="padding:0 0 10px">${bounds
+        ? "Armed. The desk submits inside the bounds on the right without asking you. Switch to Ask me to disarm."
+        : "Not armed. Re-arm your last bounds in one click, or define fresh ones below."}</p>
+      <div class="env-form-actions">
+        <button class="btn btn-primary" id="bounds-rearm" type="button"${hasLast ? "" : " disabled"} title="${hasLast ? "Re-approve your last bounds as-is for today" : "No previous bounds yet"}">Re-arm last bounds</button>
+        <button class="btn" id="bounds-fresh" type="button">Define fresh bounds</button>
+      </div>
+    </div>` : "";
 
   const envForm = canControl ? `
     <div class="env-form" id="env-form" hidden>
-      <div class="env-form-head"><span class="card-kicker">New pre-approved envelope · today (ET)</span>
+      <div class="env-form-head"><span class="card-kicker">Fresh bounds · today (ET)</span>
         <button class="text-button" id="env-add-line" type="button">+ Add line</button></div>
       <div id="env-lines"></div>
       <div class="env-form-grid">
@@ -871,10 +903,10 @@ function renderApproval() {
         <label class="env-note">Note<input type="text" id="env-note" maxlength="200" placeholder="why this batch is approved" class="search"></label>
       </div>
       <div class="env-form-actions">
-        <button class="btn btn-primary" id="env-submit">Arm envelope</button>
+        <button class="btn btn-primary" id="env-submit">Arm these bounds</button>
         <button class="btn" id="env-cancel">Cancel</button>
       </div>
-      <p class="table-note" style="padding:8px 0 0">Buys need a limit ceiling; sells need a limit floor. The executor only submits within these bounds, and the envelope expires at the end of today (ET).</p>
+      <p class="table-note" style="padding:8px 0 0">Buys need a limit ceiling; sells need a limit floor. The desk only submits within these bounds, and they expire at the end of today (ET).</p>
     </div>` : "";
 
   const draft = a.draft;
@@ -905,7 +937,7 @@ function renderApproval() {
         ${canDraft ? '<button class="btn btn-primary" id="draft-propose" type="button">Propose exit note</button>' : ""}
         ${canDraft && lines.length && draft.dated_today ? '<button class="btn" id="draft-arm" type="button">Arm this exit note</button>' : ""}
       </div>
-      ${canDraft ? '<p class="mode-hint">Arming approves these exact bounds for today only. It lets a defensive sell fire while you are away; it never authorises a buy, and the kill-switch still overrides it.</p>'
+      ${canDraft ? '<p class="mode-hint">Arming puts the desk in Within my bounds with these exact sell lines for today only. It lets a defensive sell fire while you are away; it never authorises a buy, and the kill-switch still overrides it.</p>'
         : `<p class="mode-hint">${LIVE ? "Drafting runs on the local desk - the hosted console has no journal or Python kernel to read." : "Read-only snapshot - drafting and arming run on the live desk."}</p>`}
     </div>`;
 
@@ -916,13 +948,26 @@ function renderApproval() {
         <div class="approval-meta">${validTag}<span class="chip">ET today ${esc(a.today_et || "")}</span>${haltTag}</div>
         ${haltNote}
         <div class="approval-control">${modeSeg}</div>
+        ${boundsPanel}
         ${envForm}
       </div>
-      <div class="approval-envelope">${envelopeHtml}${draftHtml}</div>
+      <div class="approval-envelope">
+        <span class="card-kicker">${bounds ? "Bounds armed for today" : "Ask me · Telegram approvals today"}</span>
+        ${bounds ? envelopeHtml : askedHtml}
+        ${bounds ? "" : (env ? `<details class="draft-refused"><summary>Last bounds (${esc(env.as_of || "")}, not armed)</summary>${envelopeHtml}</details>` : "")}
+        ${draftHtml}</div>
     </div>`;
 
   if (canControl) {
     body.querySelectorAll(".mode-opt").forEach((b) => b.addEventListener("click", () => onModeClick(b.dataset.mode)));
+    const rearm = $("#bounds-rearm");
+    if (rearm) rearm.addEventListener("click", armAuto);
+    const fresh = $("#bounds-fresh");
+    if (fresh) fresh.addEventListener("click", () => {
+      const form = $("#env-form");
+      form.hidden = !form.hidden;
+      if (!form.hidden && !$("#env-lines").children.length) { addEnvLine(); addEnvLine(); }
+    });
     const add = $("#env-add-line");
     if (add) add.addEventListener("click", () => addEnvLine());
     const cancel = $("#env-cancel");
@@ -938,15 +983,14 @@ function renderApproval() {
 
 function onModeClick(mode) {
   const a = STATE.approvals;
-  if (mode === "manual") {
-    if (a.mode !== "armed") { showToast("Already manual - every order needs your confirmation"); return; }
+  if (mode === "ask") {
+    if (a.mode !== "bounds") { showToast("Already Ask me - the desk submits only what you /approve on Telegram"); return; }
     disarmAuto();
-  } else if (mode === "auto") {
-    armAuto();
   } else {
-    const form = $("#env-form");
-    form.hidden = !form.hidden;
-    if (!form.hidden && !$("#env-lines").children.length) { addEnvLine(); addEnvLine(); }
+    // Within my bounds: open the panel; arming is the explicit click inside it (re-arm or fresh bounds).
+    const panel = $("#bounds-panel");
+    if (panel) panel.hidden = !panel.hidden;
+    if (a.mode === "bounds") showToast("Within my bounds is already armed for today");
   }
 }
 
@@ -1083,10 +1127,10 @@ async function unlockOperator() {
 }
 
 async function disarmAuto() {
-  if (!confirm("Switch to Manual and propagate to the cloud desk?\n\nOrders revert to per-order confirmation. This commits + pushes the envelope removal. Reversible - re-arm any time with Auto or Pre-approve.")) return;
+  if (!confirm("Switch to Ask me and propagate to the cloud desk?\n\nToday's bounds are removed: from the next fire the desk previews each proposal on Telegram and submits only what you /approve. This commits + pushes the removal. Reversible - re-arm any time.")) return;
   try {
     const j = await controlPost("/api/approvals/disarm", "disarm");
-    if (j.pushed) showToast("Manual mode - per-order confirmation (cloud synced)");
+    if (j.pushed) showToast("Ask me - the desk asks on Telegram before every entry (cloud synced)");
     else showToast("Disarmed locally; cloud push failed: " + (j.git_error || "unknown"), true);
     await fetchAll(true);
   } catch (e) {
@@ -1095,13 +1139,13 @@ async function disarmAuto() {
 }
 
 async function armAuto() {
-  if (!confirm("Auto mode: re-arm your LAST approved envelope for today?\n\nThe previous bounds (symbols, quantities, limit bounds, order budget) are re-approved as-is for today's ET date and pushed to the cloud desk. Choose Pre-approve instead to define fresh bounds.")) return;
+  if (!confirm("Within my bounds: re-arm your LAST bounds for today?\n\nThe previous bounds (symbols, quantities, limit bounds, order budget) are re-approved as-is for today's ET date and pushed to the cloud desk. The desk then submits inside them without asking you on Telegram. Use Define fresh bounds instead to change them.")) return;
   try {
     const j = await controlPost("/api/approvals/arm", "arm", { reuse_last: true });
-    showToast(j.pushed ? "Auto armed - last approved bounds valid today (cloud synced)" : "Armed locally; cloud push failed: " + (j.git_error || "unknown"), !j.pushed);
+    showToast(j.pushed ? "Within my bounds - last bounds re-armed for today (cloud synced)" : "Armed locally; cloud push failed: " + (j.git_error || "unknown"), !j.pushed);
     await fetchAll(true);
   } catch (e) {
-    showToast("Auto arm failed: " + e.message, true);
+    showToast("Re-arm failed: " + e.message, true);
   }
 }
 
@@ -1133,7 +1177,7 @@ async function armDraft() {
   const text = `Arm this exit note for today (ET)?\n\n${summary}\n\nMax orders: ${d.max_orders} · floors ${pct(d.collar_pct)} under each journaled stop.\n`
     + (unbound ? `${unbound} line(s) carry no setup hash - the tactical lane refuses an unbound line.`
       : "Every line is bound to its journaled setup.")
-    + "\n\nSells inside these bounds can then fire without a per-order tap. No buys. Expires at the end of today.";
+    + "\n\nThis switches the desk to Within my bounds for sells only: they can fire without a Telegram ask. No buys. Expires at the end of today.";
   if (!confirm(text)) return;
   const btn = $("#draft-arm");
   if (btn) { btn.disabled = true; btn.textContent = "Arming..."; }
@@ -1163,16 +1207,16 @@ async function submitEnvelope() {
   if (!lines.length) { showToast("Add at least one complete line (symbol, qty, limit bound)", true); return; }
   if (!(maxOrders >= 1)) { showToast("Max orders must be at least 1", true); return; }
   const summary = lines.map((l) => `${l.symbol} ${l.side} ≤ ${l.max_qty} @ ${l.side === "buy" ? "≤ " + money(l.limit_max) : "≥ " + money(l.limit_min)}`).join("\n");
-  if (!confirm(`Arm this pre-approved envelope for today (ET)?\n\n${summary}\n\nMax orders: ${maxOrders}${maxNotional ? "\nMax notional: " + money(maxNotional) : ""}\n\nThe executor may submit within these bounds without a per-order popup. It expires at the end of today.`)) return;
+  if (!confirm(`Within my bounds: arm these bounds for today (ET)?\n\n${summary}\n\nMax orders: ${maxOrders}${maxNotional ? "\nMax notional: " + money(maxNotional) : ""}\n\nThe desk may submit within these bounds without asking you on Telegram. They expire at the end of today.`)) return;
   const btn = $("#env-submit");
   btn.disabled = true; btn.textContent = "Arming…";
   try {
     const j = await controlPost("/api/approvals/arm", "arm", { max_orders: maxOrders, max_notional: maxNotional, note: $("#env-note").value, orders: lines });
-    showToast(j.pushed ? "Envelope armed - pre-approved auto within bounds (cloud synced)" : "Armed locally; cloud push failed: " + (j.git_error || "unknown"), !j.pushed);
+    showToast(j.pushed ? "Within my bounds - armed for today (cloud synced)" : "Armed locally; cloud push failed: " + (j.git_error || "unknown"), !j.pushed);
     await fetchAll(true);
   } catch (e) {
     showToast("Arm failed: " + e.message, true);
-    btn.disabled = false; btn.textContent = "Arm envelope";
+    btn.disabled = false; btn.textContent = "Arm these bounds";
   }
 }
 
@@ -2051,9 +2095,9 @@ function renderOverview() {
   const a = STATE.approvals;
   const ov = $("#ov-approval");
   if (ov && a) {
-    const active = a.auto_active === true, armed = a.mode === "armed";
-    ov.className = "pill " + (active ? "live-pill live" : armed ? "kill armed" : "live-pill cached");
-    ov.querySelector("span").textContent = active ? "Pre-approved · envelope armed" : armed ? "Armed · kill-switch" : "Manual · per-order";
+    const active = a.auto_active === true, bounds = a.mode === "bounds";
+    ov.className = "pill " + (active ? "live-pill live" : bounds ? "kill armed" : "live-pill cached");
+    ov.querySelector("span").textContent = modeLabel(a);
     ov.title = hy(a.reason || "");
   }
   const kill = $("#ov-kill");

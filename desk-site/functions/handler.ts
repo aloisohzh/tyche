@@ -10,7 +10,7 @@
 // /schedule   -> the cadence export the local desk last published, read from the committed feed. Read-only
 //               here on purpose: this Function spends its cloud credential on GETs, and pausing or firing a
 //               card stays a local act, because two write paths to one switch is how cadence drifts.
-// /control    -> POST operator console (passphrase-gated): arm/disarm the approval envelope
+// /control    -> POST operator console (passphrase-gated): switch the trading mode (Within my bounds arms the approval envelope, Ask me disarms it)
 //               and engage/release the kill-switch by committing data/approvals.json and
 //               data/halt.json through the GitHub contents API. GET /control/status reports
 //               only whether the console is configured. Visitors without the passphrase see
@@ -369,7 +369,7 @@ async function handleControl(req: Request): Promise<Response> {
       let candidate: Json;
       if (body.reuse_last) {
         const cur = await ghRead("data/approvals.json", pat);
-        if (!cur.text) return json({ ok: false, error: "No previous envelope in the cloud feed - use Pre-approve to define bounds." }, 400);
+        if (!cur.text) return json({ ok: false, error: "No previous bounds in the cloud feed - define fresh bounds first." }, 400);
         try {
           candidate = JSON.parse(cur.text) as Json;
         } catch {

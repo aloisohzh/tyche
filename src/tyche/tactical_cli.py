@@ -11,7 +11,14 @@ from pathlib import Path
 
 import typer
 
-from tyche.approvals import ApprovalBatch, authorize_order, envelope_totals, envelope_usage
+from tyche.approvals import (
+    ApprovalBatch,
+    authorization_record,
+    authorize_order,
+    envelope_totals,
+    envelope_usage,
+    resolve_batch,
+)
 from tyche.broker.mcp_json import snapshot_from_dir
 from tyche.broker.tactical_data import normalize_quotes
 from tyche.config import load_config
@@ -228,15 +235,17 @@ def scout(
 def reserve(
     book: Path = typer.Option(...), account: Path = typer.Option(...),
     quotes: Path = typer.Option(...), orders: Path = typer.Option(...),
-    symbol: str = typer.Option(...), envelope: Path = typer.Option(...),
+    symbol: str = typer.Option(...),
+    envelope: Path | None = typer.Option(None, help="Within my bounds: the same-day envelope. "
+                                                     "Omit or point at a missing file for Ask me (journaled Telegram approvals)."),
     lifecycle_state: Path = typer.Option(...),
     journal: Path = typer.Option(Path("journal/events.jsonl")),
     config_root: Path = typer.Option(Path.cwd()),
 ) -> None:
     """Atomically check and reserve ONE exact limit order, never submit/retry.
 
-    Paper accounts run on the operator envelope alone (chat approval recorded as
-    the machine-readable batch); no second signature file races the quote clock.
+    The authority is today's envelope (Within my bounds) or, without one, today's
+    journaled Telegram approvals (Ask me); no second signature file races the quote clock.
     Gate defaults OFF pending a single-writer cloud/broker drill. Executor must
     persist this journal before submission, use request_id as broker text, send
     once within 30s, then record the receipt. Timeout/unknown outcome blocks retry.
@@ -258,7 +267,9 @@ def reserve(
                 raise ValueError(f"no unique actionable order: {report['decisions']}")
             proposal = candidates[0]
             intent = OrderIntent.model_validate(proposal["intent"])
-            batch = load(ApprovalBatch, envelope)
+            batch, mode, how = resolve_batch(envelope, events, today)
+            if batch is None:
+                raise ValueError(how)
             if batch.approved_at.tzinfo is None or batch.approved_at > now:
                 raise ValueError("invalid envelope approval time")
             line = batch.line_for(symbol, intent.side.value)
@@ -287,7 +298,7 @@ def reserve(
                        "multiplier": intent.multiplier, "setup_hash": proposal["setup_hash"],
                        "order_hash": proposal["order_hash"],
                        "protected_setup": entry.model_dump(mode="json"),
-                       "authorization": {"kind": "envelope", "as_of": today.isoformat()},
+                       "authorization": authorization_record(mode, today),
                        "submit_before": (now + timedelta(seconds=30)).isoformat()}
             append_locked(journal, "tactical.monitor", {"state": state.model_dump(mode="json")})
             append_locked(journal, "order.requested", payload)
@@ -300,7 +311,9 @@ def reserve(
 @app.command("scalp")
 def scalp(
     feed: Path = typer.Option(..., "--feed"), work: Path = typer.Option(..., "--dir"),
-    orders: Path = typer.Option(...), envelope: Path = typer.Option(...),
+    orders: Path = typer.Option(...),
+    envelope: Path | None = typer.Option(None, help="Within my bounds: the same-day envelope. "
+                                                     "Omit or point at a missing file for Ask me (journaled Telegram approvals)."),
     account_id: str = typer.Option(...),
     prior_close_nav: float = typer.Option(...), high_water_nav: float = typer.Option(...),
     journal: Path = typer.Option(Path("journal/events.jsonl")),
@@ -352,9 +365,11 @@ def scalp(
         fail(exc)
 
 
-def _arm_scalp(proposals: list[dict], envelope: Path, journal: Path, today, used: int,
+def _arm_scalp(proposals: list[dict], envelope: Path | None, journal: Path, today, used: int,
                rows: list[dict] | None = None) -> list[dict]:
-    batch = load(ApprovalBatch, envelope)
+    batch, mode, how = resolve_batch(envelope, read_events(journal), today)
+    if batch is None:
+        raise ValueError(how)
     armed = []
     now = now_utc()
     with journal_lock(journal):
@@ -411,7 +426,7 @@ def _arm_scalp(proposals: list[dict], envelope: Path, journal: Path, today, used
             payload = {**intent.model_dump(mode="json"), "request_id": request_id,
                        "multiplier": intent.multiplier, "setup_hash": None,
                        "order_hash": proposal["order_hash"],
-                       "authorization": {"kind": "envelope", "as_of": today.isoformat()},
+                       "authorization": authorization_record(mode, today),
                        "submit_before": proposal.get("submit_before") or (
                            now + timedelta(seconds=ENTRY_SUBMIT_WINDOW_SECONDS)).isoformat()}
             append_locked(journal, "order.requested", payload)

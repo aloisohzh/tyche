@@ -296,3 +296,57 @@ def test_source_never_approves_outside_the_approve_command() -> None:
               if "_decide(" in line and not line.strip().startswith("def ")]
     assert writes == ['_decide(state, n, result, reason)', '_decide(state, n, "timeout", None)']
     assert source.count('result = "approved" if command == "/approve" else "denied"') == 1
+
+
+# ------------------------------------------------------------------- Ask me: the order block
+
+
+ORDER = {"symbol": "US.SPY", "side": "buy", "qty": 10, "limit": 672.40, "exit_floor": 665.50}
+
+
+def test_order_block_is_validated_as_numbers_and_shown_in_the_preview() -> None:
+    clean = bridge.load_proposals([proposal(order=ORDER)])[0]["order"]
+    assert clean == {**ORDER, "multiplier": 1}
+    text = bridge.render_proposal(bridge.load_proposals([proposal(order=ORDER)])[0])
+    assert "Your approve authorizes</b>: BUY 10 US.SPY limit &lt;= 672.4, protective sell down to 665.5" in text
+    for bad in ({**ORDER, "side": "short"}, {**ORDER, "qty": "10"}, {**ORDER, "qty": 0}, {**ORDER, "limit": 0},
+                {**ORDER, "exit_floor": 700.0}, {**ORDER, "side": "sell", "exit_floor": 600.0},
+                {**ORDER, "multiplier": 10}, {**ORDER, "account": "123"}, {"symbol": "US.SPY"}):
+        with pytest.raises((ValueError, TypeError)):
+            bridge.load_proposals([proposal(order=bad)])
+    # The ref binds the approve to the order numbers, not only to the prose.
+    a = bridge.proposal_ref(bridge.load_proposals([proposal(order=ORDER)]))
+    b = bridge.proposal_ref(bridge.load_proposals([proposal(order={**ORDER, "qty": 11})]))
+    assert a != b != bridge.proposal_ref(bridge.load_proposals([proposal()]))
+
+
+def test_approve_writes_the_hand_off_file_and_nothing_else_does(monkeypatch, tmp_path) -> None:
+    path = write(tmp_path, proposal(order=ORDER), proposal(2, symbol="US.QQQ", order={**ORDER, "symbol": "US.QQQ"}))
+    fake = FakeTelegram([])
+    fake.pages = [[fake.message("/approve 1"), fake.message("/deny 2 too wide", update_id=42)]]
+    result = run(monkeypatch, fake, path)
+    assert result["approved"] == [1] and result["denied"] == [2]
+    assert result["approved_orders"] == [{"n": 1, "order": {**ORDER, "multiplier": 1}}]
+    handoff = json.loads(bridge.approved_path(path).read_text())
+    assert handoff["ref"] == result["ref"]
+    assert [row["n"] for row in handoff["approved"]] == [1]
+    assert handoff["approved"][0]["order"] == {**ORDER, "multiplier": 1}
+    assert handoff["approved"][0]["decided_at"] == result["decisions"]["1"]["at"]
+    # Silence, a deny and free text leave no hand-off file behind.
+    for answer in ([], [fake.message("/deny 1")], [fake.message("looks rich, hold")]):
+        sub = tmp_path / f"case-{len(answer)}-{(answer or [{}])[0].get('update_id', 0)}-{len(str(answer))}"
+        sub.mkdir()
+        other = write(sub, proposal(order=ORDER))
+        quiet = FakeTelegram([])
+        quiet.pages = [answer]
+        out = run(monkeypatch, quiet, other, timeout=30)
+        assert out["approved"] == [] and not bridge.approved_path(other).exists(), out
+
+
+def test_approved_proposal_without_order_block_is_handed_off_as_such(monkeypatch, tmp_path) -> None:
+    path = write(tmp_path, proposal())
+    fake = FakeTelegram([])
+    fake.pages = [[fake.message("/approve 1")]]
+    result = run(monkeypatch, fake, path)
+    assert result["approved"] == [1] and result["approved_orders"] == [{"n": 1, "order": None}]
+    assert json.loads(bridge.approved_path(path).read_text())["approved"][0]["order"] is None
