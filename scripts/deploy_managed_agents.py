@@ -56,7 +56,7 @@ PACK_DIR = EXPORT_DIR / "packed"
 # role -> the Managed agent that runs it. "coordinator" is the desk head itself.
 ROLE_AGENTS = {
     "coordinator": "agent_00vtt1wjgm22o20s8ykz",
-    "researcher": "agent_00vs9v3dg0rnkr4740x3",
+    "researcher": "agent_00w940w68fw1saabz6oz",
     "auditor": "agent_00vtx8g7k1534t7w9eve",
     "executor": "agent_00vtx8mfbxerk6vxmny5",
 }

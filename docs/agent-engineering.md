@@ -11,12 +11,12 @@ left are two display-only panels that show a desk which no longer runs there ([P
 
 | Object | Where it lives | How it changes |
 |---|---|---|
-| Four agents: coordinator, researcher, auditor, executor | Managed `agents` | `scripts/deploy_managed_agents.py apply-system` / `attach` / `roster`, one field group per write |
+| Four agents: coordinator, researcher, auditor, executor | Managed `agents` | `scripts/deploy_managed_agents.py apply-system` / `attach` / `roster`, one field group per write. Since 22 Nov 2026 the roster pins the three children to **numbers** (researcher, auditor 12, executor 19), not `latest`, so a new child version moves nothing until `roster --pin` says so; the researcher is `agent_00w940w68fw1saabz6oz` v1, rebuilt from the archived `agent_00vs9v3dg0rnkr4740x3` v19 (L-054) |
 | Three skills | Managed `skills`, each with immutable versions | `publish-skill` mints a version, `attach` pins it - deliberately two steps |
 | One permanent desk card (two monthly cards until the cut-over) | Managed `deployments` | `scripts/deploy_two_fire_automation.py` owns the brief, `pin-card` owns the agent version |
 | Environment (repo mount, Drive bucket, `setup_script`) | Managed `environments` | read-only in practice: a `config` write replaces the object wholesale and the bucket credential is write-only |
 | Vault, memory store, sessions / threads / events | Managed | not authored from this repo |
-| 4 templates, 8 archived schedules, 1 identity | Forward only, and they fire nothing | **never authored, by design.** A template write recompiles the Managed agent and can materialise a `managed_tool_config` grant the running pin never had (L-046), so the writers are in [../archive/MANIFEST.md](../archive/MANIFEST.md) and `test_no_live_script_authors_a_forward_template` keeps them out of `scripts/` |
+| 3 active templates (desk, executor, risk-auditor), 1 archived template (researcher), 8 archived schedules, 1 environment (`tyche`), 1 identity | Forward only, and they fire nothing | **never authored, never archived, by design.** A template write recompiles the Managed agent and can materialise a `managed_tool_config` grant the running pin never had (L-046), and archiving a template **archives the Managed agent compiled from it**, with no restore anywhere on the platform (L-054, 22 Nov 2026: the researcher template took the live researcher down with it and the agent had to be rebuilt). The writers are in [../archive/MANIFEST.md](../archive/MANIFEST.md) and `test_no_live_script_authors_a_forward_template` keeps them out of `scripts/`. The three remaining templates and the old `tyche` environment stay as clutter on purpose |
 
 The Forward identity `idn_1d7b9ab60a1bcc934d4a1d8f` stays even though it is Forward: the environment's OSS
 bucket prefix embeds it, so retiring it could orphan the journal lineage under `/data/drive/tyche-raw` that

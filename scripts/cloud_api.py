@@ -26,7 +26,7 @@ ROOT = Path(__file__).resolve().parents[1]
 BASE = "https://api.qoder.com/api/v1/cloud"
 
 # Same ids the card deploy script uses; that script remains the only writer of a card.
-RESEARCHER_AGENT = "agent_00vs9v3dg0rnkr4740x3"
+RESEARCHER_AGENT = "agent_00w940w68fw1saabz6oz"
 ENVIRONMENT_ID = "env_00vtw0llz5kw0jxmu4hl"
 
 SCOUT_KIND = "tyche-scout"
