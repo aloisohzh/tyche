@@ -130,15 +130,25 @@ withholds new non-defensive entries at low conviction; sells and defensive entri
 `tyche calendar --json` gate is the holiday filter, so a holiday fire costs one read-only session that ends
 at its first step. This replaces the one-card-per-month design (cron `5 8,12,15 <trading-day list>
 <month> *`, days filtered by `is_trading_day` at generation time), whose weakness was that a month nobody
-regenerated was a desk that silently stopped. The monthly cards `dep_00vzb9h4ezawwl4thnva` (Nov,
-2026-11-19..30) and `dep_00vzd8d5rdfr4w0denqh` (Dec, 2026-12-01..31) stay live until the cut-over, which
-is operator-approved and lands between fires: pause both monthly cards, `--apply --start <first day>`
-(the create path refuses to add a second *active* desk card without `--allow-overlap`, because two cards
-that fire are two writers), `--verify <new id>`, then watch the new card's first 08:05 fire before the old
-cards are archived. Agent pin **v34** (v28 -> v31 stale-caps re-pin, v31 -> v32 when the desk took
-`sentinel-digest`, v32 -> v33 -> v34 the two prompt trims done through the Managed driver on 2026-11-21).
-Each card's prompt, cron, env *keys* and `initial_events` hash were asserted byte-identical through every
-move and only the `agent` block was sent.
+regenerated was a desk that silently stopped.
+
+**Live card (cut over 2026-11-22 13:14Z):** `dep_00w9n1b9mkb9cjkalhcv` "Tyche desk - premarket, midday and
+close", `active`, window `2026-11-23..`, pinned to the recreated desk `agent_00w96vnmjp81t0rfdqun` **v1**
+(roster researcher `agent_00w940w68fw1saabz6oz@1`, auditor `agent_00w96t16mwxkx3l9vi9i@1`, executor
+`agent_00w96uc82lhxc3n8xzvv@1`; see L-054 for why the desk was rebuilt the same day). Created by the
+operator from his own shell with `--apply --start 2026-11-23 --agent agent_00w96vnmjp81t0rfdqun --pin 1`
+after the two monthly cards were paused, and verified with `--verify`: all thirteen prompt markers true,
+`initial_events` sha `6b545c8310fe7937`, first run `2026-11-23T13:05:00Z`. The monthly cards
+`dep_00vzb9h4ezawwl4thnva` (Nov, 2026-11-19..30) and `dep_00vzd8d5rdfr4w0denqh` (Dec, 2026-12-01..31) are
+**paused**, not archived: they are the rollback (pause new, unpause Nov) until the permanent card has one
+clean day, and `cloud_api.pick_card` prefers the card that still fires when a paused one overlaps it. The
+order that was followed, and that any future card replacement should follow, is: pause the old cards,
+`--apply --start <first day> [--agent <id>] [--pin <n>]` (the create path refuses a second *active* desk
+card without `--allow-overlap`, because two cards that fire are two writers), `--verify <new id>`, watch
+the first fire, archive. Pin history before the rebuild: v28 -> v31 stale-caps re-pin, v31 -> v32 when the
+desk took `sentinel-digest`, v32 -> v33 -> v34 the two prompt trims of 2026-11-21, v34 -> v35 -> v36 the
+roster re-pins of 2026-11-22; each card's prompt, cron, env *keys* and `initial_events` hash were asserted
+byte-identical through every move and only the `agent` block was sent.
 
 - **08:05 pre-market** and **15:05 close** are decision fires. **12:05 is watch-and-shout only**: it
   may open, change or close nothing, and messages only on a breach or an exit-less lot
