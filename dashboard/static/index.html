@@ -479,7 +479,7 @@
         <div class="page-heading">
           <div>
             <h1>Controls</h1>
-            <p>Operator settings in one place. The trading mode (Ask me or Within my bounds), the strategy switches, the scheduled checks, Scout and the kill-switch are grouped below and stay locked for visitors - unlock with the operator passphrase to change them. Data sources and known gaps are listed underneath for everyone.</p>
+            <p>Operator settings in one place. The trading mode (Ask me or Within my bounds), the strategy switches, the scheduled checks, Scout and the kill-switch are grouped below and visible to everyone. Only the buttons that change something are locked - unlock with the operator passphrase to use them. Data sources and known gaps are listed underneath.</p>
           </div>
         </div>
 
@@ -488,7 +488,7 @@
             <div>
               <span class="card-kicker">Operator only</span>
               <h2>Approval &amp; safety controls</h2>
-              <p class="section-sub">These three settings decide what the cloud desk may do with real paper orders. Everyone can view them; only an unlocked operator can change them.</p>
+              <p class="section-sub">These settings decide what the cloud desk may do with real paper orders. Everyone can view them; only an unlocked operator can press the buttons that change them.</p>
             </div>
             <span class="pill cached" id="admin-state"><i class="dot"></i><span>Locked</span></span>
           </div>
@@ -506,6 +506,16 @@
               </div>
             </div>
             <div class="ctl-side"><span class="pill cached" id="operator-state"><i class="dot"></i><span>Locked</span></span></div>
+          </div>
+
+          <div class="admin-locked" id="admin-locked">
+            <div class="admin-lock-inner">
+              <span class="lock-badge" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10.5" width="15" height="10" rx="2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/><circle cx="12" cy="15.5" r="1.4"/></svg>
+              </span>
+              <p id="admin-locked-text">Everything below is visible. Buttons that change the desk are held until you unlock with the operator passphrase. Refresh always works.</p>
+              <button class="btn" id="admin-jump" type="button">Go to unlock</button>
+            </div>
           </div>
 
           <div class="admin-cards-wrap">
@@ -571,17 +581,6 @@
                   </ul>
                 </div>
                 <div class="ctl-side" id="kill-control-body"></div>
-              </div>
-            </div>
-
-            <div class="admin-locked" id="admin-locked">
-              <div class="admin-lock-inner">
-                <span class="lock-badge" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10.5" width="15" height="10" rx="2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/><circle cx="12" cy="15.5" r="1.4"/></svg>
-                </span>
-                <strong>Read-only for visitors</strong>
-                <p>The trading mode, the strategy switches, the daily checks, Scout and the kill-switch cannot be changed while locked. Unlock above to make changes; viewing always stays open.</p>
-                <button class="btn" id="admin-jump" type="button">Go to unlock</button>
               </div>
             </div>
           </div>

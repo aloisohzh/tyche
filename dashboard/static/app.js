@@ -5,14 +5,21 @@ const $ = (sel) => document.querySelector(sel);
 const esc = (s) => String(s ?? "").replace(/[—–]/g, "-").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const hy = (s) => String(s ?? "").replace(/[—–]/g, "-");
 
-const VERSION = "0.11.0";
+const VERSION = "0.12.0";
 const CHANGELOG = [
   {
-    version: "0.11.0", date: "2026-11-22", title: "Two trading modes: Ask me, or Within my bounds",
+    version: "0.12.0", date: "2026-11-22", title: "Two trading modes: Ask me, or Within my bounds",
     items: [
       "Manual, Auto and Pre-approve are gone. The desk is either in Ask me (the default: during a fire it previews each proposal on Telegram and submits only what you /approve - that approve is the whole yes, no envelope needed) or Within my bounds (you arm today's bounds here and the desk submits inside them without asking, for fires while you sleep).",
       "Within my bounds keeps the one-click re-arm of your last bounds as a button inside it, next to defining fresh bounds and arming the drafted exit note.",
       "The kill-switch still overrides both modes. The card lists today's Telegram approvals so you can see what Ask me has authorized.",
+    ],
+  },
+  {
+    version: "0.11.0", date: "2026-11-22", title: "Controls stay readable while locked",
+    items: [
+      "The Controls page no longer blurs the operator zone until the passphrase is entered. Every setting - trading mode, envelope, strategy switches, cadence, kill-switch - is visible to everyone at all times; only the buttons that change something are held, each with a lock glyph that sends you to the unlock card.",
+      "Strategy switches work straight after an unlock. The unlock used to redraw only three cards, so the Strategies in play rows kept showing plain on/off text until the next refresh; every control surface now redraws together on unlock, lock-again and a rejected passphrase.",
     ],
   },
   {
@@ -168,6 +175,31 @@ let insView = "all";
 let operatorKey = null;
 let operatorConfigured = null;
 const controlsEnabled = () => (!LIVE && !SNAPSHOT) || (!!LIVE && !!operatorKey);
+// Locked = the hosted desk before the operator passphrase is entered. Every figure and every
+// control stays visible; only the buttons that change something are held back. A held button
+// keeps its label, carries a lock glyph and sends the click to the unlock card instead.
+const adminLocked = () => !!LIVE && !operatorKey;
+const LOCK_GLYPH = '<svg class="lock-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4.5" y="10.5" width="15" height="10" rx="2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg>';
+const lockedButton = (label, extraClass = "") =>
+  `<button class="btn btn-locked ${extraClass}" type="button" data-locked-action title="Unlock with the operator passphrase to change this">${LOCK_GLYPH}${esc(label)}</button>`;
+function jumpToUnlock() {
+  const pass = $("#operator-pass");
+  if (pass && !pass.closest("[hidden]")) {
+    pass.scrollIntoView({ behavior: "smooth", block: "center" });
+    pass.focus();
+    showToast("Locked - enter the operator passphrase to change this");
+  } else {
+    showToast("Operator login is not configured on this desk", true);
+  }
+}
+// Every surface that swaps buttons for read-only pills must redraw together when the lock
+// state changes; redrawing only three of them left the strategy switches showing on/off text
+// after an unlock until the next refresh.
+function renderControlSurfaces() {
+  renderOperator();
+  if (!STATE) return;
+  renderApproval(); renderKillControl(); renderStrategies(); renderSchedule();
+}
 // A card is cloud state, not a repo file. The hosted function publishes the cadence for reading but
 // has no verified write path to the automation API, so the switch stays on the local desk: one control
 // surface for cadence, rather than a button that might half-work from the browser.
@@ -870,7 +902,7 @@ function renderApproval() {
   const haltNote = a.halted ? '<p class="table-note halt-note">Kill-switch engaged - no new entries regardless of mode.</p>' : "";
 
   const modeBtn = (mode, label, hint) =>
-    `<button class="mode-opt${modeState === mode ? " on" : ""}" data-mode="${mode}"${canControl ? "" : " disabled"} title="${esc(hint)}">${esc(label)}</button>`;
+    `<button class="mode-opt${modeState === mode ? " on" : ""}${canControl ? "" : " is-locked"}" data-mode="${mode}"${canControl || LIVE ? "" : " disabled"} title="${esc(canControl ? hint : "Unlock with the operator passphrase to change the trading mode")}">${canControl ? "" : LOCK_GLYPH}${esc(label)}</button>`;
   const modeSeg = `
     <div class="mode-seg" role="group" aria-label="Trading mode">
       ${modeBtn("ask", "Ask me", "During each fire the desk previews every proposal on Telegram and submits only what you /approve. No envelope.")}
@@ -878,7 +910,7 @@ function renderApproval() {
     </div>
     <p class="mode-hint">${canControl
       ? "Ask me: your Telegram /approve is the whole yes. Within my bounds: no ask, the desk trades inside today's bounds only. The kill-switch overrides both."
-      : (LIVE ? "View-only - unlock the operator console above to change the trading mode. Everyone can refresh." : "Read-only snapshot - trading mode is selectable on the live desk.")}</p>`;
+      : (LIVE ? "Locked - unlock the operator console above to change the trading mode. Everyone can view and refresh." : "Read-only snapshot - trading mode is selectable on the live desk.")}</p>`;
   const hasLast = Boolean(env) || Boolean(a.last_bounds);
   const boundsPanel = canControl ? `
     <div class="env-form" id="bounds-panel"${bounds ? "" : " hidden"}>
@@ -959,7 +991,7 @@ function renderApproval() {
     </div>`;
 
   if (canControl) {
-    body.querySelectorAll(".mode-opt").forEach((b) => b.addEventListener("click", () => onModeClick(b.dataset.mode)));
+    body.querySelectorAll(".mode-opt").forEach((b) => b.addEventListener("click", () => (canControl ? onModeClick(b.dataset.mode) : jumpToUnlock())));
     const rearm = $("#bounds-rearm");
     if (rearm) rearm.addEventListener("click", armAuto);
     const fresh = $("#bounds-fresh");
@@ -1028,7 +1060,7 @@ async function controlPost(localUrl, action, payload = {}) {
   } catch (e) {
     if (/passphrase/i.test(e.message)) {
       operatorKey = null;
-      renderOperator(); renderApproval(); renderKillControl();
+      renderControlSurfaces();
     }
     throw e;
   }
@@ -1058,10 +1090,16 @@ function renderAdminZone() {
   if (state) {
     state.className = "pill " + (can ? "live-pill live" : "cached");
     const label = state.querySelector("span");
-    if (label) label.textContent = can ? (LIVE ? "Unlocked" : "Unlocked - local desk") : "Locked";
+    if (label) label.textContent = can ? (LIVE ? "Unlocked" : "Unlocked - local desk") : (LIVE ? "Viewing - buttons locked" : "Read-only snapshot");
   }
   const jump = $("#admin-jump");
   if (jump) jump.hidden = !LIVE || operatorConfigured === false;
+  const lockedText = $("#admin-locked-text");
+  if (lockedText) {
+    lockedText.textContent = LIVE
+      ? "Everything below is visible. Buttons that change the desk - trading mode, strategy switches, kill-switch - are held until you unlock with the operator passphrase. Refresh always works."
+      : "This is a baked snapshot. Changes are made from the live desk.";
+  }
 }
 
 function renderOperator() {
@@ -1095,7 +1133,7 @@ function renderOperator() {
     row.hidden = false;
     state.className = "pill cached";
     state.querySelector("span").textContent = "Locked";
-    sub.textContent = "This desk is shared read-only. Unlock with your operator passphrase to change the trading mode or the kill-switch. The passphrase is held in memory only and never stored.";
+    sub.textContent = "Everyone can view every figure and setting. Unlock with your operator passphrase to press the buttons that change the trading mode, the strategy switches or the kill-switch. The passphrase is held in memory only and never stored.";
     icon.classList.remove("ok");
   }
   renderAdminZone();
@@ -1103,8 +1141,8 @@ function renderOperator() {
 
 function lockOperator() {
   operatorKey = null;
-  renderOperator(); renderApproval(); renderKillControl();
-  showToast("Operator console locked - controls are view-only again");
+  renderControlSurfaces();
+  showToast("Operator console locked - buttons that change something are held again");
 }
 
 async function unlockOperator() {
@@ -1117,7 +1155,7 @@ async function unlockOperator() {
     await postControl(CONTROL_URL, { passphrase: pass, action: "ping" });
     operatorKey = pass;
     inp.value = "";
-    renderOperator(); renderApproval(); renderKillControl();
+    renderControlSurfaces();
     showToast("Operator console unlocked - controls enabled");
   } catch (e) {
     showToast("Unlock failed: " + e.message, true);
@@ -1234,9 +1272,10 @@ function renderKillControl() {
       ${halted ? "" : '<input type="text" id="halt-reason" class="search halt-reason" maxlength="200" placeholder="Reason for halting (journaled)" aria-label="Halt reason">'}
       <button class="btn ${halted ? "btn-primary" : "disarm-btn"} kill-btn" id="kill-toggle">${halted ? "Release kill-switch" : "Engage kill-switch"}</button>
       <p class="table-note" style="padding:10px 0 0">${halted ? "Releasing lets buys through again after your review. The change is journaled and reaches the cloud desk." : "Engaging blocks new buys everywhere immediately; de-risking sells still pass. The change is journaled and reaches the cloud desk."}</p>
-    ` : `<p class="table-note" style="padding:10px 0 0">${LIVE ? "View-only - unlock the operator console above to operate the kill-switch." : "Read-only snapshot - the kill-switch is operated from the live desk."}</p>`}`;
+    ` : `${adminLocked() ? lockedButton(halted ? "Release kill-switch" : "Engage kill-switch", "kill-btn") : ""}<p class="table-note" style="padding:10px 0 0">${LIVE ? "Locked - unlock the operator console above to operate the kill-switch." : "Read-only snapshot - the kill-switch is operated from the live desk."}</p>`}`;
   const btn = $("#kill-toggle");
   if (btn) btn.addEventListener("click", () => toggleHalt(!halted));
+  wrap.querySelectorAll("[data-locked-action]").forEach((b) => b.addEventListener("click", jumpToUnlock));
 }
 
 async function toggleHalt(halted) {
@@ -1265,9 +1304,12 @@ function strategyRow(row, canControl) {
   const unrostered = row.roster_status !== "live"
     ? `<span class="pill cached strat-warn">no registered thesis</span>`
     : "";
+  const statePill = `<span class="pill kill ${row.enabled ? "clear" : "armed"}"><i class="dot"></i><span>${row.enabled ? "on" : "off"}</span></span>`;
   const control = canControl
     ? `<button class="btn ${row.enabled ? "strat-off" : "btn-primary"}" type="button" data-strat="${esc(row.strategy_id)}" data-enabled="${row.enabled ? "0" : "1"}">${row.enabled ? "Turn off" : "Turn on"}</button>`
-    : `<span class="pill kill ${row.enabled ? "clear" : "armed"}"><i class="dot"></i><span>${row.enabled ? "on" : "off"}</span></span>`;
+    : adminLocked()
+      ? `${statePill}${lockedButton(row.enabled ? "Turn off" : "Turn on")}`
+      : statePill;
   return `<div class="strategy-row" data-live="${row.enabled ? "1" : "0"}">
     <div class="strat-name"><strong>${esc(row.name)}</strong>${unrostered}</div>
     <div class="strat-meta">${esc(meta)}</div>
@@ -1290,6 +1332,7 @@ function renderStrategies() {
   wrap.querySelectorAll("[data-strat]").forEach((btn) => btn.addEventListener("click", () => {
     toggleStrategy(btn.dataset.strat, btn.dataset.enabled === "1");
   }));
+  wrap.querySelectorAll("[data-locked-action]").forEach((btn) => btn.addEventListener("click", jumpToUnlock));
   const file = view.switch_file || {};
   const problem = view.problem ? `<div class="strat-problem">${esc(view.problem)}</div>` : "";
   setText("#strategy-side", "");
@@ -2158,11 +2201,7 @@ function setup() {
   document.querySelectorAll("#ins-toggle button").forEach((b) => b.addEventListener("click", () => { insView = b.dataset.ins; renderInstrumentation(); }));
   $("#refresh-btn").addEventListener("click", () => fetchAll(true));
   const adminJump = $("#admin-jump");
-  if (adminJump) adminJump.addEventListener("click", () => {
-    const pass = $("#operator-pass");
-    if (pass && !pass.closest("[hidden]")) pass.focus();
-    else showToast("Operator login is not configured on this desk", true);
-  });
+  if (adminJump) adminJump.addEventListener("click", jumpToUnlock);
   const unlockBtn = $("#operator-unlock");
   if (unlockBtn) unlockBtn.addEventListener("click", unlockOperator);
   const passInput = $("#operator-pass");
