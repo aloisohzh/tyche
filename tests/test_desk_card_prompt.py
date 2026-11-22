@@ -97,6 +97,15 @@ def test_the_card_pins_the_version_the_operator_names_and_only_one_that_exists()
             module.card_pin(argv, agent)
 
 
+def test_the_card_can_be_born_on_a_recreated_desk_agent():
+    module = _module()
+    assert module.card_agent([]) == module.AGENT_ID
+    assert module.card_agent(["--agent", "agent_00w9abcdefghijkl"]) == "agent_00w9abcdefghijkl"
+    for bad in ("36", "dep_00vzb9h4ezawwl4thnva", "agent_"):
+        with pytest.raises(SystemExit):
+            module.card_agent(["--agent", bad])
+
+
 def test_midday_fire_watches_and_shouts_but_never_trades():
     prompt = _module().card_prompt(PERMANENT)
     assert "MIDDAY (12:05 ET, WATCH AND SHOUT ONLY)" in prompt

@@ -11,6 +11,7 @@ them directly to the Cloud API. Never prints secret values.
 
 Run: .venv/Scripts/python.exe scripts/deploy_two_fire_automation.py [--start 2026-11-24] [--pin 35] [--apply]
   --pin names the exact compiled desk version the card runs (default: the agent's current version).
+  --agent <id> targets another Managed desk agent than AGENT_ID (when the desk is recreated).
   --apply refuses to create a second active desk card unless --allow-overlap is given: two cards
   that both fire are two writers (STATE below), so pause the old card first, then create.
 Update a live card's prompt only: ... --apply-update <deployment_id>
@@ -62,6 +63,18 @@ def card_start(argv: list[str], today: date | None = None) -> date:
     while date.fromordinal(day).weekday() >= 5:
         day += 1
     return date.fromordinal(day)
+
+
+def card_agent(argv: list[str]) -> str:
+    """The Managed desk agent the card runs: --agent <id>, else AGENT_ID. The override exists for the
+    day the desk is recreated as a fresh agent (2026-11-22) and the card must be born on the new id
+    before the constant catches up; an id that is not an agent id is refused."""
+    if "--agent" not in argv:
+        return AGENT_ID
+    agent_id = argv[argv.index("--agent") + 1]
+    if not agent_id.startswith("agent_") or len(agent_id) < 12:
+        raise SystemExit(f"--agent must be a Managed agent id (agent_...), got {agent_id!r}")
+    return agent_id
 
 
 def card_pin(argv: list[str], agent: dict) -> int:
@@ -441,7 +454,8 @@ def main() -> None:
         for key in missing:
             if not values.get(key):
                 raise SystemExit(f"missing from .env: {key}")
-    agent = req(values, "GET", f"/agents/{AGENT_ID}")
+    agent_id = card_agent(sys.argv)
+    agent = req(values, "GET", f"/agents/{agent_id}")
     version = card_pin(sys.argv, agent)
     start = card_start(sys.argv)
     name = card_name()
@@ -452,7 +466,7 @@ def main() -> None:
     payload = {
         "name": name,
         "description": DESCRIPTION,
-        "agent": {"id": AGENT_ID, "type": "agent", "version": version},
+        "agent": {"id": agent_id, "type": "agent", "version": version},
         "environment_id": ENVIRONMENT_ID,
         "vault_ids": [VAULT_ID],
         "resources": [
@@ -543,7 +557,8 @@ def main() -> None:
         return
     others = active_desk_cards(values, start)
     if "--apply" not in sys.argv:
-        print(json.dumps({"dry_run": True, "name": name, "window": window, "agent_version": version,
+        print(json.dumps({"dry_run": True, "name": name, "window": window, "agent_id": agent_id,
+                          "agent_version": version,
                           "cron": payload["schedule"], "prompt_chars": len(prompt_text),
                           "environment_carries": sorted(inherited & set(SECRET_KEYS)),
                           "from_dotenv": missing, "other_active_desk_cards": others}, indent=2))
