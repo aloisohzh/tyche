@@ -5,8 +5,15 @@ const $ = (sel) => document.querySelector(sel);
 const esc = (s) => String(s ?? "").replace(/[—–]/g, "-").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const hy = (s) => String(s ?? "").replace(/[—–]/g, "-");
 
-const VERSION = "0.10.1";
+const VERSION = "0.11.0";
 const CHANGELOG = [
+  {
+    version: "0.11.0", date: "2026-11-22", title: "Controls stay readable while locked",
+    items: [
+      "The Controls page no longer blurs the operator zone until the passphrase is entered. Every setting - trading mode, envelope, strategy switches, cadence, kill-switch - is visible to everyone at all times; only the buttons that change something are held, each with a lock glyph that sends you to the unlock card.",
+      "Strategy switches work straight after an unlock. The unlock used to redraw only three cards, so the Strategies in play rows kept showing plain on/off text until the next refresh; every control surface now redraws together on unlock, lock-again and a rejected passphrase.",
+    ],
+  },
   {
     version: "0.10.1", date: "2026-11-22", title: "The desk stops labelling its cloud read as Forward",
     items: [
