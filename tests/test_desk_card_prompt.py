@@ -85,6 +85,18 @@ def test_creating_the_card_sees_every_other_desk_card_that_would_still_fire():
     assert _module().other_writers(rows, date(2026, 12, 1)) == []
 
 
+def test_the_card_pins_the_version_the_operator_names_and_only_one_that_exists():
+    """A roster re-pin or template archive can recompile the desk into a spare "current" version nobody
+    reviewed, so the operator names the verified number; a number the platform does not have is refused."""
+    module = _module()
+    assert module.card_pin([], {"version": 36}) == 36
+    assert module.card_pin(["--pin", "35"], {"version": 36}) == 35
+    for argv, agent in ((["--pin", "37"], {"version": 36}), (["--pin", "v35"], {"version": 36}),
+                        (["--pin", "0"], {"version": 36}), ([], {"version": "latest"})):
+        with pytest.raises(SystemExit):
+            module.card_pin(argv, agent)
+
+
 def test_midday_fire_watches_and_shouts_but_never_trades():
     prompt = _module().card_prompt(PERMANENT)
     assert "MIDDAY (12:05 ET, WATCH AND SHOUT ONLY)" in prompt

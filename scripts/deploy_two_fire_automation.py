@@ -9,7 +9,8 @@ on 2026-11-22. The midday fire shares the card and may never submit anything.
 Reads QODER_PAT and the three runtime secret values from gitignored .env and sends
 them directly to the Cloud API. Never prints secret values.
 
-Run: .venv/Scripts/python.exe scripts/deploy_two_fire_automation.py [--start 2026-11-24] [--apply]
+Run: .venv/Scripts/python.exe scripts/deploy_two_fire_automation.py [--start 2026-11-24] [--pin 35] [--apply]
+  --pin names the exact compiled desk version the card runs (default: the agent's current version).
   --apply refuses to create a second active desk card unless --allow-overlap is given: two cards
   that both fire are two writers (STATE below), so pause the old card first, then create.
 Update a live card's prompt only: ... --apply-update <deployment_id>
@@ -61,6 +62,26 @@ def card_start(argv: list[str], today: date | None = None) -> date:
     while date.fromordinal(day).weekday() >= 5:
         day += 1
     return date.fromordinal(day)
+
+
+def card_pin(argv: list[str], agent: dict) -> int:
+    """The exact compiled desk version the card runs: --pin N, else the agent's current version.
+
+    `--pin` exists because a roster re-pin or a template archive can recompile the desk and leave a spare
+    "current" version nobody reviewed (L-045/L-046); the operator names the number that was verified. It
+    must still be a version the platform has: a pin above the current one does not exist yet.
+    """
+    current = agent.get("version")
+    if not isinstance(current, int):
+        raise SystemExit("agent version unavailable; refusing to create an unpinned card")
+    if "--pin" not in argv:
+        return current
+    pin = argv[argv.index("--pin") + 1]
+    if not pin.isdigit() or int(pin) < 1:
+        raise SystemExit(f"--pin must be a positive integer version, got {pin!r}")
+    if int(pin) > current:
+        raise SystemExit(f"--pin {pin} is above the agent's current version {current}; it does not exist")
+    return int(pin)
 
 
 def card_name() -> str:
@@ -421,9 +442,7 @@ def main() -> None:
             if not values.get(key):
                 raise SystemExit(f"missing from .env: {key}")
     agent = req(values, "GET", f"/agents/{AGENT_ID}")
-    version = agent.get("version")
-    if not isinstance(version, int):
-        raise SystemExit("agent version unavailable; refusing to create an unpinned card")
+    version = card_pin(sys.argv, agent)
     start = card_start(sys.argv)
     name = card_name()
     window = card_window(start)
