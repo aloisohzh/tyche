@@ -11,7 +11,7 @@ left are two display-only panels that show a desk which no longer runs there ([P
 
 | Object | Where it lives | How it changes |
 |---|---|---|
-| Four agents: coordinator, researcher, auditor, executor | Managed `agents` | `scripts/deploy_managed_agents.py apply-system` / `attach` / `roster`, one field group per write. Since 22 Nov 2026 the roster pins the three children to **numbers** (researcher, auditor 12, executor 19), not `latest`, so a new child version moves nothing until `roster --pin` says so; the researcher is `NEW_RESEARCHER_ID` v1, rebuilt from the archived `agent_00vs9v3dg0rnkr4740x3` v19 (L-054) |
+| Four agents: coordinator, researcher, auditor, executor | Managed `agents` | `scripts/deploy_managed_agents.py apply-system` / `attach` / `roster`, one field group per write. Since 22 Nov 2026 the roster pins the three children to **numbers** (researcher, auditor 12, executor 19), not `latest`, so a new child version moves nothing until `roster --pin` says so; the researcher is `agent_00w940w68fw1saabz6oz` v1, rebuilt from the archived `agent_00vs9v3dg0rnkr4740x3` v19 (L-054) |
 | Three skills | Managed `skills`, each with immutable versions | `publish-skill` mints a version, `attach` pins it - deliberately two steps |
 | One permanent desk card (two monthly cards until the cut-over) | Managed `deployments` | `scripts/deploy_two_fire_automation.py` owns the brief, `pin-card` owns the agent version |
 | Environment (repo mount, Drive bucket, `setup_script`) | Managed `environments` | read-only in practice: a `config` write replaces the object wholesale and the bucket credential is write-only |
