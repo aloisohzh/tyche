@@ -138,7 +138,8 @@ renderer is published. The reusable instruction is saved at
 Rollout status (applied 2026-11-20): the contract is installed on both active Managed cards -
 `dep_00vzb9h4ezawwl4thnva` (Nov, window 2026-11-19..2026-11-30) and `dep_00vzd8d5rdfr4w0denqh`
 (Dec, window 2026-12-01..2026-12-31) - with
-`scripts/deploy_two_fire_automation.py --apply-update <deployment_id> --month <YYYY-MM>`, which stays
+`scripts/deploy_two_fire_automation.py --apply-update <deployment_id>` (the `--month` flag it took then
+is gone since 2026-11-22: a prompt update re-sends the card's own cron and metadata unchanged), which stays
 the card's source of truth; `prompt_markers` now also asserts `has_sentinel_format_v1` and
 `has_renderer_path`. Only the `TELEGRAM` section changed (6913 -> 9403 characters, one hunk); cron,
 agent pin v28, environment, resources and metadata were untouched, and both cards re-read as `active`

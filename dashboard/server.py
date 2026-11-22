@@ -2196,9 +2196,11 @@ def _cadence_reference_day(window: str, today: date) -> date:
     Which phase a run lands in is a property of the clock, but only on a trading day - on a Saturday every fire
     is CLOSED, which would label the whole table "rests" across a weekend while the card itself is healthy.
     """
-    start_text, _, end_text = window.partition("..")
+    start_text, dots, end_text = window.partition("..")
     try:
-        start, end = date.fromisoformat(start_text), date.fromisoformat(end_text)
+        start = date.fromisoformat(start_text)
+        # The permanent card's window is open (`YYYY-MM-DD..`): judge it on the next fortnight of sessions.
+        end = date.fromisoformat(end_text) if end_text or not dots else max(start, today) + timedelta(days=14)
     except ValueError:
         return today
     if end < start:
@@ -2231,7 +2233,9 @@ def card_cadence(cards: list[dict]) -> list[dict]:
         except Exception:  # noqa: BLE001 - a bad zone name is a display problem, not a reason to drop the card
             tz = ET
         reference = _cadence_reference_day(card.get("window") or "", today)
-        day_field = _cron_field(parts[2])
+        # Day count: a listed day-of-month (the monthly cards) or, for the permanent weekday card whose
+        # day-of-month is `*`, the weekdays it names - the holiday filter is in-run, not in the cron.
+        day_field = _cron_field(parts[2]) if parts[2] != "*" else _cron_field(parts[4])
         for stamp in fire_times(card.get("cron")):
             hour, minute = (int(piece) for piece in stamp.split(":"))
             when = datetime(reference.year, reference.month, reference.day, hour, minute, tzinfo=tz)
@@ -2254,8 +2258,8 @@ def card_cadence(cards: list[dict]) -> list[dict]:
 def build_schedule(force: bool = False) -> dict:
     """The automation card that owns today, when it next fires and what it last did.
 
-    Only one card can own a date: the monthly cards overlap around a rollover, and pausing the wrong one
-    would look like a success while the schedule kept firing.
+    Only one card can own a date: a paused monthly card can sit beside the permanent one after the cut-over,
+    and pausing the wrong one would look like a success while the schedule kept firing.
     """
     with SCHEDULE_LOCK:
         if not force and SCHEDULE_CACHE["payload"] and time.time() - SCHEDULE_CACHE["at"] < SCHEDULE_TTL:

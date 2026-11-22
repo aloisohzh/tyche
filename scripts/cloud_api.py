@@ -131,26 +131,40 @@ def cards() -> list[dict]:
     return [card_view(item) for item in _items(req("GET", "/deployments?limit=50"))]
 
 
+WINDOW = re.compile(r"^(\d{4}-\d{2}-\d{2})\.\.(\d{4}-\d{2}-\d{2})?$")
+
+
 def _window_covers(window: str | None, day: date) -> bool:
+    """`YYYY-MM-DD..YYYY-MM-DD` is a bounded (legacy monthly) card; `YYYY-MM-DD..` is the permanent card,
+    which owns every day from its start on. Anything else owns nothing."""
     if not window:
         return False
-    match = re.match(r"^(\d{4}-\d{2}-\d{2})\.\.(\d{4}-\d{2}-\d{2})$", window.strip())
+    match = WINDOW.match(window.strip())
     if not match:
         return False
-    start, end = (date.fromisoformat(match.group(i)) for i in (1, 2))
-    return start <= day <= end
+    start = date.fromisoformat(match.group(1))
+    end = date.fromisoformat(match.group(2)) if match.group(2) else None
+    return start <= day and (end is None or day <= end)
+
+
+def _is_bounded(window: str | None) -> bool:
+    match = WINDOW.match((window or "").strip())
+    return bool(match and match.group(2))
 
 
 def pick_card(rows: list[dict], day: date) -> dict | None:
     """The card from `rows` whose window covers `day`, or None when no card owns this date.
 
     No match is reported as such rather than guessed: silently controlling last month's card would be a
-    no-op that looks like a pause.
+    no-op that looks like a pause. When more than one card covers the day - the cut-over from the monthly
+    cards to the permanent one leaves the old card paused beside the new one for a while - the card that
+    still fires wins, and among those the bounded (explicitly dated) card wins over the open-ended one, so
+    a paused card is never reported as the desk's schedule while an active one exists.
     """
-    for card in rows:
-        if _window_covers(card.get("window"), day):
-            return card
-    return None
+    covering = [card for card in rows if _window_covers(card.get("window"), day)]
+    if not covering:
+        return None
+    return min(covering, key=lambda card: (bool(card.get("paused")), not _is_bounded(card.get("window"))))
 
 
 def current_card(day: date) -> dict | None:
