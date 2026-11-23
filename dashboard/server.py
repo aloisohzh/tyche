@@ -2358,6 +2358,66 @@ def playbook_facts(sid: str, entry: dict) -> dict:
     }
 
 
+def lane_allocation(config, sid: str) -> dict:
+    """How much of the account a lane may use, where that number lives, and the symbols it owns.
+
+    `in_sum` marks the caps the config loader adds up against `max_gross_exposure` (src/tyche/config.py);
+    the scalp lane sizes per trade instead, so its ceiling is shown but not summed.
+    """
+    tactical = config.tactical
+    scalp = config.scalp
+    risk = config.risk
+    if sid == "PB-002":
+        return {"cap": tactical.stock_allocation_cap, "cap_source": "config/tactical.yaml", "cap_key": "stock_allocation_cap",
+                "in_sum": True, "symbols": list(tactical.symbols) + list(tactical.etf_symbols),
+                "cap_note": "Shares bought by the tactical lane, all names together."}
+    if sid == "PB-003":
+        return {"cap": risk.max_option_premium_pct, "cap_source": "config/risk.yaml", "cap_key": "max_option_premium_pct",
+                "in_sum": True, "symbols": [], "underlyings": list(tactical.symbols),
+                "cap_note": "Option premium at risk, all contracts together."}
+    if sid == "PB-004":
+        return {"cap": scalp.max_notional_pct * scalp.max_open, "cap_source": "config/scalp.yaml",
+                "cap_key": "max_notional_pct × max_open", "in_sum": False, "symbols": list(scalp.symbols),
+                "cap_note": f"Up to {scalp.max_open} trades of {scalp.max_notional_pct:.0%} each, closed the same day. "
+                            "Not part of the sum rule."}
+    try:
+        strategy = config.strategy_by_id(sid)
+    except KeyError:
+        return {"cap": None, "cap_source": None, "cap_key": None, "in_sum": False, "symbols": [], "cap_note": ""}
+    return {"cap": strategy.allocation_cap, "cap_source": f"config/strategies/{sid.lower()}.yaml", "cap_key": "allocation_cap",
+            "in_sum": True, "symbols": list(strategy.symbols or SLEEVE_BY_SYMBOL),
+            "cap_note": "Whole sleeve, all names together."}
+
+
+def allocation_summary(config, rows: list[dict]) -> dict:
+    """The three sums an operator needs: what the file check adds up, what is switched on, and everything.
+
+    `file_sum` mirrors load_config's guard byte for byte: YAML-enabled rotation/fib caps + the tactical
+    stock cap + the option premium cap, only while the tactical lane is enabled in its file.
+    """
+    gross = config.risk.max_gross_exposure
+    by_id = {row["strategy_id"]: row for row in rows}
+    file_sum = 0.0
+    if config.tactical.enabled:
+        file_sum = (sum(s.allocation_cap for s in config.strategies if s.enabled)
+                    + config.tactical.stock_allocation_cap + config.risk.max_option_premium_pct)
+    on_sum = sum(r["cap"] for r in rows if r["in_sum"] and r["enabled"] and r["cap"])
+    all_sum = sum(r["cap"] for r in rows if r["in_sum"] and r["cap"])
+    return {
+        "gross_cap": gross,
+        "file_sum": round(file_sum, 4),
+        "file_ok": file_sum <= gross + 1e-8,
+        "switched_on_sum": round(on_sum, 4),
+        "switched_on_ok": on_sum <= gross + 1e-8,
+        "all_on_sum": round(all_sum, 4),
+        "all_on_ok": all_sum <= gross + 1e-8,
+        "shortfall": round(max(0.0, on_sum - gross), 4),
+        "largest_on": max((r for r in rows if r["in_sum"] and r["enabled"] and r["cap"]), key=lambda r: r["cap"], default={}).get("strategy_id"),
+        "tactical_on_in_file": bool(config.tactical.enabled),
+        "pb002": by_id.get("PB-002", {}).get("cap"),
+    }
+
+
 def build_strategies() -> dict:
     """Every playbook the config claims, with the switch that decides whether it trades today.
 
@@ -2390,11 +2450,13 @@ def build_strategies() -> dict:
                 "roster_status": entry.get("status", "unrostered"),
                 "rules_hash": frozen,
                 **playbook_facts(sid, entry),
+                **lane_allocation(config, sid),
             }
         )
     state = read_state(ROOT)
     return {
         "strategies": rows,
+        "allocation": allocation_summary(config, rows),
         "live": sorted(row["strategy_id"] for row in rows if row["enabled"]),
         "switch_file": {
             "path": "data/strategies.json",
