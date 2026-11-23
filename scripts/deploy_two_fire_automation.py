@@ -511,8 +511,16 @@ def main() -> None:
     inherited = environment_keys(values)
     missing = missing_secret_keys(values, inherited)
     if "--check" in sys.argv:
-        print(json.dumps({"environment_keys": sorted(inherited),
-                          "missing_secret_keys": missing}, indent=2))
+        out = {"environment_keys": sorted(inherited), "missing_secret_keys": missing}
+        if "--card" in sys.argv:
+            # Key names only, never values: the card's own variables are where the desk's secrets live.
+            deployment_id = sys.argv[sys.argv.index("--card") + 1]
+            card = req(values, "GET", f"/deployments/{deployment_id}")
+            keys = set(_parse_env_string(card.get("environment_variables")))
+            out["card"] = deployment_id
+            out["card_env_keys"] = sorted(keys)
+            out["card_has_publish_token"] = any(k in keys for k in PUBLISH_TOKEN_KEYS)
+        print(json.dumps(out, indent=2))
         return
     if "--set-env" in sys.argv:
         # Copy named keys from the gitignored .env into the desk environment's variables. Values never
@@ -648,15 +656,24 @@ def main() -> None:
         if not isinstance(pinned, int):
             raise SystemExit(f"{deployment_id}: agent pin is {pinned!r}, not an exact compiled "
                              "version; refusing to write a brief onto a card whose build we cannot name")
-        # The PUBLISH clause needs a repo token in the card's environment; a missing one is a brief that
-        # reports a failed publish every run, so say so before writing (a warning, not a refusal).
+        # The PUBLISH clause needs a repo token where the desk runs: the card's own variables (where the
+        # Telegram secrets live) or the environment. A missing one is a brief that reports a failed publish
+        # every run, so say so before writing (a warning, not a refusal).
         inherited = environment_keys(values)
-        if not any(key in inherited for key in PUBLISH_TOKEN_KEYS):
-            print(f"WARNING: none of {PUBLISH_TOKEN_KEYS} is set in environment {ENVIRONMENT_ID}; "
-                  "the PUBLISH step will fail until the repo token is added there")
+        card_keys_before = set(_parse_env_string(before.get("environment_variables")))
+        if not any(key in inherited | card_keys_before for key in PUBLISH_TOKEN_KEYS):
+            print(f"WARNING: none of {PUBLISH_TOKEN_KEYS} is set on card {deployment_id} or in environment "
+                  f"{ENVIRONMENT_ID}; the PUBLISH step will fail until the repo token is added "
+                  f"(--card {deployment_id} --set-env TYCHE_GITHUB_PAT)")
         req(values, "POST", f"/deployments/{deployment_id}",
             update_payload(before, card_prompt(live_window(before))))
         after = req(values, "GET", f"/deployments/{deployment_id}")
+        # A prompt write carries no environment_variables; the platform must keep the card's own. If it
+        # did not, the desk has just lost its Telegram and repo secrets, which is worth a loud line.
+        card_keys_after = set(_parse_env_string(after.get("environment_variables")))
+        if card_keys_after != card_keys_before:
+            print(f"WARNING: card variables changed under the prompt write: before {sorted(card_keys_before)}, "
+                  f"after {sorted(card_keys_after)}; re-run --card {deployment_id} --set-env for the missing keys")
         keep = ("name", "description", "status", "agent", "environment_id", "vault_ids", "metadata",
                 "resources", "schedule")
         drift = [k for k in keep
@@ -672,6 +689,7 @@ def main() -> None:
             "name": after.get("name"),
             "status": after.get("status"),
             "agent_pin": (after.get("agent") or {}).get("version"),
+            "card_env_keys": sorted(card_keys_after),
             "cron": f"{schedule.get('expression')} {schedule.get('timezone')}",
             "upcoming_runs_at": schedule.get("upcoming_runs_at"),
             "prompt_sha256": hashlib.sha256(events.encode()).hexdigest()[:16],
