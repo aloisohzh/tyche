@@ -287,7 +287,7 @@ the entry zone; fills are recorded with strategy id PB-007. A scan that finds no
 outcome, not a problem: the SMA50/200 filter is meant to produce nothing in a downtrend. When the switch
 is off, skip this block entirely and say so in one line of the digest.
 
-BUDGET: PB-001 ballast 25%, tactical stock cap 45%, PB-007 swing 20% (only while its switch is on),
+BUDGET: PB-001 ballast 25%, tactical stock cap 25% (cut from 45% on 2026-11-23), PB-007 swing 20% (only while its switch is on),
 aggregate option premium cap 25%, cash >=5%, gross <=95% on every order.
 
 STATE: this automation is the only scheduled execution owner. The paused Forward schedule and every

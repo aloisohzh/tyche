@@ -21,3 +21,27 @@ a session on the desk environment with the Drive mount.
 6. Leave the old bundle untouched. The next fire restores the newest verified descendant.
 
 The 2026-11-24 run of this runbook closes the 2026-11-22 finding: five lanes, zero rows on the ledger.
+
+## 2026-11-23 evening: PB-002/PB-003 cap cut (one lane pair only)
+
+The tactical stock cap went 0.45 -> 0.25 on main, which re-hashes `config/tactical.yaml` and so the
+PB-002/PB-003 pair (`d5ef9567c736` -> `a1d9df1c687c`). The other lanes are unchanged and need no row.
+From a console session on `tyche-desk-drive`, between fires, with the repo on main at or after the cap commit:
+
+```
+cd /workspace/tyche && git checkout main && git pull
+LATEST=$(ls -d /data/drive/tyche-raw/*/journal/events.jsonl | sort | tail -1)
+tyche journal-verify --path "$LATEST"
+NEW=/data/drive/tyche-raw/2026-11-23-cap-cut-freeze/journal
+mkdir -p "$NEW" && cp "$LATEST" "$NEW/events.jsonl"
+tyche rules-freeze --journal "$NEW/events.jsonl" --json
+tyche rules-freeze --record --journal "$NEW/events.jsonl" --lane PB-002 --lane PB-003 --reason "stock_allocation_cap 0.45 -> 0.25 (d5ef9567c736 -> a1d9df1c687c), operator decision 2026-11-23 evening"
+tyche journal-verify --path "$NEW/events.jsonl"
+tyche rules-freeze --journal "$NEW/events.jsonl"
+```
+
+Expected: the check-only run reports PB-002 and PB-003 as drift (declared `a1d9df1c687c`, recorded
+`d5ef9567c736`) and every other lane registered; the record run appends one `rules.refrozen` row per lane
+(two events); the final verify is `ok` and the final `rules-freeze` exits 0. If the repo path differs,
+substitute the checkout the desk uses.
+
