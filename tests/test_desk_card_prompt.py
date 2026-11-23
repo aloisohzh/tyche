@@ -197,3 +197,11 @@ def test_fib_pullback_clause_is_switch_gated_and_approval_bound():
     assert prompt.index("PROPOSAL APPROVAL (TELEGRAM WAIT") < prompt.index("PB-007 FIB PULLBACK (2026-11-23):")
     assert "PB-007 swing 20% (only while its switch is on)" in prompt
     assert _module().prompt_markers(prompt)["has_fib_pullback"]
+
+
+def test_nav_references_pin_the_verified_start_and_retire_the_unverified_mark():
+    prompt = _module().card_prompt(PERMANENT)
+    clause = prompt.split("NAV REFERENCES (2026-11-23):", 1)[1].split("\n\n", 1)[0]
+    assert "100,000.00 starting" in clause and "102,208.99" in clause and "retired" in clause
+    assert "never lower it" in clause
+    assert _module().prompt_markers(prompt)["has_nav_references"]
