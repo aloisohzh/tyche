@@ -49,6 +49,8 @@ DESCRIPTION = (
     "three-fire premarket/midday/close runs, independent audits and retained position-protection review."
 )
 SECRET_KEYS = ("TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID", "TYCHE_ALLOWED_ACCOUNT_IDS")
+# Repo token the PUBLISH clause relies on (either name; see scripts/publish_desk_data.py).
+PUBLISH_TOKEN_KEYS = ("TYCHE_GITHUB_PAT", "TYCHE_GIT_PAT")
 
 
 def desk_cron() -> str:
@@ -547,6 +549,12 @@ def main() -> None:
         if not isinstance(pinned, int):
             raise SystemExit(f"{deployment_id}: agent pin is {pinned!r}, not an exact compiled "
                              "version; refusing to write a brief onto a card whose build we cannot name")
+        # The PUBLISH clause needs a repo token in the card's environment; a missing one is a brief that
+        # reports a failed publish every run, so say so before writing (a warning, not a refusal).
+        inherited = environment_keys(values)
+        if not any(key in inherited for key in PUBLISH_TOKEN_KEYS):
+            print(f"WARNING: none of {PUBLISH_TOKEN_KEYS} is set in environment {ENVIRONMENT_ID}; "
+                  "the PUBLISH step will fail until the repo token is added there")
         req(values, "POST", f"/deployments/{deployment_id}",
             update_payload(before, card_prompt(live_window(before))))
         after = req(values, "GET", f"/deployments/{deployment_id}")

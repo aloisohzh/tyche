@@ -10,7 +10,7 @@ the newest challenge cloud snapshot leads; the local drill snapshot is only a fa
 Where it runs (23 Nov 2026): as the last step of every desk card run, from the desk's cloud
 environment, so the hosted page is never older than the last run. It still works by hand from a laptop.
 
-Credentials: git uses the ambient remote credential, unless TYCHE_GIT_PAT is set in the environment
+Credentials: git uses the ambient remote credential, unless TYCHE_GITHUB_PAT (or TYCHE_GIT_PAT) is set in the environment
 (a fine-grained GitHub token for this one repo, Contents: read and write). That token is handed to git
 through GIT_ASKPASS, so it never appears on a command line, in a remote URL or in this script's output.
 The export's secret guard refuses to write if any PAT / Telegram / signing secret / full account id leaks.
@@ -33,7 +33,12 @@ DATA = ROOT / "desk-site" / "web" / "data"
 # Every file the hosted Function reads. A feed file the exporter rebuilds but this script never stages is
 # a route that serves the last publish forever - hence the tuple rather than a hand-maintained list.
 FEED = ("state.json", "automation.json", "schedule.json")
-TOKEN_ENV = "TYCHE_GIT_PAT"
+# Either name works: TYCHE_GITHUB_PAT is the name Alois already uses for the Sites Function's repo token.
+TOKEN_ENVS = ("TYCHE_GITHUB_PAT", "TYCHE_GIT_PAT")
+
+
+def token_env() -> str | None:
+    return next((k for k in TOKEN_ENVS if os.environ.get(k, "").strip()), None)
 # A commit needs an author; the desk's cloud environment has none configured. Only used when git has no identity.
 BOT_IDENTITY = ("tyche-desk", "tyche-desk@users.noreply.github.com")
 
@@ -44,8 +49,8 @@ def _askpass() -> dict[str, str]:
     """GIT_ASKPASS wiring for TYCHE_GIT_PAT: git asks the helper for the username and password, and the
     helper reads the token from the environment, so nothing secret is ever an argument or printed."""
     global _ASKPASS
-    token = os.environ.get(TOKEN_ENV, "").strip()
-    if not token:
+    key = token_env()
+    if not key:
         return {}
     if _ASKPASS is None:
         fd, name = tempfile.mkstemp(prefix="tyche-askpass-", suffix=".py")
@@ -55,7 +60,7 @@ def _askpass() -> dict[str, str]:
             "#!/usr/bin/env python3\n"
             "import os, sys\n"
             "prompt = ' '.join(sys.argv[1:]).lower()\n"
-            f"print('x-access-token' if 'username' in prompt else os.environ.get({TOKEN_ENV!r}, ''))\n",
+            f"print('x-access-token' if 'username' in prompt else os.environ.get({key!r}, ''))\n",
             encoding="utf-8",
         )
         _ASKPASS.chmod(_ASKPASS.stat().st_mode | stat.S_IXUSR)
@@ -78,7 +83,7 @@ def https_remote() -> str:
     """The push target. With a token, an SSH remote is turned into its HTTPS twin so the token applies;
     otherwise the configured remote is used as is."""
     url = git("remote", "get-url", "origin").stdout.strip()
-    if os.environ.get(TOKEN_ENV, "").strip() and url.startswith("git@github.com:"):
+    if token_env() and url.startswith("git@github.com:"):
         url = "https://github.com/" + url.split(":", 1)[1]
     return url
 
@@ -107,7 +112,7 @@ def main() -> None:
     if push.returncode != 0:
         print("PUSH FAILED — data committed locally but not synced:\n" + (push.stderr or push.stdout))
         raise SystemExit(1)
-    print("pushed refreshed desk data feed to origin/main" + (f" (credential: {TOKEN_ENV})" if os.environ.get(TOKEN_ENV) else ""))
+    print("pushed refreshed desk data feed to origin/main" + (f" (credential: {token_env()})" if token_env() else ""))
 
 
 if __name__ == "__main__":

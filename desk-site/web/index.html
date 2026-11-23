@@ -79,9 +79,9 @@
           </button>
         </div>
         <span id="clock" class="clock mono">SGT --:--:-- · ET --:--:--</span>
-        <button id="refresh-btn" class="btn refresh" title="Check for newer numbers (press R)">
+        <button id="refresh-btn" class="btn refresh" title="Loads the numbers from the desk's latest run. It does not start a run. (press R)">
           <svg viewBox="0 0 24 24" width="15" height="15"><path fill="currentColor" d="M12 4V1L7 6l5 5V7a6 6 0 1 1-6 6H4a8 8 0 1 0 8-9z"/></svg>
-          <span>Refresh</span>
+          <span>Get latest run</span>
         </button>
       </div>
     </header>
@@ -505,7 +505,7 @@
               <span class="lock-badge" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10.5" width="15" height="10" rx="2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/><circle cx="12" cy="15.5" r="1.4"/></svg>
               </span>
-              <p id="admin-locked-text">Everything below is visible. Buttons that change the desk are held until you unlock with the operator passphrase. Refresh always works.</p>
+              <p id="admin-locked-text">Everything below is visible. Buttons that change the desk are held until you unlock with the operator passphrase. "Get latest run" always works.</p>
               <button class="btn" id="admin-jump" type="button">Go to unlock</button>
             </div>
           </div>
@@ -586,9 +586,9 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 6.3"/><path d="M20 5v6h-6"/></svg>
             </span>
             <div class="ctl-main">
-              <h3>Refresh and shortcuts</h3>
-              <p class="control-sub">Refresh asks for the newest published numbers. It cannot make new ones: the numbers come from the desk's private journal, and a publish script copies a safe version of them to this site. Until that script runs on its own after every desk run, a person has to run it. The top bar shows when the numbers were last published.</p>
-              <div class="control-kbd"><span class="mono">1-5</span> Switch page · <span class="mono">R</span> Refresh · <span class="mono">T</span> Theme · <span class="mono">Esc</span> Close</div>
+              <h3>"Get latest run" and shortcuts</h3>
+              <p class="control-sub">"Get latest run" loads the numbers the desk published at the end of its latest run. It does not start a run and cannot make new numbers. The desk runs three times every weekday and publishes about half an hour after each run starts, so between runs the button finds nothing new. The top bar shows which run the numbers come from.</p>
+              <div class="control-kbd"><span class="mono">1-5</span> Switch page · <span class="mono">R</span> Get latest run · <span class="mono">T</span> Theme · <span class="mono">Esc</span> Close</div>
             </div>
           </div>
 

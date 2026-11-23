@@ -371,7 +371,7 @@ function renderStaleBanner() {
   const ageText = hours >= 48 ? `${Math.round(hours / 24)} days` : `${hours} hours`;
   el.hidden = false;
   el.innerHTML = `<strong>These numbers are ${ageText} old.</strong> They were published ${dateLabel(STATE.generated_at)} ${sgtHHMM(STATE.generated_at)} SGT. ` +
-    `Holdings, cash and P&amp;L may have moved since. Refresh only checks for a newer publish; to get new numbers, run the publish script (Controls page explains how).`;
+    `Holdings, cash and P&amp;L may have moved since. "Get latest run" only loads what the desk last published; a newer run has not been published yet.`;
 }
 const sym = (s) => String(s || "").replace(/^US\./, "");
 function fmtDur(sec) {
@@ -469,6 +469,14 @@ async function fetchCloud() {
   renderScout();
 }
 
+// "The next run is at ..." from the live card, for the no-new-run toast. Empty when no card is readable.
+function nextRunHint() {
+  const next = (AUTO?.schedules || []).flatMap((c) => c.next_runs || []).map((iso) => Date.parse(iso)).filter((t) => t > Date.now()).sort((a, b) => a - b)[0];
+  if (!next) return "";
+  const iso = new Date(next).toISOString();
+  return ` The next run is ${dateLabel(iso)} ${sgtHHMM(iso)} SGT.`;
+}
+
 async function fetchAll(manual = false) {
   const btn = $("#refresh-btn");
   if (btn) btn.classList.add("spinning");
@@ -501,8 +509,8 @@ async function fetchAll(manual = false) {
     showToast(STATE ? "State refresh failed: " + stateErr + " - keeping last good data" : "Could not load desk state: " + stateErr, true);
   } else if (manual && STATE) {
     if (SNAPSHOT) showToast("Snapshot re-read - data frozen at build time");
-    else if (prevGenerated && prevGenerated === STATE.generated_at) showToast(`Checked: no newer data. The feed is still from ${dateLabel(STATE.generated_at)} ${sgtHHMM(STATE.generated_at)} SGT.`);
-    else showToast("New data loaded - journal chain " + (STATE.chain.ok ? "verified" : "BROKEN"));
+    else if (prevGenerated && prevGenerated === STATE.generated_at) showToast(`No new desk run yet. Showing the run published ${dateLabel(STATE.generated_at)} ${sgtHHMM(STATE.generated_at)} SGT.${nextRunHint()}`);
+    else showToast("Latest run loaded - record book " + (STATE.chain.ok ? "verified" : "BROKEN"));
   }
   if (!SNAPSHOT && AUTO && !AUTO.ok && !autoErrorShown) {
     autoErrorShown = true;
@@ -1206,7 +1214,7 @@ function renderAdminZone() {
   const lockedText = $("#admin-locked-text");
   if (lockedText) {
     lockedText.textContent = LIVE
-      ? "Everything below is visible. Buttons that change the desk - trading mode, strategy switches, kill-switch - are held until you unlock with the operator passphrase. Refresh always works."
+      ? "Everything below is visible. Buttons that change the desk - trading mode, strategy switches, kill-switch - are held until you unlock with the operator passphrase. Get latest run always works."
       : "This is a baked snapshot. Changes are made from the live desk.";
   }
 }
