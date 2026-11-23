@@ -503,7 +503,11 @@ def main() -> None:
     if "--set-env" in sys.argv:
         # Copy named keys from the gitignored .env into the desk environment's variables. Values never
         # reach stdout: only the key names after the write are printed. Used once for TYCHE_GITHUB_PAT.
-        keys = [a for a in sys.argv[sys.argv.index("--set-env") + 1:] if not a.startswith("--")]
+        keys = []
+        for arg in sys.argv[sys.argv.index("--set-env") + 1:]:
+            if arg.startswith("--"):
+                break  # the next option (e.g. --card <id>) ends the key list
+            keys.append(arg)
         if not keys:
             raise SystemExit("--set-env needs at least one key name, e.g. --set-env TYCHE_GITHUB_PAT")
         for key in keys:
