@@ -9,7 +9,7 @@ const ucfirst = (s) => { const t = hy(s).trim(); return t ? t.charAt(0).toUpperC
 // A term with a one-line explanation on hover - the desk is read by people who do not trade for a living.
 const tip = (label, text) => `<span class="tip" data-tip="${esc(text)}">${esc(label)}</span>`;
 
-const VERSION = "0.14.1";
+const VERSION = "0.15.0";
 const CHANGELOG = [
   { v: "0.14.0", date: "2026-11-23", items: [
     "A warning banner when the data feed is older than the last market session, and the clock now shows when the data was published and when it was last checked.",
@@ -53,6 +53,7 @@ const CHANGELOG = [
   {
     version: "0.10.0", date: "2026-11-22", title: "The cadence table shows the cards that actually fire",
     items: [
+      "Is the plan working? is one full-width score table; the scoring formula is a hover note and the emergency-stop test trade a footnote. The three whole-desk checks (research note, stop checks, results after fees) are worked out from the record instead of listed as gaps. Top-bar stamp no longer wraps (0.15.0).",
       "Dates shown next to a Singapore time now use the Singapore date; the top bar read \"Nov 22 11:53 SGT\" for a publish made on Nov 23 (0.14.1).",
       "Schedule page shows one panel per live timer card with its wake-up times in New York and Singapore time; the cron table and the stale gate window are gone (23 Nov).",
       "Strategy view: the cron table is drawn from each automation card's own cron, timezone and window - one row per fire time, grouped by card - with the phase and activity the kernel gate would route that wall-clock time to. What the desk really does is 08:05 plan, 12:05 monitor, 15:05 trade.",
@@ -271,8 +272,9 @@ const FIELD_LABELS = {
   thesis_ref: "Playbook", inputs_ref: "Price inputs", outlook: "Market outlook", vehicle: "Instrument type",
   expected_edge: "Expected edge", invalidation: "Exit trigger", protection_type: "Downside protection",
   roll_plan: "Roll plan", sizing: "Position sizing", initial_risk: "Initial risk", realized: "Realized P&L",
-  "outlook + conviction": "Outlook + conviction", "macro / sentiment / seasonality": "Macro / sentiment / seasonality",
-  "protection heartbeat": "Protection heartbeat", "thesis_ref / inputs_ref": "Playbook + price inputs",
+  "outlook + conviction": "Outlook + conviction", "macro / sentiment / seasonality": "Market news and the calendar",
+  "protection heartbeat": "Protection heartbeat", "protection heartbeat / roll state": "Stop checks and option rolls",
+  "fee-net performance series": "Results after fees over time", "thesis_ref / inputs_ref": "Playbook + price inputs",
 };
 const RULE_LABELS = {
   "account.paper_only": "Paper-only account", "account.sim_verified": "Verified sim account",
@@ -358,8 +360,8 @@ function stampText() {
   if (!STATE) return "Loading…";
   const ts = STATE.generated_at;
   const when = `${sgtDateLabel(ts)} ${sgtHHMM(ts)} SGT`;
-  const checked = LAST_CHECKED ? ` · checked ${relativeTime(LAST_CHECKED.toISOString())}` : "";
-  return (SNAPSHOT ? "Built " : "Data from ") + when + checked;
+  const checked = LAST_CHECKED ? `<span class="stamp-checked"> · checked ${esc(relativeTime(LAST_CHECKED.toISOString()))}</span>` : "";
+  return (SNAPSHOT ? "Built " : "Data from ") + esc(when) + checked;
 }
 // The feed is a published file: it only moves when the desk publishes. Older than the last
 // market session means positions, cash and P&L can have moved without the page knowing.
@@ -506,7 +508,7 @@ async function fetchAll(manual = false) {
   LAST_CHECKED = new Date();
   if (STATE) {
     renderAll();
-    setText("#updated-stamp", stampText());
+    ($("#updated-stamp") || {}).innerHTML = stampText();
   }
   if (stateErr) {
     showToast(STATE ? "State refresh failed: " + stateErr + " - keeping last good data" : "Could not load desk state: " + stateErr, true);
@@ -917,19 +919,29 @@ function renderExpectancy() {
     `<tr><td>${esc(s.name)}</td><td class="num">${s.closed_n}</td><td class="num">${pc(s.win_rate)}</td><td class="num">${r2(s.avg_win_r)}</td><td class="num">${r2(s.avg_loss_r)}</td><td class="num">${r2(s.expectancy_r)}</td><td class="num">${s.expectancy_pct == null ? "-" : (100 * s.expectancy_pct).toFixed(2) + "%"}</td></tr>`).join("");
   const openRisk = (e.open_lots || []).reduce((a, l) => a + (l.risk_pct_nav || 0), 0);
   const lots = (e.open_lots || []).length;
+  const tradesWord = `${e.r_n} finished trade${e.r_n === 1 ? "" : "s"} with a known risk unit`;
+  const scoreWords = e.expectancy_r != null
+    ? `Overall score ${r2(e.expectancy_r)} R across ${tradesWord}.`
+    : (e.r_n && e.win_rate === 1
+      ? `No overall score yet: all ${tradesWord} were wins, so there is no average loss to weigh against.`
+      : `Overall score not yet measurable across ${tradesWord}.`);
   $("#sleeve-note").textContent = e.closed_n
-    ? `Overall edge ${e.expectancy_r != null ? r2(e.expectancy_r) + " R" : "not yet measurable"} across ${e.r_n} closed trade${e.r_n === 1 ? "" : "s"} with a known risk unit. Net ${signedMoney(e.pnl_net)} after fees. Open positions currently risk ${(100 * openRisk).toFixed(2)}% of the account across ${lots} lot${lots === 1 ? "" : "s"}.`
-    : `No strategy trades have closed yet - the kill-switch drill on the right tested the safety stop, not strategy edge. Open positions currently risk ${(100 * openRisk).toFixed(2)}% of the account across ${lots} lot${lots === 1 ? "" : "s"}.`;
+    ? `${scoreWords} Net ${signedMoney(e.pnl_net)} after fees. Open positions currently risk ${(100 * openRisk).toFixed(2)}% of the account across ${lots} lot${lots === 1 ? "" : "s"}.`
+    : `No strategy trades have finished yet. Open positions currently risk ${(100 * openRisk).toFixed(2)}% of the account across ${lots} lot${lots === 1 ? "" : "s"}.`;
   const chip = $("#exp-chip");
   if (chip) chip.textContent = e.provisional ? `Provisional · ${e.closed_n} closed trade${e.closed_n === 1 ? "" : "s"}, needs 30` : `${e.closed_n} closed trades`;
-  const fills = STATE.drill.fills || {};
+  // The 18 Nov emergency-stop drill is a safety test, not a strategy trade, so it sits under the table as a
+  // footnote and never enters the scores.
+  const fills = STATE.drill?.fills || {};
   const seed = fills["3115432"], sell = fills["3115472"];
-  $("#realized-big").textContent = e.realized_gross != null ? signedMoney(e.realized_gross) : "-";
-  $("#realized-big").className = "realized-big mono " + plClass(e.realized_gross);
-  $("#realized-legs").textContent = seed && sell
-    ? `10 SPY bought at ${money(seed.price)}, sold at ${money(sell.price)} · before fees`
-    : "Awaiting reconciled fills";
-  $("#fees-note").textContent = ucfirst(e.fees_note);
+  const drill = $("#drill-note");
+  if (drill) {
+    drill.innerHTML = e.realized_gross != null
+      ? `Emergency-stop test trade (Nov 18): <b class="${plClass(e.realized_gross)}">${signedMoney(e.realized_gross)}</b> before fees` +
+        (seed && sell ? `, 10 SPY bought at ${money(seed.price)} and sold at ${money(sell.price)}` : "") +
+        `. It tested the safety stop, so it is kept out of the scores above.`
+      : "";
+  }
 }
 
 /* ---------------- execution & risk ---------------- */
@@ -2326,7 +2338,7 @@ function renderAutomation() {
 /* ---------------- instrumentation ---------------- */
 function insRowHtml(r) {
   const gap = r.status === "gap";
-  return `<div class="ins-row${gap ? " is-gap" : ""}"><span class="ins-field" title="${esc("Field " + r.field)}"><span class="k-label">${esc(fieldLabel(r.field))}</span></span><span><span class="prov ${r.status}">${r.status}</span></span><span class="ins-note">${esc(ucfirst(r.note))}</span></div>`;
+  return `<div class="ins-row${gap ? " is-gap" : ""}"><span class="ins-field" title="${esc("Field " + r.field)}"><span class="k-label">${esc(fieldLabel(r.field))}</span></span><span><span class="prov ${r.status}">${{ journaled: "Written down", derived: "Worked out", gap: "Missing" }[r.status] || r.status}</span></span><span class="ins-note">${esc(ucfirst(r.note))}</span></div>`;
 }
 
 function renderInstrumentation() {
@@ -2466,7 +2478,7 @@ function setup() {
     $("#clock").textContent = `SGT ${sgtTime(now)} · ET ${etTime(now)}`;
   }, 1000);
   setInterval(tickCountdowns, 1000);
-  setInterval(() => { if (STATE) setText("#updated-stamp", stampText()); }, 30000);
+  setInterval(() => { if (STATE) ($("#updated-stamp") || {}).innerHTML = stampText(); }, 30000);
 
   document.querySelectorAll(".nav-item").forEach((n) => n.addEventListener("click", () => showView(n.dataset.view)));
   let savedView = "overview";

@@ -213,7 +213,7 @@
             <span class="lg"><i class="sw gap"></i>Missing</span>
           </div>
         </div>
-<details class="guide"><summary>How to read this page</summary><ul><li><b>Trade ideas</b>: every trade the desk thought about, newest first. Status says what happened: Filled means it was done. Approved means it passed the checks but was not sent. Blocked means a rule stopped it. Not sent means a later order took its place.</li><li><b>Checks</b>: before a trade can happen the desk must answer five questions. Why this trade? What proof is there? Is the market friendly? Which stock or fund? How much should it make? The number shows how many have answers. Click a row to see them.</li><li><b>Max loss</b>: the most this trade should lose if it goes wrong. It is a limit, not a guess at what will happen.</li><li><b>Is the plan working?</b> This asks whether the trades make money on average. We need 30 finished trades before this means anything. Right now there are 3, so a 100% win rate is luck, not skill.</li><li><b>Finished trades</b>: each trade from buy to sell, with what it cost and what it made. These are the trades behind Banked and Win rate on the Overview.</li><li><b>How complete is the paperwork?</b> For each trade: what was written down, what the desk worked out, and what is still missing.</li></ul></details>
+<details class="guide"><summary>How to read this page</summary><ul><li><b>Trade ideas</b>: every trade the desk thought about, newest first. Status says what happened: Filled means it was done. Approved means it passed the checks but was not sent. Blocked means a rule stopped it. Not sent means a later order took its place.</li><li><b>Checks</b>: before a trade can happen the desk must answer five questions. Why this trade? What proof is there? Is the market friendly? Which stock or fund? How much should it make? The number shows how many have answers. Click a row to see them.</li><li><b>Max loss</b>: the most this trade should lose if it goes wrong. It is a limit, not a guess at what will happen.</li><li><b>Is the plan working?</b> This asks whether the trades make money on average. We need 30 finished trades before this means anything. Right now there are 3, so a 100% win rate is luck, not skill.</li><li><b>Finished trades</b>: each trade from buy to sell, with what it cost and what it made. These are the trades behind Banked and Win rate on the Overview.</li><li><b>How complete is the paperwork?</b> For each trade: what was written down, what the desk worked out, and what is still missing. The last three rows are checks on the whole desk: the latest research note, the last stop check on every holding, and results after fees.</li></ul></details>
 
         <div class="section-head"><div><h2><span class="h-num">01</span>Every trade idea and its five checks</h2>
           <p class="section-sub">One row per idea, newest first. Checks shows how many of the five questions have answers.</p></div></div>
@@ -246,30 +246,19 @@
 
         <div class="section-head"><div><h2><span class="h-num">02</span>Is the plan working?</h2>
           <p class="section-sub">Results for each kind of strategy, after fees. We need 30 finished trades before these numbers mean much.</p></div></div>
-        <div class="exp-grid">
-          <div class="card formula-card">
-            <span class="card-kicker">How we score a strategy</span>
-            <div class="formula mono">(How often I win × how much I win)<br>− (How often I lose × how much I lose)</div>
-            <p class="formula-note">This gives the average result per trade. Above zero means the strategy makes money over time. Results are measured in <span class="tip" data-tip="One R is the amount I was willing to lose on the trade. Making 2R means I made twice what I risked.">R</span> and as a share of the account.</p>
+        <div class="card table-card sleeve-card">
+          <div class="table-head">
+            <span class="card-kicker">Score by kind of strategy <span class="tip" data-tip="Score = (how often I win × how much I win) − (how often I lose × how much I lose). It is the average result per trade. Above zero means the strategy makes money over time. R is the amount I was willing to lose on the trade: making 2R means I made twice what I risked.">How we score</span></span>
             <span class="chip provisional" id="exp-chip">Provisional · challenge window just opened</span>
           </div>
-          <div class="card sleeve-card">
-            <span class="card-kicker">Score by kind of strategy</span>
-            <div class="tbl-scroll">
-              <table class="tbl sleeve-tbl">
-                <thead><tr><th>Kind of strategy</th><th class="num">Trades</th><th class="num">Win rate</th><th class="num"><span class="tip" data-tip="How much an average winning trade made, compared with what it risked.">Avg win (R)</span></th><th class="num"><span class="tip" data-tip="How much an average losing trade lost, compared with what it risked.">Avg loss (R)</span></th><th class="num"><span class="tip" data-tip="The average result per trade. Above zero means the strategy makes money on average.">Score (R)</span></th><th class="num">Score (% of account)</th></tr></thead>
-                <tbody id="sleeve-rows"></tbody>
-              </table>
-            </div>
-            <p class="table-note" id="sleeve-note">No strategy trades have finished yet. The trade shown next was only a test of the emergency stop, so it does not count.</p>
+          <div class="tbl-scroll">
+            <table class="tbl sleeve-tbl">
+              <thead><tr><th>Kind of strategy</th><th class="num">Trades</th><th class="num">Win rate</th><th class="num"><span class="tip" data-tip="How much an average winning trade made, compared with what it risked.">Avg win (R)</span></th><th class="num"><span class="tip" data-tip="How much an average losing trade lost, compared with what it risked.">Avg loss (R)</span></th><th class="num"><span class="tip" data-tip="The average result per trade. Above zero means the strategy makes money on average.">Score (R)</span></th><th class="num"><span class="tip" data-tip="The same score, written as a share of the whole account per trade.">Score (% of account)</span></th></tr></thead>
+              <tbody id="sleeve-rows"></tbody>
+            </table>
           </div>
-          <div class="card realized-card">
-            <span class="card-kicker">Emergency-stop test trade</span>
-            <div class="realized-big mono" id="realized-big">-</div>
-            <div class="realized-legs mono" id="realized-legs">-</div>
-            <p class="formula-note" id="fees-note">-</p>
-            <span class="chip gap-chip">Fees are checked in the daily report</span>
-          </div>
+          <p class="table-note" id="sleeve-note">No strategy trades have finished yet.</p>
+          <p class="table-note drill-note" id="drill-note"></p>
         </div>
         <div class="card table-card closed-card" id="closed-trades-card">
           <div class="table-head">
@@ -307,7 +296,7 @@
             <span><span class="prov gap">Missing</span> not recorded yet</span>
           </div>
           <div class="ins-rows" id="ins-rows"></div>
-          <div class="ins-cross-head">Still being built</div>
+          <div class="ins-cross-head">Checks across the whole desk</div>
           <div class="ins-rows" id="ins-cross"></div>
         </div>
       </section>
