@@ -32,15 +32,15 @@
       </button>
       <button class="nav-item" data-view="strategy">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="12" r="2.5"/><path d="M8.5 6h4a3 3 0 0 1 3 3v.5M8.5 18h4a3 3 0 0 0 3-3v-.5"/></svg>
-        <span>Strategy</span><i class="nav-dot"></i>
+        <span>Trade ideas</span><i class="nav-dot"></i>
       </button>
       <button class="nav-item" data-view="risk">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/><path d="M9.5 12l1.8 1.8 3.4-3.6"/></svg>
-        <span class="nav-full">Risk &amp; Execution</span><span class="nav-short">Risk</span><i class="nav-dot"></i>
+        <span class="nav-full">Safety &amp; orders</span><span class="nav-short">Safety</span><i class="nav-dot"></i>
       </button>
       <button class="nav-item" data-view="automation">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>
-        <span>Automation</span><i class="nav-dot"></i>
+        <span>Schedule</span><i class="nav-dot"></i>
       </button>
       <button class="nav-item nav-admin" data-view="controls">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2.2"/><circle cx="8" cy="17" r="2.2"/></svg>
@@ -88,22 +88,24 @@
 
     <main class="workspace-main" id="main">
       <div id="snapshot-banner" class="snapshot-banner" hidden></div>
+      <div id="stale-banner" class="snapshot-banner stale" role="status" hidden></div>
 
       <!-- ============================ OVERVIEW ============================ -->
       <section class="view active" id="view-overview">
         <div class="page-heading">
           <div>
-            <h1>Desk overview</h1>
-            <p>Your paper account at a glance: what it is worth today, your profit or loss, and the risk you are carrying. Every figure comes from the broker or the trade journal.</p>
+            <h1>My desk at a glance</h1>
+            <p>What my practice account is worth, whether I am up or down, and how much risk I am taking. Every number comes from the broker or the desk's own record book.</p>
           </div>
           <div class="heading-aside">
             <span id="ov-approval" class="pill live-pill cached"><i class="dot"></i><span>-</span></span>
           </div>
         </div>
+<details class="guide"><summary>How to read this page</summary><ul><li><b>What my account is worth</b>: all my cash plus all my holdings at today's prices. The line under it shows how far I am from the $100,000 I started with.</li><li><b>How am I doing</b>: Total is my overall result. Open is on things I still hold, so it can still change. Banked is from trades I have finished. Click Banked or Win rate to see those trades.</li><li><b>Account value over time</b>: a dot for every time the account was checked. The desk checks a few times a day, so the line moves in steps.</li><li><b>Is the market friendly?</b> Four quick tests. More ticks means a safer time to buy. The emergency stop stops all buying when it is on.</li><li><b>What I own</b> comes straight from the broker. Weight is how big a slice each holding is. No slice may be bigger than 40%.</li><li><b>How fresh is this?</b> The top bar says when the numbers were published. A red bar at the top means they are older than the last trading day.</li></ul></details>
 
         <div class="stat-grid">
           <div class="card stat-card stat-primary">
-            <div class="stat-label"><span><span class="tip" data-tip="Cash plus the market value of every holding, as reported by moomoo. Also called net asset value (NAV).">Account value</span> <em id="nav-acct"></em></span>
+            <div class="stat-label"><span><span class="tip" data-tip="My cash plus everything I own at today's prices, as reported by moomoo. Traders call this NAV.">What my account is worth</span> <em id="nav-acct"></em></span>
               <span class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-5 4 3 8-8"/><path d="M16 7h5v5"/></svg></span>
             </div>
             <div class="stat-value mono" id="nav-value">-</div>
@@ -111,14 +113,14 @@
             <div class="stat-caption" id="nav-src"></div>
           </div>
           <div class="card stat-card">
-            <div class="stat-label"><span>Cash</span>
+            <div class="stat-label"><span>Cash waiting</span>
               <span class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></svg></span>
             </div>
             <div class="stat-value mono" id="cash-value">-</div>
             <div class="stat-caption" id="cash-weight">-</div>
           </div>
           <div class="card stat-card">
-            <div class="stat-label"><span><span class="tip" data-tip="The share of the account that is in holdings rather than cash. The desk may not go above 95%.">Invested</span></span>
+            <div class="stat-label"><span><span class="tip" data-tip="How much of my account is in stocks and funds rather than cash. The desk must keep this under 95%.">Money in holdings</span></span>
               <span class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M5 8l7-5 7 5M5 16l7 5 7-5"/></svg></span>
             </div>
             <div class="stat-value mono" id="gross-value">-</div>
@@ -129,8 +131,8 @@
         <div class="card scorecard">
           <div class="section-heading">
             <div>
-              <h2>Trader scorecard</h2>
-              <p class="section-subtitle">Profit, edge and risk at a glance. Figures stay provisional until enough trades have closed.</p>
+              <h2>How am I doing?</h2>
+              <p class="section-subtitle">My results in one row. With only a few trades done, these numbers can swing a lot.</p>
             </div>
           </div>
           <div class="score-grid" id="score-grid"></div>
@@ -141,34 +143,34 @@
           <div class="card performance-card">
             <div class="section-heading">
               <div>
-                <h2>Account value over time</h2>
-                <p class="section-subtitle">Each point is a saved reading of the account, labelled with where it came from and when.</p>
+                <h2>My account over time</h2>
+                <p class="section-subtitle">A dot for every time the account was checked, with where the number came from.</p>
               </div>
             </div>
             <div class="equity-stats" id="equity-stats"></div>
             <div class="chart-wrap" id="equity-chart"></div>
             <div class="returns-strip">
-              <span class="card-kicker">Change since the previous reading</span>
+              <span class="card-kicker">Change since the last check</span>
               <div class="returns-bars" id="returns-bars"></div>
             </div>
           </div>
 
           <div class="card brief-card">
             <div class="brief-body">
-              <span class="card-kicker">Desk signals</span>
-              <div class="brief-section-label">Market conditions</div>
+              <span class="card-kicker">Warning lights</span>
+              <div class="brief-section-label">Is the market friendly?</div>
               <div class="brief-row">
-                <span class="brief-k"><span class="tip" data-tip="Four simple tests of the wider market (trend, credit, moving averages, volatility). More passes means a friendlier market for new positions.">Market checks</span></span>
+                <span class="brief-k"><span class="tip" data-tip="Four quick tests of the whole market. More ticks means a safer time to buy new things.">Market tests</span></span>
                 <span class="brief-v mono" id="regime-score">-</span>
               </div>
               <div class="checks" id="regime-checks"></div>
               <div class="brief-row">
-                <span class="brief-k"><span class="tip" data-tip="How much the portfolio tends to move day to day. When it is high, the desk sizes new trades smaller.">Portfolio volatility</span></span>
+                <span class="brief-k"><span class="tip" data-tip="How jumpy my holdings are from day to day. When they are jumpy, the desk buys smaller amounts.">How jumpy</span></span>
                 <span class="brief-v mono" id="vol-note">-</span>
               </div>
-              <div class="brief-section-label"><span class="tip" data-tip="An emergency stop. When engaged, no new buys are allowed; only sells that reduce risk go through.">Kill-switch</span></div>
+              <div class="brief-section-label"><span class="tip" data-tip="A big red button. When it is on, no more buying; only selling to reduce risk is allowed.">Emergency stop</span></div>
               <div class="brief-kill clear" id="ov-kill"></div>
-              <div class="brief-section-label">Challenge window</div>
+              <div class="brief-section-label">Competition days</div>
               <div class="window-bar"><div class="window-fill" id="window-fill"></div></div>
               <div class="brief-footnote" id="window-days">-</div>
             </div>
@@ -177,20 +179,20 @@
 
         <div class="card table-card">
           <div class="table-head">
-            <span class="card-kicker">Positions <em id="pos-count"></em></span>
+            <span class="card-kicker">What I own <em id="pos-count"></em></span>
             <input type="search" id="pos-search" class="search" placeholder="Filter symbol or name…" aria-label="Filter positions">
           </div>
           <div class="tbl-scroll">
             <table class="tbl pos-tbl">
               <thead><tr>
                 <th data-sort="symbol">Symbol</th><th>Name</th>
-                <th data-sort="quantity" class="num">Qty</th>
-                <th data-sort="avg_cost" class="num">Avg cost</th>
-                <th data-sort="last_price" class="num">Last price</th>
-                <th data-sort="market_value" class="num">Market value</th>
-                <th data-sort="weight" class="num"><span class="tip" data-tip="This holding as a share of the whole account. No single holding may exceed 40%.">Weight (limit 40%)</span></th>
-                <th data-sort="pl" class="num">P&amp;L ($)</th>
-                <th data-sort="pl_pct" class="num">P&amp;L (%)</th>
+                <th data-sort="quantity" class="num">How many</th>
+                <th data-sort="avg_cost" class="num">Paid each</th>
+                <th data-sort="last_price" class="num">Price now</th>
+                <th data-sort="market_value" class="num">Worth now</th>
+                <th data-sort="weight" class="num"><span class="tip" data-tip="How big a slice of my account this is. No slice may be bigger than 40%.">Slice (max 40%)</span></th>
+                <th data-sort="pl" class="num">Up or down ($)</th>
+                <th data-sort="pl_pct" class="num">Up or down (%)</th>
               </tr></thead>
               <tbody id="pos-rows"></tbody>
             </table>
@@ -202,8 +204,8 @@
       <section class="view" id="view-strategy">
         <div class="page-heading">
           <div>
-            <h1>Strategy &amp; edge</h1>
-            <p>Every trade idea passes five checks before it can become an order: the reason for the trade, the evidence behind it, the market outlook, the instrument, and the expected edge. Click a row to see the checks, the stop and target, and the journal evidence. Missing evidence is shown as missing, never filled in.</p>
+            <h1>Trade ideas and results</h1>
+            <p>Before the desk can trade, each idea must answer five questions. Click any row to see the answers, the stop and target, and the proof behind it. If something is missing, it says so.</p>
           </div>
           <div class="legend">
             <span class="lg"><i class="sw ok"></i>Complete</span>
@@ -211,9 +213,10 @@
             <span class="lg"><i class="sw gap"></i>Missing</span>
           </div>
         </div>
+<details class="guide"><summary>How to read this page</summary><ul><li><b>Trade ideas</b>: every trade the desk thought about, newest first. Status says what happened: Filled means it was done. Approved means it passed the checks but was not sent. Blocked means a rule stopped it. Not sent means a later order took its place.</li><li><b>Checks</b>: before a trade can happen the desk must answer five questions. Why this trade? What proof is there? Is the market friendly? Which stock or fund? How much should it make? The number shows how many have answers. Click a row to see them.</li><li><b>Max loss</b>: the most this trade should lose if it goes wrong. It is a limit, not a guess at what will happen.</li><li><b>Is the plan working?</b> This asks whether the trades make money on average. We need 30 finished trades before this means anything. Right now there are 3, so a 100% win rate is luck, not skill.</li><li><b>Finished trades</b>: each trade from buy to sell, with what it cost and what it made. These are the trades behind Banked and Win rate on the Overview.</li><li><b>How complete is the paperwork?</b> For each trade: what was written down, what the desk worked out, and what is still missing.</li></ul></details>
 
-        <div class="section-head"><div><h2><span class="h-num">01</span>Trades and the five checks</h2>
-          <p class="section-sub">One row per trade idea in the journal, newest first. The Checks column counts how many of the five checks have evidence. Click a row for the detail.</p></div></div>
+        <div class="section-head"><div><h2><span class="h-num">01</span>Every trade idea and its five checks</h2>
+          <p class="section-sub">One row per idea, newest first. Checks shows how many of the five questions have answers.</p></div></div>
         <div class="card trade-table-card">
           <div class="table-head">
             <span class="card-kicker">Trade ideas <em id="strategy-count"></em></span>
@@ -224,58 +227,73 @@
               <thead><tr>
                 <th class="exp-col"></th>
                 <th>Symbol</th>
-                <th>Playbook</th>
-                <th>Intent</th>
-                <th>Side</th>
-                <th class="num">Qty</th>
+                <th>Strategy</th>
+                <th>Why</th>
+                <th>Buy or sell</th>
+                <th class="num">How many</th>
                 <th class="num">Limit price</th>
                 <th class="num">Stop price</th>
                 <th class="num">Target price</th>
-                <th class="num"><span class="tip" data-tip="The most this trade is designed to lose if the stop is hit: quantity × (limit price − stop price).">Max loss</span></th>
+                <th class="num"><span class="tip" data-tip="The most this trade should lose if it goes wrong: how many × (buy price − stop price).">Max loss</span></th>
                 <th>Status</th>
-                <th class="num"><span class="tip" data-tip="How many of the five checks have evidence: reason, evidence, outlook, instrument, edge.">Checks</span></th>
+                <th class="num"><span class="tip" data-tip="How many of the five questions have answers: why, proof, market, which one, how much it should make.">Checks</span></th>
               </tr></thead>
               <tbody id="trade-rows"></tbody>
             </table>
           </div>
-          <p class="table-note">Max loss is the most a trade is designed to lose if its stop is hit. It is a limit, not a prediction.</p>
+          <p class="table-note">Max loss is the most a trade should lose if it goes wrong. It is a limit, not a guess.</p>
         </div>
 
-        <div class="section-head"><div><h2><span class="h-num">02</span>Edge: is the approach paying off?</h2>
-          <p class="section-sub">A scorecard for each strategy group, after fees. The sample is still small, so every figure shows its trade count and stays provisional until 30 trades have closed.</p></div></div>
+        <div class="section-head"><div><h2><span class="h-num">02</span>Is the plan working?</h2>
+          <p class="section-sub">Results for each kind of strategy, after fees. We need 30 finished trades before these numbers mean much.</p></div></div>
         <div class="exp-grid">
           <div class="card formula-card">
-            <span class="card-kicker">How edge is measured</span>
-            <div class="formula mono">(Win rate × avg win)<br>− (Loss rate × avg loss)</div>
-            <p class="formula-note">The average result you can expect per trade. Worked out for each strategy group in <span class="tip" data-tip="One R is the amount risked on the trade (entry price minus stop price, times quantity). A +2R win made twice what was risked.">R</span> and as a share of the account, after fees.</p>
+            <span class="card-kicker">How we score a strategy</span>
+            <div class="formula mono">(How often I win × how much I win)<br>− (How often I lose × how much I lose)</div>
+            <p class="formula-note">This gives the average result per trade. Above zero means the strategy makes money over time. Results are measured in <span class="tip" data-tip="One R is the amount I was willing to lose on the trade. Making 2R means I made twice what I risked.">R</span> and as a share of the account.</p>
             <span class="chip provisional" id="exp-chip">Provisional · challenge window just opened</span>
           </div>
           <div class="card sleeve-card">
-            <span class="card-kicker">Scorecard by strategy group</span>
+            <span class="card-kicker">Score by kind of strategy</span>
             <div class="tbl-scroll">
               <table class="tbl sleeve-tbl">
-                <thead><tr><th>Strategy group</th><th class="num">Trades</th><th class="num">Win rate</th><th class="num"><span class="tip" data-tip="Average winning trade, in multiples of the amount risked.">Avg win (R)</span></th><th class="num"><span class="tip" data-tip="Average losing trade, in multiples of the amount risked.">Avg loss (R)</span></th><th class="num"><span class="tip" data-tip="Expected result per trade, in multiples of the amount risked. Above zero means the approach makes money on average.">Edge (R)</span></th><th class="num">Edge (% of account)</th></tr></thead>
+                <thead><tr><th>Kind of strategy</th><th class="num">Trades</th><th class="num">Win rate</th><th class="num"><span class="tip" data-tip="How much an average winning trade made, compared with what it risked.">Avg win (R)</span></th><th class="num"><span class="tip" data-tip="How much an average losing trade lost, compared with what it risked.">Avg loss (R)</span></th><th class="num"><span class="tip" data-tip="The average result per trade. Above zero means the strategy makes money on average.">Score (R)</span></th><th class="num">Score (% of account)</th></tr></thead>
                 <tbody id="sleeve-rows"></tbody>
               </table>
             </div>
-            <p class="table-note" id="sleeve-note">No strategy trades have closed yet. The round trip shown next tested the kill-switch; it does not count as strategy edge.</p>
+            <p class="table-note" id="sleeve-note">No strategy trades have finished yet. The trade shown next was only a test of the emergency stop, so it does not count.</p>
           </div>
           <div class="card realized-card">
-            <span class="card-kicker">Banked so far · kill-switch drill</span>
+            <span class="card-kicker">Emergency-stop test trade</span>
             <div class="realized-big mono" id="realized-big">-</div>
             <div class="realized-legs mono" id="realized-legs">-</div>
             <p class="formula-note" id="fees-note">-</p>
-            <span class="chip gap-chip">Fees are reconciled in the daily report</span>
+            <span class="chip gap-chip">Fees are checked in the daily report</span>
+          </div>
+        </div>
+        <div class="card table-card closed-card" id="closed-trades-card">
+          <div class="table-head">
+            <span class="card-kicker">Finished trades <em id="closed-count"></em></span>
+            <span class="table-head-note">Every trade from buy to sell. These are the trades behind Banked and Win rate on the Overview.</span>
+          </div>
+          <div class="tbl-scroll">
+            <table class="tbl closed-tbl">
+              <thead><tr>
+                <th>Symbol</th><th>Sold (ET · SGT)</th><th class="num">How many</th><th class="num">Bought at</th><th class="num">Sold at</th>
+                <th class="num">Held for</th><th class="num">Made before fees</th><th class="num">Fees</th><th class="num">Made after fees</th>
+              </tr></thead>
+              <tbody id="closed-rows"></tbody>
+            </table>
           </div>
         </div>
 
-        <div class="section-head"><div><h2><span class="h-num">03</span>What each trade record contains</h2>
-          <p class="section-sub">What was written down when the trade was planned, what the desk computes from it, and what is still missing. Computed fields are labelled so they are never mistaken for broker facts.</p></div></div>
+        <div class="section-head"><div><h2><span class="h-num">03</span>How complete is the paperwork?</h2>
+          <p class="section-sub">For each trade: what was written down when it was planned, what the desk worked out, and what is still missing.</p></div></div>
         <div class="card ins-card">
           <div class="ins-top">
             <div class="ins-ring-wrap">
               <span id="ins-ring"></span>
-              <div class="ins-ring-text"><strong id="ins-avg">-</strong><span>average record completeness<br>across <em id="ins-cards-n">0</em> trade records</span></div>
+              <div class="ins-ring-text"><strong id="ins-avg">-</strong><span>of the paperwork is filled in<br>across <em id="ins-cards-n">0</em> trades</span></div>
             </div>
             <div class="ins-counts" id="ins-counts"></div>
             <div class="ins-toggle" id="ins-toggle">
@@ -285,11 +303,11 @@
           </div>
           <div class="ins-legend">
             <span><span class="prov journaled">Written down</span> recorded in the plan or journal</span>
-            <span><span class="prov derived">Computed</span> worked out from recorded inputs and settings</span>
+            <span><span class="prov derived">Worked out</span> by the desk from what was written down</span>
             <span><span class="prov gap">Missing</span> not recorded yet</span>
           </div>
           <div class="ins-rows" id="ins-rows"></div>
-          <div class="ins-cross-head">Still to build, for every trade</div>
+          <div class="ins-cross-head">Still being built</div>
           <div class="ins-rows" id="ins-cross"></div>
         </div>
       </section>
@@ -298,15 +316,16 @@
       <section class="view" id="view-risk">
         <div class="page-heading">
           <div>
-            <h1>Risk &amp; execution</h1>
-            <p>The safety layer: the kill-switch, every exposure limit, the drawdown ladder, all orders and every refused order. Sending an order is not the same as it filling; fills come from the broker.</p>
+            <h1>Safety and orders</h1>
+            <p>The emergency stop, the rules the desk must obey, every order it sent, and every idea the rules blocked. Sending an order is not the same as it being done; only the broker can confirm that.</p>
           </div>
         </div>
+<details class="guide"><summary>How to read this page</summary><ul><li><b>Emergency stop</b>: Off means trading is allowed. On means no more buying; only selling to reduce risk is allowed. The list under it is every time it was switched.</li><li><b>How close to the limits</b>: each bar is one rule and the small mark is the limit. Keep holdings under 95% of the account, keep cash above 5%, and no single holding above 40%.</li><li><b>Drawdown ladder</b>: how far the account has dropped from its best value. At 4% down I get a warning. At 6% down the desk stops buying by itself. The daily stop is a 3% loss in one day.</li><li><b>The rules</b>: every rule the desk must obey, checked against the latest numbers. OK means fine. Not measurable means the desk does not have the data to check it right now.</li><li><b>Orders</b>: every order the desk asked for. Filled means the broker did it. Submitted means it was sent and we are waiting. Expired means an old order from another day that was never filled.</li><li><b>Trades the rules blocked</b>: ideas that broke a rule before reaching the broker. This list is good news. It shows the rules working.</li></ul></details>
         <div class="risk-grid">
           <div class="card kill-card" id="kill-card"></div>
           <div class="card gauges-card" id="gauges-card"></div>
           <div class="card donut-card">
-            <span class="card-kicker">Where the money is</span>
+            <span class="card-kicker">Where my money is</span>
             <div class="donut-wrap" id="donut-wrap"></div>
           </div>
         </div>
@@ -315,41 +334,41 @@
           <div class="table-head">
             <span class="head-left">
               <span class="head-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/><path d="M9.5 12l1.8 1.8 3.4-3.6"/></svg></span>
-              <span class="card-kicker" title="Source: docs/risk-card.md">Risk limits in force</span>
+              <span class="card-kicker" title="Source: docs/risk-card.md">The rules the desk must obey</span>
             </span>
             <div class="guard-summary" id="guard-summary"></div>
           </div>
           <div class="guard-grid" id="guard-rows"></div>
-          <p class="table-note">Each tile is a live check against the latest account reading, the journal and open orders. “Not measurable” means the desk lacks the data to check it, not that the limit is off.</p>
+          <p class="table-note">Each box is one rule, checked against the latest numbers. “Not measurable” means the desk does not have the data to check it right now, not that the rule is off.</p>
         </div>
 
         <div class="card table-card">
           <div class="table-head">
-            <span class="card-kicker">Order history</span>
+            <span class="card-kicker">Orders the desk sent</span>
             <span class="chip ok-chip" id="working-orders">-</span>
           </div>
           <div class="tbl-scroll">
             <table class="tbl order-tbl">
               <thead><tr>
-                <th>When (ET · SGT)</th><th>Symbol</th><th>Playbook</th><th>Intent</th><th>Side</th>
-                <th class="num">Qty</th><th class="num">Limit price</th><th class="num">Fill price</th>
+                <th>When (ET · SGT)</th><th>Symbol</th><th>Strategy</th><th>Why</th><th>Buy or sell</th>
+                <th class="num">How many</th><th class="num">Asked price</th><th class="num">Got price</th>
                 <th class="num">Max loss</th><th>Status</th><th>Notes</th>
               </tr></thead>
               <tbody id="order-rows"></tbody>
             </table>
           </div>
-          <p class="table-note">Fill status comes from the broker, never from the desk’s own submission. Hover a row for the broker order id and account.</p>
+          <p class="table-note">Only the broker can say an order was done. Hover over a row to see the broker's order number.</p>
         </div>
 
         <div class="card table-card">
           <div class="table-head">
-            <span class="card-kicker">Orders the desk refused <em id="rej-count"></em></span>
+            <span class="card-kicker">Trades the rules blocked <em id="rej-count"></em></span>
             <div class="filter-chips" id="rej-filters"></div>
             <input type="search" id="rej-search" class="search" placeholder="Filter rule, symbol, detail…" aria-label="Filter rejections">
           </div>
           <div class="tbl-scroll">
             <table class="tbl">
-              <thead><tr><th>Time (ET · SGT)</th><th>Source</th><th>Rule</th><th>Symbol</th><th>Side</th><th class="num">Qty</th><th>Reason</th></tr></thead>
+              <thead><tr><th>Time (ET · SGT)</th><th>Blocked by</th><th>Rule</th><th>Symbol</th><th>Buy or sell</th><th class="num">How many</th><th>Reason</th></tr></thead>
               <tbody id="rej-rows"></tbody>
             </table>
           </div>
@@ -360,23 +379,24 @@
       <section class="view" id="view-automation">
         <div class="page-heading">
           <div>
-            <h1>Automation</h1>
-            <p>The desk runs on a schedule in the cloud, even when your PC is off. Every new position is either approved by you on Telegram during a run (Ask me) or stays inside bounds you set for the day (Within my bounds). The schedule comes from the automation cards below; the card whose date window covers today is the one that runs.</p>
+            <h1>When the desk runs</h1>
+            <p>The desk runs by itself in the cloud, three times every trading day, even when my computer is off. It never buys anything new without my yes on Telegram, unless I set limits for the day.</p>
           </div>
           <div class="heading-aside"><span class="pill live-pill" id="automation-source"><i class="dot"></i><span>Connecting…</span></span></div>
         </div>
+<details class="guide"><summary>How to read this page</summary><ul><li><b>The desk runs three times every trading day.</b> At 21:05 Singapore time it makes a plan. At 01:05 it checks every holding against its stop and target. At 04:05 it trades. Between runs nobody is watching the market.</li><li><b>Market calendar</b>: the parts of the US trading day and what the desk may do in each. The days ahead show holidays, half days and big news events that can move prices.</li><li><b>Schedule</b>: the timer cards that start each run. Two can be on at once. One covers this month and the other takes over on the first of next month, so there is never a gap. Only the card whose dates include today actually runs.</li><li><b>Desk runs</b>: a log of every run and what it cost in cloud credits. Old test runs from before the timer cards existed are hidden behind a button.</li><li><b>The team</b>: the coordinator makes the plan and talks to me on Telegram. The researcher finds ideas. The auditor checks every plan. The executor is the only one allowed to place orders, and only after approval.</li></ul></details>
 
         <div class="evidence-strip">
-          <div class="card evidence-card"><span class="ev-num mono" id="ov-sched-count">-</span><span class="ev-label">Automation cards live</span><span class="ev-sub">Active / total</span></div>
-          <div class="card evidence-card"><span class="ev-num mono" id="ov-sessions">-</span><span class="ev-label">Desk runs</span><span class="ev-sub">Coordinator and helper agents</span></div>
-          <div class="card evidence-card"><span class="ev-num mono" id="ov-credits">-</span><span class="ev-label">Cloud credits used</span><span class="ev-sub">Across all runs</span></div>
-          <div class="card evidence-card"><span class="ev-num mono" id="ov-chain">-</span><span class="ev-label">Journal entries verified</span><span class="ev-sub"><span class="tip" data-tip="Every journal entry is linked to the one before it with a cryptographic hash, so any edit after the fact would show up.">Tamper-evident chain intact</span></span></div>
+          <div class="card evidence-card"><span class="ev-num mono" id="ov-sched-count">-</span><span class="ev-label">Timer cards switched on</span><span class="ev-sub">On / total</span></div>
+          <div class="card evidence-card"><span class="ev-num mono" id="ov-sessions">-</span><span class="ev-label">Runs so far</span><span class="ev-sub">Every time the desk woke up</span></div>
+          <div class="card evidence-card"><span class="ev-num mono" id="ov-credits">-</span><span class="ev-label">Cloud credits used</span><span class="ev-sub">What all the runs cost</span></div>
+          <div class="card evidence-card"><span class="ev-num mono" id="ov-chain">-</span><span class="ev-label">Record-book entries checked</span><span class="ev-sub"><span class="tip" data-tip="Every line in the record book is locked to the one before it, so nobody can quietly change history.">Nothing has been tampered with</span></span></div>
         </div>
 
         <div class="card cal-card" id="cal-card">
           <div class="cal-top">
             <div class="cal-title">
-              <span class="card-kicker">Market calendar · today</span>
+              <span class="card-kicker">The trading day · today</span>
               <span class="cal-sub mono" id="cal-now">-</span>
             </div>
             <div class="cal-gate-wrap">
@@ -394,12 +414,12 @@
           <div class="cal-aware" id="cal-aware"></div>
           <div class="cal-crons-wrap">
             <div class="cal-crons-head">
-              <span class="card-kicker">Schedule · when the desk runs</span>
+              <span class="card-kicker">The timer cards</span>
               <span class="desk-sub mono" id="cal-window">-</span>
             </div>
             <div class="tbl-scroll">
               <table class="tbl cal-crons">
-                <thead><tr><th>Card</th><th><span class="tip" data-tip="The card’s timing rule in cron notation: minute, hour, day of month, month, day of week.">Schedule rule</span></th><th>Market phase</th><th>What it does</th><th>Time (card timezone)</th><th>Time (SGT)</th><th class="num">Days in window</th></tr></thead>
+                <thead><tr><th>Card</th><th><span class="tip" data-tip="The card’s timing rule written the way computers read it: minute, hour, days of the month, month, weekday.">Timer rule</span></th><th>Part of the day</th><th>What it does</th><th>New York time</th><th>Singapore time</th><th class="num">Days it covers</th></tr></thead>
                 <tbody id="cal-cron-rows"></tbody>
               </table>
             </div>
@@ -407,7 +427,7 @@
           </div>
           <div class="cal-crons-wrap" id="cal-watchlist-wrap" hidden>
             <div class="cal-crons-head">
-              <span class="card-kicker">Scout watchlist · planned entries and exits</span>
+              <span class="card-kicker">Scout's watchlist</span>
               <span class="desk-sub mono" id="cal-watchlist-state">-</span>
             </div>
             <div class="tbl-scroll">
@@ -423,18 +443,19 @@
         <div class="auto-grid">
           <div class="card table-card sessions-card">
             <div class="table-head">
-              <span class="card-kicker">Desk runs</span>
+              <span class="card-kicker">Every run</span>
               <span class="desk-sub mono" id="credits-total"></span>
+              <button class="text-button" id="runs-toggle" type="button" hidden></button>
             </div>
             <div class="tbl-scroll">
               <table class="tbl">
-                <thead><tr><th>Run</th><th>Started by</th><th>Status</th><th>Card</th><th class="num">Credits</th><th class="num">Active time</th><th>Started (ET · SGT)</th></tr></thead>
+                <thead><tr><th>Run</th><th>Started by</th><th>Status</th><th>Card</th><th class="num">Credits</th><th class="num">How long</th><th>Started (ET · SGT)</th></tr></thead>
                 <tbody id="session-rows"></tbody>
               </table>
             </div>
           </div>
           <div class="card roster-card">
-            <span class="card-kicker">The desk team · cloud agents</span>
+            <span class="card-kicker">The team</span>
             <div class="roster">
               <div class="roster-node coordinator">
                 <strong>Desk coordinator</strong><span>Plans the day, asks you on Telegram, hands work to the team</span>
@@ -446,7 +467,7 @@
                 <div class="roster-node"><strong>Executor</strong><span>Reads the broker and places approved paper orders</span></div>
               </div>
             </div>
-            <p class="table-note">Helper agents start with no tools. Every paper order needs your Telegram approval unless it is inside the bounds you set for the day. Challenge account only; live-money and crypto tools are never connected.</p>
+            <p class="table-note">The helpers start with no powers. Every order needs my yes on Telegram unless it is inside limits I set for the day. Practice account only; real money is never connected.</p>
           </div>
         </div>
       </section>
@@ -456,16 +477,17 @@
         <div class="page-heading">
           <div>
             <h1>Controls</h1>
-            <p>Operator settings in one place: the trading mode, the strategy switches, the scheduled checks, Scout and the kill-switch. Everyone can view them; only the buttons that change something are locked behind the operator passphrase. Data sources and known gaps are listed underneath.</p>
+            <p>The switches: trading mode, which strategies are on, the timer, Scout and the emergency stop. Anyone can look; only the owner with the password can press the buttons.</p>
           </div>
         </div>
+<details class="guide"><summary>How to read this page</summary><ul><li><b>Trading mode</b>: Ask me means every new trade waits for my yes on Telegram. Within my bounds means the desk may trade inside limits I set for one day without asking.</li><li><b>Strategies in play</b>: a strategy that is Off starts no new trades. Selling to protect existing holdings keeps working.</li><li><b>Scheduled daily checks</b>: the timer card that owns today, when it runs next and what the last runs did. Run Scout starts a research-only run that cannot place orders.</li><li><b>Emergency stop</b>: stops all new buying right away, everywhere. Selling to reduce risk still works.</li><li><b>Desk information</b>: where every number comes from, what the desk does differently on purpose, and what is still being built.</li></ul></details>
 
         <div class="admin-zone" id="admin-zone" data-locked="true">
           <div class="admin-head">
             <div>
               <span class="card-kicker">Operator only</span>
-              <h2>Approval &amp; safety controls</h2>
-              <p class="section-sub">These settings decide what the cloud desk may do with paper orders.</p>
+              <h2>Permission and safety switches</h2>
+              <p class="section-sub">These decide what the desk is allowed to do on its own.</p>
             </div>
             <span class="pill cached" id="admin-state"><i class="dot"></i><span>Locked</span></span>
           </div>
@@ -475,7 +497,7 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10.5" width="15" height="10" rx="2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/><circle cx="12" cy="15.5" r="1.4"/></svg>
             </span>
             <div class="ctl-main">
-              <h3>Unlock this console</h3>
+              <h3>Unlock the switches</h3>
               <p class="control-sub" id="operator-sub">This desk is shared read-only. Unlock with your operator passphrase to change the trading mode or the kill-switch. The passphrase is held in memory only and never stored.</p>
               <div class="operator-row" id="operator-row">
                 <input type="password" id="operator-pass" class="input" placeholder="Operator passphrase" autocomplete="off" aria-label="Operator passphrase">
@@ -513,7 +535,7 @@
                 </span>
                 <div class="ctl-main">
                   <h3>Strategies in play</h3>
-                  <p class="control-sub">Turn a playbook off and the desk stops opening new positions in it; exits, stops and targets keep running, so nothing gets stranded. Scout only proposes for what is left on.</p>
+                  <p class="control-sub">Switch a strategy off and the desk stops starting new trades with it. Selling to protect what I already own keeps working.</p>
                   <div id="strategy-list" class="strategy-list"></div>
                 </div>
                 <div class="ctl-side" id="strategy-side"></div>
@@ -525,7 +547,7 @@
                 </span>
                 <div class="ctl-main">
                   <h3>Scheduled daily checks</h3>
-                  <p class="control-sub">The desk runs itself in the cloud - pre-market, a midday watch and the close - even when this PC is off. Here is the cadence that owns today, what it last did, and the switch for it.</p>
+                  <p class="control-sub">The desk wakes up three times a day on its own. Here is the timer card for today, when it runs next, and what the last runs did.</p>
                   <div id="schedule-body"></div>
                 </div>
                 <div class="ctl-side" id="schedule-side"></div>
@@ -537,7 +559,7 @@
                 </span>
                 <div class="ctl-main">
                   <h3>Run Scout</h3>
-                  <p class="control-sub">Starts the researcher on its own, right now, over the playbooks that are live. It reads sources and writes trade ideas for you to review - it cannot size, approve or submit an order, and nothing it says reaches the broker without going through the audit and approval path.</p>
+                  <p class="control-sub">Asks the researcher to look for trade ideas right now. It can only suggest; it cannot buy or sell anything.</p>
                   <div id="scout-body"></div>
                 </div>
                 <div class="ctl-side" id="scout-side"></div>
@@ -548,12 +570,12 @@
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/><path d="M9 9l6 6M15 9l-6 6"/></svg>
                 </span>
                 <div class="ctl-main">
-                  <h3>Kill-switch</h3>
-                  <p class="control-sub">Stops new buys right away; sells that reduce risk still go through. Every change is recorded in the journal and reaches the cloud desk.</p>
+                  <h3>Emergency stop</h3>
+                  <p class="control-sub">Stops all new buying right away. Selling to reduce risk still works. Every press is written in the record book.</p>
                   <ul class="kill-facts">
-                    <li><span>Blocks</span>new buy orders everywhere - desk, executor and cloud runs</li>
-                    <li><span>Still passes</span>sells that reduce existing risk</li>
-                    <li><span>Recorded in</span>the journal plus the shared halt flag the cloud desk reads</li>
+                    <li><span>Blocks</span>all new buying, everywhere</li>
+                    <li><span>Still allows</span>selling that reduces risk</li>
+                    <li><span>Written in</span>the record book and the flag the cloud desk reads</li>
                   </ul>
                 </div>
                 <div class="ctl-side" id="kill-control-body"></div>
@@ -562,8 +584,8 @@
           </div>
         </div>
 
-        <div class="section-head"><div><h2>Desk information</h2>
-          <p class="section-sub">Where every figure comes from, and the gaps we would rather state than hide.</p></div></div>
+        <div class="section-head"><div><h2>About the numbers</h2>
+          <p class="section-sub">Where every number comes from, and what is not finished yet.</p></div></div>
         <div class="info-stack">
           <div class="card info-row-card">
             <span class="ctl-icon" aria-hidden="true">
@@ -571,7 +593,7 @@
             </span>
             <div class="ctl-main">
               <h3>Refresh and shortcuts</h3>
-              <p class="control-sub">Fresh data loads when you open the desk or press Refresh in the top-right corner. Nothing updates in the background.</p>
+              <p class="control-sub">Refresh asks for the newest published numbers. The desk publishes them after it runs; the top bar shows when. If that time does not change, there is nothing newer yet, and Refresh cannot make new numbers.</p>
               <div class="control-kbd"><span class="mono">1-5</span> Switch page · <span class="mono">R</span> Refresh · <span class="mono">T</span> Theme · <span class="mono">Esc</span> Close</div>
             </div>
           </div>
@@ -590,7 +612,7 @@
           <div class="card info-row-card align-top">
             <span class="ctl-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5.5" rx="7" ry="2.8"/><path d="M5 5.5v6c0 1.5 3.1 2.8 7 2.8s7-1.3 7-2.8v-6"/><path d="M5 11.5v6c0 1.5 3.1 2.8 7 2.8s7-1.3 7-2.8v-6"/></svg></span>
             <div class="ctl-main grow">
-              <h3>Data sources</h3>
+              <h3>Where the numbers come from</h3>
               <div class="info-rows">
                 <div class="info-row" id="chain-row"></div>
                 <div class="info-row"><span class="info-k">Broker feed</span><span class="info-v">Newest moomoo MCP JSON capture under <span class="mono">data/&lt;run&gt;/</span> - account, cash, positions and order history, masked before it reaches the page.</span></div>
@@ -605,7 +627,8 @@
           <div class="card info-row-card align-top">
             <span class="ctl-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4"/><path d="M5 4h13l-2.5 4L18 12H5"/></svg></span>
             <div class="ctl-main grow">
-              <h3>Known limitations &amp; assumptions</h3>
+              <h3>Done on purpose, and not finished yet</h3>
+              <p class="control-sub">Things the desk does differently on purpose, and things still being built.</p>
               <div class="info-rows" id="divergence-list"></div>
             </div>
           </div>
