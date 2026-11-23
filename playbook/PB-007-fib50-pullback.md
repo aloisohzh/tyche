@@ -117,7 +117,7 @@ there `tyche expectancy --json` gives initial and realized R, win rate and fee-n
 mount/hold/retire decision (provisional below 30 closed trades). Expect 3-12 trades in the window;
 SE(E[R]) is about 1.2 / sqrt(n), so +-0.35R at 12 trades. Report the number, never the adjective.
 
-## Desk workflow (proposed card clause, not yet spliced)
+## Desk workflow (card clause spliced 2026-11-23, gated by the operator switch)
 08:05 fire: executor pulls daily klines (`quote_cur_kline`, ktype day, num=370) for the PB-007
 symbols, `python scripts/mcp_prices.py /tmp/tool-outputs --ohlc --out data/ohlc.csv`, then
 `tyche fib-scan --bars data/ohlc.csv --account <snapshot> --book <run>/pb007-book.json --flat-by
@@ -125,9 +125,12 @@ symbols, `python scripts/mcp_prices.py /tmp/tool-outputs --ohlc --out data/ohlc.
 runs the exact-order audit; the digest lists plan hashes, levels and R. Operator: `tyche lifecycle
 approve` per hash. 12:05: watch and shout only. 15:05: exits first, then `lifecycle tick` /
 `reserve` for plans whose quote is inside the zone; record fills with the strategy id; append
-expectancy and strategy-score output to the close report. Enabling the lane also needs the
-allocation-cap sum to fit (the 20% is carved from the 45% tactical stock cap), which is an operator
-config change, not something a run may do.
+expectancy and strategy-score output to the close report. The lane is switched on through
+`data/strategies.json` (dashboard switch), which leaves `enabled: false` in this file and the rules hash
+untouched (L-037). With the switch route the config loader's cap-sum guard is not involved; the caps of
+the switched-on lanes (25% ballast + 45% tactical + 20% here = 90%) sit under the 95% gross cap that the
+risk kernel checks on every order. Setting `enabled: true` in the yaml instead would need the tactical
+stock cap lowered to 25% in the same change, a re-freeze, and a card budget update.
 
 ## Evidence
 - Kernel: `src/tyche/strategies/fib_pullback.py`, `src/tyche/lifecycle.py` (scope-aware caps),
