@@ -4,9 +4,12 @@ The live Sites Function (desk-site/functions) reads desk-site/web/data/{state,au
 from the public repo. This script first fast-forward pulls origin/main so the cloud desk's
 sanitized run bundles (docs/performance/<run>/) are current, then rebuilds the feed files
 through the secret-guarded export (--data-only, so the live HTML/CSS/JS are never touched),
-then regenerates the day's fee-net performance pack (`tyche performance report`, docs/performance/
+then restores the journal from the newest verified Drive run bundle when the checkout has none (the
+sandbox starts empty; the feed and the pack are built from that journal), copies every Drive run bundle
+that git does not hold yet into docs/performance/<run>/ through the sanitize gate (account ids and
+tokens redacted, a bundle that still leaks a secret is withheld), then regenerates the day's fee-net performance pack (`tyche performance report`, docs/performance/
 <date>-metrics.md, from the restored ledger journal and whatever price CSVs the run left behind),
-then commits and pushes ONLY the data files plus that pack. A pack that cannot be built is reported
+then commits and pushes ONLY the data files, the new sanitized bundles and that pack. A pack that cannot be built is reported
 and skipped; it never blocks the feed. The state builder is challenge-account-first:
 the newest challenge cloud snapshot leads; the local drill snapshot is only a fallback.
 
@@ -26,6 +29,7 @@ from __future__ import annotations
 import glob
 import json
 import os
+import shutil
 import stat
 import subprocess
 import sys
@@ -51,6 +55,14 @@ PRICE_PATTERNS = (
     "docs/performance/*/data/prices.csv",
     "docs/performance/spy-closes.csv",
 )
+# The desk's private system of record (ADR 0009): one directory per run, raw. Absent on a laptop.
+DRIVE_RAW = Path("/data/drive/tyche-raw")
+PERF_DIR = ROOT / "docs" / "performance"
+JOURNAL = ROOT / "journal" / "events.jsonl"
+# Directories under the Drive root that are state, not runs: never published.
+NOT_A_RUN = {"lifecycle"}
+# Secret values that must never reach a sanitized bundle (the env names the desk card and the laptop use).
+GUARD_KEYS = ("QODER_PAT", "TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID", "TYCHE_GITHUB_PAT", "TYCHE_GIT_PAT", "TYCHE_CLOUD_PAT")
 # Either name works: TYCHE_GITHUB_PAT is the name Alois already uses for the Sites Function's repo token.
 TOKEN_ENVS = ("TYCHE_GITHUB_PAT", "TYCHE_GIT_PAT")
 
@@ -189,6 +201,138 @@ def https_remote() -> str:
     return f"https://github.com/{slug}.git" if slug else url
 
 
+def _tyche():
+    """The kernel's journal and persistence helpers, from the installed package or the checkout."""
+    try:
+        from tyche import journal, persist  # type: ignore
+    except ImportError:
+        sys.path.insert(0, str(ROOT / "src"))
+        from tyche import journal, persist  # type: ignore
+    return journal, persist
+
+
+def ledger_candidates(drive_root: Path) -> list[tuple[int, str, Path]]:
+    """Every verified journal under the Drive root as (events, run name, path), longest chain first.
+    An unverifiable copy is left out: a broken chain is not a ledger, however many rows it has."""
+    journal, _ = _tyche()
+    found = []
+    for path in sorted(drive_root.glob("*/journal/events.jsonl")):
+        ok, count, _ = journal.verify_chain(path)
+        if ok and count:
+            found.append((count, path.parent.parent.name, path))
+    found.sort(key=lambda row: (row[0], row[1]), reverse=True)
+    return found
+
+
+def restore_journal(drive_root: Path = DRIVE_RAW, target: Path = JOURNAL) -> str:
+    """Put the ledger where the feed builder and the pack read it (journal/events.jsonl, gitignored).
+
+    The desk card is asked to restore the Drive lineage at bootstrap, and the 2026-11-23 fires showed
+    what happens when that is skipped: the feed published with 0 journal events. So the publish step
+    restores it itself, from the longest verified chain on Drive, and only when the checkout's own
+    journal is shorter (a longer local chain is newer work, never overwritten)."""
+    if not drive_root.is_dir():
+        return "journal: no Drive mount, using the checkout's journal as is"
+    candidates = ledger_candidates(drive_root)
+    if not candidates:
+        return "journal: Drive holds no verifiable journal; using the checkout's journal as is"
+    count, run, path = candidates[0]
+    journal, _ = _tyche()
+    local_ok, local_count, _ = journal.verify_chain(target) if target.is_file() else (True, 0, None)
+    if local_ok and local_count >= count:
+        return f"journal: checkout has {local_count} verified events, Drive ledger {run} has {count}; kept the checkout's"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(path, target)
+    return f"journal: restored {count} verified events from Drive run {run}"
+
+
+def is_run_bundle(path: Path) -> bool:
+    """A run leaves a kernel snapshot or broker reads; a journal-only directory (an operator freeze, a
+    lifecycle store) is not a run and has nothing the desk page can show."""
+    return path.is_dir() and path.name not in NOT_A_RUN and (
+        (path / "snapshot.json").is_file() or (path / "mcp").is_dir() or (path / "positions.json").is_file()
+    )
+
+
+def redact_ids() -> list[str]:
+    """Account ids the sanitize gate must strip: the config allowlist plus the desk's env allowlist."""
+    ids = [x.strip() for x in os.environ.get("TYCHE_ALLOWED_ACCOUNT_IDS", "").split(",") if x.strip()]
+    try:
+        from tyche.config import load_config  # type: ignore
+        ids += list(load_config(ROOT).risk.account_allowlist)
+    except Exception as error:  # noqa: BLE001 - a config that will not load must not stop the feed
+        print(f"bundles: config allowlist unavailable ({error}); redacting env ids only")
+    return sorted(set(ids))
+
+
+def guard_values() -> dict[str, str]:
+    """Secret values that must not appear in anything staged for git: env first, then .env lines."""
+    out = {key: value for key, value in os.environ.items() if key in GUARD_KEYS and value.strip()}
+    env = ROOT / ".env"
+    if env.is_file():
+        for line in env.read_text(encoding="utf-8").splitlines():
+            if line and not line.startswith("#") and "=" in line:
+                key, value = line.split("=", 1)
+                if key.strip() in GUARD_KEYS and value.strip():
+                    out.setdefault(key.strip(), value.strip().strip("\"'"))
+    return out
+
+
+def leaks_in(git_dir: Path, secrets: dict[str, str], ids: list[str]) -> list[str]:
+    """Names (never values) of anything secret still present in a sanitized bundle."""
+    leaks: set[str] = set()
+    for path in git_dir.rglob("*"):
+        if not path.is_file():
+            continue
+        text = path.read_text(encoding="utf-8", errors="ignore")
+        for key, value in secrets.items():
+            if len(value) >= 6 and value in text:
+                leaks.add(key)
+        for account_id in ids:
+            if len(account_id) >= 4 and account_id in text:
+                leaks.add("account_id:***" + account_id[-3:])
+    return sorted(leaks)
+
+
+def publish_run_bundles(drive_root: Path = DRIVE_RAW, perf_dir: Path = PERF_DIR) -> list[Path]:
+    """Copy every Drive run bundle git does not hold yet into docs/performance/<run>/ through the sanitize
+    gate, and return the directories to stage. The 2026-11-23 fires wrote their bundles to Drive and
+    nothing carried them to git, so the hosted page kept showing the 2026-11-18 account snapshot.
+
+    A bundle already in git is never rewritten (history stays history). A sanitized bundle in which a
+    secret value or a full account id survives is deleted again and reported by name, never staged."""
+    if not drive_root.is_dir():
+        print("bundles: no Drive mount, nothing to copy")
+        return []
+    _, persist = _tyche()
+    ids = redact_ids()
+    secrets = guard_values()
+    staged: list[Path] = []
+    for raw in sorted(drive_root.iterdir()):
+        if not is_run_bundle(raw):
+            continue
+        git_dir = perf_dir / raw.name
+        if git_dir.exists():
+            continue
+        manifest = persist.persist_run(raw, git_dir, ids, bucket_dir=None)
+        leaks = leaks_in(git_dir, secrets, ids)
+        if leaks:
+            shutil.rmtree(git_dir, ignore_errors=True)
+            print(f"bundles: WITHHELD {raw.name} - sanitized copy still carries {', '.join(leaks)}")
+            continue
+        if not manifest["sanitized"]:
+            shutil.rmtree(git_dir, ignore_errors=True)
+            print(f"bundles: {raw.name} has no text files to publish")
+            continue
+        has_snapshot = (git_dir / "snapshot.json").is_file()
+        print(f"bundles: copied {raw.name} ({len(manifest['sanitized'])} sanitized files"
+              + (")" if has_snapshot else "; no snapshot.json, so the desk page cannot read its NAV)"))
+        staged.append(git_dir)
+    if not staged:
+        print("bundles: git already holds every Drive run bundle")
+    return staged
+
+
 def performance_args(root: Path, today: str) -> tuple[list[str], Path] | None:
     """The `tyche performance report` call for today, or None when there is no journal to read.
 
@@ -233,6 +377,8 @@ def main() -> None:
             print("CLOUD SYNC FAILED — pull --ff-only rejected (diverged history or dirty overlap):\n" + (pull.stderr or pull.stdout))
             raise SystemExit(1)
         print("cloud sync: origin/main fast-forwarded")
+    print(restore_journal())
+    bundles = publish_run_bundles()
     subprocess.run(
         [sys.executable, str(ROOT / "scripts" / "export_dashboard.py"), "--data-only"],
         cwd=ROOT,
@@ -240,7 +386,7 @@ def main() -> None:
     )
     feed = (json.loads((DATA / "state.json").read_text(encoding="utf-8")).get("feed") or {})
     print(f"primary: {feed.get('primary_account')} | source: {feed.get('source')} | run: {feed.get('run')} | cloud runs: {feed.get('cloud_runs')}")
-    paths = [str(DATA / name) for name in FEED]
+    paths = [str(DATA / name) for name in FEED] + [str(path) for path in bundles]
     pack = performance_pack()
     if pack is not None:
         paths.append(str(pack))
@@ -248,7 +394,7 @@ def main() -> None:
     if git("diff", "--cached", "--quiet", check=False).returncode == 0:
         print("desk data unchanged - nothing to push")
         return
-    git(*identity_args(), "commit", "-m", "Refresh hosted desk data feed and performance pack (sanitized, secret-guarded)", "--", *paths)
+    git(*identity_args(), "commit", "-m", "Refresh hosted desk data feed, run bundles and performance pack (sanitized, secret-guarded)", "--", *paths)
     remote = https_remote()
     if token_env():
         # Ask GitHub about the token before git does, so a bad value is named plainly (kind and length,
