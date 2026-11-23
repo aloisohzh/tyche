@@ -31,23 +31,29 @@ from pptx.util import Emu, Inches, Pt
 OUT = Path(__file__).with_name("tyche-competition-deck.pptx")
 
 # ---------------------------------------------------------------- design tokens
-DARK = RGBColor(0x1E, 0x3A, 0x2F)      # title / divider / closing background
-DARK_PANEL = RGBColor(0x2A, 0x4C, 0x3E)  # card fill on a dark slide
-DARK_EDGE = RGBColor(0x3F, 0x66, 0x57)
+# Light blue, silver and white. The four hue families are semantic, not decorative, and
+# must stay distinguishable from each other: BLUE is the deterministic layer (kernel,
+# operator desk, published data), GREEN is the advising layer (the four agents), AMBER is a
+# human decision, BRICK is a channel that may observe or alert but never control. Recolouring
+# one family into another changes what the diagrams assert.
+NAVY = RGBColor(0x16, 0x32, 0x4A)        # heading ink, and the dark fill of a table header
+ART_BG = RGBColor(0xEA, 0xF2, 0xF9)      # pale blue field beneath the cover / divider art
+PANEL = RGBColor(0xDC, 0xE7, 0xF0)       # silver-blue card on an art slide
+PANEL_EDGE = RGBColor(0xB4, 0xC8, 0xDA)
 WHITE = RGBColor(0xFF, 0xFF, 0xFF)
-GREEN = RGBColor(0x2E, 0x7D, 0x5B)
-AMBER = RGBColor(0xC9, 0x8A, 0x1B)
-BLUE = RGBColor(0x3C, 0x6E, 0x9E)
-BRICK = RGBColor(0xB0, 0x4A, 0x3C)
-INK = RGBColor(0x1C, 0x28, 0x22)        # body text on white
-MUT = RGBColor(0x5B, 0x6B, 0x63)        # secondary text
-LINE = RGBColor(0xD8, 0xDF, 0xDA)
-T_GREEN = RGBColor(0xEC, 0xF4, 0xF0)
-T_AMBER = RGBColor(0xFC, 0xF4, 0xE4)
-T_BLUE = RGBColor(0xEC, 0xF2, 0xF8)
-T_BRICK = RGBColor(0xFA, 0xEE, 0xEB)
-T_GRAY = RGBColor(0xF3, 0xF5, 0xF4)
-OFFWHITE = RGBColor(0xE8, 0xEF, 0xEA)
+GREEN = RGBColor(0x24, 0x7C, 0x78)       # advisory layer, cooled from green toward teal
+AMBER = RGBColor(0xC2, 0x86, 0x1C)       # human approval
+BLUE = RGBColor(0x2F, 0x7F, 0xB8)        # deterministic layer - now the primary accent
+BRICK = RGBColor(0xA8, 0x50, 0x44)       # observe or alert only
+INK = RGBColor(0x1B, 0x2C, 0x3B)         # body text on white
+MUT = RGBColor(0x5A, 0x6E, 0x7F)         # secondary text
+LINE = RGBColor(0xC9, 0xD6, 0xE0)        # silver rules and card edges
+T_GREEN = RGBColor(0xE5, 0xF2, 0xF0)
+T_AMBER = RGBColor(0xFA, 0xF1, 0xE2)
+T_BLUE = RGBColor(0xE7, 0xF1, 0xF9)
+T_BRICK = RGBColor(0xF7, 0xEA, 0xE7)
+T_GRAY = RGBColor(0xF1, 0xF4, 0xF7)      # silver white
+ONART = RGBColor(0x33, 0x54, 0x6F)       # body copy sitting on the light art
 
 HEAD = "Cambria"
 BODY = "Calibri"
@@ -55,6 +61,9 @@ BODY = "Calibri"
 SW, SH = 13.333, 7.5      # slide size, inches (16:9)
 M = 0.5                   # page margin
 CW = SW - 2 * M           # content width
+
+ASSETS = Path(__file__).with_name("assets")
+ICONS = ASSETS / "icons"
 
 # Text metrics for the fit audit: average glyph width as a fraction of the font size.
 _GLYPH = {BODY: 0.492, HEAD: 0.535, "Consolas": 0.55}
@@ -174,17 +183,32 @@ def shape(slide, kind, x, y, w, h, fill=None, line=None, line_w=0.75, radius=Non
 
 
 def box(slide, x, y, w, h, paras, fill=WHITE, line=LINE, radius=0.05, tag="", anchor=MSO_ANCHOR.TOP,
-        pad=0.09, line_w=0.75):
-    """Rounded card with text inside it. Text area = box minus horizontal/vertical padding."""
+        pad=0.09, line_w=0.75, icon=None, icon_size=0.30, chip_tint=None, chip_edge=None):
+    """Rounded card with text inside it. Text area = box minus horizontal/vertical padding.
+
+    icon lays a glyph chip in the top-left corner and hangs the copy beside it, the way a
+    solution-architecture node is drawn. The fit estimate then uses the narrower text column
+    and never asks for less height than the chip needs, so the tighten pass cannot shrink the
+    box up onto its own icon.
+    """
     sp = shape(slide, MSO_SHAPE.ROUNDED_RECTANGLE, x, y, w, h, fill=fill, line=line, line_w=line_w,
                radius=radius)
+    plist = paras if isinstance(paras, list) else [paras]
+    inset = pad + icon_size + 0.11 if icon else pad
+    text_w = w - inset - pad
     tf = sp.text_frame
-    _fill_paras(tf, paras if isinstance(paras, list) else [paras], w - 2 * pad, anchor)
-    tf.margin_left = Inches(pad)
+    _fill_paras(tf, plist, text_w, anchor)
+    tf.margin_left = Inches(inset)
     tf.margin_right = Inches(pad)
     tf.margin_top = Inches(pad * 0.7)
     tf.margin_bottom = Inches(pad * 0.7)
-    needed = para_height(paras if isinstance(paras, list) else [paras], w - 2 * pad) + 2 * pad * 0.7
+    if icon:
+        glyph(slide, icon, x + pad, y + pad * 0.7, icon_size,
+              tint=chip_tint if chip_tint is not None else WHITE,
+              edge=chip_edge if chip_edge is not None else (line if line is not None else LINE))
+    needed = para_height(plist, text_w) + 2 * pad * 0.7
+    if icon:
+        needed = max(needed, icon_size + 2 * pad * 0.7)
     _fit(tag or "box", needed, h)
     SIZED.append([_CTX["slide"], sp, needed])
     return sp
@@ -202,7 +226,7 @@ NO_STYLE = "{2D5ABB26-0587-4C30-8999-92F81FD0307C}"  # "No Style, No Grid"
 
 
 def table(slide, x, y, w, headers, rows, widths, font=10.0, head_font=10.0, tag="",
-          aligns=None, row_pad=0.10, head_fill=DARK, zebra=True, bold_col0=False,
+          aligns=None, row_pad=0.10, head_fill=NAVY, zebra=True, bold_col0=False,
           max_h=None, cell_colors=None):
     """Plain-styled table with explicit fills. Returns the height actually needed."""
     ncol = len(headers)
@@ -277,16 +301,54 @@ def notes(slide, text: str) -> None:
     slide.notes_slide.notes_text_frame.text = text
 
 
-def add_slide(prs, dark=False, bg=None):
+def pic(slide, path, x=0.0, y=0.0, w=SW, h=SH, back=True):
+    """Lay artwork on the slide.
+
+    back=True puts it at the very bottom of the stack, which is what a backdrop needs:
+    python-pptx appends new shapes last, so without the move every card would end up under
+    the image. An icon glyph is the opposite case - it is drawn after the chip it sits on, so
+    it must stay where it was appended. The geometry and tighten passes skip pictures either
+    way: a backdrop is the page, not content sitting on it.
+    """
+    if not Path(path).is_file():
+        raise SystemExit(f"missing artwork: {path} - run prepare_assets.py first")
+    sp = slide.shapes.add_picture(str(path), Inches(x), Inches(y), Inches(w), Inches(h))
+    if back:
+        sp_tree = slide.shapes._spTree
+        sp_tree.remove(sp._element)
+        sp_tree.insert(2, sp._element)      # after nvGrpSpPr and grpSpPr, before all content
+    return sp
+
+
+def add_slide(prs, art=None, bg=None, wash=False):
+    """art: backdrop in assets/ for a cover, divider or closing slide.
+    wash: the faint blueprint texture under a diagram slide."""
     _CTX["slide"] += 1
     s = prs.slides.add_slide(prs.slide_layouts[6])
-    fill = bg if bg is not None else (DARK if dark else WHITE)
     s.background.fill.solid()
-    s.background.fill.fore_color.rgb = fill
+    s.background.fill.fore_color.rgb = bg if bg is not None else (ART_BG if art else WHITE)
+    if art:
+        pic(s, ASSETS / f"{art}.jpg")
+    if wash:
+        pic(s, ASSETS / "blueprint.jpg")
     return s
 
 
-def title(slide, text, sub=None, color=INK, sub_color=MUT, size=28):
+def glyph(slide, name, x, y, size, chip=True, tint=T_BLUE, edge=BLUE):
+    """A solution-architecture node marker: the icon, on a small silver-blue chip.
+
+    The picture is appended after the chip on purpose, so it paints on top of it; a glyph sent
+    to the back would be hidden by the very rectangle that frames it.
+    """
+    if chip:
+        shape(slide, MSO_SHAPE.ROUNDED_RECTANGLE, x, y, size, size, fill=tint, line=edge,
+              line_w=0.75, radius=0.22)
+    pad = size * 0.16
+    pic(slide, ICONS / f"{name}.png", x + pad, y + pad, size - 2 * pad, size - 2 * pad,
+        back=False)
+
+
+def title(slide, text, sub=None, color=NAVY, sub_color=MUT, size=28):
     """Left-aligned slide title; returns the y where content may start."""
     box = slide.shapes.add_textbox(Inches(M), Inches(0.24), Inches(CW), Inches(0.62))
     _fill_paras(box.text_frame, [P(text, size=size, color=color, font=HEAD, bold=True, line=1.0)], CW)
@@ -299,25 +361,26 @@ def title(slide, text, sub=None, color=INK, sub_color=MUT, size=28):
     return y
 
 
-def kicker(slide, text, color=OFFWHITE, size=11):
+def kicker(slide, text, color=ONART, size=11):
     txt(slide, M, 0.42, CW, 0.3, [P(text, size=size, color=color, bold=True, line=1.0)], tag="kicker")
 
 
-def page_no(slide, n, dark=False):
+def page_no(slide, n, art=False):
     txt(slide, SW - M - 0.9, SH - 0.42, 0.9, 0.26,
-        [P(str(n), size=10, color=(OFFWHITE if dark else MUT), align=PP_ALIGN.RIGHT, line=1.0)],
+        [P(str(n), size=10, color=(ONART if art else MUT), align=PP_ALIGN.RIGHT, line=1.0)],
         tag="pageno")
 
 
 def card(slide, x, y, w, h, head, lines, accent=GREEN, fill=T_GRAY, head_size=11.5,
-         body_size=10.0, tag="", num=None, head_color=None, line_w=0.9, pad=0.11):
-    """Small titled card: a heading line plus 1-4 short body lines."""
+         body_size=10.0, tag="", num=None, head_color=None, line_w=0.9, pad=0.11,
+         icon=None, icon_size=0.26):
+    """Small titled card: a heading line plus 1-4 short body lines, optionally beside a chip."""
     paras = []
     if num is not None:
         paras.append(P(f"{num}", size=head_size, color=head_color or accent, bold=True,
                        font=HEAD, after=1.5, line=1.03))
     if head:
-        paras.append(P(head, size=head_size, color=head_color or DARK, bold=True, font=HEAD,
+        paras.append(P(head, size=head_size, color=head_color or NAVY, bold=True, font=HEAD,
                        after=1.5, line=1.05))
     for i, ln in enumerate(lines):
         if isinstance(ln, dict):
@@ -325,15 +388,21 @@ def card(slide, x, y, w, h, head, lines, accent=GREEN, fill=T_GRAY, head_size=11
         else:
             paras.append(P(ln, size=body_size, color=INK, line=1.07,
                            after=0 if i == len(lines) - 1 else 1.5))
+    inset = pad + icon_size + 0.10 if icon else pad
+    text_w = w - inset - pad
     sp = shape(slide, MSO_SHAPE.ROUNDED_RECTANGLE, x, y, w, h, fill=fill, line=accent, line_w=line_w,
                radius=0.05)
     tf = sp.text_frame
-    _fill_paras(tf, paras, w - 2 * pad)
-    tf.margin_left = Inches(pad)
+    _fill_paras(tf, paras, text_w)
+    tf.margin_left = Inches(inset)
     tf.margin_right = Inches(pad)
     tf.margin_top = Inches(0.08)
     tf.margin_bottom = Inches(0.08)
-    need = para_height(paras, w - 2 * pad) + 0.16
+    if icon:
+        glyph(slide, icon, x + pad, y + 0.08, icon_size, tint=WHITE, edge=accent)
+    need = para_height(paras, text_w) + 0.16
+    if icon:
+        need = max(need, icon_size + 0.16)
     _fit(tag or f"card:{(head or num or 'x')[:16]}", need, h)
     SIZED.append([_CTX["slide"], sp, need])
     return sp
@@ -438,6 +507,8 @@ def tighten(prs) -> int:
             for o in sl.shapes:                       # a container, or a shape laid inside it
                 if o.shape_id in ids or o.left is None:
                     continue
+                if o.shape_type == MSO_SHAPE_TYPE.PICTURE:
+                    continue  # a full-bleed backdrop would read as a container and freeze the pass
                 ox0, oy0 = o.left / 914400, o.top / 914400
                 ox1, oy1 = ox0 + o.width / 914400, oy0 + o.height / 914400
                 if (ox0 > x0 - 0.06 and oy0 > top - 0.06
@@ -474,30 +545,30 @@ def tighten(prs) -> int:
 
 # ---------------------------------------------------------------- slide builders
 def s01_title(prs):
-    s = add_slide(prs, dark=True)
+    s = add_slide(prs, art="cover-bg")
     txt(s, M + 0.35, 1.02, CW - 0.7, 0.32,
-        [P("MOOMOO x QODER AI AGENT PAPER TRADING CHALLENGE", size=12, color=OFFWHITE, bold=True,
+        [P("MOOMOO x QODER AI AGENT PAPER TRADING CHALLENGE", size=12, color=ONART, bold=True,
            line=1.0)], tag="s1 kicker")
     txt(s, M + 0.35, 1.42, CW - 0.7, 1.35,
-        [P("Tyche", size=54, color=WHITE, bold=True, font=HEAD, line=1.0, after=6),
+        [P("Tyche", size=54, color=NAVY, bold=True, font=HEAD, line=1.0, after=6),
          P("A paper-trading desk where the AI advises, the code decides, and a human says yes.",
-           size=17, color=OFFWHITE, line=1.12)], tag="s1 title")
+           size=17, color=ONART, line=1.12)], tag="s1 title")
     txt(s, M + 0.35, 3.30, 7.6, 1.9,
         [P("Agents research, critique and audit. They never size or send an order.", size=12.5,
-           color=WHITE, line=1.14, after=6),
+           color=NAVY, line=1.14, after=6),
          P("Every order passes the same fixed risk kernel, then an approval written by a person.",
-           size=12.5, color=WHITE, line=1.14, after=6),
+           size=12.5, color=NAVY, line=1.14, after=6),
          P("Every decision - including the ones refused - lands in a tamper-evident journal.",
-           size=12.5, color=WHITE, line=1.14)], tag="s1 bullets")
+           size=12.5, color=NAVY, line=1.14)], tag="s1 bullets")
     box(s, 8.7, 3.30, 4.13, 1.9,
-        [P("This deck", size=11.5, color=WHITE, bold=True, font=HEAD, after=3),
+        [P("This deck", size=11.5, color=NAVY, bold=True, font=HEAD, after=3),
          P("34 slides, built by code (python-pptx) from the files in the repository. "
            "Numbers come from the journal, the published desk data and the performance pack. "
            "A fact the record does not carry is printed as \"not recorded\".",
-           size=10.5, color=OFFWHITE, line=1.1)], fill=DARK_PANEL, line=DARK_EDGE, tag="s1 side")
+           size=10.5, color=ONART, line=1.1)], fill=PANEL, line=PANEL_EDGE, tag="s1 side")
     txt(s, M + 0.35, 6.28, CW - 0.7, 0.62,
         [P("Competition window 17-28 Nov 2026   ·   deadline 30 Nov 2026 23:59 SGT   ·   "
-           "github.com/aloisohzh/tyche   ·   Operator: Alois", size=11, color=OFFWHITE, line=1.1,
+           "github.com/aloisohzh/tyche   ·   Operator: Alois", size=11, color=ONART, line=1.1,
            after=3),
          P("Generated by Qoder.", size=11, color=AMBER, bold=True, line=1.05)], tag="s1 footer")
     notes(s, "This is Tyche, my entry for the Moomoo x Qoder AI Agent Paper Trading Challenge. "
@@ -537,7 +608,7 @@ def s02_one_minute(prs):
     for i, (pct, head, acc, tint, lines) in enumerate(tiles):
         x = M + i * (w + gap)
         paras = [P(pct, size=26, color=acc, bold=True, font=HEAD, line=1.0, after=2),
-                 P(head, size=12, color=DARK, bold=True, font=HEAD, line=1.05, after=6)]
+                 P(head, size=12, color=NAVY, bold=True, font=HEAD, line=1.05, after=6)]
         for ln in lines:
             last = ln.startswith("Slides")
             paras.append(P(ln, size=9.9, color=(MUT if last else INK), bold=last, line=1.08, after=4))
@@ -582,7 +653,7 @@ def s03_mapping(prs):
               bold_col0=True, max_h=2.9)
     y2 = y + h + 0.18
     txt(s, M, y2, CW, 0.28,
-        [P("What the handbook asks a submission to contain, and where it is", size=12.5, color=DARK,
+        [P("What the handbook asks a submission to contain, and where it is", size=12.5, color=NAVY,
            bold=True, font=HEAD, line=1.0)], tag="s3 h2")
     items = [
         ("Qoder-generated deck", "this file, built by build_deck.py"),
@@ -599,7 +670,7 @@ def s03_mapping(prs):
         x = M + (i % 4) * (cw + 0.14)
         yy = y2 + 0.34 + (i // 4) * 0.62
         box(s, x, yy, cw, 0.56,
-            [P(a, size=10, color=DARK, bold=True, line=1.05),
+            [P(a, size=10, color=NAVY, bold=True, line=1.05),
              P(b, size=9.8, color=MUT, line=1.05)], fill=T_GRAY, line=LINE, tag=f"s3 req {i}",
             pad=0.08)
     txt(s, M, y2 + 1.66, CW, 0.4,
@@ -648,7 +719,7 @@ def s04_one_rule(prs):
     yy = y + 1.92
     txt(s, M, yy, CW, 0.28,
         [P("Seven invariants the PRD treats as requirements, not preferences (documentation/PRD.md, "
-           "section 4)", size=12, color=DARK, bold=True, font=HEAD, line=1.0)], tag="s4 h2")
+           "section 4)", size=12, color=NAVY, bold=True, font=HEAD, line=1.0)], tag="s4 h2")
     inv = [
         ("1 Determinism", "Same inputs, same plan, same hashes."),
         ("2 The LLM cannot trade", "No agent output reaches the broker."),
@@ -677,19 +748,19 @@ def s04_one_rule(prs):
 
 
 def s05_divider(prs):
-    s = add_slide(prs, dark=True)
+    s = add_slide(prs, art="divider-bg")
     kicker(s, "SECTION 1 OF 4")
     txt(s, M + 0.35, 2.05, CW - 0.7, 1.1,
-        [P("Qoder and Cloud Agent usage", size=40, color=WHITE, bold=True, font=HEAD, line=1.0, after=6),
+        [P("Qoder and Cloud Agent usage", size=40, color=NAVY, bold=True, font=HEAD, line=1.0, after=6),
          P("30% of the score: multi-agent topology, automation, dashboards, reports and reusable skills",
-           size=15, color=OFFWHITE, line=1.12)], tag="s5 title")
+           size=15, color=ONART, line=1.12)], tag="s5 title")
     txt(s, M + 0.35, 3.9, 8.9, 2.3,
         [P("What this section claims, and where each claim is checked", size=12, color=AMBER, bold=True,
            line=1.05, after=8),
          P("One permanent scheduled card, three decision and watch fires a day, four pinned agents, "
            "eleven skills, a Telegram approval step inside the run, a local desk, a hosted desk fed by "
            "the run itself, and a hash-chained journal that records the refusals as well as the fills.",
-           size=12, color=OFFWHITE, line=1.16, after=8),
+           size=12, color=ONART, line=1.16, after=8),
          P("Slides 6-17. Evidence: docs/agent-engineering.md, scripts/deploy_two_fire_automation.py, "
            "skills/*/*/SKILL.md, docs/runbooks/sentinel-telegram.md, desk-site/.",
            size=10.5, color=AMBER, line=1.1)], tag="s5 body")
@@ -703,7 +774,7 @@ def s05_divider(prs):
 
 
 def s06_architecture(prs):
-    s = add_slide(prs)
+    s = add_slide(prs, wash=True)
     y = title(s, "How it is wired: agents advise, code decides",
               "documentation/architecture.md, drawn as it runs today. There is one boundary and one "
               "direction across it.")
@@ -712,12 +783,12 @@ def s06_architecture(prs):
         [P("CONTROL PLANE", size=9.6, color=GREEN, bold=True, line=1.0, after=1),
          P("One permanent card, cron 5 8,12,15 * * 1-5 (America/New_York) - 08:05, 12:05, 15:05 ET, "
            "a new session each fire", size=9.8, color=INK, line=1.05)],
-        fill=T_GREEN, line=GREEN, tag="s6 control")
-    box(s, M + 6.34, y, 3.3, 0.88,
+        fill=T_GREEN, line=GREEN, tag="s6 control", icon="clock", icon_size=0.30)
+    box(s, M + 6.34, y, 3.3, 1.04,
         [P("OPERATOR DESK", size=9.6, color=BLUE, bold=True, line=1.0, after=1),
          P("Local dashboard: arm bounds, halt, switch a lane. Writes commit and push, which is how the "
            "cloud mount sees intent", size=9.8, color=INK, line=1.05)],
-        fill=T_BLUE, line=BLUE, tag="s6 desk")
+        fill=T_BLUE, line=BLUE, tag="s6 desk", icon="gauge", icon_size=0.30)
     box(s, M + 9.78, y, CW - 9.78, 4.72,
         [P("SIDE CHANNELS", size=9.6, color=BRICK, bold=True, line=1.0, after=2),
          P("Observe and alert. Never a control path.", size=9.8, color=BRICK, bold=True, line=1.05,
@@ -736,28 +807,34 @@ def s06_architecture(prs):
     arrow_d(s, M + 2.7, y + 0.88, 0.24, 0.26, color=MUT)
     # LLM perimeter
     py = y + 1.20
-    box(s, M, py, 9.64, 1.78,
+    box(s, M, py, 9.64, 1.90,
         [P("LLM PERIMETER - four Qoder Cloud Agents, pinned versions, least privilege", size=9.6,
-           color=GREEN, bold=True, line=1.0, after=3)], fill=WHITE, line=GREEN, tag="s6 perim")
+           color=GREEN, bold=True, line=1.0, after=3)], fill=WHITE, line=GREEN, tag="s6 perim",
+        icon="cloud", icon_size=0.30)
     agents = [
-        ("Coordinator", "9 built-in tools, no MCP server. Delegates, narrates, writes the digest."),
-        ("Researcher", "25 read-only Moomoo tools + 6 built-ins. Catalysts, quotes, order book."),
-        ("Risk auditor", "4 built-in tools, no MCP. Reads the plan and the journal, writes a verdict."),
-        ("Executor", "14 of 15 Moomoo tools + 6 built-ins, quote_rt_data off. Broker reads and paper submit."),
+        ("Coordinator", "9 built-in tools, no MCP server. Delegates, narrates, writes the digest.",
+         "topology"),
+        ("Researcher", "25 read-only Moomoo tools + 6 built-ins. Catalysts, quotes, order book.",
+         "research"),
+        ("Risk auditor", "4 built-in tools, no MCP. Reads the plan and the journal, writes a verdict.",
+         "shield"),
+        ("Executor", "14 of 15 Moomoo tools + 6 built-ins, quote_rt_data off. Broker reads and paper submit.",
+         "terminal"),
     ]
     aw = (9.64 - 0.30 - 3 * 0.12) / 4
-    for i, (nm, d) in enumerate(agents):
-        card(s, M + 0.15 + i * (aw + 0.12), py + 0.44, aw, 1.20, nm, [d], accent=GREEN, fill=T_GREEN,
-             head_size=10.5, body_size=9.4, tag=f"s6 agent {i}")
-    arrow_d(s, M + 4.4, py + 1.80, 0.30, 0.34, color=GREEN)
-    txt(s, M + 4.85, py + 1.82, 4.6, 0.34,
+    for i, (nm, d, ic) in enumerate(agents):
+        card(s, M + 0.15 + i * (aw + 0.12), py + 0.44, aw, 1.30, nm, [d], accent=GREEN, fill=T_GREEN,
+             head_size=10.5, body_size=9.4, tag=f"s6 agent {i}", icon=ic, icon_size=0.26)
+    arrow_d(s, M + 4.4, py + 1.92, 0.30, 0.34, color=GREEN)
+    txt(s, M + 4.85, py + 1.94, 4.6, 0.34,
         [P("advisory only: text, proposals, audit verdicts", size=9.6, color=GREEN, bold=True, line=1.05)],
         tag="s6 adv")
     # Kernel
-    ky = py + 2.22
+    ky = py + 2.32
     box(s, M, ky, 9.64, 1.42,
         [P("DETERMINISTIC KERNEL - src/tyche, Python 3.13. The only path to a trade.", size=9.6,
-           color=BLUE, bold=True, line=1.0, after=3)], fill=WHITE, line=BLUE, tag="s6 kernel")
+           color=BLUE, bold=True, line=1.0, after=3)], fill=WHITE, line=BLUE, tag="s6 kernel",
+        icon="git", icon_size=0.30)
     steps = [
         ("5 strategy lanes", "each emits an OrderIntent"),
         ("risk.py", "named limits, named breaches"),
@@ -769,7 +846,7 @@ def s06_architecture(prs):
     for i, (nm, d) in enumerate(steps):
         x = M + 0.15 + i * (sw + 0.26)
         box(s, x, ky + 0.44, sw, 0.86,
-            [P(nm, size=10, color=DARK, bold=True, font=HEAD, line=1.03, after=1),
+            [P(nm, size=10, color=NAVY, bold=True, font=HEAD, line=1.03, after=1),
              P(d, size=9.4, color=MUT, line=1.03)], fill=T_BLUE, line=BLUE, tag=f"s6 step {i}",
             pad=0.07)
         if i < 4:
@@ -779,7 +856,8 @@ def s06_architecture(prs):
         [P("MOOMOO PAPER ACCOUNT", size=9.6, color=AMBER, bold=True, line=1.0, after=1),
          P("env == paper   and   id in the vault allowlist   and   account_type in {1,2}   and   "
            "market_id == 100. All four must hold; a live account is blocked in code.",
-           size=9.6, color=INK, line=1.05)], fill=T_AMBER, line=AMBER, tag="s6 paper")
+           size=9.6, color=INK, line=1.05)], fill=T_AMBER, line=AMBER, tag="s6 paper",
+        icon="lock", icon_size=0.30)
     notes(s, "Read this from the top down. The control plane is one scheduled card: it wakes the desk "
              "three times a weekday and nothing else does. The blue row underneath is the AI perimeter: "
              "four agents, each with a fixed version and a tool list I control, and the counts on each box "
@@ -792,7 +870,7 @@ def s06_architecture(prs):
 
 
 def s07_one_day(prs):
-    s = add_slide(prs)
+    s = add_slide(prs, wash=True)
     y = title(s, "One trading day, three fires",
               "One card, cron 5 8,12,15 * * 1-5 in America/New_York. Each fire is a new session with a "
               "self-contained brief, so nothing carries over from yesterday.")
@@ -816,12 +894,14 @@ def s07_one_day(prs):
           "Last step of every fire: publish the desk feed, so the hosted page moves with the run."]),
     ]
     w = (CW - 2 * 0.18) / 3
+    fire_icons = ["terminal", "gauge", "ledger"]
     for i, (et, sgt, head, acc, tint, lines) in enumerate(fires):
         x = M + i * (w + 0.18)
         card(s, x, cy, w, 3.28, head,
              [P(f"{et}   ·   {sgt}", size=10.5, color=acc, bold=True, font=HEAD, line=1.05, after=4)]
              + [P(ln, size=10.0, color=INK, line=1.08, after=3) for ln in lines],
-             accent=acc, fill=tint, head_size=12, tag=f"s7 fire {i}")
+             accent=acc, fill=tint, head_size=12, tag=f"s7 fire {i}",
+             icon=fire_icons[i], icon_size=0.28)
     by = cy + 3.44
     facts = [
         ("Holiday filter lives in the run", "The cron carries no holiday list on purpose. "
@@ -832,9 +912,11 @@ def s07_one_day(prs):
          "with the prompt, cron and initial-events hash asserted unchanged."),
     ]
     fw = (CW - 2 * 0.16) / 3
+    fact_icons = ["clock", "lock", "git"]
     for i, (a, b) in enumerate(facts):
         card(s, M + i * (fw + 0.16), by, fw, 1.14, a, [b], accent=MUT, fill=WHITE, head_size=10,
-             body_size=9.6, tag=f"s7 fact {i}", line_w=0.75)
+             body_size=9.6, tag=f"s7 fact {i}", line_w=0.75,
+             icon=fact_icons[i], icon_size=0.24)
     notes(s, "This is what the desk actually does on a weekday, and the times are printed twice because "
              "the operator is in Singapore. At 08:05 Eastern, which is 21:05 SGT, the desk does the "
              "research, the plan, the audit and the approval wait. At 01:05 SGT, which is midday in New "
@@ -853,7 +935,7 @@ def s08_team(prs):
               "talked into agreeing. Grants were re-read from the live agents, not from the prompts.")
     ow = 2.9
     box(s, M + (CW - ow) / 2, y, ow, 0.70,
-        [P("Coordinator (desk head)", size=11, color=DARK, bold=True, font=HEAD, line=1.02, after=1),
+        [P("Coordinator (desk head)", size=11, color=NAVY, bold=True, font=HEAD, line=1.02, after=1),
          P("9 built-in tools · no MCP server · no vault", size=9.6, color=GREEN, line=1.02)],
         fill=T_GREEN, line=GREEN, tag="s8 coord")
     cw4 = (CW - 3 * 0.20) / 4
@@ -893,7 +975,7 @@ def s08_team(prs):
     txt(s, M, ty + h + 0.10, CW, 0.5,
         [P("The coordinator prompt carries the handbook sentence verbatim: \"never let the executor act "
            "on the researcher's output without the auditor's approval.\" The auditor is separated on "
-           "purpose - a model that can be argued with is not a control.", size=10.2, color=DARK,
+           "purpose - a model that can be argued with is not a control.", size=10.2, color=NAVY,
            line=1.1)], tag="s8 quote")
     notes(s, "Five roles, and the point of the split is that nobody grades their own homework. The "
              "researcher finds a reason to act, the auditor checks the plan in a separate thread, and the "
@@ -907,7 +989,7 @@ def s08_team(prs):
 
 
 def s09_planes(prs):
-    s = add_slide(prs)
+    s = add_slide(prs, wash=True)
     y = title(s, "Why one plane, and what that cost us",
               "The desk used to be authored in two places at once. Retiring one of them taught three "
               "lessons worth showing, because each one changed a rule.")
@@ -947,9 +1029,11 @@ def s09_planes(prs):
          "three children at latest (a documented exception, PRD section 7)."),
     ]
     cw3 = (CW - 2 * 0.16) / 3
+    card_icons = ["shield", "chain", "ledger"]
     for i, (head, acc, tint, body) in enumerate(cards):
         card(s, M + i * (cw3 + 0.16), cy, cw3, 1.86, head, [body], accent=acc, fill=tint,
-             head_size=11, body_size=9.8, tag=f"s9 card {i}")
+             head_size=11, body_size=9.8, tag=f"s9 card {i}",
+             icon=card_icons[i], icon_size=0.26)
     txt(s, M, cy + 2.02, CW, 0.4,
         [P("What is on each plane today: four Managed agents and one permanent Managed card; four archived "
            "templates, eight archived schedules, one archived environment and one Forward identity that the "
@@ -967,7 +1051,7 @@ def s09_planes(prs):
 
 
 def s10_skills(prs):
-    s = add_slide(prs)
+    s = add_slide(prs, wash=True)
     y = title(s, "Eleven reusable skills, pinned by version",
               "Procedures live in skills/<role>/<name>/SKILL.md in the repo. The prompts keep permissions "
               "and hard rules only, so a cap cannot go stale in two places (L-033, L-048).")
@@ -988,7 +1072,7 @@ def s10_skills(prs):
     fy = y + 1.80
     txt(s, M, fy, CW, 0.28,
         [P("Two steps, on purpose: a body is published, then a version is pinned on an agent",
-           size=11.5, color=DARK, bold=True, font=HEAD, line=1.0)], tag="s10 h2")
+           size=11.5, color=NAVY, bold=True, font=HEAD, line=1.0)], tag="s10 h2")
     flow = [
         ("publish-skill", "Multipart zip to the platform; mints one immutable version. Nothing is pinned "
          "by this call."),
@@ -1000,11 +1084,13 @@ def s10_skills(prs):
          "deletes all of its versions (L-021, L-047)."),
     ]
     fw = (CW - 3 * 0.24) / 4
+    flow_icons = ["cloud", "chain", "lock", "shield"]
     for i, (nm, d) in enumerate(flow):
         x = M + i * (fw + 0.24)
         box(s, x, fy + 0.36, fw, 1.32,
-            [P(nm, size=10.6, color=DARK, bold=True, font=HEAD, line=1.03, after=2),
-             P(d, size=9.7, color=INK, line=1.07)], fill=WHITE, line=GREEN, tag=f"s10 flow {i}")
+            [P(nm, size=10.6, color=NAVY, bold=True, font=HEAD, line=1.03, after=2),
+             P(d, size=9.7, color=INK, line=1.07)], fill=WHITE, line=GREEN, tag=f"s10 flow {i}",
+            icon=flow_icons[i], icon_size=0.26)
         if i < 3:
             arrow_r(s, x + fw + 0.03, fy + 0.90, 0.18, 0.18, color=GREEN)
     ny = fy + 1.82
@@ -1029,7 +1115,7 @@ def s10_skills(prs):
 
 
 def s11_telegram(prs):
-    s = add_slide(prs)
+    s = add_slide(prs, wash=True)
     y = title(s, "The human yes: a proposal, a preview, a reply",
               "scripts/telegram.py wait-for-reply, live on the permanent card since 22 Nov. Runbook: "
               "docs/runbooks/sentinel-telegram.md. This is the only inbound path an operator has, and it "
@@ -1063,19 +1149,22 @@ def s11_telegram(prs):
           "Yesterday's approval. Messages older than the preview are ignored.",
           "A second listener. Telegram answers 409 and nothing is decided.",
           "A failed send. Any non-zero exit is treated as a no."],
-         accent=BRICK, fill=T_BRICK, head_size=11.5, body_size=9.8, tag="s11 no")
+         accent=BRICK, fill=T_BRICK, head_size=11.5, body_size=9.8, tag="s11 no",
+         icon="shield", icon_size=0.26)
     card(s, rx, y + 2.46, CW - lw - 0.20, 1.62, "What /approve does not do",
          ["It never cancels or modifies a resting order: those stay always_ask, and an envelope does not "
           "approve them.",
           "It cannot arm an envelope. The arm click on the desk is the only writer of the bounds file.",
           "It does not survive the day: an envelope dated yesterday protects yesterday's book, so arming "
           "it is refused."],
-         accent=BLUE, fill=T_BLUE, head_size=11.5, body_size=9.8, tag="s11 not")
+         accent=BLUE, fill=T_BLUE, head_size=11.5, body_size=9.8, tag="s11 not",
+         icon="lock", icon_size=0.26)
     card(s, rx, y + 4.22, CW - lw - 0.20, 1.34, "Proven by",
          ["tests/test_telegram_approval.py (decisions, allowlist, stale, resume, conflict, timeout bounds) "
           "and tests/test_desk_card_prompt.py, which pins the clause in the card brief. No new secret, no "
           "new token: it reuses the sentinel bot already on the card."],
-         accent=MUT, fill=WHITE, head_size=10.6, body_size=9.6, tag="s11 proof")
+         accent=MUT, fill=WHITE, head_size=10.6, body_size=9.6, tag="s11 proof",
+         icon="ledger", icon_size=0.26)
     notes(s, "This is where the human is in the loop, and it is worth walking through slowly. The desk "
              "sends a numbered preview of one specific order with its stop, target and exit deadline, then "
              "waits ten minutes. An approval authorizes exactly that order and nothing else; a rejection "
@@ -1145,7 +1234,7 @@ def s12_modes(prs):
 
 
 def s13_rungs(prs):
-    s = add_slide(prs)
+    s = add_slide(prs, wash=True)
     y = title(s, "How much autonomy the desk has earned",
               "The ladder the operator agreed to on 21 Nov (docs/runbooks/intraday-protection-monitor.md "
               "§0), ordered by what a position may do on its own. Rung 1 - an urgent Telegram bark - sits "
@@ -1169,13 +1258,13 @@ def s13_rungs(prs):
     ]
     bh = 1.18
     for i, (rung, name, acc, tint, status, indent, lines_) in enumerate(bands):
-        by = y + i * (bh + 0.16)
+        by = y + i * (bh + 0.12)
         bx, bw = M + indent, CW - indent
         box(s, bx, by, bw, bh, [], fill=tint, line=acc, tag=f"s13 band {i}", pad=0.0)
         txt(s, bx + 0.16, by + 0.11, 2.45, 0.30,
             [P(rung, size=12.4, color=acc, bold=True, font=HEAD, line=1.02)], tag=f"s13 rung {i}")
         txt(s, bx + 0.16, by + 0.44, 2.45, 0.26,
-            [P(status, size=9.2, color=DARK, bold=True, line=1.02)], tag=f"s13 status {i}")
+            [P(status, size=9.2, color=NAVY, bold=True, line=1.02)], tag=f"s13 status {i}")
         txt(s, bx + 0.16, by + 0.72, 2.45, bh - 0.80,
             [P(name, size=10.2, color=INK, line=1.10)], tag=f"s13 name {i}")
         paras = []
@@ -1185,7 +1274,7 @@ def s13_rungs(prs):
         txt(s, bx + 2.75, by + 0.13, bw - 2.91, bh - 0.26, paras, tag=f"s13 text {i}")
         if i:
             arrow_r(s, bx - 0.30, by + bh / 2 - 0.10, 0.26, 0.20, color=acc)
-    cy = y + 3 * (bh + 0.16) + 0.06
+    cy = y + 3 * (bh + 0.12) + 0.06
     ch = 6.92 - cy
     cw3 = (CW - 2 * 0.18) / 3
     cards = [
@@ -1202,10 +1291,12 @@ def s13_rungs(prs):
           "not given.",
           "PB-003 options stay off until the monitor is scheduled and passes a live-session drill."]),
     ]
+    card_icons = ["shield", "lock", "telegram"]
     for i, (head, acc, tint, lines_) in enumerate(cards):
         card(s, M + i * (cw3 + 0.18), cy, cw3, ch, head,
              [P(ln.replace("`", ""), size=9.6, color=INK, line=1.08, after=4) for ln in lines_],
-             accent=acc, fill=tint, head_size=11.0, tag=f"s13 card {i}")
+             accent=acc, fill=tint, head_size=11.0, tag=f"s13 card {i}",
+             icon=card_icons[i], icon_size=0.26)
     notes(s, "This slide answers the question a judge usually asks last: how much does it do without you? "
              "The ladder came out of a real conversation with the operator on 21 November. The bottom rung "
              "only detects and writes: a Python command decides whether a price crossed a level the journal "
@@ -1241,7 +1332,7 @@ def s14_dashboard(prs):
          ["Fire times derived from the card's own cron expression, not a hand-kept list.",
           "Recent runs with their errors, and the next run times.",
           "What each fire is allowed to do: plan, monitor, or act."]),
-        ("Controls", "The only place a switch moves", DARK,
+        ("Controls", "The only place a switch moves", NAVY,
          ["Trading mode: Ask me, or Within my bounds.",
           "Arm or disarm the day's bounds, switch a lane, halt, run Scout.",
           "Unlocked by an operator passphrase held in memory; each write commits and pushes."]),
@@ -1307,7 +1398,7 @@ def s15_hosted_feed(prs):
     sw = (CW - 4 * 0.30) / 5
     for i, (nm, d) in enumerate(steps):
         box(s, M + i * (sw + 0.30), y, sw, 1.62,
-            [P(nm.replace("`", ""), size=10.6, color=DARK, bold=True, font=HEAD, line=1.04, after=4),
+            [P(nm.replace("`", ""), size=10.6, color=NAVY, bold=True, font=HEAD, line=1.04, after=4),
              P(d.replace("`", ""), size=9.6, color=INK, line=1.09)],
             fill=T_BLUE, line=BLUE, tag=f"s15 step {i}", pad=0.11)
         if i < 4:
@@ -1372,7 +1463,7 @@ def s16_evidence(prs):
     for i, (row, kind, hsh, first) in enumerate(labels):
         x = M + i * (bw + 0.62)
         paras = [P(row, size=9.6, color=MUT, bold=True, line=1.02, after=2),
-                 P(kind, size=10.8, color=DARK, bold=True, font=HEAD, line=1.04, after=3)]
+                 P(kind, size=10.8, color=NAVY, bold=True, font=HEAD, line=1.04, after=3)]
         for k, hline in enumerate(hsh):
             paras.append(P(hline, size=9.4, color=(GREEN if first else BLUE), line=1.12,
                            after=0 if k == len(hsh) - 1 else 1))
@@ -1381,7 +1472,7 @@ def s16_evidence(prs):
         if i:
             arrow_r(s, x - 0.56, by + 0.46, 0.50, 0.24, color=GREEN)
     box(s, M + 3 * (bw + 0.62), by, CW - 3 * (bw + 0.62), 1.22,
-        [P("tyche journal-verify", size=10.6, color=DARK, bold=True, font=HEAD, line=1.04, after=3),
+        [P("tyche journal-verify", size=10.6, color=NAVY, bold=True, font=HEAD, line=1.04, after=3),
          P("Runs in CI, at the start of every reserve, and by hand. Today: OK on the 93-event chain.",
            size=9.6, color=INK, line=1.09)],
         fill=T_GREEN, line=GREEN, tag="s16 verify", pad=0.11)
@@ -1479,7 +1570,7 @@ def s17_checks(prs):
         [P("Still owed, stated as owed: the fixed evaluation-prompt suite (H6), a live-session breach drill "
            "with the operator present, and the performance pack rebuilt from the Drive ledger rather than "
            "the laptop's drill copy. Every one of them is in PRD §7 or the bonus-tips table with a closing "
-           "condition, not in a footnote I hope nobody reads.", size=10.4, color=DARK, line=1.12)],
+           "condition, not in a footnote I hope nobody reads.", size=10.4, color=NAVY, line=1.12)],
         tag="s17 foot")
     notes(s, "The handbook rewards verification, and a judge cannot audit a trading system by watching it "
              "trade. So this table is the audit menu: the automated suite, the journal chain check, the "
@@ -1494,14 +1585,14 @@ def s17_checks(prs):
 
 
 def divider(prs, section, name, pct, claim_head, claims, evidence, note):
-    s = add_slide(prs, dark=True)
+    s = add_slide(prs, art="divider-bg")
     kicker(s, section)
     txt(s, M + 0.35, 2.05, CW - 0.7, 1.1,
-        [P(name, size=40, color=WHITE, bold=True, font=HEAD, line=1.0, after=6),
-         P(pct, size=15, color=OFFWHITE, line=1.12)], tag="div title")
+        [P(name, size=40, color=NAVY, bold=True, font=HEAD, line=1.0, after=6),
+         P(pct, size=15, color=ONART, line=1.12)], tag="div title")
     paras = [P(claim_head, size=12, color=AMBER, bold=True, line=1.05, after=8)]
     for c in claims:
-        paras.append(P(c, size=12, color=WHITE, line=1.16, after=6))
+        paras.append(P(c, size=12, color=NAVY, line=1.16, after=6))
     paras.append(P(evidence, size=10.5, color=AMBER, line=1.1, before=6))
     txt(s, M + 0.35, 3.9, 8.9, 2.6, paras, tag="div body")
     notes(s, note)
@@ -1657,7 +1748,7 @@ def s20_allocation(prs):
     cy = y + 4.06
     box(s, M, cy, CW, 6.90 - cy,
         [P("The current book, from the published feed (20 Nov broker capture, challenge account)",
-           size=10.6, color=DARK, bold=True, font=HEAD, line=1.04, after=4),
+           size=10.6, color=NAVY, bold=True, font=HEAD, line=1.04, after=4),
          P("SPY 28 shares at 20.2% of NAV   ·   MSFT 39 shares at 19.5%   ·   EFA 142 shares at 14.1%   ·   "
            "cash 46.3%   ·   account value 98,754.20 against a 100,000.00 start.   "
            "Route to change a cap: pull request + both playbook hash lines + `tyche rules-freeze --record` "
@@ -1906,7 +1997,7 @@ def s23_drills(prs):
 
 
 def s24_lifecycle(prs):
-    s = add_slide(prs)
+    s = add_slide(prs, wash=True)
     y = title(s, "From an idea to a fill, and back out again",
               "Seven stages. The machine writes the plan and the numbers; a person writes the reason. Four "
               "rules keep the two from being confused.")
@@ -1957,12 +2048,14 @@ def s24_lifecycle(prs):
          "Any change to a strategy or risk file must name the tests and the record that cover it, and "
          "anything unverifiable is labelled 'planned' or 'not recorded' rather than asserted."),
     ]
+    rule_icons = ["research", "chain", "clock", "ledger"]
     for i, (head, acc, tint, body) in enumerate(rules):
         rx = M + (i % 2) * (cw2 + 0.20)
         ryy = cy + (i // 2) * 1.30
         box(s, rx, ryy, cw2, 1.16,
             [P(head, size=11.0, color=acc, bold=True, font=HEAD, line=1.02, after=4),
-             P(body, size=9.6, color=INK, line=1.09)], fill=tint, line=acc, tag=f"s24 rule {i}", pad=0.11)
+             P(body, size=9.6, color=INK, line=1.09)], fill=tint, line=acc, tag=f"s24 rule {i}",
+            pad=0.11, icon=rule_icons[i], icon_size=0.28)
     notes(s, "This is the whole life of a trade on one line, left to right, and the interesting part is what "
              "the machine cannot do. Stage one is written by a person: the repository rule is that the agent "
              "may not author the entry reason, because a reason generated after seeing the numbers is not "
@@ -2196,7 +2289,7 @@ def s28_log(prs):
     ry = ny + 0.70
     lw = 7.20
     box(s, M, ry, lw, 1.92,
-        [P("The 18 refusals, grouped by rule", size=12.4, color=DARK, bold=True, font=HEAD, line=1.02,
+        [P("The 18 refusals, grouped by rule", size=12.4, color=NAVY, bold=True, font=HEAD, line=1.02,
            after=6)] +
         [P("%d   %s" % (n, rule), size=10.4, color=(GREEN if n >= 3 else AMBER), bold=True, line=1.05,
            after=3)
@@ -2220,7 +2313,7 @@ def s28_log(prs):
          accent=BRICK, fill=T_BRICK, head_size=11.2, tag="s28 failed")
     bky = ry + 2.10
     box(s, M, bky, CW, 6.90 - bky,
-        [P("How a judge can check any of this", size=11.4, color=DARK, bold=True, font=HEAD, line=1.02,
+        [P("How a judge can check any of this", size=11.4, color=NAVY, bold=True, font=HEAD, line=1.02,
            after=4),
          P("docs/performance/2026-11-23-metrics.md holds every table on these three slides, generated by "
            "tyche performance report; desk-site/web/data/state.json holds the marks, the open book, the 13 "
@@ -2277,7 +2370,7 @@ def s30_package(prs):
         ("journal/  plans/  runs/", "runtime evidence, gitignored by design (L-025, L-056)"),
     ]
     box(s, M, y, 6.95, 2.88,
-        [P("tyche/", size=10.6, color=DARK, bold=True, font="Consolas", line=1.06, after=3)] +
+        [P("tyche/", size=10.6, color=NAVY, bold=True, font="Consolas", line=1.06, after=3)] +
         [P("  " + d + "  " + t, size=9.5, color=INK, font="Consolas", line=1.06, after=3)
          for d, t in tree],
         fill=T_GRAY, line=LINE, tag="s30 tree", pad=0.13)
@@ -2305,7 +2398,7 @@ def s30_package(prs):
         ("57", "rows in docs/lessons/LESSONS.md: assumption, what broke, what changed", AMBER),
         ("11", "skills across five roles: auditor, coordinator, executor, researcher, shared", BRICK),
         ("3", "role skills the prompts point at instead of repeating, so one fix reaches every card",
-         DARK),
+         NAVY),
     ]
     tw = (CW - 4 * 0.16) / 5
     for i, (big, small, acc) in enumerate(tiles):
@@ -2314,7 +2407,7 @@ def s30_package(prs):
              P(small, size=9.3, color=INK, line=1.07)], fill=T_GRAY, line=acc, tag=f"s30 tile {i}",
             pad=0.11)
     box(s, M, ty + 1.48, CW, 6.90 - (ty + 1.48),
-        [P("Reusing it does not require reusing my prompts", size=11.2, color=DARK, bold=True, font=HEAD,
+        [P("Reusing it does not require reusing my prompts", size=11.2, color=NAVY, bold=True, font=HEAD,
            line=1.02, after=4),
          P("Each skill ships as a directory with a SKILL.md that states its inputs, its outputs and what it "
            "must not do, and the cloud agents are pinned to a published version of it, so another entrant "
@@ -2390,7 +2483,7 @@ def s31_lessons(prs):
         tint = T_BRICK if acc is BRICK else (T_AMBER if acc is AMBER else T_BLUE)
         box(s, cx, cyy, cw, chh,
             [P(head, size=10.4, color=acc, bold=True, font=HEAD, line=1.03, after=5),
-             P(a1, size=9.3, color=DARK, bold=True, line=1.07, after=4),
+             P(a1, size=9.3, color=NAVY, bold=True, line=1.07, after=4),
              P(a2, size=9.3, color=INK, line=1.07, after=4),
              P(a3, size=9.3, color=GREEN, line=1.07)],
             fill=tint, line=acc, tag=f"s31 card {i}", pad=0.11)
@@ -2447,7 +2540,7 @@ def s32_open(prs):
         tint = T_BRICK if acc is BRICK else (T_AMBER if acc is AMBER else T_BLUE)
         box(s, cx, cyy, cw, chh,
             [P(tag, size=8.8, color=acc, bold=True, line=1.0, after=3),
-             P(head, size=10.6, color=DARK, bold=True, font=HEAD, line=1.03, after=5),
+             P(head, size=10.6, color=NAVY, bold=True, font=HEAD, line=1.03, after=5),
              P(body, size=9.3, color=INK, line=1.07)],
             fill=tint, line=acc, tag=f"s32 card {i}", pad=0.11)
     ny = y + 2 * (chh + 0.17) + 0.02
@@ -2500,7 +2593,7 @@ def s33_plan(prs):
     cy = y + 2.50
     cw2 = (CW - 0.22) / 2
     box(s, M, cy, cw2, 6.90 - cy,
-        [P("The live demo, in the order I would run it", size=11.6, color=DARK, bold=True, font=HEAD,
+        [P("The live demo, in the order I would run it", size=11.6, color=NAVY, bold=True, font=HEAD,
            line=1.02, after=6),
          P("1. Open the desk and show the halt banner is clear, then press the kill switch and watch the "
            "buy controls go grey while the sell controls stay live - the 18 Nov drill, in eleven minutes.",
@@ -2513,7 +2606,7 @@ def s33_plan(prs):
            "than typed by me.", size=9.6, color=INK, line=1.09)],
         fill=T_GREEN, line=GREEN, tag="s33 demo", pad=0.13)
     box(s, M + cw2 + 0.22, cy, cw2, 6.90 - cy,
-        [P("Submission checklist", size=11.6, color=DARK, bold=True, font=HEAD, line=1.02, after=6),
+        [P("Submission checklist", size=11.6, color=NAVY, bold=True, font=HEAD, line=1.02, after=6),
          P("Repository at github.com/aloisohzh/tyche, paper-only, no reset or revival of any kind.",
            size=9.7, color=INK, line=1.08, after=3),
          P("Strategy explanation: playbook/INDEX.yaml plus one thesis file per lane, each with a frozen "
@@ -2539,10 +2632,10 @@ def s33_plan(prs):
 
 
 def s34_close(prs):
-    s = add_slide(prs, dark=True)
+    s = add_slide(prs, art="closing-bg")
     kicker(s, "TYCHE  ·  MOOMOO X QODER AI AGENT PAPER TRADING CHALLENGE")
     txt(s, M + 0.35, 1.30, CW - 0.7, 1.5,
-        [P("A desk that keeps its own receipts", size=34, color=WHITE, bold=True, font=HEAD, line=1.02,
+        [P("A desk that keeps its own receipts", size=34, color=NAVY, bold=True, font=HEAD, line=1.02,
            after=8),
          P("github.com/aloisohzh/tyche", size=15, color=AMBER, line=1.05)], tag="s34 head")
     cards = [
@@ -2560,13 +2653,13 @@ def s34_close(prs):
     for i, (head, body) in enumerate(cards):
         box(s, M + 0.35 + i * (cw + 0.20), 3.24, cw, 2.72,
             [P(head, size=12.6, color=AMBER, bold=True, font=HEAD, line=1.02, after=6),
-             P(body, size=10.2, color=WHITE, line=1.11)], fill=DARK_PANEL, line=DARK_EDGE,
+             P(body, size=10.2, color=NAVY, line=1.11)], fill=PANEL, line=PANEL_EDGE,
             tag=f"s34 card {i}", pad=0.14)
     txt(s, M + 0.35, 6.16, CW - 0.7, 0.9,
-        [P("Thank you - questions welcome, including the hard ones.", size=13.5, color=WHITE, bold=True,
+        [P("Thank you - questions welcome, including the hard ones.", size=13.5, color=NAVY, bold=True,
            font=HEAD, line=1.05, after=4),
          P("Slides, diagrams and charts in this deck were generated by Qoder from the repository's own "
-           "records.", size=10.5, color=OFFWHITE, line=1.08)], tag="s34 thanks")
+           "records.", size=10.5, color=ONART, line=1.08)], tag="s34 thanks")
     notes(s, "To close: tyche is a paper-trading desk where the human writes the reasons and the code owns "
              "the numbers, and everything in between is on a hash-chained journal that records the trades "
              "that never happened as carefully as the ones that did. What I can prove today is the "
@@ -2596,10 +2689,10 @@ def main() -> int:
         builder(prs)
     tightened = tighten(prs)
     # page numbers on every slide but the title
-    dark_pages = {1, 5, 18, 25, 29, 34}
+    art_pages = {1, 5, 18, 25, 29, 34}
     for n, sl in enumerate(prs.slides, start=1):
         if n > 1:
-            page_no(sl, n, dark=n in dark_pages)
+            page_no(sl, n, art=n in art_pages)
     # notes audit: every slide speaks, in 4-8 sentences
     thin = []
     for n, sl in enumerate(prs.slides, start=1):
@@ -2631,6 +2724,8 @@ def main() -> int:
         for sp in sl.shapes:
             if sp.left is None or sp.top is None or sp.width is None or sp.height is None:
                 continue
+            if sp.shape_type == MSO_SHAPE_TYPE.PICTURE:
+                continue  # a backdrop is the page itself; it is meant to bleed and to sit under things
             x0, y0 = sp.left / 914400, sp.top / 914400
             x1, y1 = x0 + sp.width / 914400, y0 + sp.height / 914400
             label = (sp.text_frame.text[:34].replace("\n", " ") if sp.has_text_frame else sp.shape_type)
