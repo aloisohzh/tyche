@@ -81,6 +81,40 @@ SCALP_SYMBOLS = set(SCALP_CFG.get("symbols", []))
 SCALP_TICKERS = {s.removeprefix("US.") for s in SCALP_SYMBOLS}
 # Scalp symbols are not in the rotation universe; attribute them to their own sleeve.
 SLEEVE_MAP = {**SLEEVE_BY_SYMBOL, **{s: "intraday" for s in SCALP_SYMBOLS}}
+
+
+def _symbol_strategy_map() -> dict[str, str]:
+    """Which playbook owns each symbol. The lanes are symbol-disjoint on purpose (ADR 0014/0017)."""
+    out = {sym: "PB-001" for sym in SLEEVE_BY_SYMBOL}
+    try:
+        tactical = yaml.safe_load((ROOT / "config" / "tactical.yaml").read_text()) or {}
+        for sym in list(tactical.get("symbols") or []) + list(tactical.get("etf_symbols") or []):
+            out.setdefault(sym, "PB-002")
+    except (OSError, yaml.YAMLError):
+        pass
+    try:
+        fib = yaml.safe_load((ROOT / "config" / "strategies" / "pb-007.yaml").read_text()) or {}
+        for sym in fib.get("symbols") or []:
+            out.setdefault(sym, "PB-007")
+    except (OSError, yaml.YAMLError):
+        pass
+    for sym in SCALP_SYMBOLS:
+        out[sym] = "PB-004"
+    return out
+
+
+SYMBOL_STRATEGY = _symbol_strategy_map()
+
+
+def closed_trade_strategy(trade: dict) -> str | None:
+    """Playbook id for a finished trade: an option on a tactical name is PB-003, otherwise by symbol."""
+    symbol = str(trade.get("symbol") or "")
+    sid = SYMBOL_STRATEGY.get(symbol)
+    if sid is None and trade.get("sleeve") == "intraday":
+        sid = "PB-004"
+    if sid == "PB-002" and _is_option_symbol(symbol):
+        sid = "PB-003"
+    return sid
 PLAYBOOK = STRATEGY_CFG["id"]
 RULES_HASH = rules_hash(ROOT, PLAYBOOK)
 OUTLOOK_MAP = {"risk_on": "bullish", "neutral": "range", "risk_off": "bearish"}
@@ -88,7 +122,48 @@ CONTRACT_FIELDS = [
     "thesis_ref", "inputs_ref", "outlook", "vehicle", "expected_edge",
     "invalidation", "protection_type", "roll_plan", "sizing", "initial_risk", "realized",
 ]
-STRATEGY_LABELS = {"PB-001": "Regime rotation (ETFs)", "PB-004": "Intraday breakout (scalp)"}
+# Plain-language identity of every playbook id the config claims. The name and the one-line "what it
+# does" are the only hand-written parts; outlook, direction, holding period and proof come from the
+# playbook front matter (or playbook/INDEX.yaml tags for a lane that has no thesis file yet), so a
+# classification change in the library shows here without a dashboard edit.
+STRATEGY_META = {
+    "PB-001": {
+        "name": "Regime rotation (ETFs)",
+        "what": ("Holds a basket of broad ETFs. Each run it reads the market gate (risk on, neutral or risk off), "
+                 "leans into the strongest sleeves and moves to cash when the gate turns risk off."),
+    },
+    "PB-002": {
+        "name": "Tactical stocks (desk picks)",
+        "what": ("The desk picks single stocks from a short approved list (MSFT plus the five defensives KO, PG, "
+                 "JNJ, PEP and MCD). Every trade needs its own written reason, a stop and a target worth at least "
+                 "1.5 times the risk."),
+        "holding": "Days",
+    },
+    "PB-003": {
+        "name": "Tactical options (single leg)",
+        "what": ("The same desk picks, but bought as one long call or one long put instead of shares, and closed "
+                 "before the end of the day. Options are switched off in the lane config, so it cannot trade yet."),
+        "holding": "Same day",
+    },
+    "PB-004": {
+        "name": "Intraday breakout (scalp)",
+        "what": ("Watches five chip stocks on one-minute bars and buys when the price breaks above the last five "
+                 "bars. Stop at 0.25%, target at twice the risk, out within 20 minutes and always flat before the close."),
+    },
+    "PB-007": {
+        "name": "Fib 50% pullback",
+        "what": ("In a stock that is trending up, waits for the price to fall back about halfway along its last leg "
+                 "up, buys there with a limit order, puts the stop under the deeper pullback levels and aims for the "
+                 "prior high. Holds one to ten sessions."),
+    },
+}
+STRATEGY_LABELS = {sid: meta["name"] for sid, meta in STRATEGY_META.items()}
+REGIME_WORDS = {"Bull": "Bullish", "Bear": "Bearish", "Range": "Sideways", "Any": "Any market"}
+DIRECTION_WORDS = {"Long": "Buys only", "Long puts": "Puts only", "Both": "Calls or puts"}
+HOLDING_WORDS = {"Scalping": "Minutes", "Intraday": "Minutes, flat by the close", "Swing": "Days",
+                 "Position": "Weeks", "Long-term": "Months"}
+PROOF_WORDS = {"Unvalidated": "Not yet proven", "Sanity-checked": "Sanity check only", "Validated": "Backtested"}
+PLAYBOOK_URL = "https://github.com/aloisohzh/tyche/blob/main/"
 SLEEVE_LABELS = {"intraday": "Intraday (scalps)", "real_asset": "Real assets"}
 
 
@@ -1657,6 +1732,10 @@ def build_state() -> dict:
     exp_report = compute_expectancy(EVENTS, SLEEVE_MAP)
     sleeve_report = {s.sleeve: s for s in exp_report.sleeves}
     closed_trades = [t.model_dump() for t in exp_report.closed_trades]
+    for trade in closed_trades:
+        sid = closed_trade_strategy(trade)
+        trade["strategy_id"] = sid
+        trade["strategy"] = strategy_label(sid) if sid else None
     ok, count, error = verify_chain(JOURNAL)
     halt = effective_halt(JOURNAL.parent, ROOT)
     risk = yaml.safe_load((ROOT / "config" / "risk.yaml").read_text(encoding="utf-8"))
@@ -2232,6 +2311,53 @@ def halt_control(body: dict) -> dict:
     return {"ok": True, "halt": state, "pushed": pushed, "git_error": git_error, "approvals": build_approvals()}
 
 
+def _front_matter(path: Path) -> dict:
+    """The YAML block between the two leading --- lines of a playbook file, or {}."""
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return {}
+    if not text.startswith("---"):
+        return {}
+    end = text.find("\n---", 3)
+    if end < 0:
+        return {}
+    try:
+        return yaml.safe_load(text[3:end]) or {}
+    except yaml.YAMLError:
+        return {}
+
+
+def playbook_facts(sid: str, entry: dict) -> dict:
+    """Plain words for what a strategy does, where it is meant to run and how far it has been tested.
+
+    Classification comes from the playbook front matter when the thesis file exists, else from the roster
+    tags, so the dashboard never carries a second copy of the vocabulary.
+    """
+    meta = STRATEGY_META.get(sid, {})
+    tags = {}
+    if entry.get("file"):
+        tags = _front_matter(ROOT / entry["file"]).get("classification") or {}
+    if not tags:
+        tags = entry.get("tags") or {}
+    regimes = tags.get("regime_fit") or []
+    if isinstance(regimes, str):
+        regimes = [regimes]
+    outlook = [REGIME_WORDS.get(str(r), str(r)) for r in regimes]
+    direction = tags.get("direction")
+    holding = tags.get("holding_period")
+    validation = tags.get("validation")
+    return {
+        "what": meta.get("what") or "",
+        "outlook": outlook,
+        "outlook_label": " or ".join([outlook[0], *[o.lower() for o in outlook[1:]]]) if outlook else "Not stated",
+        "direction_label": DIRECTION_WORDS.get(str(direction), str(direction)) if direction else "Not stated",
+        "holding_label": meta.get("holding") or (HOLDING_WORDS.get(str(holding), str(holding)) if holding else "Not stated"),
+        "proof_label": PROOF_WORDS.get(str(validation), str(validation)) if validation else "Not yet proven",
+        "strategy_type": tags.get("strategy_type") or ("Desk picks" if sid in ("PB-002", "PB-003") else None),
+    }
+
+
 def build_strategies() -> dict:
     """Every playbook the config claims, with the switch that decides whether it trades today.
 
@@ -2253,14 +2379,17 @@ def build_strategies() -> dict:
             frozen = rules_hash(ROOT, sid)
         except (FileNotFoundError, ValueError) as exc:  # a lane with no resolvable rules file (L-036)
             frozen, problem = None, str(exc)[:160]
+        thesis_file = entry.get("file")
         rows.append(
             {
                 **switch,
                 "rules_file_problem": problem,
                 "name": strategy_label(sid),
-                "thesis_file": entry.get("file"),
+                "thesis_file": thesis_file,
+                "thesis_url": PLAYBOOK_URL + thesis_file if thesis_file else None,
                 "roster_status": entry.get("status", "unrostered"),
                 "rules_hash": frozen,
+                **playbook_facts(sid, entry),
             }
         )
     state = read_state(ROOT)
