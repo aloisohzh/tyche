@@ -340,10 +340,14 @@ approval that did not occur.
 
 PUBLISH (2026-11-23): the hosted desk page reads its numbers from the repo, so the very last step of
 every run - a skip run and a run with problems included, after the digest is sent - is
-`python scripts/publish_desk_data.py` from the repo root. It rebuilds the sanitized feed behind the
-secret guard, regenerates the day's performance pack (docs/performance/<date>-metrics.md, read from the
-restored journal and the run's price files; a pack that cannot be built is skipped, never a reason to
-stop), commits only the three feed files plus that pack and pushes them to main. Run it once. If it fails,
+`python scripts/publish_desk_data.py` from the repo root. It restores the journal from the longest
+verified Drive run bundle when the checkout's is missing or shorter, copies every Drive run bundle git does
+not hold yet into docs/performance/<run>/ through the sanitize gate (a bundle that still carries a secret
+is withheld and named), rebuilds the sanitized feed behind the secret guard, regenerates the day's
+performance pack (docs/performance/<date>-metrics.md, read from that journal and the run's price files; a
+pack that cannot be built is skipped, never a reason to stop), commits only the three feed files, the new
+bundles and that pack, and pushes them to main. So this run's bundle must already be on Drive under
+/data/drive/tyche-raw/<run>/ (snapshot.json and the broker reads) before this step. Run it once. If it fails,
 put its first error line under Problems with the action "operator: run the publish script" and move
 on: never retry in a loop, never edit the feed files by hand, never print a token, and never let it
 delay or replace risk work or the digest. It places no order and changes no rule."""

@@ -188,10 +188,14 @@ def test_cli_scan_writes_a_book_and_journals_a_plan_that_attributes_r(tmp_path, 
     assert intent["strategy_id"] == "PB-007" and intent["stop_price"] == loaded.plans[0].stop.price
     # a round trip journaled with the strategy id now yields a numeric R and a PB-007 scorecard
     qty, entry, stop = loaded.plans[0].quantity, loaded.plans[0].entry_high, loaded.plans[0].stop.price
+    # The journal stamps plan.created with the wall clock, and a fill only inherits a plan's stop when
+    # the plan precedes it, so the fills are dated from that stamp (hard-coded dates went stale on
+    # 2026-11-23 at 20:05Z and the whole suite went red on main).
+    planned = datetime.fromisoformat(events[0]["ts"])
     fills = [
-        {"ts": "2026-11-23T20:05:00+00:00", "type": "order.filled",
+        {"ts": (planned + timedelta(hours=1)).isoformat(), "type": "order.filled",
          "payload": {"strategy_id": "PB-007", "symbol": "US.AAPL", "side": "buy", "quantity": qty, "price": entry}},
-        {"ts": "2026-11-25T20:05:00+00:00", "type": "order.filled",
+        {"ts": (planned + timedelta(days=2)).isoformat(), "type": "order.filled",
          "payload": {"strategy_id": "PB-007", "symbol": "US.AAPL", "side": "sell", "quantity": qty, "price": stop}},
     ]
     sleeves = load_config(ROOT).sleeve_map()

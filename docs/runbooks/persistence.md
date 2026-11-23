@@ -29,6 +29,14 @@ tyche persist --raw <run-dir> --git <git-out-dir> --bucket /data/drive/tyche-raw
 - Account ids to redact come from `account_allowlist` plus `TYCHE_ALLOWED_ACCOUNT_IDS`.
 - After persist, commit and push the git dir, then DeliverArtifacts the raw bundle
   and the EOD report. A run that cannot sanitize must not push.
+- Since 2026-11-23 the publish step (`scripts/publish_desk_data.py`, the last step of every desk
+  fire) does the git half on its own: it restores `journal/events.jsonl` from the longest verified
+  chain under `/data/drive/tyche-raw/*/journal/`, copies every Drive run directory that holds a
+  `snapshot.json`, an `mcp/` directory or a `positions.json` and is not yet under
+  `docs/performance/` through `persist_run`, re-checks the copy for secret values and full account
+  ids (a bundle that still carries one is deleted again and named in the log, never staged), and
+  commits the new bundles with the feed files. A run therefore only has to leave its bundle on
+  Drive; nothing it forgets to push is lost to the hosted page.
 
 ## Provisioning (operator action, before the first cloud run)
 

@@ -183,6 +183,12 @@ def test_feed_publish_is_the_last_step_and_never_a_trading_step():
     assert _module().prompt_markers(prompt)["has_feed_publish"]
     assert _module().prompt_markers(prompt)["has_performance_pack"]
     assert "regenerates the day's performance pack" in clause and "skipped, never a reason to" in clause
+    # 2026-11-23: three fires left their bundles on Drive only, and the feed was built from 0 journal events.
+    for must in ("restores the journal from the longest verified Drive run bundle",
+                 "copies every Drive run bundle git does not hold yet into docs/performance/<run>/",
+                 "withheld and named", "the new bundles and that pack",
+                 "must already be on Drive under /data/drive/tyche-raw/<run>/"):
+        assert must in clause, must
 
 
 def test_fib_pullback_clause_is_switch_gated_and_approval_bound():
