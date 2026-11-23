@@ -16,8 +16,9 @@ Run: .venv/Scripts/python.exe scripts/deploy_two_fire_automation.py [--start 202
   that both fire are two writers (STATE below), so pause the old card first, then create.
 Update a live card's prompt only: ... --apply-update <deployment_id>
   (its cron and metadata are re-sent exactly as the platform holds them; only initial_events moves)
-Copy a secret from .env into the desk environment: ... --set-env TYCHE_GITHUB_PAT
-  (merges into the environment's variables; prints key names only, never values)
+Copy a secret from .env into the desk environment: ... --set-env TYCHE_GITHUB_PAT [--card <deployment_id>]
+  (merges into the environment's variables, or with --card into the live card's own variables, the way the
+  Telegram secrets were set; prints key names only, never values)
 Any card write lands between fires only, with the operator's explicit go: the 2026-11-22 PROPOSAL
 APPROVAL paragraph (Telegram wait-for-reply) is in this file but is NOT on the live cards until that write.
 The two-mode wording (ASK ME / WITHIN MY BOUNDS, 2026-11-22) likewise waits for the operator's go between fires.
@@ -25,6 +26,7 @@ The two-mode wording (ASK ME / WITHIN MY BOUNDS, 2026-11-22) likewise waits for 
 from __future__ import annotations
 
 import json
+import re
 import sys
 import urllib.error
 import urllib.request
@@ -357,6 +359,45 @@ def set_environment_variables(values: dict[str, str], new: dict[str, str]) -> se
     return environment_keys(values)
 
 
+def _parse_env_string(raw) -> dict[str, str]:
+    """Card/environment variables as the platform returns them: a dict, or KEY=VALUE pairs joined by ';' or newlines."""
+    if isinstance(raw, dict):
+        return dict(raw)
+    out: dict[str, str] = {}
+    for row in re.split(r"[;\n]", str(raw or "")):
+        if "=" in row:
+            key, value = row.split("=", 1)
+            out[key.strip()] = value.strip()
+    return out
+
+
+def set_card_variables(values: dict[str, str], deployment_id: str, new: dict[str, str]) -> set[str]:
+    """Merge `new` into a live desk card's environment_variables. The card's schedule, metadata and brief
+    are re-sent exactly as the platform holds them (same contract as a prompt write), and the post-write
+    check insists that nothing but the variables moved. Values are never printed."""
+    before = req(values, "GET", f"/deployments/{deployment_id}")
+    if not str(before.get("name", "")).startswith("Tyche desk"):
+        raise SystemExit("refusing to touch a deployment that is not the Tyche desk card")
+    events = before.get("initial_events") or []
+    try:
+        prompt_text = events[0]["content"][0]["text"]
+    except (IndexError, KeyError, TypeError):
+        raise SystemExit(f"{deployment_id}: cannot read the live brief; refusing to re-send an empty one") from None
+    merged = _parse_env_string(before.get("environment_variables"))
+    merged.update(new)
+    payload = update_payload(before, prompt_text)
+    payload["environment_variables"] = ";".join(f"{k}={v}" for k, v in merged.items())
+    req(values, "POST", f"/deployments/{deployment_id}", payload)
+    after = req(values, "GET", f"/deployments/{deployment_id}")
+    keep = ("name", "description", "status", "agent", "environment_id", "vault_ids", "metadata", "resources", "schedule")
+    drift = [k for k in keep if json.dumps(before.get(k), sort_keys=True) != json.dumps(after.get(k), sort_keys=True)]
+    if drift:
+        raise SystemExit(f"{deployment_id}: fields {drift} moved under a variables write; inspect the cloud state")
+    if json.dumps(after.get("initial_events")) != json.dumps(before.get("initial_events")):
+        raise SystemExit(f"{deployment_id}: the brief changed under a variables write; inspect the cloud state")
+    return set(_parse_env_string(after.get("environment_variables")))
+
+
 def missing_secret_keys(values: dict[str, str], inherited: set[str]) -> list[str]:
     return [key for key in SECRET_KEYS if key not in inherited]
 
@@ -468,7 +509,15 @@ def main() -> None:
         for key in keys:
             if not values.get(key):
                 raise SystemExit(f"{key} missing from .env - add a line {key}=... to .env first")
-        after = set_environment_variables(values, {key: values[key] for key in keys})
+        secrets = {key: values[key] for key in keys}
+        if "--card" in sys.argv:
+            # The Telegram secrets reached the desk this way (card-level environment_variables at create
+            # time), so the card is the proven place; the environment object is the alternative.
+            deployment_id = sys.argv[sys.argv.index("--card") + 1]
+            after = set_card_variables(values, deployment_id, secrets)
+            print(json.dumps({"deployment_id": deployment_id, "card_env_keys": sorted(after), "set": keys}, indent=2))
+            return
+        after = set_environment_variables(values, secrets)
         print(json.dumps({"environment_id": ENVIRONMENT_ID, "environment_keys": sorted(after),
                           "set": keys}, indent=2))
         return
