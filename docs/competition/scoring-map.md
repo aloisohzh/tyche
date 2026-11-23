@@ -8,10 +8,10 @@ Bonus tips and the submission checklist live in [bonus-tips.md](bonus-tips.md).
 
 | Artifact | Evidence | Status |
 |---|---|---|
-| Fee-net equity curve, daily returns, realized vol, Sharpe, max drawdown | `docs/performance/` generated from the journal; dashboard equity panel | planned |
+| Fee-net equity curve, daily returns, realized vol, Sharpe, max drawdown, **SPY buy-and-hold baseline** | `tyche performance report` → `docs/performance/<date>-metrics.md` (first: [2026-11-23](../performance/2026-11-23-metrics.md)); dashboard equity panel | built (SPY closes after 17 Nov still to be supplied from a price file) |
 | Per-strategy scorecard (ballast vs event sleeves), win/loss, expectancy | journal `trade.closed` rows + performance report | planned |
-| Drawdown ladder + daily-loss block actually firing | journal `order.blocked` rows with rule ids; risk-card test | planned |
-| Turnover / order-count discipline (200/day is a ceiling, not a target) | journal daily counts | planned |
+| Drawdown ladder + daily-loss block actually firing | rejection log by rule in the performance pack (kernel breaches, operator/broker rejections, gate waits); risk-card test | partial (log built; the ladder has not had to fire yet) |
+| Turnover / order-count discipline (200/day is a ceiling, not a target) | `tyche performance report` orders-per-day table from `order.submitted` rows | built |
 
 Note: ~7 daily marks make Sharpe a noisy estimate. The honest play is a **smooth equity curve**
 (low-vol ballast + small defined-risk event sleeves), not heroic returns. Say so in the report.

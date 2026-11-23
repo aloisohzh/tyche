@@ -116,6 +116,7 @@ blocked orders, and appends a hash-chained event to `journal/events.jsonl`.
 | `tyche strategies [--json]` | Show which playbook lanes are live, what decides each one, and its frozen rules hash |
 | `tyche rules-freeze [--record --reason "..."]` | Freeze provenance: compare each lane's rules bytes, the hash its playbook declares and the hash the journal last holds. Check-only without `--record`; a lane whose document disagrees blocks the whole run; exit `1` is drift, `2` could not judge ([ADR 0014](docs/adr/0014-per-strategy-isolation.md)) |
 | `tyche monitor tick --quotes ... --journal ... [--record]` | Level 0 protection check: read a book, a quote file and the journal, then journal `monitor.breach` / `.clear` / `.heartbeat`. Writes nothing without `--record` and never submits anything ([runbook](docs/runbooks/intraday-protection-monitor.md)) |
+| `tyche performance report [--journal ...] [--feed ...] [--prices ...] [--out ...]` | Fee-net performance pack from the record: daily marks against a SPY buy-and-hold baseline, vol, Sharpe (with n), max drawdown, orders vs the 200 cap, rejection log, modelled fees vs cash. Deterministic; verifies the chain first ([docs/performance](docs/performance/README.md)) |
 | `python dashboard/server.py` | Local operator desk on <http://127.0.0.1:8765> (loopback only, no auth) |
 
 ## Layout
