@@ -49,3 +49,21 @@ def test_the_baseline_row_projects_to_itself():
     live = driver._view(agent())
     stored = dict(live, id="agent_test", version=10)
     assert driver._view(stored) == live
+
+
+def test_prompt_files_lose_only_their_export_header(tmp_path):
+    """templates/prompts/live/*.md carries an HTML comment header (retrieved-at or PROPOSED) that is
+    not part of the system prompt; diff and apply-system must compare and write the body alone, or
+    every apply would push the header into the live prompt and every export would stack another."""
+    body = "You are the Desk Head.\n\nBOOTSTRAP: <!-- an inline comment that stays --> use the repo.\n"
+    with_header = tmp_path / "desk.md"
+    with_header.write_text("<!-- PROPOSED 2026-11-23 | agent_x\n     two lines -->\n\n" + body,
+                           encoding="utf-8")
+    assert driver._prompt_text(str(with_header)) == body
+    bare = tmp_path / "bare.md"
+    bare.write_text(body, encoding="utf-8")
+    assert driver._prompt_text(str(bare)) == body
+    for live in (Path(__file__).resolve().parents[1] / "templates" / "prompts" / "live").glob("*.md"):
+        text = driver._prompt_text(str(live))
+        assert not text.startswith("<!--"), live.name
+        assert text.startswith("You are the "), live.name

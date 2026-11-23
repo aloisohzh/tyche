@@ -101,6 +101,17 @@ EXPORT_STEM = {"coordinator": "desk", "researcher": "researcher", "auditor": "au
 CARD_IDS = ("dep_00w9n1b9mkb9cjkalhcv",)
 
 
+
+HEADER_RE = re.compile(r"^<!--.*?-->\s*", re.DOTALL)
+
+
+def _prompt_text(path: str) -> str:
+    """The prompt a templates/prompts/live file proposes: its leading HTML comment is the export
+    header (retrieved-at or PROPOSED), never part of the system prompt, so diff and apply drop it
+    exactly as tests/test_skills.py does."""
+    return HEADER_RE.sub("", Path(path).read_text(encoding="utf-8"), count=1)
+
+
 def _now() -> str:
     return datetime.now(UTC).strftime("%Y-%m-%dT%H:%MZ")
 
@@ -241,7 +252,7 @@ def cmd_export(args) -> None:
 
 def cmd_diff(args) -> None:
     a = _agent(args.role)
-    proposed = Path(args.file).read_text(encoding="utf-8")
+    proposed = _prompt_text(args.file)
     print(f"target: managed agent {a['id']} ({args.role}) v{a['version']} "
           f"sha {_sha(a['system'])[:12]}")
     print(f"file  : {args.file} ({len(proposed)} chars)")
@@ -296,7 +307,7 @@ def _write(role: str, body: dict, expect: str) -> dict:
 
 def cmd_apply_system(args) -> None:
     a = _agent(args.role)
-    proposed = Path(args.file).read_text(encoding="utf-8")
+    proposed = _prompt_text(args.file)
     if not proposed.strip():
         raise SystemExit("refusing to write an empty prompt")
     if proposed == a["system"]:
