@@ -216,7 +216,7 @@
 <details class="guide"><summary>How to read this page</summary><ul><li><b>Trade ideas</b>: every trade the desk thought about, newest first. Status says what happened: Filled means it was done. Approved means it passed the checks but was not sent. Blocked means a rule stopped it. Not sent means a later order took its place.</li><li><b>Checks</b>: before a trade can happen the desk must answer five questions. Why this trade? What proof is there? Is the market friendly? Which stock or fund? How much should it make? The number shows how many have answers. Click a row to see them.</li><li><b>Max loss</b>: the most this trade should lose if it goes wrong. It is a limit, not a guess at what will happen.</li><li><b>Is the plan working?</b> This asks whether the trades make money on average. We need 30 finished trades before this means anything. Right now there are 3, so a 100% win rate is luck, not skill.</li><li><b>Finished trades</b>: each trade from buy to sell, with what it cost and what it made. These are the trades behind Banked and Win rate on the Overview.</li><li><b>How complete is the paperwork?</b> For each trade: what was written down, what the desk worked out, and what is still missing. The last three rows are checks on the whole desk: the latest research note, the last stop check on every holding, and results after fees.</li></ul></details>
 
         <div class="section-head"><div><h2><span class="h-num">01</span>Every trade idea and its five checks</h2>
-          <p class="section-sub">One row per idea, newest first. Checks shows how many of the five questions have answers.</p></div></div>
+          <p class="section-sub">One row per idea, newest first, whether it was sent or not. Strategy says which playbook the idea came from. Checks shows how many of the five questions have answers. Only the ideas that reached the broker also appear under Orders the desk sent on the Safety page.</p></div></div>
         <div class="card trade-table-card">
           <div class="table-head">
             <span class="card-kicker">Trade ideas <em id="strategy-count"></em></span>
@@ -346,7 +346,7 @@
               <tbody id="order-rows"></tbody>
             </table>
           </div>
-          <p class="table-note">Only the broker can say an order was done. Hover over a row to see the broker's order number.</p>
+          <p class="table-note">This list holds only the orders that actually went to the broker, with the price it gave back. Ideas that were blocked or never sent are on the Trade ideas page, together with each idea's five checks. Only the broker can say an order was done. Hover over a row to see the broker's order number.</p>
         </div>
 
         <div class="card table-card">
@@ -463,7 +463,7 @@
             <p>The switches: trading mode, which strategies are on, the timer, Scout and the emergency stop. Anyone can look; only the owner with the password can press the buttons.</p>
           </div>
         </div>
-<details class="guide"><summary>How to read this page</summary><ul><li><b>Trading mode</b>: Ask me means every new trade waits for my yes on Telegram. Within my bounds means the desk may trade inside limits I set for one day without asking.</li><li><b>Strategies in play</b>: a strategy that is Off starts no new trades. Selling to protect existing holdings keeps working.</li><li><b>Scheduled daily checks</b>: the timer card that owns today, when it runs next and what the last runs did. Run Scout starts a research-only run that cannot place orders.</li><li><b>Emergency stop</b>: stops all new buying right away, everywhere. Selling to reduce risk still works.</li><li><b>Desk information</b>: where every number comes from, what the desk does differently on purpose, and what is still being built.</li></ul></details>
+<details class="guide"><summary>How to read this page</summary><ul><li><b>Trading mode</b>: Ask me means every new trade waits for my yes on Telegram. Within my bounds means the desk may trade inside limits I set for one day without asking.</li><li><b>Strategies in play</b>: every strategy with a plain name, what it does, the market it is meant for (bullish, sideways or any) and whether its plan was written down first. A strategy that is Off starts no new trades. Selling to protect existing holdings keeps working.</li><li><b>Scheduled daily checks</b>: the timer card that owns today, when it runs next and what the last runs did. Run Scout starts a research-only run that cannot place orders.</li><li><b>Emergency stop</b>: stops all new buying right away, everywhere. Selling to reduce risk still works.</li><li><b>Desk information</b>: where every number comes from, what the desk does differently on purpose, and what is still being built.</li></ul></details>
 
         <div class="admin-zone" id="admin-zone" data-locked="true">
           <div class="admin-head">
@@ -512,16 +512,17 @@
                 <div id="approval-body"></div>
               </div>
 
-              <div class="card control-card row-card wide" id="strategy-control-card">
+              <div class="card control-card row-card wide no-side" id="strategy-control-card">
                 <span class="ctl-icon" aria-hidden="true">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h6M14 6h6M4 12h10M18 12h2M4 18h4M12 18h8"/><circle cx="12" cy="6" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="10" cy="18" r="2"/></svg>
                 </span>
                 <div class="ctl-main">
                   <h3>Strategies in play</h3>
-                  <p class="control-sub">Switch a strategy off and the desk stops starting new trades with it. Selling to protect what I already own keeps working.</p>
+                  <p class="control-sub">Each strategy is one way the desk looks for trades. Switch one off and the desk stops starting new trades with it. Selling to protect what I already own keeps working.</p>
+                  <div id="strategy-side" class="strat-summary"></div>
                   <div id="strategy-list" class="strategy-list"></div>
+                  <p class="table-note strat-foot"><b>Written thesis</b> means a one-page plan was filed before trading: what the strategy believes, why it should work, when to get in, when it is wrong, and how big to go. <b>No written thesis</b> means that page does not exist yet. The switch still works and the desk will trade the strategy, and every trade still has to pass its own five checks. But nobody wrote the plan down first, so a good or bad result cannot be judged against one. To fill it, copy the playbook template, write the page, and register it in the playbook list; the code does not need to change.</p>
                 </div>
-                <div class="ctl-side" id="strategy-side"></div>
               </div>
 
               <div class="card control-card row-card wide" id="schedule-control-card">

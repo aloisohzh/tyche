@@ -9,8 +9,18 @@ const ucfirst = (s) => { const t = hy(s).trim(); return t ? t.charAt(0).toUpperC
 // A term with a one-line explanation on hover - the desk is read by people who do not trade for a living.
 const tip = (label, text) => `<span class="tip" data-tip="${esc(text)}">${esc(label)}</span>`;
 
-const VERSION = "0.15.0";
+const VERSION = "0.16.0";
 const CHANGELOG = [
+  {
+    version: "0.16.0", date: "2026-11-23", title: "Strategies in play says what each strategy is",
+    items: [
+      "Every strategy now has a plain name and one sentence on what it does, plus four tags: the market it is meant for (bullish, sideways or any), what it trades, how long it holds, and how far it has been tested. The tags come from the playbook files, not from the page.",
+      "No registered thesis is now No written thesis, with a note under the list that says what it means, that the switch still works without one, and how to fill it. A written thesis links to the playbook page.",
+      "The list uses the full width of the card. The summary line names the strategies that are on instead of listing ids.",
+      "Trade ideas, Orders the desk sent and Finished trades show the playbook id under the strategy name, and finished trades are attributed to their strategy by symbol.",
+      "The Trade ideas and Orders tables say how they differ: ideas is every intent with its five checks, orders is only what reached the broker.",
+    ],
+  },
   { v: "0.14.0", date: "2026-11-23", items: [
     "A warning banner when the data feed is older than the last market session, and the clock now shows when the data was published and when it was last checked.",
     "Closed trades are listed on the Strategy page; the Realized P&L tile opens them.",
@@ -706,7 +716,7 @@ function renderClosedTrades() {
   body.innerHTML = trades.map((t) => {
     const held = t.entry_ts && t.exit_ts ? fmtDur((Date.parse(t.exit_ts) - Date.parse(t.entry_ts)) / 1000) : "-";
     return `<tr>
-      <td><strong>${esc(sym(t.symbol))}</strong>${t.strategy ? `<div class="dim">${esc(t.strategy)}</div>` : ""}</td>
+      <td><strong>${esc(sym(t.symbol))}</strong>${t.strategy ? `<div class="dim">${esc(t.strategy)}${t.strategy_id ? ` <span class="mono">${esc(t.strategy_id)}</span>` : ""}</div>` : ""}</td>
       <td class="mono nowrap">${dualCell(t.exit_ts)}</td>
       <td class="num">${t.quantity}</td>
       <td class="num">${money(t.entry_price)}</td>
@@ -782,7 +792,7 @@ function renderPipeline() {
     return `<tr class="trade-row" data-card="${esc(c.id)}" tabindex="0" aria-expanded="false" title="Click to expand the five checks">
       <td class="exp-col"><span class="expander">▸</span></td>
       <td><strong>${esc(sym(c.symbol))}</strong><div class="dim mono">${esc(c.as_of || "")}</div></td>
-      <td>${esc(c.strategy || "Desk playbook")}</td>
+      <td>${esc(c.strategy || "Desk playbook")}${strategyIdFor(c.strategy, c.strategy_id) ? `<div class="dim mono">${esc(strategyIdFor(c.strategy, c.strategy_id))}</div>` : ""}</td>
       <td>${esc(c.intent || "-")}</td>
       <td><span class="side ${c.side}">${esc((c.side || "").toUpperCase())}</span></td>
       <td class="num">${c.quantity}</td>
@@ -1426,15 +1436,30 @@ async function toggleHalt(halted) {
   }
 }
 
+function strategyIdFor(name, sid) {
+  if (sid) return sid;
+  const hit = ((STATE.strategies || {}).strategies || []).find((r) => r.name === name);
+  return hit ? hit.strategy_id : null;
+}
+
 function strategyRow(row, canControl) {
-  const meta = [row.strategy_id, row.lane ? ucfirst(row.lane) + " lane" : null, row.rules_hash ? "Rules locked" : "No rules file"].filter(Boolean).join(" · ");
+  const meta = [row.strategy_id, row.lane ? ucfirst(row.lane).replace(/_/g, " ") + " lane" : null, row.rules_hash ? "Rules locked" : "No rules file"].filter(Boolean).join(" · ");
   const metaTitle = row.rules_hash ? `Frozen rules hash ${row.rules_hash}` : "";
   const decided = row.source === "data/strategies.json"
     ? "Set by the operator switch"
     : "Default from the lane config";
-  const unrostered = row.roster_status !== "live"
-    ? `<span class="pill cached strat-warn">No registered thesis</span>`
-    : "";
+  const thesis = row.roster_status === "live" && row.thesis_url
+    ? `<a class="pill ok-pill strat-thesis" href="${esc(row.thesis_url)}" target="_blank" rel="noopener" title="Opens the one-page plan that was filed before trading">Written thesis</a>`
+    : row.roster_status === "live"
+      ? `<span class="pill ok-pill strat-thesis">Written thesis</span>`
+      : `<span class="pill live-pill cached strat-warn" title="No one-page plan was filed for this strategy before trading. The switch still works; see the note under this list.">No written thesis</span>`;
+  const tag = (label, value, hint) => `<span class="strat-tag"${hint ? ` title="${esc(hint)}"` : ""}><b>${esc(label)}</b>${esc(value || "Not stated")}</span>`;
+  const tags = [
+    tag("Outlook", row.outlook_label, "The market this strategy is meant for. It is not proof that it works there."),
+    tag("Trades", row.direction_label, "The desk may only buy shares, calls or puts. It never sells short."),
+    tag("Holds for", row.holding_label, "How long a trade normally stays open."),
+    tag("Proof", row.proof_label, "Not yet proven means no backtest and no live sample big enough to judge."),
+  ].join("");
   const statePill = `<span class="pill kill ${row.enabled ? "clear" : "armed"}"><i class="dot"></i><span>${row.enabled ? "On" : "Off"}</span></span>`;
   const control = canControl
     ? `<button class="btn ${row.enabled ? "strat-off" : "btn-primary"}" type="button" data-strat="${esc(row.strategy_id)}" data-enabled="${row.enabled ? "0" : "1"}">${row.enabled ? "Turn off" : "Turn on"}</button>`
@@ -1442,9 +1467,13 @@ function strategyRow(row, canControl) {
       ? `${statePill}${lockedButton(row.enabled ? "Turn off" : "Turn on")}`
       : statePill;
   return `<div class="strategy-row" data-live="${row.enabled ? "1" : "0"}">
-    <div class="strat-name"><strong>${esc(row.name)}</strong>${unrostered}</div>
-    <div class="strat-meta" title="${esc(metaTitle)}">${esc(meta)}</div>
-    <div class="strat-note">${esc(decided)}${row.rules_file_problem ? " · " + esc(ucfirst(row.rules_file_problem)) : ""}</div>
+    <div class="strat-head">
+      <div class="strat-name"><strong>${esc(row.name)}</strong>${thesis}</div>
+      <div class="strat-meta" title="${esc(metaTitle)}">${esc(meta)}</div>
+    </div>
+    <div class="strat-what">${esc(row.what || "")}${row.rules_file_problem ? ` <span class="strat-problem-inline">${esc(ucfirst(row.rules_file_problem))}</span>` : ""}</div>
+    <div class="strat-tags">${tags}</div>
+    <div class="strat-note">${esc(decided)}</div>
     <div class="strat-ctl">${control}</div>
   </div>`;
 }
@@ -1466,13 +1495,14 @@ function renderStrategies() {
   wrap.querySelectorAll("[data-locked-action]").forEach((btn) => btn.addEventListener("click", jumpToUnlock));
   const file = view.switch_file || {};
   const problem = view.problem ? `<div class="strat-problem">${esc(view.problem)}</div>` : "";
+  const nameOf = (id) => (view.strategies.find((r) => r.strategy_id === id) || {}).name || id;
+  const offByConfig = view.strategies.filter((r) => !r.lane_config_enabled).map((r) => nameOf(r.strategy_id));
   setText("#strategy-side", "");
   $("#strategy-side").innerHTML = `${problem}
-    <div class="strat-live">${view.live.length ? "Live now: " + esc(view.live.join(", ")) : "No strategy is live."}</div>
-    <div class="strat-meta">${file.present
-      ? `Switch file updated ${esc(dualTime(file.updated_at))} by ${esc(file.updated_by || "operator")}`
-      : "No operator override yet - each lane's own config decides."}</div>
-    <div class="strat-meta">Turned off at the lane config:${view.strategies.filter((r) => !r.lane_config_enabled).map((r) => " " + r.strategy_id).join(",") || " none"}</div>`;
+    <div class="strat-live">${view.live.length ? `On now (${view.live.length} of ${view.strategies.length}): ` + esc(view.live.map(nameOf).join(", ")) : "No strategy is on."}</div>
+    <div class="strat-meta-plain">${file.present
+      ? `Last switch pressed ${esc(dualTime(file.updated_at))} by ${esc(file.updated_by || "operator")}.`
+      : "No switch has been pressed here yet, so each strategy follows its own config file."}${offByConfig.length ? ` Off in the config file: ${esc(offByConfig.join(", "))}.` : ""}</div>`;
 }
 
 async function toggleStrategy(strategyId, enabled) {
@@ -1905,7 +1935,7 @@ function renderOrders() {
     return `<tr title="${esc(hover)}">
       <td class="mono nowrap">${o.requested_ts ? dualCell(o.requested_ts) : "-"}</td>
       <td><strong>${esc(sym(o.symbol))}</strong></td>
-      <td>${esc(o.strategy || "Desk playbook")}</td>
+      <td>${esc(o.strategy || "Desk playbook")}${strategyIdFor(o.strategy, o.strategy_id) ? `<div class="dim mono">${esc(strategyIdFor(o.strategy, o.strategy_id))}</div>` : ""}</td>
       <td>${o.intent ? `<span class="intent ${esc(String(o.intent).toLowerCase())}">${esc(o.intent)}</span>` : "-"}</td>
       <td><span class="side ${o.side}">${esc((o.side || "").toUpperCase())}</span></td>
       <td class="num">${o.quantity}</td>
