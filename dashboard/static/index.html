@@ -216,10 +216,10 @@
 <details class="guide"><summary>How to read this page</summary><ul><li><b>Trade ideas</b>: every trade the desk thought about, newest first. Status says what happened: Filled means it was done. Approved means it passed the checks but was not sent. Blocked means a rule stopped it. Not sent means a later order took its place.</li><li><b>Checks</b>: before a trade can happen the desk must answer five questions. Why this trade? What proof is there? Is the market friendly? Which stock or fund? How much should it make? The number shows how many have answers. Click a row to see them.</li><li><b>Max loss</b>: the most this trade should lose if it goes wrong. It is a limit, not a guess at what will happen.</li><li><b>Is the plan working?</b> This asks whether the trades make money on average. We need 30 finished trades before this means anything. Right now there are 3, so a 100% win rate is luck, not skill.</li><li><b>Finished trades</b>: each trade from buy to sell, with what it cost and what it made. These are the trades behind Banked and Win rate on the Overview.</li><li><b>How complete is the paperwork?</b> For each trade: what was written down, what the desk worked out, and what is still missing. The last three rows are checks on the whole desk: the latest research note, the last stop check on every holding, and results after fees.</li></ul></details>
 
         <div class="section-head"><div><h2><span class="h-num">01</span>Every trade idea and its five checks</h2>
-          <p class="section-sub">One row per idea, newest first, whether it was sent or not. Strategy says which playbook the idea came from. Checks shows how many of the five questions have answers. Only the ideas that reached the broker also appear under Orders the desk sent on the Safety page.</p></div></div>
+          <p class="section-sub"><b>Every trade the desk thought about</b>, sent or not, newest first. The Safety page shows only the ones that were actually sent to the broker. Strategy says which playbook the idea came from. Checks shows how many of the five questions have answers.</p></div></div>
         <div class="card trade-table-card">
           <div class="table-head">
-            <span class="card-kicker">Trade ideas <em id="strategy-count"></em></span>
+            <span class="card-kicker">Trade ideas <em id="strategy-count"></em> <em>· everything considered, sent or not</em></span>
             <div class="filter-chips" id="trade-filters"></div>
           </div>
           <div class="tbl-scroll">
@@ -333,7 +333,7 @@
 
         <div class="card table-card">
           <div class="table-head">
-            <span class="card-kicker">Orders the desk sent</span>
+            <span class="card-kicker">Orders the desk sent <em>· only what reached the broker</em></span>
             <span class="chip ok-chip" id="working-orders">-</span>
           </div>
           <div class="tbl-scroll">
@@ -346,7 +346,7 @@
               <tbody id="order-rows"></tbody>
             </table>
           </div>
-          <p class="table-note">This list holds only the orders that actually went to the broker, with the price it gave back. Ideas that were blocked or never sent are on the Trade ideas page, together with each idea's five checks. Only the broker can say an order was done. Hover over a row to see the broker's order number.</p>
+          <p class="table-note"><b>Only the trades that were actually sent to the broker</b>, with the price it gave back. Everything the desk thought about, sent or not, is on the Trade ideas page. Only the broker can say an order was done. Hover over a row to see the broker's order number.</p>
         </div>
 
         <div class="card table-card">
