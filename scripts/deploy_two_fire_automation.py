@@ -18,13 +18,18 @@ Update a live card's prompt only: ... --apply-update <deployment_id>
   (its cron and metadata are re-sent exactly as the platform holds them; only initial_events moves)
 Copy a secret from .env into the desk environment: ... --set-env TYCHE_GITHUB_PAT [--card <deployment_id>]
   (merges into the environment's variables, or with --card into the live card's own variables, the way the
-  Telegram secrets were set; prints key names only, never values)
+  Telegram secrets were set; prints key names only, never values). A publish token (TYCHE_GITHUB_PAT /
+  TYCHE_GIT_PAT) is checked against GitHub first and refused if GitHub rejects it or it cannot push.
+Check without writing: ... --check [--card <deployment_id>]
+  (environment key names, the card's key names, and for the card's publish token GitHub's verdict on the
+  very value the desk runs with: kind, length, status and whether it may push; never the value)
 Any card write lands between fires only, with the operator's explicit go: the 2026-11-22 PROPOSAL
 APPROVAL paragraph (Telegram wait-for-reply) is in this file but is NOT on the live cards until that write.
 The two-mode wording (ASK ME / WITHIN MY BOUNDS, 2026-11-22) likewise waits for the operator's go between fires.
 """
 from __future__ import annotations
 
+import importlib.util
 import json
 import re
 import sys
@@ -55,6 +60,7 @@ DESCRIPTION = (
 SECRET_KEYS = ("TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID", "TYCHE_ALLOWED_ACCOUNT_IDS")
 # Repo token the PUBLISH clause relies on (either name; see scripts/publish_desk_data.py).
 PUBLISH_TOKEN_KEYS = ("TYCHE_GITHUB_PAT", "TYCHE_GIT_PAT")
+GITHUB_REPO = "aloisohzh/tyche"  # the repo the publish step pushes to; the token check asks GitHub about it
 
 
 def desk_cron() -> str:
@@ -343,15 +349,51 @@ on: never retry in a loop, never edit the feed files by hand, never print a toke
 delay or replace risk work or the digest. It places no order and changes no rule."""
 
 
-def env() -> dict[str, str]:
+def _publish_module():
+    """scripts/publish_desk_data.py, loaded by path so the two scripts share one token check."""
+    spec = importlib.util.spec_from_file_location("publish_desk_data", ROOT / "scripts" / "publish_desk_data.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def parse_dotenv(text: str) -> tuple[dict[str, str], list[str]]:
+    """KEY=VALUE lines -> values, plus warnings. A value keeps no surrounding quotes (KEY="x" is a .env
+    habit that GitHub would read as a bad credential), and a key written twice is reported, because the
+    last line silently wins and a rotated token pasted above the old one would never reach the card."""
     values: dict[str, str] = {}
-    for line in (ROOT / ".env").read_text().splitlines():
+    seen: dict[str, int] = {}
+    for line in text.splitlines():
         if line and not line.startswith("#") and "=" in line:
             key, value = line.split("=", 1)
-            values[key.strip()] = value.strip()
+            key = key.strip()
+            value = value.strip()
+            if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+                value = value[1:-1].strip()
+            values[key] = value
+            seen[key] = seen.get(key, 0) + 1
+    warnings = [f"WARNING: {key} appears {count} times in .env; the LAST line wins - delete the stale one"
+                for key, count in seen.items() if count > 1]
+    return values, warnings
+
+
+def env() -> dict[str, str]:
+    values, warnings = parse_dotenv((ROOT / ".env").read_text())
+    for warning in warnings:
+        print(warning, file=sys.stderr)
     if not values.get("QODER_PAT"):
         raise SystemExit("missing from .env: QODER_PAT")
     return values
+
+
+def publish_token_check(token: str) -> dict:
+    """What GitHub says about a publish token, with nothing of the value itself: kind, length, status,
+    whether it may push, and a plain sentence. Shared with the publish step so both report the same way."""
+    publish = _publish_module()
+    clean = publish.clean_token(token)
+    probe = publish.github_token_probe(clean, GITHUB_REPO)
+    return {"shape": publish.token_shape(clean), "status": probe["status"], "push": probe["push"],
+            "ok": probe["ok"], "detail": probe["detail"]}
 
 
 def environment_keys(values: dict[str, str]) -> set[str]:
@@ -527,10 +569,15 @@ def main() -> None:
             # Key names only, never values: the card's own variables are where the desk's secrets live.
             deployment_id = sys.argv[sys.argv.index("--card") + 1]
             card = req(values, "GET", f"/deployments/{deployment_id}")
-            keys = set(_parse_env_string(card.get("environment_variables")))
+            card_vars = _parse_env_string(card.get("environment_variables"))
+            keys = set(card_vars)
             out["card"] = deployment_id
             out["card_env_keys"] = sorted(keys)
             out["card_has_publish_token"] = any(k in keys for k in PUBLISH_TOKEN_KEYS)
+            token_key = next((k for k in PUBLISH_TOKEN_KEYS if card_vars.get(k)), None)
+            if token_key:
+                # The value the desk actually runs with, checked against GitHub; only its verdict is printed.
+                out["card_publish_token_check"] = {"key": token_key, **publish_token_check(card_vars[token_key])}
         print(json.dumps(out, indent=2))
         return
     if "--set-env" in sys.argv:
@@ -547,16 +594,27 @@ def main() -> None:
             if not values.get(key):
                 raise SystemExit(f"{key} missing from .env - add a line {key}=... to .env first")
         secrets = {key: values[key] for key in keys}
+        checks = {}
+        for key in keys:
+            if key in PUBLISH_TOKEN_KEYS:
+                # Never write a publish token the far end will refuse: ask GitHub first, from the laptop.
+                check = publish_token_check(secrets[key])
+                checks[key] = check
+                if not check["ok"]:
+                    raise SystemExit(f"{key} not written: {check['detail']} ({check['shape']}). "
+                                     "Make a fine-grained token for the repo with Contents: read and write, "
+                                     f"replace the {key}= line in .env (one line only), and run this again.")
         if "--card" in sys.argv:
             # The Telegram secrets reached the desk this way (card-level environment_variables at create
             # time), so the card is the proven place; the environment object is the alternative.
             deployment_id = sys.argv[sys.argv.index("--card") + 1]
             after = set_card_variables(values, deployment_id, secrets)
-            print(json.dumps({"deployment_id": deployment_id, "card_env_keys": sorted(after), "set": keys}, indent=2))
+            print(json.dumps({"deployment_id": deployment_id, "card_env_keys": sorted(after), "set": keys,
+                              "token_checks": checks}, indent=2))
             return
         after = set_environment_variables(values, secrets)
         print(json.dumps({"environment_id": ENVIRONMENT_ID, "environment_keys": sorted(after),
-                          "set": keys}, indent=2))
+                          "set": keys, "token_checks": checks}, indent=2))
         return
     if "--verify" in sys.argv:
         deployment_id = sys.argv[sys.argv.index("--verify") + 1]

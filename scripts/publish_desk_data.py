@@ -30,6 +30,9 @@ import stat
 import subprocess
 import sys
 import tempfile
+import urllib.error
+import urllib.parse
+import urllib.request
 from datetime import datetime
 from pathlib import Path
 
@@ -52,8 +55,82 @@ PRICE_PATTERNS = (
 TOKEN_ENVS = ("TYCHE_GITHUB_PAT", "TYCHE_GIT_PAT")
 
 
+GITHUB_API = "https://api.github.com"
+# Prefixes GitHub issues today; anything else is reported as "unrecognised" so a pasted label or a quoted
+# value shows up in the log without the value itself ever doing so.
+TOKEN_PREFIXES = ("github_pat_", "ghp_", "ghs_", "gho_", "ghu_", "ghr_")
+
+
 def token_env() -> str | None:
-    return next((k for k in TOKEN_ENVS if os.environ.get(k, "").strip()), None)
+    return next((k for k in TOKEN_ENVS if clean_token(os.environ.get(k))), None)
+
+
+def clean_token(raw: str | None) -> str:
+    """The token exactly as GitHub must receive it: surrounding whitespace and one pair of matching
+    quotes removed. `.env` lines are often written KEY="value", and a copied value can carry a trailing
+    newline or a stray space; either turns a valid token into "Bad credentials" at the far end."""
+    value = (raw or "").strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+        value = value[1:-1].strip()
+    return value
+
+
+def token_value() -> str:
+    key = token_env()
+    return clean_token(os.environ.get(key)) if key else ""
+
+
+def token_shape(token: str) -> str:
+    """A description safe to print: the token's kind and length, never its characters."""
+    kind = next((prefix + "..." for prefix in TOKEN_PREFIXES if token.startswith(prefix)), "unrecognised prefix")
+    return f"{kind}, {len(token)} chars"
+
+
+def repo_slug(url: str) -> str | None:
+    """owner/repo from any GitHub remote spelling (https with or without userinfo, ssh, with or without .git)."""
+    text = url.strip()
+    if text.startswith("git@github.com:"):
+        path = text.split(":", 1)[1]
+    else:
+        parsed = urllib.parse.urlparse(text)
+        if parsed.hostname != "github.com":
+            return None
+        path = parsed.path
+    path = path.strip("/")
+    path = path.removesuffix(".git")
+    return path if path.count("/") == 1 and all(path.split("/")) else None
+
+
+def github_token_probe(token: str, slug: str, timeout: int = 20) -> dict:
+    """Ask GitHub what this token may do on `slug`, before git tries to push with it.
+
+    Returns {"ok", "status", "push", "detail"}; `ok` means the token is accepted AND may push. The value
+    is sent only in the Authorization header and never appears in the result. A network failure is
+    reported as status 0 so the caller can tell "GitHub said no" from "GitHub was not reached"."""
+    request = urllib.request.Request(
+        f"{GITHUB_API}/repos/{slug}",
+        headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json",
+                 "User-Agent": "tyche-publish", "X-GitHub-Api-Version": "2022-11-28"},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            payload = json.loads(response.read() or b"{}")
+    except urllib.error.HTTPError as error:
+        try:
+            message = json.loads(error.read() or b"{}").get("message", "")
+        except (ValueError, AttributeError):
+            message = ""
+        detail = f"GitHub rejected the token: HTTP {error.code} {message}".strip()
+        if error.code == 404:
+            detail += f" (a fine-grained token that does not cover {slug} also reads as 404)"
+        return {"ok": False, "status": error.code, "push": None, "detail": detail}
+    except (urllib.error.URLError, TimeoutError, OSError) as error:
+        return {"ok": False, "status": 0, "push": None, "detail": f"GitHub not reached: {error}"}
+    push = (payload.get("permissions") or {}).get("push")
+    if push is True:
+        return {"ok": True, "status": 200, "push": True, "detail": f"token accepted, may push to {slug}"}
+    return {"ok": False, "status": 200, "push": bool(push),
+            "detail": f"token accepted but may NOT push to {slug} (needs Contents: read and write)"}
 # A commit needs an author; the desk's cloud environment has none configured. Only used when git has no identity.
 BOT_IDENTITY = ("tyche-desk", "tyche-desk@users.noreply.github.com")
 
@@ -75,7 +152,11 @@ def _askpass() -> dict[str, str]:
             "#!/usr/bin/env python3\n"
             "import os, sys\n"
             "prompt = ' '.join(sys.argv[1:]).lower()\n"
-            f"print('x-access-token' if 'username' in prompt else os.environ.get({key!r}, ''))\n",
+            "def clean(raw):\n"
+            "    v = (raw or '').strip()\n"
+            "    quoted = len(v) >= 2 and v[0] == v[-1] and v[0] in ('\"', \"'\")\n"
+            "    return v[1:-1].strip() if quoted else v\n"
+            f"print('x-access-token' if 'username' in prompt else clean(os.environ.get({key!r})))\n",
             encoding="utf-8",
         )
         _ASKPASS.chmod(_ASKPASS.stat().st_mode | stat.S_IXUSR)
@@ -84,7 +165,10 @@ def _askpass() -> dict[str, str]:
 
 def git(*args: str, check: bool = True) -> subprocess.CompletedProcess:
     env = dict(os.environ, **_askpass())
-    return subprocess.run(["git", *args], cwd=ROOT, check=check, capture_output=True, text=True, env=env)
+    # With a token, the askpass helper must be the only credential git consults: a stored helper or the
+    # platform's own read-only mount credential would otherwise be sent first and the token never asked for.
+    prefix = ["-c", "credential.helper="] if token_env() else []
+    return subprocess.run(["git", *prefix, *args], cwd=ROOT, check=check, capture_output=True, text=True, env=env)
 
 
 def identity_args() -> list[str]:
@@ -95,12 +179,14 @@ def identity_args() -> list[str]:
 
 
 def https_remote() -> str:
-    """The push target. With a token, an SSH remote is turned into its HTTPS twin so the token applies;
-    otherwise the configured remote is used as is."""
+    """The push target. With a token, an SSH remote is turned into its HTTPS twin and any credential
+    embedded in the URL (user:token@github.com, as a platform mount may configure) is dropped, so the
+    token from the environment is the one GitHub sees; otherwise the configured remote is used as is."""
     url = git("remote", "get-url", "origin").stdout.strip()
-    if token_env() and url.startswith("git@github.com:"):
-        url = "https://github.com/" + url.split(":", 1)[1]
-    return url
+    if not token_env():
+        return url
+    slug = repo_slug(url)
+    return f"https://github.com/{slug}.git" if slug else url
 
 
 def performance_args(root: Path, today: str) -> tuple[list[str], Path] | None:
@@ -163,7 +249,20 @@ def main() -> None:
         print("desk data unchanged - nothing to push")
         return
     git(*identity_args(), "commit", "-m", "Refresh hosted desk data feed and performance pack (sanitized, secret-guarded)", "--", *paths)
-    push = git("push", https_remote(), "HEAD:main", check=False)
+    remote = https_remote()
+    if token_env():
+        # Ask GitHub about the token before git does, so a bad value is named plainly (kind and length,
+        # never the value) instead of surfacing as a bare "Invalid username or token" from the push.
+        token = token_value()
+        slug = repo_slug(remote) or "aloisohzh/tyche"
+        probe = github_token_probe(token, slug)
+        print(f"credential {token_env()} ({token_shape(token)}): {probe['detail']}")
+        if not probe["ok"] and probe["status"] != 0:
+            print("PUBLISH TOKEN REJECTED - data committed locally but not pushed. "
+                  f"Fix from the laptop: deploy_two_fire_automation.py --card <desk card id> --set-env {token_env()} "
+                  "(it now checks the token against GitHub before writing it).")
+            raise SystemExit(1)
+    push = git("push", remote, "HEAD:main", check=False)
     if push.returncode != 0:
         print("PUSH FAILED — data committed locally but not synced:\n" + (push.stderr or push.stdout))
         raise SystemExit(1)
