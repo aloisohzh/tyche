@@ -181,3 +181,17 @@ def test_feed_publish_is_the_last_step_and_never_a_trading_step():
         assert must in clause, must
     assert prompt.index("REPORT:") < prompt.index("PUBLISH (2026-11-23):")
     assert _module().prompt_markers(prompt)["has_feed_publish"]
+
+
+def test_fib_pullback_clause_is_switch_gated_and_approval_bound():
+    """PB-007 runs only while the operator's switch says so, scans at 08:05 only, and every entry still
+    goes through the same approval path as any other proposal; a dry scan is not a problem."""
+    prompt = _module().card_prompt(PERMANENT)
+    clause = " ".join(prompt.split("PB-007 FIB PULLBACK (2026-11-23):", 1)[1].split("BUDGET:", 1)[0].split())
+    for must in ("tyche strategies --json", "never edit it in a run", "08:05 fire", "tyche fib-scan",
+                 "--record", "exact-order audit", "Telegram /approve", "12:05 never scans",
+                 "15:05 runs exits first", "no setup is a normal outcome", "skip this block entirely"):
+        assert must in clause, must
+    assert prompt.index("PROPOSAL APPROVAL (TELEGRAM WAIT") < prompt.index("PB-007 FIB PULLBACK (2026-11-23):")
+    assert "PB-007 swing 20% (only while its switch is on)" in prompt
+    assert _module().prompt_markers(prompt)["has_fib_pullback"]

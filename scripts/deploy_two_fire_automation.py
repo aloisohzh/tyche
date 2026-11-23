@@ -267,8 +267,21 @@ the digest's Proposals section. In WITHIN MY BOUNDS mode (same-day envelope) ski
 inside the envelope without asking, and still list the entries in the digest. The 12:05 fire never
 runs this step. Cancel and modify asks stay on the console/bridge path unchanged.
 
-BUDGET: PB-001 ballast 25%, tactical stock cap 45%, aggregate option premium cap 25%, cash >=5%,
-gross <=95%.
+PB-007 FIB PULLBACK (2026-11-23): the swing lane trades only while `tyche strategies --json` lists
+PB-007 as enabled (the operator's switch file decides; never edit it in a run). When it is on, at the
+08:05 fire the executor pulls daily klines (quote_cur_kline, ktype day, num=370) for the PB-007 scope
+symbols, runs `python scripts/mcp_prices.py <tool-outputs> --ohlc --out data/ohlc.csv`, then
+`tyche fib-scan --bars data/ohlc.csv --account <snapshot> --book <run>/pb007-book.json --flat-by
+<the window's last session> --record`. Each proposal takes the normal path: preview, researcher review
+of the plan hash with evidence, exact-order audit, and the operator's Telegram /approve under PROPOSAL
+APPROVAL (or `tyche lifecycle approve` per hash from the console). 12:05 never scans or trades it.
+15:05 runs exits first, then `tyche lifecycle tick` / `reserve` for approved plans whose quote is inside
+the entry zone; fills are recorded with strategy id PB-007. A scan that finds no setup is a normal
+outcome, not a problem: the SMA50/200 filter is meant to produce nothing in a downtrend. When the switch
+is off, skip this block entirely and say so in one line of the digest.
+
+BUDGET: PB-001 ballast 25%, tactical stock cap 45%, PB-007 swing 20% (only while its switch is on),
+aggregate option premium cap 25%, cash >=5%, gross <=95% on every order.
 
 STATE: this automation is the only scheduled execution owner. The paused Forward schedule and every
 other desk schedule must remain paused; never run two writers. Verify ownership first; if ownership
@@ -445,6 +458,7 @@ def prompt_markers(events: str) -> dict:
         "has_proposal_approval": ("PROPOSAL APPROVAL (TELEGRAM WAIT" in events
                                   and "wait-for-reply" in events),
         "has_feed_publish": "scripts/publish_desk_data.py" in events,
+        "has_fib_pullback": "PB-007 FIB PULLBACK" in events and "tyche fib-scan" in events,
     }
 
 
