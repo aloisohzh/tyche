@@ -20,6 +20,7 @@ from tyche.performance import (
     account_key,
     benchmark_closes,
     build_pack,
+    mark_basis_from_journal,
     max_drawdown,
     orders_per_day,
     rejections,
@@ -204,3 +205,18 @@ def test_journal_rows_for_another_account_are_dropped_by_masked_id():
     assert account_days_from_journal(rows, "***598") == {D17: 100000.0, D18: 99914.93, D19: 99927.13}
     assert account_days_from_journal(rows, "***748") == {D17: 999056.26, D18: 999100.0, D19: 99927.13}
     assert account_days_from_journal(rows)[D18] == 99914.93  # no filter: last row wins, as before
+
+
+def test_each_mark_says_what_it_is_and_feed_rows_carry_the_intraday_caveat():
+    basis = mark_basis_from_journal(events(), "***598")
+    assert basis == {D17: "plan", D18: "close", D19: "plan"}
+    pack = build_pack(account="***598", start_day=D17, start_nav=100000.0,
+                      account_days={D18: 99000.0, D19: 99500.0, D20: 98000.0},
+                      benchmark={D17: 700.0, D20: 707.0}, events=events(), mark_basis=basis)
+    assert [r.basis for r in pack.rows] == ["start", "close", "plan", "feed"]
+    text = render_markdown(pack)
+    assert "| 2026-11-20 | 98,000.00 | feed |" in text
+    assert "a `feed` row (2026-11-20) compares an intraday desk mark" in text
+    pack2 = build_pack(account="a", start_day=D17, start_nav=1.0, account_days={D18: 1.0}, benchmark={}, events=[],
+                       mark_basis={D18: "close"})
+    assert "Mark basis" not in render_markdown(pack2)

@@ -21,6 +21,7 @@ from tyche.performance import (
     account_days_from_journal,
     benchmark_closes,
     build_pack,
+    mark_basis_from_journal,
     render_markdown,
     to_json,
 )
@@ -102,6 +103,7 @@ def report(
         fee_net_series=((state.get("expectancy") or {}).get("fee_net_series") or []) if state else [],
         base_day=date.fromisoformat(base) if base else None,
         sources=sources,
+        mark_basis=mark_basis_from_journal(events, acct),
     )
     text = render_markdown(pack, order_cap=order_cap, internal_budget=internal_budget)
     if out is None:
