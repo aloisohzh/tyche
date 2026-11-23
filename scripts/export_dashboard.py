@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import shutil
 import sys
 from datetime import UTC, datetime
@@ -39,6 +40,11 @@ SECRET_KEYS = (
     "TELEGRAM_CHAT_ID",
     "TELEGRAM_WEBHOOK_SECRET",
     "FORWARD_SIGNING_SECRET",
+    # The repo token the desk uses to push the feed (scripts/publish_desk_data.py). It is an environment
+    # variable in the desk's cloud environment, never a .env line, so env_values() also reads os.environ.
+    "TYCHE_GITHUB_PAT",
+    "TYCHE_GIT_PAT",
+    "TYCHE_CLOUD_PAT",
 )
 
 
@@ -50,14 +56,16 @@ def load_server():
 
 
 def env_values() -> dict[str, str]:
-    out: dict[str, str] = {}
+    """Secret values the guard must never find in the output: the process environment first (the desk's
+    cloud environment holds its tokens there), then .env lines (a laptop checkout)."""
+    out: dict[str, str] = {key: value for key, value in os.environ.items() if key in SECRET_KEYS and value}
     env = ROOT / ".env"
     if not env.is_file():
         return out
     for line in env.read_text(encoding="utf-8").splitlines():
         if line and not line.startswith("#") and "=" in line:
             key, value = line.split("=", 1)
-            out[key.strip()] = value.strip()
+            out.setdefault(key.strip(), value.strip())
     return out
 
 

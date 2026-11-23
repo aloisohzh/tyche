@@ -183,3 +183,26 @@ def test_malformed_bundle_skipped(srv, feed_env):
     make_bundle(feed_env, "2026-11-18-good", nav=92089.79, cash=57360.28)
     runs = srv.load_cloud_runs()
     assert [r["run"] for r in runs] == ["2026-11-18-good"]
+
+def test_secret_guard_covers_the_repo_token_from_the_process_environment(monkeypatch):
+    """The desk pushes the feed with a repo token held as an environment variable, not a .env line; the
+    export's guard must refuse to write a feed that contains it."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("export_dashboard_test", ROOT / "scripts" / "export_dashboard.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    monkeypatch.setenv("TYCHE_GITHUB_PAT", "github_pat_test_value_123456")
+    values = module.env_values()
+    assert values["TYCHE_GITHUB_PAT"] == "github_pat_test_value_123456"
+
+    class _Srv:
+        SENSITIVE = frozenset()
+
+        @staticmethod
+        def mask_id(value):
+            return value
+
+    with pytest.raises(SystemExit, match="SECRET GUARD FAILED"):
+        module.assert_no_secrets('{"x": "github_pat_test_value_123456"}', _Srv, values)
+    module.assert_no_secrets('{"x": "clean"}', _Srv, values)
