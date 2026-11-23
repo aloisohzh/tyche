@@ -9,7 +9,7 @@ const ucfirst = (s) => { const t = hy(s).trim(); return t ? t.charAt(0).toUpperC
 // A term with a one-line explanation on hover - the desk is read by people who do not trade for a living.
 const tip = (label, text) => `<span class="tip" data-tip="${esc(text)}">${esc(label)}</span>`;
 
-const VERSION = "0.14.0";
+const VERSION = "0.14.1";
 const CHANGELOG = [
   { v: "0.14.0", date: "2026-11-23", items: [
     "A warning banner when the data feed is older than the last market session, and the clock now shows when the data was published and when it was last checked.",
@@ -53,6 +53,7 @@ const CHANGELOG = [
   {
     version: "0.10.0", date: "2026-11-22", title: "The cadence table shows the cards that actually fire",
     items: [
+      "Dates shown next to a Singapore time now use the Singapore date; the top bar read \"Nov 22 11:53 SGT\" for a publish made on Nov 23 (0.14.1).",
       "Schedule page shows one panel per live timer card with its wake-up times in New York and Singapore time; the cron table and the stale gate window are gone (23 Nov).",
       "Strategy view: the cron table is drawn from each automation card's own cron, timezone and window - one row per fire time, grouped by card - with the phase and activity the kernel gate would route that wall-clock time to. What the desk really does is 08:05 plan, 12:05 monitor, 15:05 trade.",
       "The six-run hourly model row is gone. That was the retired design's schedule generator, not the desk's behaviour, and it had no card behind it: a table that disagrees with the cards is worse than a short one.",
@@ -333,6 +334,8 @@ const sgtHHMM = (ts) => tzTime(ts, TZ_SGT, false);
 const dualTime = (ts) => ts ? `${etHHMM(ts)} ET · ${sgtHHMM(ts)} SGT` : "-";
 const dualCell = (ts) => ts ? `<div>${etTime(ts)} ET</div><div class="dim">${sgtTime(ts)} SGT</div>` : "-";
 const dateLabel = (ts) => ts ? new Date(ts).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: TZ_ET }) : "-";
+// A date shown next to a Singapore clock time must be the Singapore date, or "Nov 22 11:53 SGT" can name the wrong day.
+const sgtDateLabel = (ts) => ts ? new Date(ts).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: TZ_SGT }) : "-";
 const etDateStr = (ts) => ts ? new Date(ts).toLocaleDateString("en-CA", { timeZone: TZ_ET }) : "";
 const sgtDateStr = (ts) => ts ? new Date(ts).toLocaleDateString("en-CA", { timeZone: TZ_SGT }) : "";
 function relativeTime(ts) {
@@ -354,7 +357,7 @@ let LAST_CHECKED = null;
 function stampText() {
   if (!STATE) return "Loading…";
   const ts = STATE.generated_at;
-  const when = `${dateLabel(ts)} ${sgtHHMM(ts)} SGT`;
+  const when = `${sgtDateLabel(ts)} ${sgtHHMM(ts)} SGT`;
   const checked = LAST_CHECKED ? ` · checked ${relativeTime(LAST_CHECKED.toISOString())}` : "";
   return (SNAPSHOT ? "Built " : "Data from ") + when + checked;
 }
@@ -370,7 +373,7 @@ function renderStaleBanner() {
   const hours = Math.round(age / 3600000);
   const ageText = hours >= 48 ? `${Math.round(hours / 24)} days` : `${hours} hours`;
   el.hidden = false;
-  el.innerHTML = `<strong>These numbers are ${ageText} old.</strong> They were published ${dateLabel(STATE.generated_at)} ${sgtHHMM(STATE.generated_at)} SGT. ` +
+  el.innerHTML = `<strong>These numbers are ${ageText} old.</strong> They were published ${sgtDateLabel(STATE.generated_at)} ${sgtHHMM(STATE.generated_at)} SGT. ` +
     `Holdings, cash and P&amp;L may have moved since. "Get latest run" only loads what the desk last published; a newer run has not been published yet.`;
 }
 const sym = (s) => String(s || "").replace(/^US\./, "");
@@ -474,7 +477,7 @@ function nextRunHint() {
   const next = (AUTO?.schedules || []).flatMap((c) => c.next_runs || []).map((iso) => Date.parse(iso)).filter((t) => t > Date.now()).sort((a, b) => a - b)[0];
   if (!next) return "";
   const iso = new Date(next).toISOString();
-  return ` The next run is ${dateLabel(iso)} ${sgtHHMM(iso)} SGT.`;
+  return ` The next run is ${sgtDateLabel(iso)} ${sgtHHMM(iso)} SGT.`;
 }
 
 async function fetchAll(manual = false) {
@@ -509,7 +512,7 @@ async function fetchAll(manual = false) {
     showToast(STATE ? "State refresh failed: " + stateErr + " - keeping last good data" : "Could not load desk state: " + stateErr, true);
   } else if (manual && STATE) {
     if (SNAPSHOT) showToast("Snapshot re-read - data frozen at build time");
-    else if (prevGenerated && prevGenerated === STATE.generated_at) showToast(`No new desk run yet. Showing the run published ${dateLabel(STATE.generated_at)} ${sgtHHMM(STATE.generated_at)} SGT.${nextRunHint()}`);
+    else if (prevGenerated && prevGenerated === STATE.generated_at) showToast(`No new desk run yet. Showing the run published ${sgtDateLabel(STATE.generated_at)} ${sgtHHMM(STATE.generated_at)} SGT.${nextRunHint()}`);
     else showToast("Latest run loaded - record book " + (STATE.chain.ok ? "verified" : "BROKEN"));
   }
   if (!SNAPSHOT && AUTO && !AUTO.ok && !autoErrorShown) {
