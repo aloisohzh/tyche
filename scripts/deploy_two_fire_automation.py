@@ -167,6 +167,13 @@ sells may still run. Restore the verified Drive journal lineage at
 state belongs under /data/drive/tyche-raw/lifecycle; missing state is a reconciliation task, never
 proof there were no holdings. Never create adoption grants from current holdings alone.
 
+NAV REFERENCES (2026-11-23): the drawdown ladder measures from the challenge's verified 100,000.00 starting
+NAV (18 Nov) until a verified broker close NAV (total_asset at the close fire) exceeds it; then that close
+is the new high-water mark. The 102,208.99 figure was never verified against a broker read and is retired;
+never carry an unverified high-water pin forward. prior_close_nav is the previous session's verified close
+NAV from the Drive nav-refs, refreshed at every close fire. The operator owns the start figure; a run may
+raise the mark only from a verified close, never lower it.
+
 PHASES: at the premarket and close fires reconcile account positions, order history, pending orders
 and protection gaps FIRST through the executor, and re-arm any exit that never reached the broker
 before planning anything new. Premarket: run the researcher's broad source-backed discovery and produce
@@ -462,6 +469,7 @@ def prompt_markers(events: str) -> dict:
         "has_feed_publish": "scripts/publish_desk_data.py" in events,
         "has_performance_pack": "performance pack" in events,
         "has_fib_pullback": "PB-007 FIB PULLBACK" in events and "tyche fib-scan" in events,
+        "has_nav_references": "NAV REFERENCES" in events and "100,000.00 starting" in events,
     }
 
 
