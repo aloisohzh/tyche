@@ -182,7 +182,7 @@ difference matters before editing anything there:
 |---|---|---|
 | `index.html`, `app.js`, `style.css`, `vendor/` | derived copies | `export_dashboard.py`, which deletes `web/` first |
 | `charts.html` | derived, different generator | `scripts/export_charts.py`; the full export carries the bytes across its own wipe because it cannot rebuild them |
-| `data/{state,automation,schedule}.json` | the hosted **data feed**, read by the Sites Function from the repo | `scripts/publish_desk_data.py` (export `--data-only`, then commit + push exactly the files the Function reads) |
+| `data/{state,automation,schedule}.json` | the hosted **data feed**, read by the Sites Function from the repo | `scripts/publish_desk_data.py` (export `--data-only`, then commit + push exactly the files the Function reads). Runs as the last step of every desk card run (PUBLISH clause, 23 Nov 2026) with the `TYCHE_GITHUB_PAT` (or `TYCHE_GIT_PAT`) repo token handed to git via `GIT_ASKPASS`; by hand from a laptop otherwise |
 | `functions/*.ts` | authored in place | nobody regenerates it |
 
 The hosted Function serves `/schedule` from that published snapshot and has no cadence write path: it holds

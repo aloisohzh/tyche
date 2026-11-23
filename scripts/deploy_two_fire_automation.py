@@ -49,6 +49,8 @@ DESCRIPTION = (
     "three-fire premarket/midday/close runs, independent audits and retained position-protection review."
 )
 SECRET_KEYS = ("TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID", "TYCHE_ALLOWED_ACCOUNT_IDS")
+# Repo token the PUBLISH clause relies on (either name; see scripts/publish_desk_data.py).
+PUBLISH_TOKEN_KEYS = ("TYCHE_GITHUB_PAT", "TYCHE_GIT_PAT")
 
 
 def desk_cron() -> str:
@@ -304,7 +306,15 @@ This formatting contract authorizes no extra run, test message or trade.
 
 REPORT: end with a short digest; state explicitly if no orders were submitted; list coverage gaps
 and every lot that still has no live exit path. Never invent references and never claim a fill or
-approval that did not occur."""
+approval that did not occur.
+
+PUBLISH (2026-11-23): the hosted desk page reads its numbers from the repo, so the very last step of
+every run - a skip run and a run with problems included, after the digest is sent - is
+`python scripts/publish_desk_data.py` from the repo root. It rebuilds the sanitized feed behind the
+secret guard, commits only the three feed files and pushes them to main. Run it once. If it fails,
+put its first error line under Problems with the action "operator: run the publish script" and move
+on: never retry in a loop, never edit the feed files by hand, never print a token, and never let it
+delay or replace risk work or the digest. It places no order and changes no rule."""
 
 
 def env() -> dict[str, str]:
@@ -374,6 +384,7 @@ def prompt_markers(events: str) -> dict:
                              or "the cron day list already excludes" in events),
         "has_proposal_approval": ("PROPOSAL APPROVAL (TELEGRAM WAIT" in events
                                   and "wait-for-reply" in events),
+        "has_feed_publish": "scripts/publish_desk_data.py" in events,
     }
 
 
@@ -538,6 +549,12 @@ def main() -> None:
         if not isinstance(pinned, int):
             raise SystemExit(f"{deployment_id}: agent pin is {pinned!r}, not an exact compiled "
                              "version; refusing to write a brief onto a card whose build we cannot name")
+        # The PUBLISH clause needs a repo token in the card's environment; a missing one is a brief that
+        # reports a failed publish every run, so say so before writing (a warning, not a refusal).
+        inherited = environment_keys(values)
+        if not any(key in inherited for key in PUBLISH_TOKEN_KEYS):
+            print(f"WARNING: none of {PUBLISH_TOKEN_KEYS} is set in environment {ENVIRONMENT_ID}; "
+                  "the PUBLISH step will fail until the repo token is added there")
         req(values, "POST", f"/deployments/{deployment_id}",
             update_payload(before, card_prompt(live_window(before))))
         after = req(values, "GET", f"/deployments/{deployment_id}")

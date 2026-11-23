@@ -9,8 +9,17 @@ const ucfirst = (s) => { const t = hy(s).trim(); return t ? t.charAt(0).toUpperC
 // A term with a one-line explanation on hover - the desk is read by people who do not trade for a living.
 const tip = (label, text) => `<span class="tip" data-tip="${esc(text)}">${esc(label)}</span>`;
 
-const VERSION = "0.13.0";
+const VERSION = "0.14.0";
 const CHANGELOG = [
+  { v: "0.14.0", date: "2026-11-23", items: [
+    "A warning banner when the data feed is older than the last market session, and the clock now shows when the data was published and when it was last checked.",
+    "Closed trades are listed on the Strategy page; the Realized P&L tile opens them.",
+    "Orders left over from an earlier day are no longer counted as working.",
+    "The run log shows timer-card runs by default; test runs and checks are behind a toggle.",
+    "The timer-card table is built from the live cards, so an archived card no longer appears.",
+    "Upcoming market events are named instead of counted.",
+    "Every page has a short 'How to read this page' guide; tighter layout with less empty space.",
+  ] },
   {
     version: "0.13.0", date: "2026-11-23", title: "Plain-language desk: a first-time reader can follow it",
     items: [
@@ -44,6 +53,7 @@ const CHANGELOG = [
   {
     version: "0.10.0", date: "2026-11-22", title: "The cadence table shows the cards that actually fire",
     items: [
+      "Schedule page shows one panel per live timer card with its wake-up times in New York and Singapore time; the cron table and the stale gate window are gone (23 Nov).",
       "Strategy view: the cron table is drawn from each automation card's own cron, timezone and window - one row per fire time, grouped by card - with the phase and activity the kernel gate would route that wall-clock time to. What the desk really does is 08:05 plan, 12:05 monitor, 15:05 trade.",
       "The six-run hourly model row is gone. That was the retired design's schedule generator, not the desk's behaviour, and it had no card behind it: a table that disagrees with the cards is worse than a short one.",
       "Blind stays blind: if the Managed cards cannot be read, the table renders empty and the note says so, instead of falling back to a remembered cadence that would read as a status report.",
@@ -173,6 +183,7 @@ const DESK_CONTRACT = "Tyche v" + VERSION + " - read-only desk - order entry liv
 
 let STATE = null;
 let AUTO = null;
+let PREV_GENERATED = null;
 let SCHEDULE = null;
 let SCOUT = null;
 let CLOUD_VIEW_ACTIVE = false;
@@ -231,10 +242,11 @@ function setTheme(t) {
 
 /* ---------------- view routing ---------------- */
 const VIEWS = ["overview", "strategy", "risk", "automation", "controls"];
-const VIEW_LABEL = { overview: "Overview", strategy: "Strategy", risk: "Risk & Execution", automation: "Automation", controls: "Controls" };
+const VIEW_LABEL = { overview: "Overview", strategy: "Trade ideas", risk: "Safety & orders", automation: "Schedule", controls: "Controls" };
 // What started a session, in the words the desk can prove: a card, the Scout button, or something opened
 // elsewhere. The server derives it from `deployment_id` / `kind`, never from a label it guessed.
-const ORIGIN_LABEL = { card: "Cadence card", scout: "Research Scout", manual: "Opened elsewhere" };
+const ORIGIN_LABEL = { card: "Timer card", scout: "Research Scout", manual: "Started by hand", "tyche-probe": "Read-only check", "tyche-rules-freeze": "Rules check" };
+let SHOW_ALL_RUNS = false;
 function showView(name) {
   if (!VIEWS.includes(name)) name = "overview";
   CLOUD_VIEW_ACTIVE = name === "controls";
@@ -338,12 +350,28 @@ function relativeTime(ts) {
   if (days < 7) return days + " days ago";
   return new Date(ts).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: TZ_SGT });
 }
+let LAST_CHECKED = null;
 function stampText() {
   if (!STATE) return "Loading…";
   const ts = STATE.generated_at;
-  const rel = relativeTime(ts);
-  const prefix = SNAPSHOT ? "Built " : "Updated ";
-  return rel ? `${prefix}${rel} · SGT ${sgtHHMM(ts)}` : prefix + dualTime(ts);
+  const when = `${dateLabel(ts)} ${sgtHHMM(ts)} SGT`;
+  const checked = LAST_CHECKED ? ` · checked ${relativeTime(LAST_CHECKED.toISOString())}` : "";
+  return (SNAPSHOT ? "Built " : "Data from ") + when + checked;
+}
+// The feed is a published file: it only moves when the desk publishes. Older than the last
+// market session means positions, cash and P&L can have moved without the page knowing.
+const STALE_AFTER_MS = 20 * 3600 * 1000;
+function renderStaleBanner() {
+  const el = $("#stale-banner");
+  if (!el || !STATE) return;
+  const t = Date.parse(STATE.generated_at || "");
+  const age = Number.isNaN(t) ? 0 : Date.now() - t;
+  if (SNAPSHOT || age < STALE_AFTER_MS) { el.hidden = true; return; }
+  const hours = Math.round(age / 3600000);
+  const ageText = hours >= 48 ? `${Math.round(hours / 24)} days` : `${hours} hours`;
+  el.hidden = false;
+  el.innerHTML = `<strong>These numbers are ${ageText} old.</strong> They were published ${dateLabel(STATE.generated_at)} ${sgtHHMM(STATE.generated_at)} SGT. ` +
+    `Holdings, cash and P&amp;L may have moved since. "Get latest run" only loads what the desk last published; a newer run has not been published yet.`;
 }
 const sym = (s) => String(s || "").replace(/^US\./, "");
 function fmtDur(sec) {
@@ -441,6 +469,14 @@ async function fetchCloud() {
   renderScout();
 }
 
+// "The next run is at ..." from the live card, for the no-new-run toast. Empty when no card is readable.
+function nextRunHint() {
+  const next = (AUTO?.schedules || []).flatMap((c) => c.next_runs || []).map((iso) => Date.parse(iso)).filter((t) => t > Date.now()).sort((a, b) => a - b)[0];
+  if (!next) return "";
+  const iso = new Date(next).toISOString();
+  return ` The next run is ${dateLabel(iso)} ${sgtHHMM(iso)} SGT.`;
+}
+
 async function fetchAll(manual = false) {
   const btn = $("#refresh-btn");
   if (btn) btn.classList.add("spinning");
@@ -462,6 +498,9 @@ async function fetchAll(manual = false) {
   // with every row, so they are pulled when that page is in view (and once at startup) rather than
   // polled with the desk figures.
   if (CLOUD_VIEW_ACTIVE || !SCHEDULE) await fetchCloud();
+  const prevGenerated = PREV_GENERATED;
+  PREV_GENERATED = STATE ? STATE.generated_at : PREV_GENERATED;
+  LAST_CHECKED = new Date();
   if (STATE) {
     renderAll();
     setText("#updated-stamp", stampText());
@@ -469,7 +508,9 @@ async function fetchAll(manual = false) {
   if (stateErr) {
     showToast(STATE ? "State refresh failed: " + stateErr + " - keeping last good data" : "Could not load desk state: " + stateErr, true);
   } else if (manual && STATE) {
-    showToast(SNAPSHOT ? "Snapshot re-read - data frozen at build time" : "Desk state refreshed - journal chain " + (STATE.chain.ok ? "verified" : "BROKEN"));
+    if (SNAPSHOT) showToast("Snapshot re-read - data frozen at build time");
+    else if (prevGenerated && prevGenerated === STATE.generated_at) showToast(`No new desk run yet. Showing the run published ${dateLabel(STATE.generated_at)} ${sgtHHMM(STATE.generated_at)} SGT.${nextRunHint()}`);
+    else showToast("Latest run loaded - record book " + (STATE.chain.ok ? "verified" : "BROKEN"));
   }
   if (!SNAPSHOT && AUTO && !AUTO.ok && !autoErrorShown) {
     autoErrorShown = true;
@@ -540,7 +581,7 @@ function renderDesk() {
   $("#gross-cap").textContent = `Of the account is invested · limit ${pct(STATE.risk.max_gross_exposure, 0)}`;
 
   const checks = STATE.latest_plan?.regime_checks || {};
-  const labels = { equity_trend: "Equity trend up", credit_trend: "Credit trend calm", golden_cross: "Golden cross", vol_calm: "Volatility calm" };
+  const labels = { equity_trend: "Stocks going up", credit_trend: "Lending markets calm", golden_cross: "Long trend turned up", vol_calm: "Market not too jumpy" };
   const entries = Object.entries(checks);
   $("#regime-checks").innerHTML = entries.length
     ? entries.map(([k, v]) =>
@@ -586,8 +627,8 @@ function markStats(marks) {
   }
   return { dd, sharpe, rets };
 }
-function scoreTile(label, value, sub, cls = "", help = "") {
-  return `<div class="score-tile"><span class="score-label">${help ? tip(label, help) : esc(label)}</span><b class="score-value mono ${cls}">${value}</b><span class="score-sub">${sub}</span></div>`;
+function scoreTile(label, value, sub, cls = "", help = "", go) {
+  return `<div class="score-tile${go ? " is-link" : ""}"${go ? ` data-go="${go}" role="button" tabindex="0"` : ""}><span class="score-label">${help ? tip(label, help) : esc(label)}</span><b class="score-value mono ${cls}">${value}</b><span class="score-sub">${sub}</span></div>`;
 }
 function renderScorecard() {
   const grid = $("#score-grid");
@@ -609,32 +650,68 @@ function renderScorecard() {
   const hasPos = (snap?.positions || []).length > 0;
 
   const tiles = [
-    scoreTile("Total P&L", total != null ? signedMoney(total) : "-",
+    scoreTile("Total", total != null ? signedMoney(total) : "-",
       total != null ? `${signedPct(totalPct, 2)} ${baseNote}` : "Needs a starting reading", plClass(total),
-      "Profit and loss overall: today's account value minus what the account started with."),
-    scoreTile("Open P&L", hasPos ? signedMoney(open) : "-",
-      hasPos ? `Unrealized on ${plural(snap.positions.length, "open position")}` : "No open positions", plClass(open),
-      "Gain or loss on positions still held, at the latest price. Not banked until they are sold."),
-    scoreTile("Realized P&L", e.pnl_net != null ? signedMoney(e.pnl_net) : "-",
-      e.closed_n ? `${plural(e.closed_n, "closed trade")}, after fees` : "No closed trades yet", plClass(e.pnl_net),
-      "Profit banked from trades that have been closed, after modeled fees."),
+      "My overall result: what the account is worth now minus the $100,000 it started with."),
+    scoreTile("Open", hasPos ? signedMoney(open) : "-",
+      hasPos ? `On ${plural(snap.positions.length, "thing")} I still hold` : "Nothing held right now", plClass(open),
+      "How things I still own are doing at today's price. This can still change until I sell."),
+    scoreTile("Banked", e.pnl_net != null ? signedMoney(e.pnl_net) : "-",
+      e.closed_n ? `From ${plural(e.closed_n, "finished trade")}, after fees · <u>view</u>` : "No finished trades yet", plClass(e.pnl_net),
+      "Money made or lost on trades I have finished, after fees. Click to see the trades.", "closed-trades-card"),
     scoreTile("Win rate", e.win_rate != null ? pct(e.win_rate, 0) : "-",
-      e.closed_n ? `Of ${plural(e.closed_n, "closed trade")}` : "Small sample", "",
-      "Share of closed trades that made money."),
-    scoreTile("Expectancy", e.expectancy_r != null ? e.expectancy_r.toFixed(2) + " R" : "-",
-      e.expectancy_r != null ? "Average edge per trade" : "Needs both wins and losses", plClass(e.expectancy_r),
-      "Average result per trade in R, where 1 R is the amount risked on that trade. Positive means the approach pays off over time."),
-    scoreTile("Sharpe", sharpe != null ? sharpe.toFixed(2) : "-",
-      sharpe != null ? "Per reading, provisional" : "Needs 3+ readings", "",
-      "Return per unit of volatility between saved readings. Higher means steadier gains."),
-    scoreTile("Max drawdown", marks.length ? pct(dd, 2) : "-",
-      marks.length ? `From ${plural(marks.length, "saved reading")}` : "No readings yet", dd > 0 ? "neg" : "",
-      "The largest fall from a peak in account value, across the saved readings."),
+      e.closed_n ? `Of ${plural(e.closed_n, "finished trade")} · <u>view</u>` : "Too few trades", "",
+      "How many of my finished trades made money. Click to see the trades.", "closed-trades-card"),
+    scoreTile("Average per trade", e.expectancy_r != null ? e.expectancy_r.toFixed(2) + " R" : "-",
+      e.expectancy_r != null ? "Compared with what I risked" : "Needs some wins and some losses", plClass(e.expectancy_r),
+      "The average result per trade, compared with what each trade risked. Above zero means the plan makes money over time."),
+    scoreTile("Smoothness", sharpe != null ? sharpe.toFixed(2) : "-",
+      sharpe != null ? "Higher is steadier · called Sharpe" : "Needs 3 or more checks", "",
+      "How steady the ride has been. Higher means gains with fewer big swings. Traders call this the Sharpe ratio."),
+    scoreTile("Biggest dip", marks.length ? pct(dd, 2) : "-",
+      marks.length ? `Across ${plural(marks.length, "check")}` : "No checks yet", dd > 0 ? "neg" : "",
+      "The biggest fall from the account's best value so far. Traders call this drawdown."),
   ];
   grid.innerHTML = tiles.join("");
+  grid.querySelectorAll(".score-tile[data-go]").forEach((t) => t.addEventListener("click", () => {
+    showView("strategy");
+    const target = $("#" + t.dataset.go);
+    if (target) setTimeout(() => target.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+  }));
   setText("#score-note", startNav != null
-    ? `Total P&L compares today's account value with the ${money(startNav, 0)} the challenge account started with. Open P&L is the paper gain or loss on positions still held; realized P&L is from trades that have closed, after modeled fees. Sharpe is measured between saved readings (not annualized) and stays blank until there are at least three. Every figure is provisional while the sample is small.`
-    : "Total P&L compares today's account value with the first saved reading for this account. Open P&L is the paper gain or loss on positions still held; realized P&L is from trades that have closed, after modeled fees. Sharpe is measured between saved readings (not annualized) and stays blank until there are at least three. Every figure is provisional while the sample is small.");
+    ? `Total is what the account is worth now minus the ${money(startNav, 0)} it started with. Open is on things I still hold and can still change. Banked is from finished trades, after fees. With only a few trades, all of these can swing a lot.`
+    : "Total compares what the account is worth now with the first check we have. Open is on things I still hold and can still change. Banked is from finished trades, after fees. With only a few trades, all of these can swing a lot.");
+}
+
+/* ---------------- strategy - closed trades ---------------- */
+function renderClosedTrades() {
+  const body = $("#closed-rows");
+  if (!body) return;
+  const e = STATE.expectancy || {};
+  const trades = Array.isArray(e.closed_trades) ? e.closed_trades.slice().sort((a, b) => String(b.exit_ts).localeCompare(String(a.exit_ts))) : null;
+  setText("#closed-count", e.closed_n ? `· ${e.closed_n}` : "");
+  if (trades === null) {
+    body.innerHTML = `<tr><td colspan="9" class="empty-row">The feed lists ${e.closed_n || 0} closed trade${e.closed_n === 1 ? "" : "s"} but was published before the trade list was added. The next publish fills this table.</td></tr>`;
+    return;
+  }
+  if (!trades.length) {
+    body.innerHTML = '<tr><td colspan="9" class="empty-row">No closed trades yet. A trade appears here once its position has been fully sold.</td></tr>';
+    return;
+  }
+  body.innerHTML = trades.map((t) => {
+    const held = t.entry_ts && t.exit_ts ? fmtDur((Date.parse(t.exit_ts) - Date.parse(t.entry_ts)) / 1000) : "-";
+    return `<tr>
+      <td><strong>${esc(sym(t.symbol))}</strong>${t.strategy ? `<div class="dim">${esc(t.strategy)}</div>` : ""}</td>
+      <td class="mono nowrap">${dualCell(t.exit_ts)}</td>
+      <td class="num">${t.quantity}</td>
+      <td class="num">${money(t.entry_price)}</td>
+      <td class="num">${money(t.exit_price)}</td>
+      <td class="num">${held}</td>
+      <td class="num ${plClass(t.pnl_gross)}">${signedMoney(t.pnl_gross)}</td>
+      <td class="num">${money(t.fees)}</td>
+      <td class="num ${plClass(t.pnl_net)}"><strong>${signedMoney(t.pnl_net)}</strong>${t.exit_reason ? `<div class="dim">${esc(ucfirst(t.exit_reason))}</div>` : ""}</td>
+    </tr>`;
+  }).join("");
 }
 
 /* ---------------- strategy - expandable trade table ---------------- */
@@ -694,7 +771,8 @@ function renderPipeline() {
   rows.innerHTML = shown.length ? shown.map((c) => {
     const st = c.stages || {};
     const done = STAGES.filter((s) => (st[s.key]?.state || "gap") === "ok").length;
-    const label = STATUS_LABEL[c.status] || c.status;
+    const stale = (c.status === "pending" || c.status === "submitted") && c.order && orderIsStale(c.order);
+    const label = stale ? (c.status === "submitted" ? "Expired · unconfirmed" : "Not sent") : STATUS_LABEL[c.status] || c.status;
     const fill = c.status === "filled" && c.order?.fill_price != null ? money(c.order.fill_price) : null;
     return `<tr class="trade-row" data-card="${esc(c.id)}" tabindex="0" aria-expanded="false" title="Click to expand the five checks">
       <td class="exp-col"><span class="expander">▸</span></td>
@@ -707,7 +785,7 @@ function renderPipeline() {
       <td class="num">${c.stop_price != null ? money(c.stop_price) : "-"}</td>
       <td class="num">${c.target != null ? money(c.target) : "-"}</td>
       <td class="num">${c.max_loss != null ? money(c.max_loss) : "-"}</td>
-      <td><span class="chip status-${c.status}">${esc(label)}</span>${fill ? `<div class="dim mono">Filled at ${fill}</div>` : ""}</td>
+      <td><span class="chip status-${stale ? "stale" : c.status}"${stale ? ' title="Requested on an earlier day; a later order handled this position or the day order expired at the close."' : ""}>${esc(label)}</span>${fill ? `<div class="dim mono">Filled at ${fill}</div>` : ""}</td>
       <td class="num"><span class="check-count ${done === 5 ? "full" : done >= 3 ? "part" : "low"}">${done}/5</span></td>
     </tr>
     <tr class="trade-detail" hidden><td colspan="12">
@@ -874,9 +952,9 @@ function renderKill() {
     return `<li class="${cls}"><span class="mono">${etHHMM(ev.ts)} ET</span> · ${text}</li>`;
   }).join("");
   $("#kill-card").innerHTML = `
-    <span class="card-kicker">Kill-switch</span>
+    <span class="card-kicker">Emergency stop</span>
     <div class="kill-state ${halted ? "armed" : "clear"}"><span class="kill-lamp ${halted ? "armed" : "clear"}"></span><strong>${halted ? "Engaged" : "Released"}</strong></div>
-    <div class="kill-sub">${halted ? "New buys are blocked everywhere. De-risking sells still pass." : "Buys are allowed - no active halt."}</div>
+    <div class="kill-sub">${halted ? "No buying anywhere. Selling to reduce risk still works." : "Trading is allowed. The stop is off."}</div>
     <div class="kill-meta">${esc(ucfirst(STATE.halt.reason || ""))}${STATE.halt.ts ? ` · ${dualTime(STATE.halt.ts)}` : ""}</div>
     ${drill.pass ? `<span class="drill-badge">✓ Kill-switch drill passed · 18 Nov 2026</span>` : ""}
     <ul class="kill-timeline">${items}</ul>`;
@@ -1136,7 +1214,7 @@ function renderAdminZone() {
   const lockedText = $("#admin-locked-text");
   if (lockedText) {
     lockedText.textContent = LIVE
-      ? "Everything below is visible. Buttons that change the desk - trading mode, strategy switches, kill-switch - are held until you unlock with the operator passphrase. Refresh always works."
+      ? "Everything below is visible. Buttons that change the desk - trading mode, strategy switches, kill-switch - are held until you unlock with the operator passphrase. Get latest run always works."
       : "This is a baked snapshot. Changes are made from the live desk.";
   }
 }
@@ -1303,7 +1381,7 @@ function renderKillControl() {
   const srcTag = STATE.halt.source === "repo" ? " · shared cloud flag" : "";
   wrap.innerHTML = `
     <div class="kill-state ${halted ? "armed" : "clear"}"><span class="kill-lamp ${halted ? "armed" : "clear"}"></span><strong>${halted ? "Engaged" : "Released"}</strong></div>
-    <div class="kill-sub">${halted ? "New buys are blocked everywhere." : "Buys are allowed - no active halt."}</div>
+    <div class="kill-sub">${halted ? "No buying anywhere." : "Trading is allowed. The stop is off."}</div>
     <div class="kill-meta">${esc(ucfirst(STATE.halt.reason || ""))}${STATE.halt.ts ? ` · ${dualTime(STATE.halt.ts)}` : ""}${srcTag}</div>
     ${canControl ? `
       ${halted ? "" : '<input type="text" id="halt-reason" class="search halt-reason" maxlength="200" placeholder="Reason for halting (journaled)" aria-label="Halt reason">'}
@@ -1591,16 +1669,16 @@ function renderGauges() {
   const ordersToday = (STATE.orders || []).filter((o) => etDateStr(o.requested_ts) === today && (!snap?.account || o.account === snap.account)).length;
   const ddRung = (label, threshold) => `<div class="rung${dd >= threshold ? " hit" : ""}"><b>${pct(threshold, 0)}</b>${esc(label)}</div>`;
   $("#gauges-card").innerHTML = `
-    <span class="card-kicker">Exposure against the limits</span>
-    ${gauge("Invested (gross exposure)", snap?.gross_weight || 0, risk.max_gross_exposure, "limit " + pct(risk.max_gross_exposure, 0))}
-    ${gauge("Cash held", snap?.cash_weight || 0, risk.min_cash_weight, "floor " + pct(risk.min_cash_weight, 0), "min")}
-    ${gauge(`Largest position · ${maxPosSym}`, maxPos, risk.max_position_weight, "limit " + pct(risk.max_position_weight, 0))}
-    ${gauge("Orders placed today", ordersToday / risk.max_orders_per_day, 1, "daily limit", null, `${ordersToday} of ${risk.max_orders_per_day}`)}
+    <span class="card-kicker">How close to the limits</span>
+    ${gauge("Money in holdings", snap?.gross_weight || 0, risk.max_gross_exposure, "max " + pct(risk.max_gross_exposure, 0))}
+    ${gauge("Cash waiting", snap?.cash_weight || 0, risk.min_cash_weight, "at least " + pct(risk.min_cash_weight, 0), "min")}
+    ${gauge(`Biggest slice · ${maxPosSym}`, maxPos, risk.max_position_weight, "max " + pct(risk.max_position_weight, 0))}
+    ${gauge("Orders today", ordersToday / risk.max_orders_per_day, 1, "max per day", null, `${ordersToday} of ${risk.max_orders_per_day}`)}
     <span class="card-kicker" style="margin-top:6px">${tip("Drawdown ladder", "Drawdown is the fall from the highest account value so far. Each rung is a level at which the desk reacts.")} · current drawdown ${pct(dd, 2)} <em>(${marks.length} saved reading${marks.length === 1 ? "" : "s"})</em></span>
     <div class="ladder">
-      ${ddRung("Alert", risk.soft_drawdown_pct)}
-      ${ddRung("Auto-halt", risk.hard_drawdown_pct)}
-      ${ddRung("Daily stop", risk.daily_loss_limit_pct)}
+      ${ddRung("Warning", risk.soft_drawdown_pct)}
+      ${ddRung("Desk stops buying", risk.hard_drawdown_pct)}
+      ${ddRung("Max loss in a day", risk.daily_loss_limit_pct)}
     </div>`;
 }
 
@@ -1736,7 +1814,7 @@ function renderDonut() {
       ${arcs.join("")}
       ${chips.join("")}
       <text x="70" y="66" text-anchor="middle" style="fill:var(--ink)" font-size="15" font-weight="600" font-family="IBM Plex Mono, monospace">${snap.positions.length}</text>
-      <text x="70" y="82" text-anchor="middle" style="fill:var(--muted)" font-size="8.5" letter-spacing="1">HOLDINGS + CASH</text>
+      <text x="70" y="82" text-anchor="middle" style="fill:var(--muted)" font-size="8.5" letter-spacing="1">HOLDINGS AND CASH</text>
     </svg>
     <ul class="donut-legend">${legend}</ul>`;
 }
@@ -1772,12 +1850,38 @@ function renderPositions() {
   });
 }
 
+// A requested or submitted order from an earlier ET day is not live any more: a day order expires at the
+// close, and a request that was never sent was replaced by a later order. The feed has no newer record,
+// so the page says "not confirmed" instead of counting it as working.
+function orderIsStale(o) {
+  if (!["requested", "submitted"].includes(o.status)) return false;
+  const feedDay = etDateStr(STATE.generated_at);
+  const day = etDateStr(o.requested_ts);
+  return !!day && !!feedDay && day < feedDay;
+}
+function orderStatusHtml(o) {
+  if (orderIsStale(o)) {
+    const sent = o.status === "submitted";
+    const label = sent ? "Expired · unconfirmed" : "Not sent";
+    const why = sent
+      ? "Sent to the broker on an earlier day; no fill or cancel is recorded in the feed. A day order expires at the close."
+      : "Requested on an earlier day but never sent to the broker; a later order handled this position.";
+    return `<span class="chip status-stale" title="${esc(why)}">${label}</span>`;
+  }
+  return `<span class="chip status-${o.status}">${esc(STATUS_LABEL[o.status] || o.status)}</span>${o.order_id ? "" : '<div class="dim mono">No broker id</div>'}`;
+}
+
 function renderOrders() {
   const all = (STATE.orders || []).filter((o) => !deskAcct || o.account === deskAcct);
-  const working = all.filter((o) => ["requested", "submitted"].includes(o.status)).length;
+  const open = all.filter((o) => ["requested", "submitted"].includes(o.status));
+  const working = open.filter((o) => !orderIsStale(o)).length;
+  const stale = open.length - working;
   const el = $("#working-orders");
-  el.textContent = working === 0 ? "No working orders - every order has settled" : `${working} working order${working === 1 ? "" : "s"}`;
+  el.textContent = working === 0
+    ? (stale ? `No working orders · ${stale} unconfirmed from an earlier day` : "No working orders - every order has settled")
+    : `${working} working order${working === 1 ? "" : "s"}`;
   el.className = "chip " + (working === 0 ? "ok-chip" : "provisional");
+  el.title = stale ? "An order requested on an earlier day with no fill or cancel recorded. A day order expires at that day's close; the next feed publish confirms it." : "";
   const orders = all.slice().reverse();
   $("#order-rows").innerHTML = orders.map((o) => {
     const note = [ucfirst(o.reason), o.authorization && o.authorization !== "manual" ? `approved via ${o.authorization}` : ""]
@@ -1793,7 +1897,7 @@ function renderOrders() {
       <td class="num">${o.limit_price != null ? money(o.limit_price) : "market"}</td>
       <td class="num">${o.fill_price != null ? money(o.fill_price) : "-"}</td>
       <td class="num">${o.max_loss != null ? money(o.max_loss) : "-"}</td>
-      <td><span class="chip status-${o.status}">${esc(STATUS_LABEL[o.status] || o.status)}</span>${o.order_id ? "" : '<div class="dim mono">No broker id</div>'}</td>
+      <td>${orderStatusHtml(o)}</td>
       <td class="notes-cell" title="${esc(note)}">${esc(note || "-")}</td>
     </tr>`;
   }).join("") || '<tr><td colspan="11" class="empty-row">No orders for this account yet.</td></tr>';
@@ -1956,7 +2060,49 @@ function cardStatusHtml(name) {
     ? `Next run ${dateLabel(next)} ${etHHMM(next)} ET, in <b class="mono" data-countdown="${nextT}">${fmtCountdown(nextT - Date.now())}</b>`
     : "no upcoming run reported";
   const reason = !active && card.paused_reason ? ` (${esc(card.paused_reason)})` : "";
-  return `<div class="dim cal-card-status"><span class="sched-pill ${active ? "active" : "paused"}"><i></i>${esc(ucfirst(card.status || "unknown"))}${reason}</span> ${active ? when : ""}</div>`;
+  // Today by the real clock, not the published calendar: the feed can be days old.
+  const today = etDateStr(new Date().toISOString()) || "";
+  let role = "";
+  if (card.window && today) {
+    const [ws, we] = String(card.window).split("..");
+    if (ws && !we) role = today >= ws ? '<span class="chip ok-chip">Running now · no end date</span>' : `<span class="chip dry">Starts ${dateLabel(ws + "T12:00:00Z")}</span>`;
+    else if (ws && we) {
+      if (today >= ws && today <= we) role = '<span class="chip ok-chip">Runs this month</span>';
+      else if (today < ws) role = `<span class="chip dry">Takes over ${dateLabel(ws + "T12:00:00Z")}</span>`;
+      else role = '<span class="chip">Window ended</span>';
+    }
+  }
+  return `<div class="dim cal-card-status">${role}<span class="sched-pill ${active ? "active" : "paused"}"><i></i>${esc(ucfirst(card.status || "unknown"))}${reason}</span> ${active ? when : ""}</div>`;
+}
+
+// One row per wake-up time of each live card, derived from the card's own cron and next runs.
+// Phase and activity come from the published day timeline so the table stays in the desk's words.
+function liveScheduleRows(cal) {
+  const cards = (AUTO?.schedules || []).filter((c) => c && c.cron);
+  const tl = cal?.timeline || [];
+  const phaseAt = (hhmm) => (tl.find((seg) => hhmm >= seg.start && hhmm < seg.end) || {}).phase || "closed";
+  const activityOf = (phase) => ((cal?.phase_strategies || []).find((p) => p.phase === phase) || {}).activity || "noop";
+  const rows = [];
+  for (const card of cards) {
+    const parts = String(card.cron).trim().split(/\s+/);
+    if (parts.length < 5) continue;
+    const [min, hours, dom, , dow] = parts;
+    const hourList = hours.split(",").map((h) => parseInt(h, 10)).filter((h) => !Number.isNaN(h)).sort((a, b) => a - b);
+    const days = dom === "*" && /^1-5$/.test(dow) ? "Mon–Fri" : dom === "*" && dow === "*" ? "Every day" : card.window || "-";
+    for (const h of hourList) {
+      const et = `${String(h).padStart(2, "0")}:${String(parseInt(min, 10) || 0).padStart(2, "0")}`;
+      // Singapore time from a real upcoming fire at this ET hour, so DST is handled by the clock, not by arithmetic.
+      const fire = (card.next_runs || []).find((iso) => etHHMM(iso) === et);
+      let sgt = "-";
+      if (fire) {
+        const sameDay = etDateStr(fire) === sgtDateStr(fire);
+        sgt = sgtHHMM(fire) + (sameDay ? "" : " (+1d)");
+      }
+      const phase = phaseAt(et);
+      rows.push({ name: card.name, window: card.window, timezone: card.timezone, cron: card.cron, phase, activity: activityOf(phase), et_time: et, sgt_time: sgt, days });
+    }
+  }
+  return rows;
 }
 
 function renderCalendar() {
@@ -2039,39 +2185,57 @@ function renderCalendar() {
   const ahead = (cal.upcoming || []).map((u) => {
     const dd = new Date(u.date + "T12:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
     if (u.closed) return `<span class="cal-day closed"><b>${dd}</b><span>${esc(u.closed)}</span></span>`;
-    const n = (u.events || []).length;
-    const sub = u.half_day ? "Half day" : n ? `${n} event${n > 1 ? "s" : ""}` : "Clear";
-    return `<span class="cal-day${u.half_day ? " half" : ""}${n ? " has-event" : ""}"><b>${dd}</b><span>${sub}</span></span>`;
+    const names = (u.events || []).map((e) => typeof e === "string" ? e : e.name).filter(Boolean);
+    const n = names.length;
+    const parts = [];
+    if (u.half_day) parts.push("Half day · closes 13:00 ET");
+    if (n) parts.push(names.join(" · "));
+    if (u.earnings_season) parts.push(u.earnings_season);
+    const sub = parts.length ? parts.join(" · ") : "No scheduled events";
+    return `<span class="cal-day${u.half_day ? " half" : ""}${n ? " has-event" : ""}" title="${esc(sub)}"><b>${dd}</b><span>${esc(sub)}</span></span>`;
   }).join("");
   $("#cal-aware").innerHTML =
     `<div class="cal-aware-row"><span class="cal-aware-label">Today</span><div class="cal-aware-items">${today}</div></div>` +
     `<div class="cal-aware-row"><span class="cal-aware-label">Ahead</span><div class="cal-aware-items cal-days">${ahead}</div></div>`;
 
-  // The gate's own window, not the table's: each card row below carries the window the card declares.
-  $("#cal-window").textContent = `Gate window ${cal.window.start} to ${cal.window.end}`;
-  let lastCard = null;
-  $("#cal-cron-rows").innerHTML = (cal.schedules || []).map((s) => {
-    const meta = PHASE_META[s.phase] || { name: "unknown", hue: "var(--faint)" };
-    const grouped = s.name !== lastCard;
-    lastCard = s.name;
-    const who = grouped
-      ? `<strong style="font-size:12px">${esc(s.name)}</strong><div class="dim mono">${esc(s.window || "-")} · ${esc(s.timezone || "UTC")}</div>${cardStatusHtml(s.name)}`
-      : '<span class="dim">Same card</span>';
-    return `<tr class="${grouped ? "cal-cron-group" : ""}">
-      <td>${who}</td>
-      <td><span class="cal-cron mono">${esc(s.cron)}</span></td>
-      <td><span class="cal-phase-tag" style="--seg-hue:${meta.hue}">${meta.name}</span></td>
-      <td><span class="cal-activity ${s.activity}">${ACTIVITY_LABEL[s.activity] || s.activity}</span></td>
-      <td class="mono" style="font-size:11px">${esc(s.et_time)}</td>
-      <td class="mono" style="font-size:11px">${esc(s.sgt_time || "-")}</td>
-      <td class="num">${s.days ?? "-"}</td>
-    </tr>`;
-  }).join("") || '<tr><td colspan="7" class="empty-row">No cards read, so there is no cadence to show - the desk does not draw one from a remembered model.</td></tr>';
-  $("#cal-cron-note").textContent =
-    "Each row is one run time of one automation card, in the card's own timezone and in Singapore time. " +
-    "At 08:05 ET the desk plans, at 12:05 it monitors, and at 15:05 it trades. When two cards overlap around a " +
-    "month change, the one whose date window includes today is the one that runs. Times come straight from the " +
-    "cloud cards - if they cannot be read, this table stays empty and says so.";
+  // The live cards win: the published calendar's schedule list is a snapshot from publish time and
+  // can still name cards that have since been archived.
+  const scheduleRows = liveScheduleRows(cal);
+  const rows = scheduleRows.length ? scheduleRows : (cal.schedules || []);
+  const byCard = new Map();
+  for (const r of rows) { if (!byCard.has(r.name)) byCard.set(r.name, []); byCard.get(r.name).push(r); }
+  const DOES = { plan: "Makes the plan for the day", monitor: "Checks every holding against its stop and target", active: "Places the trades", reconcile: "Checks the books", noop: "Rests" };
+  const panels = [];
+  for (const [name, fires] of byCard) {
+    const card = (AUTO?.schedules || []).find((c) => c.name === name) || {};
+    const days = fires[0]?.days || "-";
+    const tiles = fires.map((f) => {
+      const meta = PHASE_META[f.phase] || { name: "unknown", hue: "var(--faint)" };
+      return `<div class="timer-fire" style="--seg-hue:${meta.hue}">
+        <div class="timer-fire-ny"><b class="mono">${esc(f.et_time)}</b> New York</div>
+        <div class="timer-fire-sg dim"><span class="mono">${esc(String(f.sgt_time || "-").replace(/\s*\(\+1d\)/, ""))}</span> Singapore${/\+1d/.test(f.sgt_time || "") ? " (next day)" : ""}</div>
+        <div class="timer-fire-what"><span class="cal-phase-tag" style="--seg-hue:${meta.hue}">${meta.name}</span> <span class="cal-activity ${f.activity}">${ACTIVITY_LABEL[f.activity] || f.activity}</span></div>
+        <div class="dim">${esc(DOES[f.activity] || "")}</div>
+      </div>`;
+    }).join("");
+    const dayWords = days === "Mon–Fri" ? "every weekday (Monday to Friday)" : days === "Every day" ? "every day" : `on ${days}`;
+    const times = fires.length === 1 ? "once" : fires.length === 2 ? "twice" : `${fires.length} times`;
+    panels.push(`<div class="timer-card">
+      <div class="timer-card-head">
+        <div><div class="timer-card-name">${esc(name)}</div>
+        <div class="dim">Wakes the desk ${times} ${dayWords}. It skips weekends and US market holidays by itself.</div></div>
+        ${cardStatusHtml(name)}
+      </div>
+      <div class="timer-fires">${tiles}</div>
+      <div class="dim mono timer-card-rule" title="The timing rule written the way computers read it: minute, hour, day of month, month, weekday">Timer rule ${esc(fires[0]?.cron || card.cron || "-")} · ${esc(fires[0]?.timezone || card.timezone || "UTC")}</div>
+    </div>`);
+  }
+  $("#cal-cards").innerHTML = panels.join("") || '<p class="empty-row">No timer card could be read, so there is nothing to show here.</p>';
+  $("#cal-cron-note").textContent = scheduleRows.length
+    ? (byCard.size === 1
+      ? "This is the only timer card. The three times come straight from the live card, so what you see here is what will run."
+      : `${byCard.size} timer cards are switched on. Each one is shown with its own wake-up times, read from the live card.`)
+    : "The live cards could not be read, so this shows the schedule as it was when the data was last published.";
 
   const wl = cal.watchlist;
   const wlWrap = $("#cal-watchlist-wrap");
@@ -2131,16 +2295,24 @@ function renderAutomation() {
         : '<span class="dim">No upcoming run reported by the card</span>'}</td>
     </tr>`;
   }).join("") || '<tr><td colspan="4" class="empty-row">No automation card returned - the cloud API was unreachable, or no card has been built for this window.</td></tr>';
-  const sessions = allSessions;
-  const credits = sessions.reduce((a, s) => a + (s.usage?.total_credits || 0), 0);
+  const cardRuns = allSessions.filter((s) => s.origin === "card" || s.origin === "scout");
+  const sessions = SHOW_ALL_RUNS || !cardRuns.length ? allSessions : cardRuns;
+  const credits = allSessions.reduce((a, s) => a + (s.usage?.total_credits || 0), 0);
   $("#credits-total").textContent = `${credits.toLocaleString("en-US", { maximumFractionDigits: 1 })} credits in total`;
+  const toggle = $("#runs-toggle");
+  if (toggle) {
+    const extra = allSessions.length - cardRuns.length;
+    toggle.hidden = !cardRuns.length || extra <= 0;
+    toggle.textContent = SHOW_ALL_RUNS ? "Show timer-card runs only" : `Show ${extra} other run${extra === 1 ? "" : "s"} (tests and checks)`;
+    toggle.onclick = () => { SHOW_ALL_RUNS = !SHOW_ALL_RUNS; renderAutomation(); };
+  }
   $("#session-rows").innerHTML = sessions.map((s) => {
     const st = s.status || "unknown";
     return `<tr title="${esc("Run id " + s.id)}">
       <td><strong style="font-size:12px">${esc(s.title || s.id)}</strong></td>
       <td style="color:var(--muted)">${esc(ORIGIN_LABEL[s.origin] || ucfirst(s.origin) || "-")}</td>
       <td><span class="sess-status ${esc(st)}"><i></i>${esc(ucfirst(st))}</span></td>
-      <td>${s.deployment_id ? `<span class="chip dry" title="${esc("Card " + s.deployment_id)}">Cadence card</span>` : '<span class="dim">-</span>'}</td>
+      <td>${s.deployment_id ? `<span class="chip dry" title="${esc("Card " + s.deployment_id)}">Timer card</span>` : '<span class="dim">-</span>'}</td>
       <td class="num">${(s.usage?.total_credits ?? 0).toFixed(1)}</td>
       <td class="num">${fmtDur(s.stats?.active_seconds)}</td>
       <td class="mono" style="font-size:10.5px">${dualCell(s.created_at)}</td>
@@ -2176,9 +2348,11 @@ function renderInstrumentation() {
 function renderFooter() {
   const list = $("#divergence-list");
   if (list) {
-    list.innerHTML = (STATE.divergences || []).map((d, i) =>
-      `<div class="info-row"><span class="info-k">Gap ${i + 1}</span><span class="info-v">${esc(d)}</span></div>`).join("")
-      || '<div class="info-row"><span class="info-v">No open gaps recorded.</span></div>';
+    list.innerHTML = (STATE.divergences || []).map((d, i) => {
+      if (typeof d === "string") return `<div class="info-row"><span class="info-k">Gap ${i + 1}</span><span class="info-v">${esc(d)}</span></div>`;
+      const kind = d.kind === "open" ? '<span class="chip provisional">Open gap</span>' : '<span class="chip dry">By design</span>';
+      return `<div class="info-row"><span class="info-k">${kind}</span><span class="info-v"><strong>${esc(d.title)}</strong><br>${esc(d.text)}${d.next ? `<br><span class="dim">Next: ${esc(d.next)}</span>` : ""}</span></div>`;
+    }).join("") || '<div class="info-row"><span class="info-v">No open gaps recorded.</span></div>';
   }
   const chain = $("#chain-row");
   if (chain) {
@@ -2234,6 +2408,8 @@ function renderAll() {
   safeRender("instrumentation", renderInstrumentation);
   safeRender("footer", renderFooter);
   safeRender("operator", renderOperator);
+  safeRender("closed-trades", renderClosedTrades);
+  safeRender("stale-banner", renderStaleBanner);
   if (AUTO) {
     safeRender("calendar", renderCalendar);
     safeRender("automation", renderAutomation);

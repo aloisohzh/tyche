@@ -1638,15 +1638,42 @@ def build_state() -> dict:
         "live_note": live_note,
         "capture": capture.get("capture_dir") if capture else None,
     }
+    # Each entry says what the desk does instead and what it means for the reader. "design" is a deliberate
+    # choice that is not going to change; "open" is work that is still to be done.
     divergences = [
-        "The simulator has no broker stop orders, so protection uses monitored exit plans and defined-risk options instead.",
-        "No direct shorting (margin costs and forced-liquidation risk) - defined-risk puts are used instead.",
+        {
+            "kind": "design",
+            "title": "Stops are watched by the desk, not held at the broker",
+            "text": "The paper simulator cannot hold stop orders. Every open position carries a stop and target in the "
+                    "journal, and each scheduled run checks the price against them and sells what has breached. "
+                    "Between runs a stop is not watched, so a fast move can go further than the stop before the next run acts.",
+            "next": "A continuous price monitor between runs is on the backlog (P2).",
+        },
+        {
+            "kind": "design",
+            "title": "No short selling",
+            "text": "The rules forbid shorting (margin cost and forced-liquidation risk). A bearish view is expressed "
+                    "with a long put, where the most that can be lost is the premium paid.",
+            "next": None,
+        },
     ]
+    divergences.append({
+        "kind": "open",
+        "title": "The numbers on this site are published by hand",
+        "text": "The desk writes its journal to a private drive. A publish script copies a safe, redacted version of "
+                "the numbers to this site, and today a person has to run it. Refresh can only check whether a newer "
+                "publish exists.",
+        "next": "Let the desk push to the repo, then add the publish script as the last step of every run.",
+    })
     if cloud and plan_acct != primary:
-        divergences.append(
-            f"Challenge plans stay in the private Drive locker; the public feed carries sanitized snapshots and broker order history. "
-            f"The Strategy view shows the latest journal plan (account {plan_acct}) until challenge plans are published."
-        )
+        divergences.append({
+            "kind": "open",
+            "title": "Challenge trade plans are not in the public feed yet",
+            "text": f"Challenge plans stay in the private Drive locker; the public feed carries sanitized account readings "
+                    f"and broker order history. The Strategy page shows the latest journal plan (account {plan_acct}) "
+                    f"until challenge plans are published.",
+            "next": "Publish sanitized challenge plans with the data feed.",
+        })
     halt_timeline = [
         {"ts": ev["ts"], "type": ev["type"], "payload": ev["payload"]}
         for ev in EVENTS
@@ -1697,6 +1724,9 @@ def build_state() -> dict:
                 "expectancy_pct": exp_report.expectancy_pct,
                 "pnl_net": exp_report.pnl_net,
                 "fees_total": exp_report.fees_total,
+                # Every closed round trip behind the realized figures, so the desk can show which trades
+                # the win rate and realized P&L are made of instead of a bare count.
+                "closed_trades": [t.model_dump() for t in exp_report.closed_trades],
                 "unattributed_fills": exp_report.unattributed_fills,
                 "open_lots": [lot.model_dump(mode="json") for lot in exp_report.open_lots],
                 "sleeves": [

@@ -168,3 +168,16 @@ def test_proposal_approval_is_explicit_numbered_and_never_automatic():
     assert _module().prompt_markers(prompt)["has_proposal_approval"]
     # The midday clause is untouched by the addition.
     assert "MIDDAY (12:05 ET, WATCH AND SHOUT ONLY)" in prompt
+
+
+def test_feed_publish_is_the_last_step_and_never_a_trading_step():
+    """The hosted page is only as fresh as the last publish; the card runs the script after the digest,
+    once, and a failure is reported, not retried or patched by hand."""
+    prompt = _module().card_prompt(PERMANENT)
+    clause = " ".join(prompt.split("PUBLISH (2026-11-23):", 1)[1].split())
+    for must in ("very last step", "after the digest is sent", "python scripts/publish_desk_data.py",
+                 "Run it once", "never retry in a loop", "never edit the feed files by hand",
+                 "never print a token", "places no order and changes no rule"):
+        assert must in clause, must
+    assert prompt.index("REPORT:") < prompt.index("PUBLISH (2026-11-23):")
+    assert _module().prompt_markers(prompt)["has_feed_publish"]
