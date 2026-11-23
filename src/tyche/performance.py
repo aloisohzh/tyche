@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import csv
 import math
+import re
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
@@ -35,6 +36,7 @@ class DayRow:
     benchmark_close: float | None
     benchmark_return: float | None  # cumulative, from the base close
     active_return: float | None  # desk cumulative minus benchmark cumulative
+    basis: str = "start"  # close (EOD reconcile), plan (pre-trade NAV), feed (published mark, may be intraday)
 
 
 @dataclass
@@ -76,23 +78,76 @@ def _as_day(value: Any) -> date | None:
         return None
 
 
-def account_days_from_journal(events: list[dict[str, Any]]) -> dict[date, float]:
+def account_key(value: Any) -> str | None:
+    """The desk's masked form of an account id: `***` plus the last three digits.
+
+    The live journal holds full ids in `plan.account_id` and `...598`-style masks in order rows; the
+    feed keys its marks `***598`. A value with no digits at all (a sanitized bundle's `[REDACTED]`, a
+    demo alias) cannot be matched and comes back as itself.
+    """
+    if value in (None, ""):
+        return None
+    text = str(value)
+    if re.fullmatch(r"\d{6,}", text) or re.fullmatch(r"[.*]+\d{3}", text):
+        return "***" + text[-3:]
+    return text
+
+
+def _same_account(row_value: Any, account: str | None) -> bool:
+    """True when the row belongs to `account`, or when neither side can say (no digits to compare).
+
+    A journal shared by the challenge account and the personal paper account (ten times the size)
+    must not mix their marks: one personal-account plan row read as the 17 Nov mark would put a
+    -90% drawdown on the challenge book. A row whose id is redacted is kept, because a sanitized
+    bundle has nothing else, and that is stated in the report's method notes.
+    """
+    key = account_key(row_value)
+    want = account_key(account)
+    if key is None or want is None or not key.startswith("***") or not want.startswith("***"):
+        return True
+    return key == want
+
+
+def mark_basis_from_journal(events: list[dict[str, Any]], account: str | None = None) -> dict[date, str]:
+    """What kind of mark the journal gives each day: `close` for an EOD reconcile, `plan` for a pre-trade NAV."""
+    basis: dict[date, str] = {}
+    for ev in events:
+        payload = ev.get("payload") or {}
+        if ev.get("type") == "plan.created":
+            plan = payload.get("plan") or {}
+            day = _as_day(plan.get("as_of"))
+            if day is not None and plan.get("nav") is not None and _same_account(plan.get("account_id"), account):
+                basis.setdefault(day, "plan")
+    for ev in events:
+        payload = ev.get("payload") or {}
+        if ev.get("type") == "eod.reconcile":
+            day = _as_day(payload.get("date"))
+            if day is not None and payload.get("nav") is not None and _same_account(payload.get("account"), account):
+                basis[day] = "close"
+    return basis
+
+
+def account_days_from_journal(events: list[dict[str, Any]], account: str | None = None) -> dict[date, float]:
     """One account value per day from the journal: the EOD reconcile wins, a plan's NAV is the fallback.
 
     `eod.reconcile.nav` is the broker's total asset after the close, which is the number the final
     results use. `plan.created.plan.nav` is a pre-trade mark, so it only stands in for a day that
-    never reconciled.
+    never reconciled. Rows for another account are dropped (see `_same_account`).
     """
     reconciled: dict[date, float] = {}
     planned: dict[date, float] = {}
     for ev in events:
         payload = ev.get("payload") or {}
         if ev.get("type") == "eod.reconcile":
+            if not _same_account(payload.get("account"), account):
+                continue
             day = _as_day(payload.get("date"))
             if day is not None and payload.get("nav") is not None:
                 reconciled[day] = float(payload["nav"])
         elif ev.get("type") == "plan.created":
             plan = payload.get("plan") or {}
+            if not _same_account(plan.get("account_id"), account):
+                continue
             day = _as_day(plan.get("as_of"))
             if day is not None and plan.get("nav") is not None:
                 planned[day] = float(plan["nav"])  # later rows overwrite earlier ones
@@ -218,11 +273,13 @@ def build_pack(
     fee_net_series: list[dict[str, Any]] | None = None,
     base_day: date | None = None,
     sources: list[str] | None = None,
+    mark_basis: dict[date, str] | None = None,
 ) -> Pack:
     """Assemble the pack. The series starts at `start_nav` on `start_day` and then holds one point per
     day the record marked; the SPY baseline is $start_nav put into SPY at the base day's close
     (the start day unless `base_day` says otherwise) and marked at each later close."""
     days = {d: v for d, v in account_days.items() if d >= start_day}
+    days_marked = set(days)
     days.setdefault(start_day, start_nav)
     ordered = sorted(days)
 
@@ -258,6 +315,7 @@ def build_pack(
             benchmark_close=close,
             benchmark_return=bench_ret,
             active_return=(cum - bench_ret) if bench_ret is not None else None,
+            basis="start" if (day == start_day and day not in days_marked) else (mark_basis or {}).get(day, "feed"),
         ))
         prev = nav
 
@@ -347,14 +405,21 @@ def render_markdown(pack: Pack, *, order_cap: int = 200, internal_budget: int | 
     # Daily table
     lines.append("## Daily marks against SPY")
     lines.append("")
-    lines.append("| Date | Account value | Day | Since start | Drawdown | SPY close | SPY since base | Desk minus SPY |")
-    lines.append("|---|---:|---:|---:|---:|---:|---:|---:|")
+    lines.append("| Date | Account value | Mark | Day | Since start | Drawdown | SPY close | SPY since base | Desk minus SPY |")
+    lines.append("|---|---:|---|---:|---:|---:|---:|---:|---:|")
     for r in pack.rows:
         lines.append(
-            f"| {r.day.isoformat()} | {_money(r.nav)} | {_pct(r.daily_return)} | {_pct(r.cumulative_return)} | "
+            f"| {r.day.isoformat()} | {_money(r.nav)} | {r.basis} | {_pct(r.daily_return)} | {_pct(r.cumulative_return)} | "
             f"{_pct(r.drawdown)} | {_money(r.benchmark_close)} | {_pct(r.benchmark_return)} | {_pct(r.active_return)} |"
         )
     lines.append("")
+    if any(r.basis == "feed" for r in pack.rows):
+        feed_days = ", ".join(r.day.isoformat() for r in pack.rows if r.basis == "feed")
+        lines.append(f"Mark basis: `close` is the broker's total asset at the EOD reconcile, `plan` a pre-trade NAV, "
+                     f"`feed` the last published desk mark for that date, which can be an intraday capture. "
+                     f"SPY is always the close, so a `feed` row ({feed_days}) compares an intraday desk mark with a "
+                     "closing SPY price; read its last column as approximate until that day reconciles.")
+        lines.append("")
     if pack.benchmark_base_day is None:
         lines.append("No SPY close on or before the start day was found in the price files, so there is no baseline. "
                      "Add a `date,symbol,close` CSV that holds `US.SPY` (`tyche fetch US.SPY`, or the researcher's "
@@ -418,7 +483,9 @@ def render_markdown(pack: Pack, *, order_cap: int = 200, internal_budget: int | 
     lines.append("## How to read it")
     lines.append("")
     lines.append("- Account value per day is the broker's total asset from `eod.reconcile`; a day with no reconcile "
-                 "uses the last published desk mark for that date, and a day with neither is left out, never carried.")
+                 "uses the last published desk mark for that date, and a day with neither is left out, never carried. "
+                 "Journal rows for another account are dropped by their masked id; a row whose id is redacted "
+                 "(sanitized bundles) is kept.")
     lines.append("- The SPY baseline is the same starting cash put into SPY at the base day's close with no fees, "
                  "which flatters SPY slightly; it is the bar, not a strategy.")
     lines.append("- Returns are fee-net because the account value already carries the modelled fees reconciled to cash.")
@@ -439,7 +506,7 @@ def to_json(pack: Pack) -> dict[str, Any]:
         "benchmark": {"symbol": BENCHMARK, "base_day": pack.benchmark_base_day.isoformat() if pack.benchmark_base_day else None,
                       "base_close": pack.benchmark_base_close,
                       "missing_days": [d.isoformat() for d in pack.missing_benchmark_days]},
-        "rows": [{"day": r.day.isoformat(), "nav": r.nav, "daily_return": r.daily_return,
+        "rows": [{"day": r.day.isoformat(), "nav": r.nav, "basis": r.basis, "daily_return": r.daily_return,
                   "cumulative_return": r.cumulative_return, "drawdown": r.drawdown,
                   "benchmark_close": r.benchmark_close, "benchmark_return": r.benchmark_return,
                   "active_return": r.active_return} for r in pack.rows],

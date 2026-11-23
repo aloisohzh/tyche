@@ -17,8 +17,10 @@ from tyche.journal import append_event
 from tyche.performance import (
     account_days_from_feed,
     account_days_from_journal,
+    account_key,
     benchmark_closes,
     build_pack,
+    mark_basis_from_journal,
     max_drawdown,
     orders_per_day,
     rejections,
@@ -181,3 +183,40 @@ def test_cli_refuses_a_broken_chain_unless_told_it_is_a_sanitized_copy(tmp_path:
     allowed = CliRunner().invoke(app, ["performance", "report", "--journal", str(journal), "--feed", "none.json",
                                        "--skip-verify", "--start", "2026-11-17", "--start-nav", "1.0"])
     assert allowed.exit_code == 0 and "| 2026-11-18 | 1.00 |" in allowed.output
+
+
+def test_journal_rows_for_another_account_are_dropped_by_masked_id():
+    """The laptop journal holds plans for the personal paper account (~999k) beside the challenge
+    account; one of those rows read as the 17 Nov mark put a -90% drawdown on the challenge book."""
+    rows = [
+        {"ts": "2026-11-17T13:00:00+00:00", "type": "plan.created",
+         "payload": {"plan": {"as_of": "2026-11-17", "nav": 999056.26, "account_id": "123456748", "orders": []}}},
+        {"ts": "2026-11-17T14:00:00+00:00", "type": "plan.created",
+         "payload": {"plan": {"as_of": "2026-11-17", "nav": 100000.0, "account_id": "123456598", "orders": []}}},
+        {"ts": "2026-11-18T21:00:00+00:00", "type": "eod.reconcile",
+         "payload": {"date": "2026-11-18", "nav": 999100.0, "account": "...748"}},
+        {"ts": "2026-11-18T21:30:00+00:00", "type": "eod.reconcile",
+         "payload": {"date": "2026-11-18", "nav": 99914.93, "account": "...598"}},
+        {"ts": "2026-11-19T13:00:00+00:00", "type": "plan.created",
+         "payload": {"plan": {"as_of": "2026-11-19", "nav": 99927.13, "account_id": "[REDACTED]", "orders": []}}},
+    ]
+    assert account_key("123456598") == "***598" and account_key("...598") == "***598"
+    assert account_key("***598") == "***598" and account_key("[REDACTED]") == "[REDACTED]"
+    assert account_days_from_journal(rows, "***598") == {D17: 100000.0, D18: 99914.93, D19: 99927.13}
+    assert account_days_from_journal(rows, "***748") == {D17: 999056.26, D18: 999100.0, D19: 99927.13}
+    assert account_days_from_journal(rows)[D18] == 99914.93  # no filter: last row wins, as before
+
+
+def test_each_mark_says_what_it_is_and_feed_rows_carry_the_intraday_caveat():
+    basis = mark_basis_from_journal(events(), "***598")
+    assert basis == {D17: "plan", D18: "close", D19: "plan"}
+    pack = build_pack(account="***598", start_day=D17, start_nav=100000.0,
+                      account_days={D18: 99000.0, D19: 99500.0, D20: 98000.0},
+                      benchmark={D17: 700.0, D20: 707.0}, events=events(), mark_basis=basis)
+    assert [r.basis for r in pack.rows] == ["start", "close", "plan", "feed"]
+    text = render_markdown(pack)
+    assert "| 2026-11-20 | 98,000.00 | feed |" in text
+    assert "a `feed` row (2026-11-20) compares an intraday desk mark" in text
+    pack2 = build_pack(account="a", start_day=D17, start_nav=1.0, account_days={D18: 1.0}, benchmark={}, events=[],
+                       mark_basis={D18: "close"})
+    assert "Mark basis" not in render_markdown(pack2)

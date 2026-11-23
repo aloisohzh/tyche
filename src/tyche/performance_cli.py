@@ -21,6 +21,7 @@ from tyche.performance import (
     account_days_from_journal,
     benchmark_closes,
     build_pack,
+    mark_basis_from_journal,
     render_markdown,
     to_json,
 )
@@ -82,7 +83,7 @@ def report(
     acct = account or _challenge_account(state) or "challenge"
 
     days = account_days_from_feed(state, acct) if state else {}
-    days.update(account_days_from_journal(events))  # reconcile rows win over published marks
+    days.update(account_days_from_journal(events, acct))  # reconcile rows win over published marks
 
     paths: list[Path] = []
     for pattern in prices:
@@ -102,6 +103,7 @@ def report(
         fee_net_series=((state.get("expectancy") or {}).get("fee_net_series") or []) if state else [],
         base_day=date.fromisoformat(base) if base else None,
         sources=sources,
+        mark_basis=mark_basis_from_journal(events, acct),
     )
     text = render_markdown(pack, order_cap=order_cap, internal_budget=internal_budget)
     if out is None:
