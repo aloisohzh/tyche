@@ -16,6 +16,8 @@ Run: .venv/Scripts/python.exe scripts/deploy_two_fire_automation.py [--start 202
   that both fire are two writers (STATE below), so pause the old card first, then create.
 Update a live card's prompt only: ... --apply-update <deployment_id>
   (its cron and metadata are re-sent exactly as the platform holds them; only initial_events moves)
+Copy a secret from .env into the desk environment: ... --set-env TYCHE_GITHUB_PAT
+  (merges into the environment's variables; prints key names only, never values)
 Any card write lands between fires only, with the operator's explicit go: the 2026-11-22 PROPOSAL
 APPROVAL paragraph (Telegram wait-for-reply) is in this file but is NOT on the live cards until that write.
 The two-mode wording (ASK ME / WITHIN MY BOUNDS, 2026-11-22) likewise waits for the operator's go between fires.
@@ -338,6 +340,23 @@ def environment_keys(values: dict[str, str]) -> set[str]:
     return set()
 
 
+def set_environment_variables(values: dict[str, str], new: dict[str, str]) -> set[str]:
+    """Merge `new` into the environment's variables, in whatever shape the platform returned them
+    (a dict, or "KEY=VALUE" lines), and return the key names the platform holds afterwards."""
+    current = req(values, "GET", f"/environments/{ENVIRONMENT_ID}")
+    existing = current.get("environment_variables")
+    if isinstance(existing, str):
+        merged = dict(row.split("=", 1) for row in existing.splitlines() if "=" in row)
+        merged.update(new)
+        payload: dict | str = "\n".join(f"{k}={v}" for k, v in merged.items())
+    else:
+        merged = dict(existing or {})
+        merged.update(new)
+        payload = merged
+    req(values, "POST", f"/environments/{ENVIRONMENT_ID}", {"environment_variables": payload})
+    return environment_keys(values)
+
+
 def missing_secret_keys(values: dict[str, str], inherited: set[str]) -> list[str]:
     return [key for key in SECRET_KEYS if key not in inherited]
 
@@ -439,6 +458,19 @@ def main() -> None:
     if "--check" in sys.argv:
         print(json.dumps({"environment_keys": sorted(inherited),
                           "missing_secret_keys": missing}, indent=2))
+        return
+    if "--set-env" in sys.argv:
+        # Copy named keys from the gitignored .env into the desk environment's variables. Values never
+        # reach stdout: only the key names after the write are printed. Used once for TYCHE_GITHUB_PAT.
+        keys = [a for a in sys.argv[sys.argv.index("--set-env") + 1:] if not a.startswith("--")]
+        if not keys:
+            raise SystemExit("--set-env needs at least one key name, e.g. --set-env TYCHE_GITHUB_PAT")
+        for key in keys:
+            if not values.get(key):
+                raise SystemExit(f"{key} missing from .env - add a line {key}=... to .env first")
+        after = set_environment_variables(values, {key: values[key] for key in keys})
+        print(json.dumps({"environment_id": ENVIRONMENT_ID, "environment_keys": sorted(after),
+                          "set": keys}, indent=2))
         return
     if "--verify" in sys.argv:
         deployment_id = sys.argv[sys.argv.index("--verify") + 1]

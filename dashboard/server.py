@@ -89,6 +89,7 @@ CONTRACT_FIELDS = [
     "invalidation", "protection_type", "roll_plan", "sizing", "initial_risk", "realized",
 ]
 STRATEGY_LABELS = {"PB-001": "Regime rotation (ETFs)", "PB-004": "Intraday breakout (scalp)"}
+SLEEVE_LABELS = {"intraday": "Intraday (scalps)", "real_asset": "Real assets"}
 
 
 def strategy_label(strategy_id: str | None, reason: str = "") -> str:
@@ -301,21 +302,114 @@ def derive_contract(card: dict, plan: dict | None, order_pipeline: dict | None =
             "filled": filled, "total": len(CONTRACT_FIELDS)}
 
 
-def build_instrumentation(cards: list[dict]) -> dict:
+def _is_option_symbol(symbol: str) -> bool:
+    """Moomoo option codes end in an expiry + C/P + strike, e.g. US.SPY260117C600000."""
+    return bool(re.search(r"\d{6}[CP]\d{4,}$", str(symbol or "")))
+
+
+def latest_research() -> dict | None:
+    """The newest researcher note the cloud desk pushed with a run bundle, summarised by counts only."""
+    if not PERF_DIR.is_dir():
+        return None
+    notes = sorted(PERF_DIR.glob("*/research/report.md"), key=lambda path: path.parent.parent.name)
+    if not notes:
+        return None
+    folder = notes[-1].parent
+
+    def _count(name: str, *keys: str) -> int:
+        path = folder / name
+        if not path.is_file():
+            return 0
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            return 0
+        for key in keys:
+            if isinstance(data, dict) and isinstance(data.get(key), list):
+                return len(data[key])
+        return 0
+
+    return {
+        "run": folder.parent.name,
+        "event_proposals": _count("event-proposals.json", "proposals"),
+        "trade_ideas": _count("tactical-proposals.json", "entries"),
+        "holding_reviews": _count("thesis-reviews.json", "reviews"),
+    }
+
+
+def fee_net_series(closed_trades: list[dict]) -> list[dict]:
+    """Results after fees, one row per day a trade finished, with the running total: the series the
+    EOD generator was meant to publish, built straight from the finished trades instead."""
+    by_day: dict[str, dict] = {}
+    for trade in sorted(closed_trades, key=lambda t: t.get("exit_ts") or ""):
+        day = str(trade.get("exit_ts") or "")[:10]
+        row = by_day.setdefault(day, {"date": day, "trades": 0, "gross": 0.0, "fees": 0.0, "net": 0.0})
+        row["trades"] += 1
+        row["gross"] += float(trade.get("pnl_gross") or 0)
+        row["fees"] += float(trade.get("fees") or 0)
+        row["net"] += float(trade.get("pnl_net") or 0)
+    running = 0.0
+    out = []
+    for day in sorted(by_day):
+        row = by_day[day]
+        running += row["net"]
+        out.append({**{k: (round(v, 4) if isinstance(v, float) else v) for k, v in row.items()},
+                    "cumulative_net": round(running, 4)})
+    return out
+
+
+def cross_cutting_rows(closed_trades: list[dict], runs: list[dict], positions: list[dict],
+                       research: dict | None) -> list[dict]:
+    """Whole-desk checks that used to be hard-coded gaps. Each is now worked out from the record where the
+    record allows it, and stays a gap, in plain words, where it does not."""
+    rows = []
+    if research:
+        rows.append({"field": "macro / sentiment / seasonality", "status": "derived",
+                     "note": (f"Latest research note is from run {research['run']}: {research['event_proposals']} "
+                              f"upcoming-event proposals, {research['trade_ideas']} trade ideas and "
+                              f"{research['holding_reviews']} reviews of current holdings. Holidays, half days and "
+                              "data releases are on the Schedule page.")})
+    else:
+        rows.append({"field": "macro / sentiment / seasonality", "status": "gap",
+                     "note": "The researcher has not published a note with a run yet."})
+    midday = [r for r in _challenge_runs(runs) if "midday" in r["run"]]
+    option_n = sum(1 for p in positions if _is_option_symbol(p.get("symbol")))
+    if midday:
+        last = midday[-1]
+        try:
+            when = date.fromisoformat(last["run"][:10]).strftime("%b %d")
+        except ValueError:
+            when = last["run"]
+        roll = (f"{option_n} option position{'s' if option_n != 1 else ''} to watch for a roll." if option_n
+                else "No option positions, so nothing to roll.")
+        rows.append({"field": "protection heartbeat / roll state", "status": "derived",
+                     "note": f"Last check of every holding against its stop and target: the midday run on {when}. "
+                             f"The desk repeats it at every 12:05 ET run. {roll}"})
+    else:
+        rows.append({"field": "protection heartbeat / roll state", "status": "gap",
+                     "note": "No midday check has run yet; the first one happens at the 12:05 ET run."})
+    series = fee_net_series(closed_trades)
+    if series:
+        net = series[-1]["cumulative_net"]
+        fees = sum(r["fees"] for r in series)
+        rows.append({"field": "fee-net performance series", "status": "derived",
+                     "note": f"Built from {len(closed_trades)} finished trade{'s' if len(closed_trades) != 1 else ''} over "
+                             f"{len(series)} day{'s' if len(series) != 1 else ''}: {'+' if net >= 0 else '-'}${abs(net):,.2f} "
+                             f"after ${fees:,.2f} of fees. Listed under Finished trades on the Trade ideas page."})
+    else:
+        rows.append({"field": "fee-net performance series", "status": "gap",
+                     "note": "No trade has finished yet, so there is no result after fees to show."})
+    return rows
+
+
+def build_instrumentation(cards: list[dict], cross: list[dict] | None = None) -> dict:
     rows = []
     for field in CONTRACT_FIELDS:
         provs = [c["contract"]["fields"][field]["provenance"] for c in cards if c.get("contract")]
         status = "journaled" if "journaled" in provs else "derived" if "derived" in provs else "gap"
         note = next((c["contract"]["fields"][field]["note"] for c in cards if c.get("contract")), "")
         rows.append({"field": field, "status": status, "note": note})
-    cross = [
-        {"field": "macro / sentiment / seasonality", "status": "gap",
-         "note": "Researcher-child briefs are not wired into the plan yet (P1)."},
-        {"field": "protection heartbeat / roll state", "status": "gap",
-         "note": "Synthetic-monitor heartbeat + option roll state panels (P2)."},
-        {"field": "fee-net performance series", "status": "gap",
-         "note": "EOD performance generator → docs/performance/<date>-metrics.md (P1)."},
-    ]
+    cross = list(cross or [])
     comps = [c["contract"]["completeness"] for c in cards if c.get("contract")]
     avg = sum(comps) / len(comps) if comps else 0.0
     counts = {"journaled": 0, "derived": 0, "gap": 0}
@@ -1562,6 +1656,7 @@ def build_state() -> dict:
     EVENTS = read_events(JOURNAL)
     exp_report = compute_expectancy(EVENTS, SLEEVE_MAP)
     sleeve_report = {s.sleeve: s for s in exp_report.sleeves}
+    closed_trades = [t.model_dump() for t in exp_report.closed_trades]
     ok, count, error = verify_chain(JOURNAL)
     halt = effective_halt(JOURNAL.parent, ROOT)
     risk = yaml.safe_load((ROOT / "config" / "risk.yaml").read_text(encoding="utf-8"))
@@ -1576,6 +1671,7 @@ def build_state() -> dict:
     # Precedence, not recency: the challenge feed stays primary and the local
     # drill snapshot is only a fallback.
     snapshot = live_snap or capture or cloud or drill_snapshot
+    snapshot_positions = list((snapshot or {}).get("positions") or [])
     snapshots: dict[str, dict] = {}
     for snap in (snapshot, live_snap, capture, cloud, drill_snapshot):
         if not snap or str(snap["account"]).startswith("${"):
@@ -1711,7 +1807,8 @@ def build_state() -> dict:
             "orders": orders,
             "rejections": rejections,
             "cards": cards,
-            "instrumentation": build_instrumentation(cards),
+            "instrumentation": build_instrumentation(cards, cross_cutting_rows(
+                closed_trades, runs, snapshot_positions, latest_research())),
             "drill": validation,
             "expectancy": {
                 "formula": exp_report.formula,
@@ -1726,12 +1823,13 @@ def build_state() -> dict:
                 "fees_total": exp_report.fees_total,
                 # Every closed round trip behind the realized figures, so the desk can show which trades
                 # the win rate and realized P&L are made of instead of a bare count.
-                "closed_trades": [t.model_dump() for t in exp_report.closed_trades],
+                "closed_trades": closed_trades,
+                "fee_net_series": fee_net_series(closed_trades),
                 "unattributed_fills": exp_report.unattributed_fills,
                 "open_lots": [lot.model_dump(mode="json") for lot in exp_report.open_lots],
                 "sleeves": [
                     {
-                        "name": name.replace("_", " ").title(),
+                        "name": SLEEVE_LABELS.get(name, name.replace("_", " ").title()),
                         "closed_n": s.closed_n if s else 0,
                         "win_rate": s.win_rate if s else None,
                         "avg_win_r": s.avg_win_r if s else None,
@@ -1741,7 +1839,10 @@ def build_state() -> dict:
                         "pnl_net": s.pnl_net if s else 0.0,
                     }
                     for name, s in (
-                        (n, sleeve_report.get(n)) for n in sorted(set(SLEEVE_BY_SYMBOL.values()))
+                        # Every sleeve a symbol can map to, plus any sleeve that already has a finished trade,
+                        # so a closed scalp is never counted in the total and missing from the table.
+                        (n, sleeve_report.get(n))
+                        for n in sorted(set(SLEEVE_MAP.values()) | set(sleeve_report))
                     )
                 ] + [
                     {"name": "Event sleeves (stocks)", "closed_n": 0},

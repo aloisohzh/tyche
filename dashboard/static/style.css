@@ -154,8 +154,9 @@ ul { margin: 0; padding: 0; list-style: none; }
 .breadcrumb .crumb-root { color: var(--label-3); }
 .breadcrumb svg { width: 13px; height: 13px; color: var(--label-4); flex-shrink: 0; }
 .breadcrumb strong { font-weight: 600; color: var(--label); }
-.topbar-status { display: flex; align-items: center; gap: 8px; margin-left: auto; flex-wrap: wrap; justify-content: flex-end; }
-.topbar-controls { display: flex; align-items: center; gap: 12px; }
+.topbar-status { display: flex; align-items: center; gap: 8px; margin-left: auto; flex: 1 1 auto; min-width: 0; justify-content: flex-end; }
+.topbar-status .acct-label { flex-shrink: 0; }
+.topbar-controls { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
 .clock { font-size: 12px; color: var(--label-2); white-space: nowrap; }
 .workspace-main { max-width: 1580px; margin: 0 auto; padding: 22px 28px 88px; outline: none; }
 
@@ -761,7 +762,7 @@ ul { margin: 0; padding: 0; list-style: none; }
 }
 
 /* ============================ shell extras ============================ */
-.stamp { font-size: 10.5px; color: var(--label-4); line-height: 1.45; text-align: right; max-width: 250px; }
+.stamp { font-size: 10.5px; color: var(--label-4); line-height: 1.45; text-align: right; white-space: nowrap; }
 .stat-label em { font-style: normal; font-size: 10px; font-weight: 400; color: var(--label-4); }
 .stat-primary .stat-label em { color: #c2d3c0; }
 .stat-value.countdown { font-size: clamp(19px, 1.7vw, 26px); letter-spacing: -.6px; }
@@ -1203,7 +1204,8 @@ ul { margin: 0; padding: 0; list-style: none; }
 
 /* --- v0.4 responsive --- */
 @media (max-width: 1280px) {
-  #account-select { min-width: 260px; max-width: 34vw; }
+  #account-select { min-width: 180px; max-width: 420px; flex: 0 1 auto; }
+  .topbar-status { flex-wrap: nowrap; }
 }
 @media (max-width: 1100px) {
   .trade-detail-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -1278,3 +1280,16 @@ th .tip::after { bottom: auto; top: calc(100% + 6px); }
 .timer-fire-ny b { font-size: 15px; font-weight: 600; }
 .timer-fire-what { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 2px; }
 .timer-card-rule { margin-top: 10px; font-size: 10.5px; }
+
+/* Section 02: one full-width score table; the drill trade is a footnote under it */
+.sleeve-card .table-head { align-items: center; }
+.sleeve-card .table-head .tip { margin-left: 8px; font-weight: 500; text-transform: none; letter-spacing: 0; font-size: 11px; }
+.drill-note { margin-top: 6px; }
+.ins-row .prov { white-space: nowrap; }
+@media (max-width: 1500px) { .stamp-checked { display: none; } }
+@media (max-width: 1500px) {
+  /* When the row gets tight the controls drop under the account picker instead of overlapping it */
+  .topbar { flex-wrap: wrap; row-gap: 8px; }
+  .topbar-status { margin-left: 0; }
+  .topbar-controls { margin-left: auto; }
+}
