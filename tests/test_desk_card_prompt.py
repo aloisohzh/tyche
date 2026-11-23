@@ -181,6 +181,8 @@ def test_feed_publish_is_the_last_step_and_never_a_trading_step():
         assert must in clause, must
     assert prompt.index("REPORT:") < prompt.index("PUBLISH (2026-11-23):")
     assert _module().prompt_markers(prompt)["has_feed_publish"]
+    assert _module().prompt_markers(prompt)["has_performance_pack"]
+    assert "regenerates the day's performance pack" in clause and "skipped, never a reason to" in clause
 
 
 def test_fib_pullback_clause_is_switch_gated_and_approval_bound():
