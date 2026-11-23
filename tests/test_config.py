@@ -46,9 +46,14 @@ def test_paper_allocation_profile_preserves_risk_limits() -> None:
     config = load_config(ROOT)
     ballast = sum(strategy.allocation_cap for strategy in config.enabled_strategies())
     assert ballast == pytest.approx(0.25)
-    assert config.tactical.stock_allocation_cap == pytest.approx(0.45)
+    assert config.tactical.stock_allocation_cap == pytest.approx(0.25)
     assert config.risk.max_option_premium_pct == pytest.approx(0.25)
-    assert ballast + config.tactical.stock_allocation_cap + config.risk.max_option_premium_pct == pytest.approx(0.95)
+    # 2026-11-23: the tactical cap came down from 0.45 so PB-007's 0.20 fits when its switch is on;
+    # yaml-enabled lanes alone now sum to 0.75, and every switch on sums to exactly the 0.95 gross cap.
+    yaml_enabled_sum = ballast + config.tactical.stock_allocation_cap + config.risk.max_option_premium_pct
+    assert yaml_enabled_sum == pytest.approx(0.75)
+    pb007 = config.strategy_by_id("PB-007").allocation_cap
+    assert yaml_enabled_sum + pb007 == pytest.approx(config.risk.max_gross_exposure)
     assert config.risk.max_gross_exposure == pytest.approx(0.95)
     assert config.risk.min_cash_weight == pytest.approx(0.05)
     assert config.risk.option_risk_per_trade_pct == pytest.approx(0.0075)

@@ -128,9 +128,10 @@ approve` per hash. 12:05: watch and shout only. 15:05: exits first, then `lifecy
 expectancy and strategy-score output to the close report. The lane is switched on through
 `data/strategies.json` (dashboard switch), which leaves `enabled: false` in this file and the rules hash
 untouched (L-037). With the switch route the config loader's cap-sum guard is not involved; the caps of
-the switched-on lanes (25% ballast + 45% tactical + 20% here = 90%) sit under the 95% gross cap that the
-risk kernel checks on every order. Setting `enabled: true` in the yaml instead would need the tactical
-stock cap lowered to 25% in the same change, a re-freeze, and a card budget update.
+the switched-on lanes (25% ballast + 25% tactical + 20% here = 70%) sit under the 95% gross cap that the
+risk kernel checks on every order. Since the tactical stock cap was cut to 25% on 2026-11-23, every cap fits
+with all switches on (25 + 25 + 20 + 25 premium = 95%), so `enabled: true` in the yaml would now pass the
+loader's cap-sum guard too; it would still be a rules change needing a re-freeze.
 
 ## Evidence
 - Kernel: `src/tyche/strategies/fib_pullback.py`, `src/tyche/lifecycle.py` (scope-aware caps),

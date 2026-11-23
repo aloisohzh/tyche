@@ -18,7 +18,7 @@ The competition window is the evaluation set; nothing in it is used to tune a ru
 The line is the rules freeze on the Drive ledger, the journal the desk actually reads (L-056):
 
 - **Frozen 23 Nov 2026** on `/data/drive/tyche-raw/2026-11-23-operator-freeze` (41 events, verified): PB-001
-  `819ad06e35f0`, PB-002/PB-003 `d5ef9567c736` (one shared parameter file), PB-004 `72077d5d4808`, PB-007
+  `819ad06e35f0`, PB-002/PB-003 `a1d9df1c687c` (one shared parameter file), PB-004 `72077d5d4808`, PB-007
   `e26f006da28a`. Each hash is the sha256 of the lane's parameter file plus the universe, declared in the
   playbook and asserted equal to the kernel's computation in CI (`tests/test_docs_consistency.py`).
 - **After that line, a rule change is a new hypothesis**: new hash, new playbook line, `tyche rules-freeze
