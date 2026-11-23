@@ -1001,6 +1001,9 @@ def load_snapshot() -> dict | None:
 # primary feed; the local drill snapshot is only a fallback.
 PERF_DIR = ROOT / "docs" / "performance"
 CHALLENGE_ACCOUNT_TYPE = 2
+# docs/competition/rules.md: the challenge account starts with USD 100,000 virtual. Total P&L on the desk is
+# measured against this, not against whichever reading happened to be saved first.
+CHALLENGE_START_NAV = 100_000.0
 
 # Moomoo OpenD OrderStatus -> desk vocabulary. A submit is not a fill.
 _CLOUD_ORDER_STATUS = {
@@ -1181,11 +1184,31 @@ def _dedupe_marks(series: list[dict]) -> list[dict]:
     return deduped
 
 
+def _bundle_total_asset(run: dict) -> float | None:
+    """The broker's own account value from the bundle's cash.json, when the run saved one."""
+    cash_path = run["dir"] / "cash.json"
+    if not cash_path.is_file():
+        return None
+    try:
+        data = json.loads(cash_path.read_text(encoding="utf-8")).get("data", {})
+        return float(data["total_asset"]) if data.get("total_asset") is not None else None
+    except (json.JSONDecodeError, OSError, KeyError, TypeError, ValueError):
+        return None
+
+
 def cloud_nav_marks(runs: list[dict]) -> dict[str, list[dict]]:
-    series = [
-        {"ts": r["ts"], "as_of": r["run"][:10], "nav": r["snapshot"]["nav"], "source": "cloud:" + r["run"]}
-        for r in _challenge_runs(runs)
-    ]
+    # The CLI snapshot's nav leaves out cash the broker is holding for a resting order, so a run with
+    # a resting limit reads thousands low (18 Nov: snapshot 92,089.79 against the broker's 99,974.12
+    # while the VNQ order rested). The broker's total_asset is the account value the rest of the desk
+    # reconciles to; the snapshot nav is only the fallback for a bundle that saved no cash.json.
+    series = []
+    for r in _challenge_runs(runs):
+        total = _bundle_total_asset(r)
+        series.append({
+            "ts": r["ts"], "as_of": r["run"][:10],
+            "nav": total if total is not None else r["snapshot"]["nav"],
+            "source": "cloud:" + r["run"],
+        })
     return {challenge_mask(): _dedupe_marks(series)} if series else {}
 
 
@@ -1604,6 +1627,8 @@ def build_state() -> dict:
     latest_plan = plans.get(plan_acct, {}).get("plan") if plan_acct else None
     feed = {
         "primary_account": primary,
+        # Starting capital of the challenge account, so Total P&L has a fixed baseline.
+        "start_nav": CHALLENGE_START_NAV if primary == challenge_mask() else None,
         "source": snapshot.get("source") if snapshot else "no broker snapshot available",
         "run": cloud["run"] if cloud else None,
         "as_of": snapshot.get("as_of") if snapshot else None,

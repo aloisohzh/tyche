@@ -127,6 +127,16 @@ def test_order_status_mapping(srv, feed_env):
     assert cancelled["status"] == "cancelled" and cancelled["side"] == "sell"
 
 
+def test_nav_marks_prefer_broker_total_asset(srv, feed_env):
+    # A resting order makes the CLI snapshot nav read low; the bundle's cash.json carries the broker's
+    # own total, and that is the account value the desk should chart.
+    d = make_bundle(feed_env, "2026-11-18-midday2", nav=92089.79, cash=57360.28, mtime=1000)
+    (d / "cash.json").write_text(json.dumps({"data": {"total_asset": 99974.12, "hold": 7884.33}}), encoding="utf-8")
+    make_bundle(feed_env, "2026-11-18-nocash", nav=92047.05, cash=57360.28, mtime=2000)
+    series = srv.cloud_nav_marks(srv.load_cloud_runs())["***598"]
+    assert [m["nav"] for m in series] == [99974.12, 92047.05]
+
+
 def test_nav_marks_series_and_dedupe(srv, feed_env):
     make_bundle(feed_env, "2026-11-18-a", nav=100000.0, cash=100000.0, positions=[], mtime=1000)
     make_bundle(feed_env, "2026-11-18-b", nav=92089.79, cash=57360.28, mtime=2000)

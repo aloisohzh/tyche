@@ -40,7 +40,7 @@
       </button>
       <button class="nav-item" data-view="automation">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>
-        <span>Orchestration</span><i class="nav-dot"></i>
+        <span>Automation</span><i class="nav-dot"></i>
       </button>
       <button class="nav-item nav-admin" data-view="controls">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2.2"/><circle cx="8" cy="17" r="2.2"/></svg>
@@ -79,7 +79,7 @@
           </button>
         </div>
         <span id="clock" class="clock mono">SGT --:--:-- · ET --:--:--</span>
-        <button id="refresh-btn" class="btn refresh" title="Refresh now (R)">
+        <button id="refresh-btn" class="btn refresh" title="Refresh now (press R)">
           <svg viewBox="0 0 24 24" width="15" height="15"><path fill="currentColor" d="M12 4V1L7 6l5 5V7a6 6 0 1 1-6 6H4a8 8 0 1 0 8-9z"/></svg>
           <span>Refresh</span>
         </button>
@@ -94,7 +94,7 @@
         <div class="page-heading">
           <div>
             <h1>Desk overview</h1>
-            <p>Your paper account at a glance - what it is worth today, your profit or loss, the edge you are trading, and the risk you are carrying. Every figure comes from the broker or the trade journal; nothing is made up.</p>
+            <p>Your paper account at a glance: what it is worth today, your profit or loss, and the risk you are carrying. Every figure comes from the broker or the trade journal.</p>
           </div>
           <div class="heading-aside">
             <span id="ov-approval" class="pill live-pill cached"><i class="dot"></i><span>-</span></span>
@@ -103,7 +103,7 @@
 
         <div class="stat-grid">
           <div class="card stat-card stat-primary">
-            <div class="stat-label"><span>Desk NAV <em id="nav-acct"></em></span>
+            <div class="stat-label"><span><span class="tip" data-tip="Cash plus the market value of every holding, as reported by moomoo. Also called net asset value (NAV).">Account value</span> <em id="nav-acct"></em></span>
               <span class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-5 4 3 8-8"/><path d="M16 7h5v5"/></svg></span>
             </div>
             <div class="stat-value mono" id="nav-value">-</div>
@@ -118,18 +118,11 @@
             <div class="stat-caption" id="cash-weight">-</div>
           </div>
           <div class="card stat-card">
-            <div class="stat-label"><span>Gross exposure</span>
+            <div class="stat-label"><span><span class="tip" data-tip="The share of the account that is in holdings rather than cash. The desk may not go above 95%.">Invested</span></span>
               <span class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M5 8l7-5 7 5M5 16l7 5 7-5"/></svg></span>
             </div>
             <div class="stat-value mono" id="gross-value">-</div>
-            <div class="stat-caption" id="gross-cap">Cap 95%</div>
-          </div>
-          <div class="card stat-card">
-            <div class="stat-label"><span>Moomoo account value</span>
-              <span class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/><circle cx="17" cy="14.5" r="1"/></svg></span>
-            </div>
-            <div class="stat-value mono" id="broker-value">-</div>
-            <div class="stat-caption" id="broker-src">-</div>
+            <div class="stat-caption" id="gross-cap">Limit 95%</div>
           </div>
         </div>
 
@@ -137,9 +130,8 @@
           <div class="section-heading">
             <div>
               <h2>Trader scorecard</h2>
-              <p class="section-subtitle">Profit, edge and risk in one row. Small samples are labeled - figures stay provisional until enough trades close.</p>
+              <p class="section-subtitle">Profit, edge and risk at a glance. Figures stay provisional until enough trades have closed.</p>
             </div>
-            <span class="chip" id="score-acct-tag">-</span>
           </div>
           <div class="score-grid" id="score-grid"></div>
           <p class="table-note" id="score-note"></p>
@@ -149,10 +141,9 @@
           <div class="card performance-card">
             <div class="section-heading">
               <div>
-                <h2>Equity curve</h2>
-                <p class="section-subtitle">Your account value at each saved reading - broker captures and journaled plans. Each point is labeled with where it came from and when it was taken.</p>
+                <h2>Account value over time</h2>
+                <p class="section-subtitle">Each point is a saved reading of the account, labelled with where it came from and when.</p>
               </div>
-              <div class="equity-controls"><span class="chip" id="equity-acct-tag">-</span></div>
             </div>
             <div class="equity-stats" id="equity-stats"></div>
             <div class="chart-wrap" id="equity-chart"></div>
@@ -165,17 +156,17 @@
           <div class="card brief-card">
             <div class="brief-body">
               <span class="card-kicker">Desk signals</span>
-              <div class="brief-section-label">Market regime</div>
+              <div class="brief-section-label">Market conditions</div>
               <div class="brief-row">
-                <span class="brief-k">Regime checks</span>
+                <span class="brief-k"><span class="tip" data-tip="Four simple tests of the wider market (trend, credit, moving averages, volatility). More passes means a friendlier market for new positions.">Market checks</span></span>
                 <span class="brief-v mono" id="regime-score">-</span>
               </div>
               <div class="checks" id="regime-checks"></div>
               <div class="brief-row">
-                <span class="brief-k">Portfolio vol</span>
+                <span class="brief-k"><span class="tip" data-tip="How much the portfolio tends to move day to day. When it is high, the desk sizes new trades smaller.">Portfolio volatility</span></span>
                 <span class="brief-v mono" id="vol-note">-</span>
               </div>
-              <div class="brief-section-label">Kill-switch</div>
+              <div class="brief-section-label"><span class="tip" data-tip="An emergency stop. When engaged, no new buys are allowed; only sells that reduce risk go through.">Kill-switch</span></div>
               <div class="brief-kill clear" id="ov-kill"></div>
               <div class="brief-section-label">Challenge window</div>
               <div class="window-bar"><div class="window-fill" id="window-fill"></div></div>
@@ -195,11 +186,11 @@
                 <th data-sort="symbol">Symbol</th><th>Name</th>
                 <th data-sort="quantity" class="num">Qty</th>
                 <th data-sort="avg_cost" class="num">Avg cost</th>
-                <th data-sort="last_price" class="num">Last</th>
+                <th data-sort="last_price" class="num">Last price</th>
                 <th data-sort="market_value" class="num">Market value</th>
-                <th data-sort="weight" class="num">Weight · cap 40%</th>
-                <th data-sort="pl" class="num">P&amp;L $</th>
-                <th data-sort="pl_pct" class="num">P&amp;L %</th>
+                <th data-sort="weight" class="num"><span class="tip" data-tip="This holding as a share of the whole account. No single holding may exceed 40%.">Weight (limit 40%)</span></th>
+                <th data-sort="pl" class="num">P&amp;L ($)</th>
+                <th data-sort="pl_pct" class="num">P&amp;L (%)</th>
               </tr></thead>
               <tbody id="pos-rows"></tbody>
             </table>
@@ -212,7 +203,7 @@
         <div class="page-heading">
           <div>
             <h1>Strategy &amp; edge</h1>
-            <p>Every trade idea moves through five checks before it can become an order - the thesis, the factors behind it, the market outlook, the instrument, and the expected edge. Click any row to see the checks, stop and target, and the journal evidence behind it. Missing evidence is shown as a gap, never filled in.</p>
+            <p>Every trade idea passes five checks before it can become an order: the reason for the trade, the evidence behind it, the market outlook, the instrument, and the expected edge. Click a row to see the checks, the stop and target, and the journal evidence. Missing evidence is shown as missing, never filled in.</p>
           </div>
           <div class="legend">
             <span class="lg"><i class="sw ok"></i>Complete</span>
@@ -222,10 +213,10 @@
         </div>
 
         <div class="section-head"><div><h2><span class="h-num">01</span>Trades and the five checks</h2>
-          <p class="section-sub">One row per journaled order idea, newest first. The Checks column counts how many of the five stages have evidence; expand a row for the detail.</p></div></div>
+          <p class="section-sub">One row per trade idea in the journal, newest first. The Checks column counts how many of the five checks have evidence. Click a row for the detail.</p></div></div>
         <div class="card trade-table-card">
           <div class="table-head">
-            <span class="card-kicker">Journaled trade ideas <em id="strategy-count"></em></span>
+            <span class="card-kicker">Trade ideas <em id="strategy-count"></em></span>
             <div class="filter-chips" id="trade-filters"></div>
           </div>
           <div class="tbl-scroll">
@@ -237,54 +228,54 @@
                 <th>Intent</th>
                 <th>Side</th>
                 <th class="num">Qty</th>
-                <th class="num">Limit</th>
-                <th class="num">Stop</th>
-                <th class="num">Target</th>
-                <th class="num">Max loss</th>
+                <th class="num">Limit price</th>
+                <th class="num">Stop price</th>
+                <th class="num">Target price</th>
+                <th class="num"><span class="tip" data-tip="The most this trade is designed to lose if the stop is hit: quantity × (limit price − stop price).">Max loss</span></th>
                 <th>Status</th>
-                <th class="num">Checks</th>
+                <th class="num"><span class="tip" data-tip="How many of the five checks have evidence: reason, evidence, outlook, instrument, edge.">Checks</span></th>
               </tr></thead>
               <tbody id="trade-rows"></tbody>
             </table>
           </div>
-          <p class="table-note">Max loss is the sized risk carried by the order (quantity x (limit - stop)). It is the most the trade is designed to lose, not a prediction. Checks: Thesis · Multi-factor · Outlook · Vehicle · Edge.</p>
+          <p class="table-note">Max loss is the most a trade is designed to lose if its stop is hit. It is a limit, not a prediction.</p>
         </div>
 
-        <div class="section-head"><div><h2><span class="h-num">02</span>Edge / expectancy</h2>
-          <p class="section-sub">A scorecard per strategy group, net of fees. The sample is small - every figure shows its trade count and stays provisional until 30 trades have closed.</p></div></div>
+        <div class="section-head"><div><h2><span class="h-num">02</span>Edge: is the approach paying off?</h2>
+          <p class="section-sub">A scorecard for each strategy group, after fees. The sample is still small, so every figure shows its trade count and stays provisional until 30 trades have closed.</p></div></div>
         <div class="exp-grid">
           <div class="card formula-card">
-            <span class="card-kicker">Expectancy formula</span>
-            <div class="formula mono">(Win% × AvgWin)<br>− (Loss% × AvgLoss)</div>
-            <p class="formula-note">Worked out per strategy group in R and percent, net of modeled fees. Expected edge is checked against what actually happened once trades close.</p>
+            <span class="card-kicker">How edge is measured</span>
+            <div class="formula mono">(Win rate × avg win)<br>− (Loss rate × avg loss)</div>
+            <p class="formula-note">The average result you can expect per trade. Worked out for each strategy group in <span class="tip" data-tip="One R is the amount risked on the trade (entry price minus stop price, times quantity). A +2R win made twice what was risked.">R</span> and as a share of the account, after fees.</p>
             <span class="chip provisional" id="exp-chip">Provisional · challenge window just opened</span>
           </div>
           <div class="card sleeve-card">
-            <span class="card-kicker">Per-sleeve scorecard</span>
+            <span class="card-kicker">Scorecard by strategy group</span>
             <div class="tbl-scroll">
               <table class="tbl sleeve-tbl">
-                <thead><tr><th>Sleeve</th><th>n</th><th>Win%</th><th>AvgWin</th><th>AvgLoss</th><th>E[R]</th><th>E[%]</th></tr></thead>
+                <thead><tr><th>Strategy group</th><th class="num">Trades</th><th class="num">Win rate</th><th class="num"><span class="tip" data-tip="Average winning trade, in multiples of the amount risked.">Avg win (R)</span></th><th class="num"><span class="tip" data-tip="Average losing trade, in multiples of the amount risked.">Avg loss (R)</span></th><th class="num"><span class="tip" data-tip="Expected result per trade, in multiples of the amount risked. Above zero means the approach makes money on average.">Edge (R)</span></th><th class="num">Edge (% of account)</th></tr></thead>
                 <tbody id="sleeve-rows"></tbody>
               </table>
             </div>
-            <p class="table-note" id="sleeve-note">No strategy trades have closed yet - the drill round-trip below tested the kill-switch, it is not strategy edge. Win-probability calibration is not built yet.</p>
+            <p class="table-note" id="sleeve-note">No strategy trades have closed yet. The round trip shown next tested the kill-switch; it does not count as strategy edge.</p>
           </div>
           <div class="card realized-card">
-            <span class="card-kicker">Realized to date · drill round-trip</span>
+            <span class="card-kicker">Banked so far · kill-switch drill</span>
             <div class="realized-big mono" id="realized-big">-</div>
             <div class="realized-legs mono" id="realized-legs">-</div>
             <p class="formula-note" id="fees-note">-</p>
-            <span class="chip gap-chip">Fee reconciliation lands with the daily report</span>
+            <span class="chip gap-chip">Fees are reconciled in the daily report</span>
           </div>
         </div>
 
-        <div class="section-head"><div><h2><span class="h-num">03</span>Instrumentation</h2>
-          <p class="section-sub">What each trade record carries: what was written down at plan time, what we compute from it, and what is still missing. Computed fields are labeled so they are never mistaken for broker facts.</p></div></div>
+        <div class="section-head"><div><h2><span class="h-num">03</span>What each trade record contains</h2>
+          <p class="section-sub">What was written down when the trade was planned, what the desk computes from it, and what is still missing. Computed fields are labelled so they are never mistaken for broker facts.</p></div></div>
         <div class="card ins-card">
           <div class="ins-top">
             <div class="ins-ring-wrap">
               <span id="ins-ring"></span>
-              <div class="ins-ring-text"><strong id="ins-avg">-</strong><span>avg contract completeness<br>across <em id="ins-cards-n">0</em> trade cards</span></div>
+              <div class="ins-ring-text"><strong id="ins-avg">-</strong><span>average record completeness<br>across <em id="ins-cards-n">0</em> trade records</span></div>
             </div>
             <div class="ins-counts" id="ins-counts"></div>
             <div class="ins-toggle" id="ins-toggle">
@@ -293,12 +284,12 @@
             </div>
           </div>
           <div class="ins-legend">
-            <span><span class="prov journaled">journaled</span> carried by the plan / journal</span>
-            <span><span class="prov derived">derived</span> computed from journaled inputs + config</span>
-            <span><span class="prov gap">gap</span> not instrumented yet</span>
+            <span><span class="prov journaled">Written down</span> recorded in the plan or journal</span>
+            <span><span class="prov derived">Computed</span> worked out from recorded inputs and settings</span>
+            <span><span class="prov gap">Missing</span> not recorded yet</span>
           </div>
           <div class="ins-rows" id="ins-rows"></div>
-          <div class="ins-cross-head">Cross-cutting backlog</div>
+          <div class="ins-cross-head">Still to build, for every trade</div>
           <div class="ins-rows" id="ins-cross"></div>
         </div>
       </section>
@@ -308,14 +299,14 @@
         <div class="page-heading">
           <div>
             <h1>Risk &amp; execution</h1>
-            <p>The safety layer: the kill-switch, every exposure limit, the drawdown ladder, all orders and every rejection. An order that was sent is not an order that filled - fills come from the broker.</p>
+            <p>The safety layer: the kill-switch, every exposure limit, the drawdown ladder, all orders and every refused order. Sending an order is not the same as it filling; fills come from the broker.</p>
           </div>
         </div>
         <div class="risk-grid">
           <div class="card kill-card" id="kill-card"></div>
           <div class="card gauges-card" id="gauges-card"></div>
           <div class="card donut-card">
-            <span class="card-kicker">Allocation · snapshot</span>
+            <span class="card-kicker">Where the money is</span>
             <div class="donut-wrap" id="donut-wrap"></div>
           </div>
         </div>
@@ -324,41 +315,41 @@
           <div class="table-head">
             <span class="head-left">
               <span class="head-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/><path d="M9.5 12l1.8 1.8 3.4-3.6"/></svg></span>
-              <span class="card-kicker">Risk limits in force <em>docs/risk-card.md</em></span>
+              <span class="card-kicker" title="Source: docs/risk-card.md">Risk limits in force</span>
             </span>
             <div class="guard-summary" id="guard-summary"></div>
           </div>
           <div class="guard-grid" id="guard-rows"></div>
-          <p class="table-note">Each tile is a live check against the current snapshot, journal and open orders. A limit shows its rule, the cap and the present reading - a gap means the desk cannot measure it from the available data, not that the limit is off.</p>
+          <p class="table-note">Each tile is a live check against the latest account reading, the journal and open orders. “Not measurable” means the desk lacks the data to check it, not that the limit is off.</p>
         </div>
 
         <div class="card table-card">
           <div class="table-head">
-            <span class="card-kicker">Order history · journal + broker reconciliation</span>
+            <span class="card-kicker">Order history</span>
             <span class="chip ok-chip" id="working-orders">-</span>
           </div>
           <div class="tbl-scroll">
             <table class="tbl order-tbl">
               <thead><tr>
                 <th>When (ET · SGT)</th><th>Symbol</th><th>Playbook</th><th>Intent</th><th>Side</th>
-                <th class="num">Qty</th><th class="num">Limit</th><th class="num">Fill</th>
+                <th class="num">Qty</th><th class="num">Limit price</th><th class="num">Fill price</th>
                 <th class="num">Max loss</th><th>Status</th><th>Notes</th>
               </tr></thead>
               <tbody id="order-rows"></tbody>
             </table>
           </div>
-          <p class="table-note">Sending an order is not a fill - fill status comes from the broker, never from our submit call. Playbook names come from the journal's strategy id; intent is derived from the recorded side and reason. Hover a row for the broker order id and account.</p>
+          <p class="table-note">Fill status comes from the broker, never from the desk’s own submission. Hover a row for the broker order id and account.</p>
         </div>
 
         <div class="card table-card">
           <div class="table-head">
-            <span class="card-kicker">Rejection log <em id="rej-count"></em></span>
+            <span class="card-kicker">Orders the desk refused <em id="rej-count"></em></span>
             <div class="filter-chips" id="rej-filters"></div>
             <input type="search" id="rej-search" class="search" placeholder="Filter rule, symbol, detail…" aria-label="Filter rejections">
           </div>
           <div class="tbl-scroll">
             <table class="tbl">
-              <thead><tr><th>Time (ET · SGT)</th><th>Source</th><th>Rule</th><th>Symbol</th><th>Side</th><th class="num">Qty</th><th>Detail</th></tr></thead>
+              <thead><tr><th>Time (ET · SGT)</th><th>Source</th><th>Rule</th><th>Symbol</th><th>Side</th><th class="num">Qty</th><th>Reason</th></tr></thead>
               <tbody id="rej-rows"></tbody>
             </table>
           </div>
@@ -369,23 +360,23 @@
       <section class="view" id="view-automation">
         <div class="page-heading">
           <div>
-            <h1>Orchestration</h1>
-            <p>The desk trades on a schedule in the cloud, even when your PC is off. Every entry is either approved by you on Telegram during the fire (Ask me) or inside bounds you armed for the day (Within my bounds). The cadence is the set of automation cards below: each carries its own cron, window and pinned agent version, and the one whose window owns today's date is the one that fires. The session history comes from the same Managed API, read server-side so the access token never reaches the browser. The Forward schedules the desk ran on until 21 Nov are archived, so they are no longer listed here.</p>
+            <h1>Automation</h1>
+            <p>The desk runs on a schedule in the cloud, even when your PC is off. Every new position is either approved by you on Telegram during a run (Ask me) or stays inside bounds you set for the day (Within my bounds). The schedule comes from the automation cards below; the card whose date window covers today is the one that runs.</p>
           </div>
           <div class="heading-aside"><span class="pill live-pill" id="automation-source"><i class="dot"></i><span>Connecting…</span></span></div>
         </div>
 
         <div class="evidence-strip">
-          <div class="card evidence-card"><span class="ev-num mono" id="ov-sched-count">-</span><span class="ev-label">Cadence cards live</span><span class="ev-sub">active / total</span></div>
-          <div class="card evidence-card"><span class="ev-num mono" id="ov-sessions">-</span><span class="ev-label">Desk sessions</span><span class="ev-sub">Coordinator + children</span></div>
-          <div class="card evidence-card"><span class="ev-num mono" id="ov-credits">-</span><span class="ev-label">Credits consumed</span><span class="ev-sub">Managed run usage</span></div>
-          <div class="card evidence-card"><span class="ev-num mono" id="ov-chain">-</span><span class="ev-label">Journal events ✓</span><span class="ev-sub">Hash-chain verified</span></div>
+          <div class="card evidence-card"><span class="ev-num mono" id="ov-sched-count">-</span><span class="ev-label">Automation cards live</span><span class="ev-sub">Active / total</span></div>
+          <div class="card evidence-card"><span class="ev-num mono" id="ov-sessions">-</span><span class="ev-label">Desk runs</span><span class="ev-sub">Coordinator and helper agents</span></div>
+          <div class="card evidence-card"><span class="ev-num mono" id="ov-credits">-</span><span class="ev-label">Cloud credits used</span><span class="ev-sub">Across all runs</span></div>
+          <div class="card evidence-card"><span class="ev-num mono" id="ov-chain">-</span><span class="ev-label">Journal entries verified</span><span class="ev-sub"><span class="tip" data-tip="Every journal entry is linked to the one before it with a cryptographic hash, so any edit after the fact would show up.">Tamper-evident chain intact</span></span></div>
         </div>
 
         <div class="card cal-card" id="cal-card">
           <div class="cal-top">
             <div class="cal-title">
-              <span class="card-kicker">Market calendar · today's session</span>
+              <span class="card-kicker">Market calendar · today</span>
               <span class="cal-sub mono" id="cal-now">-</span>
             </div>
             <div class="cal-gate-wrap">
@@ -403,12 +394,12 @@
           <div class="cal-aware" id="cal-aware"></div>
           <div class="cal-crons-wrap">
             <div class="cal-crons-head">
-              <span class="card-kicker">Cadence · the cards that fire</span>
+              <span class="card-kicker">Schedule · when the desk runs</span>
               <span class="desk-sub mono" id="cal-window">-</span>
             </div>
             <div class="tbl-scroll">
               <table class="tbl cal-crons">
-                <thead><tr><th>Card</th><th>Cron · card tz</th><th>Phase</th><th>Activity</th><th>Fire · card tz</th><th>Fire · SGT</th><th class="num">Days</th></tr></thead>
+                <thead><tr><th>Card</th><th><span class="tip" data-tip="The card’s timing rule in cron notation: minute, hour, day of month, month, day of week.">Schedule rule</span></th><th>Market phase</th><th>What it does</th><th>Time (card timezone)</th><th>Time (SGT)</th><th class="num">Days in window</th></tr></thead>
                 <tbody id="cal-cron-rows"></tbody>
               </table>
             </div>
@@ -416,60 +407,46 @@
           </div>
           <div class="cal-crons-wrap" id="cal-watchlist-wrap" hidden>
             <div class="cal-crons-head">
-              <span class="card-kicker">Scout watchlist · entry/exit plans</span>
+              <span class="card-kicker">Scout watchlist · planned entries and exits</span>
               <span class="desk-sub mono" id="cal-watchlist-state">-</span>
             </div>
             <div class="tbl-scroll">
               <table class="tbl cal-crons">
-                <thead><tr><th>Symbol</th><th>Sleeve</th><th>Strategy</th><th class="num">Entry zone</th><th class="num">Stop</th><th class="num">Target</th><th>Expiry</th><th>Status</th></tr></thead>
+                <thead><tr><th>Symbol</th><th>Strategy group</th><th>Strategy</th><th class="num">Entry zone</th><th class="num">Stop price</th><th class="num">Target price</th><th>Expires</th><th>Status</th></tr></thead>
                 <tbody id="cal-watchlist-rows"></tbody>
               </table>
             </div>
-            <p class="table-note">The scout writes these plans at pre-market only; intraday runs monitor them instead of searching again. The working copy lives in the private Drive locker; this is the sanitized public snapshot.</p>
+            <p class="table-note">Scout writes these plans before the market opens; later runs monitor them instead of searching again. This is the public copy with private details removed.</p>
           </div>
         </div>
 
-        <div class="card table-card sched-card">
-          <div class="table-head">
-            <span class="card-kicker">Cadence · cloud cards</span>
-            <span class="chip" id="sched-count">-</span>
-          </div>
-          <div class="tbl-scroll">
-            <table class="tbl sched-tbl">
-              <thead><tr><th>Card</th><th>Cron · timezone</th><th>Status</th><th>Next run</th></tr></thead>
-              <tbody id="sched-rows"></tbody>
-            </table>
-          </div>
-          <p class="table-note">These are the automation cards on the Managed plane, and they are the cadence: the one whose window owns today's date is the one that fires. Fire times and timezone come from the card's own cron, so retuning them means rebuilding the card. Switching the cadence or firing one run now lives on the Controls page.</p>
-        </div>
         <div class="auto-grid">
           <div class="card table-card sessions-card">
             <div class="table-head">
-              <span class="card-kicker">Desk sessions</span>
+              <span class="card-kicker">Desk runs</span>
               <span class="desk-sub mono" id="credits-total"></span>
             </div>
             <div class="tbl-scroll">
               <table class="tbl">
-                <thead><tr><th>Session</th><th>Started by</th><th>Status</th><th>Card</th><th class="num">Credits</th><th class="num">Active</th><th>Created (ET · SGT)</th></tr></thead>
+                <thead><tr><th>Run</th><th>Started by</th><th>Status</th><th>Card</th><th class="num">Credits</th><th class="num">Active time</th><th>Started (ET · SGT)</th></tr></thead>
                 <tbody id="session-rows"></tbody>
               </table>
             </div>
           </div>
           <div class="card roster-card">
-            <span class="card-kicker">Desk roster · Managed agents</span>
+            <span class="card-kicker">The desk team · cloud agents</span>
             <div class="roster">
               <div class="roster-node coordinator">
-                <strong>tyche-desk</strong><span>coordinator</span>
-                <code class="mono">agent_00vtt1wjgm…</code>
+                <strong>Desk coordinator</strong><span>Plans the day, asks you on Telegram, hands work to the team</span>
               </div>
               <div class="roster-edges" aria-hidden="true"><i></i><i></i><i></i></div>
               <div class="roster-members">
-                <div class="roster-node"><strong>researcher</strong><span>multi-factor briefs · HH:MM UTC stamped</span><code class="mono">agent_00vs9v3dg0…</code></div>
-                <div class="roster-node"><strong>auditor</strong><span>plan review · read-only</span><code class="mono">agent_00vtx8g7k1…</code></div>
-                <div class="roster-node"><strong>executor</strong><span>broker reads + gated sim writes</span><code class="mono">agent_00vtx8mfbx…</code></div>
+                <div class="roster-node"><strong>Researcher</strong><span>Market research and trade ideas</span></div>
+                <div class="roster-node"><strong>Auditor</strong><span>Reviews every plan · read-only</span></div>
+                <div class="roster-node"><strong>Executor</strong><span>Reads the broker and places approved paper orders</span></div>
               </div>
             </div>
-            <p class="table-note">Children start with no tools. Every sim order needs your Telegram /approve unless it is inside the bounds you armed for the day. Challenge account only - live and crypto tools are never mounted.</p>
+            <p class="table-note">Helper agents start with no tools. Every paper order needs your Telegram approval unless it is inside the bounds you set for the day. Challenge account only; live-money and crypto tools are never connected.</p>
           </div>
         </div>
       </section>
@@ -479,7 +456,7 @@
         <div class="page-heading">
           <div>
             <h1>Controls</h1>
-            <p>Operator settings in one place. The trading mode (Ask me or Within my bounds), the strategy switches, the scheduled checks, Scout and the kill-switch are grouped below and visible to everyone. Only the buttons that change something are locked - unlock with the operator passphrase to use them. Data sources and known gaps are listed underneath.</p>
+            <p>Operator settings in one place: the trading mode, the strategy switches, the scheduled checks, Scout and the kill-switch. Everyone can view them; only the buttons that change something are locked behind the operator passphrase. Data sources and known gaps are listed underneath.</p>
           </div>
         </div>
 
@@ -488,7 +465,7 @@
             <div>
               <span class="card-kicker">Operator only</span>
               <h2>Approval &amp; safety controls</h2>
-              <p class="section-sub">These settings decide what the cloud desk may do with real paper orders. Everyone can view them; only an unlocked operator can press the buttons that change them.</p>
+              <p class="section-sub">These settings decide what the cloud desk may do with paper orders.</p>
             </div>
             <span class="pill cached" id="admin-state"><i class="dot"></i><span>Locked</span></span>
           </div>
@@ -505,7 +482,6 @@
                 <button class="btn btn-primary" id="operator-unlock">Unlock</button>
               </div>
             </div>
-            <div class="ctl-side"><span class="pill cached" id="operator-state"><i class="dot"></i><span>Locked</span></span></div>
           </div>
 
           <div class="admin-locked" id="admin-locked">
@@ -594,9 +570,9 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 6.3"/><path d="M20 5v6h-6"/></svg>
             </span>
             <div class="ctl-main">
-              <h3>Refresh</h3>
-              <p class="control-sub">Fresh data loads when you open the desk or press Refresh in the top-right corner. Nothing polls in the background - figures stay put until you ask for new ones.</p>
-              <div class="control-kbd"><span class="mono">1-5</span> views · <span class="mono">R</span> refresh · <span class="mono">T</span> theme · <span class="mono">Esc</span> close</div>
+              <h3>Refresh and shortcuts</h3>
+              <p class="control-sub">Fresh data loads when you open the desk or press Refresh in the top-right corner. Nothing updates in the background.</p>
+              <div class="control-kbd"><span class="mono">1-5</span> Switch page · <span class="mono">R</span> Refresh · <span class="mono">T</span> Theme · <span class="mono">Esc</span> Close</div>
             </div>
           </div>
 
@@ -620,7 +596,7 @@
                 <div class="info-row"><span class="info-k">Broker feed</span><span class="info-v">Newest moomoo MCP JSON capture under <span class="mono">data/&lt;run&gt;/</span> - account, cash, positions and order history, masked before it reaches the page.</span></div>
                 <div class="info-row"><span class="info-k">Trade journal</span><span class="info-v"><span class="mono">journal/events.jsonl</span> - the hash-chained record of plans, orders, halts and rejections.</span></div>
                 <div class="info-row"><span class="info-k">Cloud runs</span><span class="info-v"><span class="mono">docs/performance/&lt;run&gt;/</span> bundles, used for NAV readings and reconciliation when a broker capture is out of date.</span></div>
-                <div class="info-row"><span class="info-k">Cloud API · Managed</span><span class="info-v">Cadence cards and desk sessions; the access token stays server-side.</span></div>
+                <div class="info-row"><span class="info-k">Cloud API</span><span class="info-v">Automation cards and desk runs; the access token stays on the server.</span></div>
                 <div class="info-row"><span class="info-k">Fill records</span><span class="info-v"><span class="mono">docs/validation/2026-11-18-kill-switch-drill.md</span> - drill fills the simulator cannot date itself.</span></div>
               </div>
             </div>
@@ -630,7 +606,6 @@
             <span class="ctl-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4"/><path d="M5 4h13l-2.5 4L18 12H5"/></svg></span>
             <div class="ctl-main grow">
               <h3>Known limitations &amp; assumptions</h3>
-              <p class="control-sub">Honest gaps in the desk - stated, never hidden.</p>
               <div class="info-rows" id="divergence-list"></div>
             </div>
           </div>
