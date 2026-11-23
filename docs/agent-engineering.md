@@ -62,7 +62,31 @@ by the same tests, **not yet created on the platform**. `scripts/deploy_managed_
 | `lifecycle-review` | auditor | a lifecycle plan or adoption review |
 | `broker-capture` | executor | the start of every executor delegation |
 
-The prompt trim that lets these replace text (PR B) waits for one clean fire with the skills attached.
+Round two was created, attached and pinned on 2026-11-22 (desk v5, researcher v4, auditor v2, executor v4;
+ids in `SKILLS`); the first fire on 2026-11-23 08:05 ET read every pinned skill without a failed load.
+
+PR B (2026-11-23) is the prompt trim that lets the skills carry the procedures: `templates/prompts/live/*.md`
+now holds the **proposed** text under a `PROPOSED` header until it is applied. What moved out of each prompt
+and where it lives now:
+
+| Prompt | Dropped from the prompt | Now read from | Chars (live -> proposed body) |
+|---|---|---|---|
+| desk | the duplicated TWO-FIRE TIMING, PINNED ENGINE, CONTRACT, REVALIDATION; the state block keeps only its permission sentences | `lifecycle-contract`; `midday-watch` and `proposal-approval` gain one-line pointers | 18.4k -> 14.7k |
+| researcher | EVENT DISCOVERY and SCOUT DATA SUITE tool lists, the kline procedure, the YouTube procedure, the whole shared block (no shell, no state) | `scout-data-suite`, `event-discovery`, `youtube-inbox`; the review fields stay in LIFECYCLE HANDOFF | 15.8k -> 9.4k |
+| auditor | the shared block and LIFECYCLE CHECKLIST | `lifecycle-review`, `exact-order-audit`; limits, instruments, data thresholds and authorization checks stay | 12.5k -> 8.4k |
+| executor | BROKER CAPTURE and LIFECYCLE CAPTURE/TICK procedures, PINNED ENGINE, CONTRACT, REVALIDATION; ONE-SHOT keeps the gate, loses the step order | `broker-capture`, `paper-submit-protocol`, `lifecycle-contract` | 14.7k -> 9.7k |
+
+Every `HARD_RULES` phrase stays verbatim (the test fails otherwise), every cap number stays where it was
+(a trim is not a policy change), and the stale "hourly" timing language now says "the scheduled fires the
+card names" with 12:05 alert-only. The card `PROMPT` in `scripts/deploy_two_fire_automation.py` is **not**
+trimmed in PR B: it changed four times in the week of 2026-11-23 through other PRs, so it gets its own pass.
+
+Applying PR B is a platform step from the laptop, between fires, one role at a time:
+`diff <role> --file templates/prompts/live/<stem>.md` (the header is dropped from the comparison), then
+`apply-system <role> --file ... --apply`. Each apply bumps that agent's version, so finish with `roster`
+re-pins for the three children, `pin-card` for the desk card, `verify`, and `export --prompts` to turn the
+`PROPOSED` headers back into `retrieved-at` ones. An `export --prompts` run **before** the apply overwrites
+the proposed text with the live text; commit nothing from such an export without re-applying the trim.
 
 Mechanics that are not obvious from either API's docs:
 
