@@ -9,8 +9,17 @@ const ucfirst = (s) => { const t = hy(s).trim(); return t ? t.charAt(0).toUpperC
 // A term with a one-line explanation on hover - the desk is read by people who do not trade for a living.
 const tip = (label, text) => `<span class="tip" data-tip="${esc(text)}">${esc(label)}</span>`;
 
-const VERSION = "0.16.0";
+const VERSION = "0.16.1";
 const CHANGELOG = [
+  {
+    version: "0.16.1", date: "2026-11-23", title: "Capital allocation under Strategies in play",
+    items: [
+      "A table shows how much of the account each strategy may use, how much it uses now, and whether the cap counts in the desk's sum rule. The caps come from the config files.",
+      "A line adds up the caps of the switched-on strategies against the 95% limit, and one hint per switched-off strategy says what turning it on would do and, if it does not fit, which cap to lower and to what.",
+      "The start-up check is explained: setting enabled: true inside a config file without lowering a cap makes the desk refuse to start, so the page says to use the switch instead.",
+      "A how-to box gives the four steps to change a cap, including the console session on the desk environment that records the change on the ledger.",
+    ],
+  },
   {
     version: "0.16.0", date: "2026-11-23", title: "Strategies in play says what each strategy is",
     items: [
@@ -1503,6 +1512,89 @@ function renderStrategies() {
     <div class="strat-meta-plain">${file.present
       ? `Last switch pressed ${esc(dualTime(file.updated_at))} by ${esc(file.updated_by || "operator")}.`
       : "No switch has been pressed here yet, so each strategy follows its own config file."}${offByConfig.length ? ` Off in the config file: ${esc(offByConfig.join(", "))}.` : ""}</div>`;
+  renderAllocation(view);
+}
+
+const pts = (x) => `${Math.round(x * 100)}%`;
+
+function laneUsage(row, positions) {
+  const own = new Set(row.symbols || []);
+  const unders = row.underlyings || [];
+  let value = 0;
+  positions.forEach((p) => {
+    const s = String(p.symbol || "");
+    if (own.has(s)) value += Number(p.market_value) || 0;
+    else if (unders.length && unders.some((u) => s.startsWith(u) && s.length > u.length)) value += Number(p.market_value) || 0;
+  });
+  return value;
+}
+
+function renderAllocation(view) {
+  const el = $("#strategy-alloc");
+  if (!el) return;
+  const a = view.allocation;
+  if (!a) { el.innerHTML = ""; return; }
+  const snap = currentSnap() || {};
+  const nav = Number(snap.nav) || 0;
+  const positions = snap.positions || [];
+  const gross = a.gross_cap;
+  const nameOf = (id) => (view.strategies.find((r) => r.strategy_id === id) || {}).name || id;
+  const rows = view.strategies.map((r) => {
+    const used = laneUsage(r, positions);
+    const share = nav ? used / nav : null;
+    const over = r.cap != null && share != null && share > r.cap + 1e-6;
+    return `<tr>
+      <td><strong>${esc(r.name)}</strong><div class="dim mono">${esc(r.strategy_id)}</div></td>
+      <td><span class="pill kill ${r.enabled ? "clear" : "armed"}"><i class="dot"></i><span>${r.enabled ? "On" : "Off"}</span></span></td>
+      <td class="num">${r.cap != null ? pts(r.cap) : "-"}</td>
+      <td class="num ${over ? "neg" : ""}">${share != null ? pct(share, 1) : "-"}${nav ? `<div class="dim mono">${money(used)}</div>` : ""}${over ? `<div class="dim">Over its cap: no new buys here until it drops below</div>` : ""}</td>
+      <td>${r.in_sum ? "Yes" : "No"}</td>
+      <td class="notes-cell" title="${esc(r.cap_note || "")}">${esc(r.cap_note || "")}</td>
+    </tr>`;
+  }).join("");
+  const onSum = a.switched_on_sum;
+  const lines = [];
+  lines.push(`<div class="strat-live">Switched on today: caps add up to ${pts(onSum)} of the ${pts(gross)} limit${a.switched_on_ok ? ", so they fit." : `, which does not fit.`}</div>`);
+  const offInSum = view.strategies.filter((r) => r.in_sum && !r.enabled && r.cap);
+  const hints = offInSum.map((r) => {
+    const total = onSum + r.cap;
+    const overBy = total - gross;
+    return overBy > 1e-6
+      ? `Turning on ${esc(r.name)} (${pts(r.cap)}) would make ${pts(total)}: ${Math.round(overBy * 100)} points too many. Lower ${esc(nameOf(a.largest_on))} from ${pts((view.strategies.find((x) => x.strategy_id === a.largest_on) || {}).cap || 0)} to ${pts(((view.strategies.find((x) => x.strategy_id === a.largest_on) || {}).cap || 0) - overBy)} first, or switch another strategy off.`
+      : `Turning on ${esc(r.name)} (${pts(r.cap)}) would make ${pts(total)}: it fits.`;
+  });
+  if (offInSum.length >= 2) {
+    const allOff = offInSum.reduce((t, r) => t + r.cap, 0);
+    const total = onSum + allOff;
+    if (total > gross + 1e-6) {
+      const big = view.strategies.find((x) => x.strategy_id === a.largest_on) || {};
+      hints.push(`Turning on ${offInSum.map((r) => esc(r.name)).join(" and ")} together would make ${pts(total)}: ${Math.round((total - gross) * 100)} points too many. Lower ${esc(big.name || "")} from ${pts(big.cap || 0)} to ${pts((big.cap || 0) - (total - gross))} first.`);
+    }
+  }
+  const warn = !a.switched_on_ok
+    ? `<div class="strat-problem">Does not fit: ${Math.round(a.shortfall * 100)} points too many. Lower ${esc(nameOf(a.largest_on))} from ${pts((view.strategies.find((x) => x.strategy_id === a.largest_on) || {}).cap || 0)} to ${pts(((view.strategies.find((x) => x.strategy_id === a.largest_on) || {}).cap || 0) - a.shortfall)}, or switch a strategy off. Until then the last strategy to trade gets squeezed by the ${pts(gross)} limit on every order.</div>`
+    : "";
+  const fileLine = a.file_ok
+    ? `The desk's start-up check adds the caps written in the config files: ${pts(a.file_sum)} today, so the desk starts. ${a.all_on_ok ? "" : `Do not set <span class="mono">enabled: true</span> inside a strategy's config file without lowering a cap in the same change: the files would add up to ${pts(a.all_on_sum)} and the desk would refuse to start at the next fire. Use the switch on this page instead.`}`
+    : `<span class="neg">The config files add up to ${pts(a.file_sum)}, over the ${pts(gross)} limit, so the desk will refuse to start at the next fire. Lower a cap now.</span>`;
+  el.innerHTML = `
+    <div class="strat-alloc-head"><span class="card-kicker">Capital allocation</span><span class="dim">Share of the account each strategy may use · limit ${pts(gross)} in total</span></div>
+    ${warn}
+    ${lines.join("")}
+    <div class="tbl-scroll"><table class="tbl alloc-tbl">
+      <thead><tr><th>Strategy</th><th>Switch</th><th class="num">May use</th><th class="num">Using now</th><th><span class="tip" data-tip="The desk adds these caps together and refuses a total above the limit. The scalp lane sizes each trade on its own, so it is left out.">In the sum</span></th><th>What the cap covers</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>
+    ${hints.length ? `<ul class="strat-hints">${hints.map((h) => `<li>${h}</li>`).join("")}</ul>` : ""}
+    <p class="table-note">${fileLine}</p>
+    <details class="guide strat-howto"><summary>How to change a cap (not possible from this page)</summary>
+      <ol>
+        <li><b>Decide the split.</b> Say it in the project chat, for example "Tactical stocks 45% to 25% so Fib 50% pullback's 20% fits".</li>
+        <li><b>A small pull request</b> edits the cap in the strategy's config file and the rules-hash line in its playbook. A cap is part of the frozen rules, so this counts as re-registering the strategy. You merge it.</li>
+        <li><b>Record it on the ledger from a console session.</b> Between fires on a weekday (04:05 to 21:05 SGT), open a console session on the <span class="mono">tyche-desk-drive</span> environment in Qoder, run <span class="mono">git pull</span>, then follow the freeze runbook (<span class="mono">docs/runbooks/freeze-on-ledger.md</span>: copy the Drive journal to a new folder and run <span class="mono">tyche rules-freeze --record</span> for that strategy).</li>
+        <li><b>The next fire uses the new cap.</b> This page then shows the new number.</li>
+      </ol>
+    </details>`;
 }
 
 async function toggleStrategy(strategyId, enabled) {
