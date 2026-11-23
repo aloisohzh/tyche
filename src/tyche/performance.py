@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import csv
 import math
+import re
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
@@ -76,23 +77,57 @@ def _as_day(value: Any) -> date | None:
         return None
 
 
-def account_days_from_journal(events: list[dict[str, Any]]) -> dict[date, float]:
+def account_key(value: Any) -> str | None:
+    """The desk's masked form of an account id: `***` plus the last three digits.
+
+    The live journal holds full ids in `plan.account_id` and `...598`-style masks in order rows; the
+    feed keys its marks `***598`. A value with no digits at all (a sanitized bundle's `[REDACTED]`, a
+    demo alias) cannot be matched and comes back as itself.
+    """
+    if value in (None, ""):
+        return None
+    text = str(value)
+    if re.fullmatch(r"\d{6,}", text) or re.fullmatch(r"[.*]+\d{3}", text):
+        return "***" + text[-3:]
+    return text
+
+
+def _same_account(row_value: Any, account: str | None) -> bool:
+    """True when the row belongs to `account`, or when neither side can say (no digits to compare).
+
+    A journal shared by the challenge account and the personal paper account (ten times the size)
+    must not mix their marks: one personal-account plan row read as the 17 Nov mark would put a
+    -90% drawdown on the challenge book. A row whose id is redacted is kept, because a sanitized
+    bundle has nothing else, and that is stated in the report's method notes.
+    """
+    key = account_key(row_value)
+    want = account_key(account)
+    if key is None or want is None or not key.startswith("***") or not want.startswith("***"):
+        return True
+    return key == want
+
+
+def account_days_from_journal(events: list[dict[str, Any]], account: str | None = None) -> dict[date, float]:
     """One account value per day from the journal: the EOD reconcile wins, a plan's NAV is the fallback.
 
     `eod.reconcile.nav` is the broker's total asset after the close, which is the number the final
     results use. `plan.created.plan.nav` is a pre-trade mark, so it only stands in for a day that
-    never reconciled.
+    never reconciled. Rows for another account are dropped (see `_same_account`).
     """
     reconciled: dict[date, float] = {}
     planned: dict[date, float] = {}
     for ev in events:
         payload = ev.get("payload") or {}
         if ev.get("type") == "eod.reconcile":
+            if not _same_account(payload.get("account"), account):
+                continue
             day = _as_day(payload.get("date"))
             if day is not None and payload.get("nav") is not None:
                 reconciled[day] = float(payload["nav"])
         elif ev.get("type") == "plan.created":
             plan = payload.get("plan") or {}
+            if not _same_account(plan.get("account_id"), account):
+                continue
             day = _as_day(plan.get("as_of"))
             if day is not None and plan.get("nav") is not None:
                 planned[day] = float(plan["nav"])  # later rows overwrite earlier ones
@@ -418,7 +453,9 @@ def render_markdown(pack: Pack, *, order_cap: int = 200, internal_budget: int | 
     lines.append("## How to read it")
     lines.append("")
     lines.append("- Account value per day is the broker's total asset from `eod.reconcile`; a day with no reconcile "
-                 "uses the last published desk mark for that date, and a day with neither is left out, never carried.")
+                 "uses the last published desk mark for that date, and a day with neither is left out, never carried. "
+                 "Journal rows for another account are dropped by their masked id; a row whose id is redacted "
+                 "(sanitized bundles) is kept.")
     lines.append("- The SPY baseline is the same starting cash put into SPY at the base day's close with no fees, "
                  "which flatters SPY slightly; it is the bar, not a strategy.")
     lines.append("- Returns are fee-net because the account value already carries the modelled fees reconciled to cash.")

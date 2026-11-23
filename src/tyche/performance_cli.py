@@ -82,7 +82,7 @@ def report(
     acct = account or _challenge_account(state) or "challenge"
 
     days = account_days_from_feed(state, acct) if state else {}
-    days.update(account_days_from_journal(events))  # reconcile rows win over published marks
+    days.update(account_days_from_journal(events, acct))  # reconcile rows win over published marks
 
     paths: list[Path] = []
     for pattern in prices:

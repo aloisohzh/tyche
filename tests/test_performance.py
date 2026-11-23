@@ -17,6 +17,7 @@ from tyche.journal import append_event
 from tyche.performance import (
     account_days_from_feed,
     account_days_from_journal,
+    account_key,
     benchmark_closes,
     build_pack,
     max_drawdown,
@@ -181,3 +182,25 @@ def test_cli_refuses_a_broken_chain_unless_told_it_is_a_sanitized_copy(tmp_path:
     allowed = CliRunner().invoke(app, ["performance", "report", "--journal", str(journal), "--feed", "none.json",
                                        "--skip-verify", "--start", "2026-11-17", "--start-nav", "1.0"])
     assert allowed.exit_code == 0 and "| 2026-11-18 | 1.00 |" in allowed.output
+
+
+def test_journal_rows_for_another_account_are_dropped_by_masked_id():
+    """The laptop journal holds plans for the personal paper account (~999k) beside the challenge
+    account; one of those rows read as the 17 Nov mark put a -90% drawdown on the challenge book."""
+    rows = [
+        {"ts": "2026-11-17T13:00:00+00:00", "type": "plan.created",
+         "payload": {"plan": {"as_of": "2026-11-17", "nav": 999056.26, "account_id": "123456748", "orders": []}}},
+        {"ts": "2026-11-17T14:00:00+00:00", "type": "plan.created",
+         "payload": {"plan": {"as_of": "2026-11-17", "nav": 100000.0, "account_id": "123456598", "orders": []}}},
+        {"ts": "2026-11-18T21:00:00+00:00", "type": "eod.reconcile",
+         "payload": {"date": "2026-11-18", "nav": 999100.0, "account": "...748"}},
+        {"ts": "2026-11-18T21:30:00+00:00", "type": "eod.reconcile",
+         "payload": {"date": "2026-11-18", "nav": 99914.93, "account": "...598"}},
+        {"ts": "2026-11-19T13:00:00+00:00", "type": "plan.created",
+         "payload": {"plan": {"as_of": "2026-11-19", "nav": 99927.13, "account_id": "[REDACTED]", "orders": []}}},
+    ]
+    assert account_key("123456598") == "***598" and account_key("...598") == "***598"
+    assert account_key("***598") == "***598" and account_key("[REDACTED]") == "[REDACTED]"
+    assert account_days_from_journal(rows, "***598") == {D17: 100000.0, D18: 99914.93, D19: 99927.13}
+    assert account_days_from_journal(rows, "***748") == {D17: 999056.26, D18: 999100.0, D19: 99927.13}
+    assert account_days_from_journal(rows)[D18] == 99914.93  # no filter: last row wins, as before
