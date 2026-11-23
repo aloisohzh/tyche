@@ -92,7 +92,7 @@ These are requirements in the strict sense: a change that breaks one is not a re
 | Lane | Status | Evidence | Gap / note |
 |---|---|---|---|
 | PB-001 regime/vol-targeted rotation (ballast) | implemented, **unvalidated** | `strategies/rotation.py`, [../playbook/PB-001-etf-rotation-ballast.md](../playbook/PB-001-etf-rotation-ballast.md) | beta-not-alpha framing; low-vol regime sleeves |
-| PB-002 tactical event lane | partial | `tactical.py:241-243` (exit intent) and `:342-345` (entry intent) stamp the id, `config/tactical.yaml` (`enabled: true`) | lane runs and stamps its id, but has **no thesis file**, so the roster keeps it `planned`; freeze shared with PB-003 |
+| PB-002 tactical stock lane | partial | `tactical.py:241-243` (exit intent) and `:342-345` (entry intent) stamp the id, `config/tactical.yaml` (`enabled: true`), thesis `playbook/PB-002-tactical-stocks.md` (2026-11-23) | lane runs, stamps its id and is pre-registered; still unvalidated and the freeze is shared with PB-003 |
 | PB-003 tactical options lane | partial | `config.py:182,275` (`options_enabled`) and its gate at `tactical.py:302`; the id ternary it shares with PB-002 is `tactical.py:345` | off: `options_enabled: false`; option protections per ADR 0012 |
 | PB-004 intraday breakout scalp | partial | `scalp.py`, [../playbook/PB-004-intraday-momentum-scalp.md](../playbook/PB-004-intraday-momentum-scalp.md) | rules now freeze (`72077d5d4808`); submission gated by the executor rollout hold; unvalidated |
 | Backtest / walk-forward harness | planned | - | open item in [../DESIGN.md §12](../DESIGN.md); validation currently means a documented sanity check, labelled as such |

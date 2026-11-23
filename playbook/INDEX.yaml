@@ -21,18 +21,15 @@ playbooks:
 
   # PB-002/PB-003 are one lane with one parameter file (src/tyche/tactical.py:243,345 stamps the ids),
   # so both freeze to config/tactical.yaml and share one hash: editing it re-registers the pair.
-  # `planned`, not `live`, is deliberate: the tactical stock lane is enabled and emits PB-002 intents,
-  # but no thesis file exists, so nothing has been pre-registered for it. `status: live` requires a
-  # file (test_playbook_roster_files_and_ids_agree), which is what keeps an undocumented lane from
-  # being called a strategy. PB-003 additionally sits behind options_enabled: false.
+  # PB-002 got its thesis file on 2026-11-23 (the tactical stock lane as it actually trades). PB-003
+  # stays `planned`: no thesis file, and it sits behind options_enabled: false. `status: live` requires
+  # a file (test_playbook_roster_files_and_ids_agree), which is what keeps an undocumented lane from
+  # being called a strategy.
   # Fixed 2026-11-20: before PLAYBOOK_LANES these two ids had no resolvable rules file at all (L-036).
   - id: PB-002
-    file: null
+    file: playbook/PB-002-tactical-stocks.md
     config: config/tactical.yaml
-    status: planned
-    tags:
-      regime_fit: [Bull, Range]
-      direction: Long
+    status: live
 
   - id: PB-003
     file: null
