@@ -1267,3 +1267,14 @@ th .tip::after { bottom: auto; top: calc(100% + 6px); }
 .chip.status-stale { background: var(--fill-3); color: var(--label-3); border-color: var(--sep); }
 .closed-tbl { min-width: 900px; }
 #runs-toggle { cursor: pointer; margin-left: auto; }
+
+/* The timer card: one panel per live card, with one tile per wake-up time */
+.timer-card { padding: 14px 16px 12px; border-radius: 12px; background: var(--bg-elevated-2); border: 1px solid var(--sep-hair); margin-bottom: 12px; }
+.timer-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.timer-card-name { font-weight: 600; font-size: 13px; margin-bottom: 3px; }
+.timer-card-head .cal-card-status { margin-top: 2px; }
+.timer-fires { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; margin-top: 12px; }
+.timer-fire { padding: 11px 12px; border-radius: 10px; background: var(--bg-elevated); border: 1px solid var(--sep-hair); border-left: 3px solid var(--seg-hue, var(--accent)); display: grid; gap: 4px; font-size: 11.5px; }
+.timer-fire-ny b { font-size: 15px; font-weight: 600; }
+.timer-fire-what { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 2px; }
+.timer-card-rule { margin-top: 10px; font-size: 10.5px; }

@@ -1657,6 +1657,14 @@ def build_state() -> dict:
             "next": None,
         },
     ]
+    divergences.append({
+        "kind": "open",
+        "title": "The numbers on this site are published by hand",
+        "text": "The desk writes its journal to a private drive. A publish script copies a safe, redacted version of "
+                "the numbers to this site, and today a person has to run it. Refresh can only check whether a newer "
+                "publish exists.",
+        "next": "Let the desk push to the repo, then add the publish script as the last step of every run.",
+    })
     if cloud and plan_acct != primary:
         divergences.append({
             "kind": "open",

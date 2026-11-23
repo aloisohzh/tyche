@@ -15,8 +15,8 @@ const CHANGELOG = [
     "A warning banner when the data feed is older than the last market session, and the clock now shows when the data was published and when it was last checked.",
     "Closed trades are listed on the Strategy page; the Realized P&L tile opens them.",
     "Orders left over from an earlier day are no longer counted as working.",
-    "Desk runs show the scheduled card runs by default; earlier setup runs are behind a toggle.",
-    "Schedule table says which card is running this month and which takes over next.",
+    "The run log shows timer-card runs by default; test runs and checks are behind a toggle.",
+    "The timer-card table is built from the live cards, so an archived card no longer appears.",
     "Upcoming market events are named instead of counted.",
     "Every page has a short 'How to read this page' guide; tighter layout with less empty space.",
   ] },
@@ -53,6 +53,7 @@ const CHANGELOG = [
   {
     version: "0.10.0", date: "2026-11-22", title: "The cadence table shows the cards that actually fire",
     items: [
+      "Schedule page shows one panel per live timer card with its wake-up times in New York and Singapore time; the cron table and the stale gate window are gone (23 Nov).",
       "Strategy view: the cron table is drawn from each automation card's own cron, timezone and window - one row per fire time, grouped by card - with the phase and activity the kernel gate would route that wall-clock time to. What the desk really does is 08:05 plan, 12:05 monitor, 15:05 trade.",
       "The six-run hourly model row is gone. That was the retired design's schedule generator, not the desk's behaviour, and it had no card behind it: a table that disagrees with the cards is worse than a short one.",
       "Blind stays blind: if the Managed cards cannot be read, the table renders empty and the note says so, instead of falling back to a remembered cadence that would read as a status report.",
@@ -244,7 +245,7 @@ const VIEWS = ["overview", "strategy", "risk", "automation", "controls"];
 const VIEW_LABEL = { overview: "Overview", strategy: "Trade ideas", risk: "Safety & orders", automation: "Schedule", controls: "Controls" };
 // What started a session, in the words the desk can prove: a card, the Scout button, or something opened
 // elsewhere. The server derives it from `deployment_id` / `kind`, never from a label it guessed.
-const ORIGIN_LABEL = { card: "Scheduled card", scout: "Research Scout", manual: "Earlier setup run" };
+const ORIGIN_LABEL = { card: "Timer card", scout: "Research Scout", manual: "Started by hand", "tyche-probe": "Read-only check", "tyche-rules-freeze": "Rules check" };
 let SHOW_ALL_RUNS = false;
 function showView(name) {
   if (!VIEWS.includes(name)) name = "overview";
@@ -369,8 +370,8 @@ function renderStaleBanner() {
   const hours = Math.round(age / 3600000);
   const ageText = hours >= 48 ? `${Math.round(hours / 24)} days` : `${hours} hours`;
   el.hidden = false;
-  el.innerHTML = `<strong>Data feed is ${ageText} old.</strong> It was published ${dateLabel(STATE.generated_at)} ${sgtHHMM(STATE.generated_at)} SGT. ` +
-    `Positions, cash and P&amp;L may have moved since. Refresh re-reads the feed, but the feed itself only changes when the desk publishes it.`;
+  el.innerHTML = `<strong>These numbers are ${ageText} old.</strong> They were published ${dateLabel(STATE.generated_at)} ${sgtHHMM(STATE.generated_at)} SGT. ` +
+    `Holdings, cash and P&amp;L may have moved since. Refresh only checks for a newer publish; to get new numbers, run the publish script (Controls page explains how).`;
 }
 const sym = (s) => String(s || "").replace(/^US\./, "");
 function fmtDur(sec) {
@@ -2051,17 +2052,49 @@ function cardStatusHtml(name) {
     ? `Next run ${dateLabel(next)} ${etHHMM(next)} ET, in <b class="mono" data-countdown="${nextT}">${fmtCountdown(nextT - Date.now())}</b>`
     : "no upcoming run reported";
   const reason = !active && card.paused_reason ? ` (${esc(card.paused_reason)})` : "";
-  const today = etDateStr(AUTO?.calendar?.now_et || AUTO?.fetched_at) || "";
+  // Today by the real clock, not the published calendar: the feed can be days old.
+  const today = etDateStr(new Date().toISOString()) || "";
   let role = "";
   if (card.window && today) {
     const [ws, we] = String(card.window).split("..");
-    if (ws && we) {
+    if (ws && !we) role = today >= ws ? '<span class="chip ok-chip">Running now · no end date</span>' : `<span class="chip dry">Starts ${dateLabel(ws + "T12:00:00Z")}</span>`;
+    else if (ws && we) {
       if (today >= ws && today <= we) role = '<span class="chip ok-chip">Runs this month</span>';
       else if (today < ws) role = `<span class="chip dry">Takes over ${dateLabel(ws + "T12:00:00Z")}</span>`;
       else role = '<span class="chip">Window ended</span>';
     }
   }
   return `<div class="dim cal-card-status">${role}<span class="sched-pill ${active ? "active" : "paused"}"><i></i>${esc(ucfirst(card.status || "unknown"))}${reason}</span> ${active ? when : ""}</div>`;
+}
+
+// One row per wake-up time of each live card, derived from the card's own cron and next runs.
+// Phase and activity come from the published day timeline so the table stays in the desk's words.
+function liveScheduleRows(cal) {
+  const cards = (AUTO?.schedules || []).filter((c) => c && c.cron);
+  const tl = cal?.timeline || [];
+  const phaseAt = (hhmm) => (tl.find((seg) => hhmm >= seg.start && hhmm < seg.end) || {}).phase || "closed";
+  const activityOf = (phase) => ((cal?.phase_strategies || []).find((p) => p.phase === phase) || {}).activity || "noop";
+  const rows = [];
+  for (const card of cards) {
+    const parts = String(card.cron).trim().split(/\s+/);
+    if (parts.length < 5) continue;
+    const [min, hours, dom, , dow] = parts;
+    const hourList = hours.split(",").map((h) => parseInt(h, 10)).filter((h) => !Number.isNaN(h)).sort((a, b) => a - b);
+    const days = dom === "*" && /^1-5$/.test(dow) ? "Mon–Fri" : dom === "*" && dow === "*" ? "Every day" : card.window || "-";
+    for (const h of hourList) {
+      const et = `${String(h).padStart(2, "0")}:${String(parseInt(min, 10) || 0).padStart(2, "0")}`;
+      // Singapore time from a real upcoming fire at this ET hour, so DST is handled by the clock, not by arithmetic.
+      const fire = (card.next_runs || []).find((iso) => etHHMM(iso) === et);
+      let sgt = "-";
+      if (fire) {
+        const sameDay = etDateStr(fire) === sgtDateStr(fire);
+        sgt = sgtHHMM(fire) + (sameDay ? "" : " (+1d)");
+      }
+      const phase = phaseAt(et);
+      rows.push({ name: card.name, window: card.window, timezone: card.timezone, cron: card.cron, phase, activity: activityOf(phase), et_time: et, sgt_time: sgt, days });
+    }
+  }
+  return rows;
 }
 
 function renderCalendar() {
@@ -2157,28 +2190,44 @@ function renderCalendar() {
     `<div class="cal-aware-row"><span class="cal-aware-label">Today</span><div class="cal-aware-items">${today}</div></div>` +
     `<div class="cal-aware-row"><span class="cal-aware-label">Ahead</span><div class="cal-aware-items cal-days">${ahead}</div></div>`;
 
-  // The gate's own window, not the table's: each card row below carries the window the card declares.
-  $("#cal-window").textContent = `Gate window ${cal.window.start} to ${cal.window.end}`;
-  let lastCard = null;
-  $("#cal-cron-rows").innerHTML = (cal.schedules || []).map((s) => {
-    const meta = PHASE_META[s.phase] || { name: "unknown", hue: "var(--faint)" };
-    const grouped = s.name !== lastCard;
-    lastCard = s.name;
-    const who = grouped
-      ? `<strong style="font-size:12px">${esc(s.name)}</strong><div class="dim mono">${esc(s.window || "-")} · ${esc(s.timezone || "UTC")}</div>${cardStatusHtml(s.name)}`
-      : '<span class="dim">Same card</span>';
-    return `<tr class="${grouped ? "cal-cron-group" : ""}">
-      <td>${who}</td>
-      <td><span class="cal-cron mono">${esc(s.cron)}</span></td>
-      <td><span class="cal-phase-tag" style="--seg-hue:${meta.hue}">${meta.name}</span></td>
-      <td><span class="cal-activity ${s.activity}">${ACTIVITY_LABEL[s.activity] || s.activity}</span></td>
-      <td class="mono" style="font-size:11px">${esc(s.et_time)}</td>
-      <td class="mono" style="font-size:11px">${esc(s.sgt_time || "-")}</td>
-      <td class="num">${s.days ?? "-"}</td>
-    </tr>`;
-  }).join("") || '<tr><td colspan="7" class="empty-row">No cards read, so there is no cadence to show - the desk does not draw one from a remembered model.</td></tr>';
-  $("#cal-cron-note").textContent =
-    "Each row is one wake-up time of one timer card, in New York time and Singapore time. At 08:05 New York time the desk plans, at 12:05 it checks, and at 15:05 it trades. When two cards overlap at the turn of the month, only the one whose dates include today runs. The times come straight from the cards.";
+  // The live cards win: the published calendar's schedule list is a snapshot from publish time and
+  // can still name cards that have since been archived.
+  const scheduleRows = liveScheduleRows(cal);
+  const rows = scheduleRows.length ? scheduleRows : (cal.schedules || []);
+  const byCard = new Map();
+  for (const r of rows) { if (!byCard.has(r.name)) byCard.set(r.name, []); byCard.get(r.name).push(r); }
+  const DOES = { plan: "Makes the plan for the day", monitor: "Checks every holding against its stop and target", active: "Places the trades", reconcile: "Checks the books", noop: "Rests" };
+  const panels = [];
+  for (const [name, fires] of byCard) {
+    const card = (AUTO?.schedules || []).find((c) => c.name === name) || {};
+    const days = fires[0]?.days || "-";
+    const tiles = fires.map((f) => {
+      const meta = PHASE_META[f.phase] || { name: "unknown", hue: "var(--faint)" };
+      return `<div class="timer-fire" style="--seg-hue:${meta.hue}">
+        <div class="timer-fire-ny"><b class="mono">${esc(f.et_time)}</b> New York</div>
+        <div class="timer-fire-sg dim"><span class="mono">${esc(String(f.sgt_time || "-").replace(/\s*\(\+1d\)/, ""))}</span> Singapore${/\+1d/.test(f.sgt_time || "") ? " (next day)" : ""}</div>
+        <div class="timer-fire-what"><span class="cal-phase-tag" style="--seg-hue:${meta.hue}">${meta.name}</span> <span class="cal-activity ${f.activity}">${ACTIVITY_LABEL[f.activity] || f.activity}</span></div>
+        <div class="dim">${esc(DOES[f.activity] || "")}</div>
+      </div>`;
+    }).join("");
+    const dayWords = days === "Mon–Fri" ? "every weekday (Monday to Friday)" : days === "Every day" ? "every day" : `on ${days}`;
+    const times = fires.length === 1 ? "once" : fires.length === 2 ? "twice" : `${fires.length} times`;
+    panels.push(`<div class="timer-card">
+      <div class="timer-card-head">
+        <div><div class="timer-card-name">${esc(name)}</div>
+        <div class="dim">Wakes the desk ${times} ${dayWords}. It skips weekends and US market holidays by itself.</div></div>
+        ${cardStatusHtml(name)}
+      </div>
+      <div class="timer-fires">${tiles}</div>
+      <div class="dim mono timer-card-rule" title="The timing rule written the way computers read it: minute, hour, day of month, month, weekday">Timer rule ${esc(fires[0]?.cron || card.cron || "-")} · ${esc(fires[0]?.timezone || card.timezone || "UTC")}</div>
+    </div>`);
+  }
+  $("#cal-cards").innerHTML = panels.join("") || '<p class="empty-row">No timer card could be read, so there is nothing to show here.</p>';
+  $("#cal-cron-note").textContent = scheduleRows.length
+    ? (byCard.size === 1
+      ? "This is the only timer card. The three times come straight from the live card, so what you see here is what will run."
+      : `${byCard.size} timer cards are switched on. Each one is shown with its own wake-up times, read from the live card.`)
+    : "The live cards could not be read, so this shows the schedule as it was when the data was last published.";
 
   const wl = cal.watchlist;
   const wlWrap = $("#cal-watchlist-wrap");
@@ -2246,7 +2295,7 @@ function renderAutomation() {
   if (toggle) {
     const extra = allSessions.length - cardRuns.length;
     toggle.hidden = !cardRuns.length || extra <= 0;
-    toggle.textContent = SHOW_ALL_RUNS ? "Show scheduled runs only" : `Show ${extra} earlier setup run${extra === 1 ? "" : "s"}`;
+    toggle.textContent = SHOW_ALL_RUNS ? "Show timer-card runs only" : `Show ${extra} other run${extra === 1 ? "" : "s"} (tests and checks)`;
     toggle.onclick = () => { SHOW_ALL_RUNS = !SHOW_ALL_RUNS; renderAutomation(); };
   }
   $("#session-rows").innerHTML = sessions.map((s) => {

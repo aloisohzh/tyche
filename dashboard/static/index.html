@@ -79,7 +79,7 @@
           </button>
         </div>
         <span id="clock" class="clock mono">SGT --:--:-- · ET --:--:--</span>
-        <button id="refresh-btn" class="btn refresh" title="Refresh now (press R)">
+        <button id="refresh-btn" class="btn refresh" title="Check for newer numbers (press R)">
           <svg viewBox="0 0 24 24" width="15" height="15"><path fill="currentColor" d="M12 4V1L7 6l5 5V7a6 6 0 1 1-6 6H4a8 8 0 1 0 8-9z"/></svg>
           <span>Refresh</span>
         </button>
@@ -384,7 +384,7 @@
           </div>
           <div class="heading-aside"><span class="pill live-pill" id="automation-source"><i class="dot"></i><span>Connecting…</span></span></div>
         </div>
-<details class="guide"><summary>How to read this page</summary><ul><li><b>The desk runs three times every trading day.</b> At 21:05 Singapore time it makes a plan. At 01:05 it checks every holding against its stop and target. At 04:05 it trades. Between runs nobody is watching the market.</li><li><b>Market calendar</b>: the parts of the US trading day and what the desk may do in each. The days ahead show holidays, half days and big news events that can move prices.</li><li><b>Schedule</b>: the timer cards that start each run. Two can be on at once. One covers this month and the other takes over on the first of next month, so there is never a gap. Only the card whose dates include today actually runs.</li><li><b>Desk runs</b>: a log of every run and what it cost in cloud credits. Old test runs from before the timer cards existed are hidden behind a button.</li><li><b>The team</b>: the coordinator makes the plan and talks to me on Telegram. The researcher finds ideas. The auditor checks every plan. The executor is the only one allowed to place orders, and only after approval.</li></ul></details>
+<details class="guide"><summary>How to read this page</summary><ul><li><b>The desk runs three times every trading day.</b> At 21:05 Singapore time it makes a plan. At 01:05 it checks every holding against its stop and target. At 04:05 it trades. Between runs nobody is watching the market.</li><li><b>Market calendar</b>: the parts of the US trading day and what the desk may do in each. The days ahead show holidays, half days and big news events that can move prices.</li><li><b>The timer card</b>: the alarm clock that wakes the desk. There is one card. It rings three times every weekday, and the panel shows each ring in New York and Singapore time.</li><li><b>Every run</b>: a log of each time the desk woke up and what it cost in cloud credits. Test runs and read-only checks are hidden behind a button.</li><li><b>The team</b>: the coordinator makes the plan and talks to me on Telegram. The researcher finds ideas. The auditor checks every plan. The executor is the only one allowed to place orders, and only after approval.</li></ul></details>
 
         <div class="evidence-strip">
           <div class="card evidence-card"><span class="ev-num mono" id="ov-sched-count">-</span><span class="ev-label">Timer cards switched on</span><span class="ev-sub">On / total</span></div>
@@ -414,15 +414,9 @@
           <div class="cal-aware" id="cal-aware"></div>
           <div class="cal-crons-wrap">
             <div class="cal-crons-head">
-              <span class="card-kicker">The timer cards</span>
-              <span class="desk-sub mono" id="cal-window">-</span>
+              <span class="card-kicker">The timer card</span>
             </div>
-            <div class="tbl-scroll">
-              <table class="tbl cal-crons">
-                <thead><tr><th>Card</th><th><span class="tip" data-tip="The card’s timing rule written the way computers read it: minute, hour, days of the month, month, weekday.">Timer rule</span></th><th>Part of the day</th><th>What it does</th><th>New York time</th><th>Singapore time</th><th class="num">Days it covers</th></tr></thead>
-                <tbody id="cal-cron-rows"></tbody>
-              </table>
-            </div>
+            <div id="cal-cards"></div>
             <p class="table-note" id="cal-cron-note">-</p>
           </div>
           <div class="cal-crons-wrap" id="cal-watchlist-wrap" hidden>
@@ -593,7 +587,7 @@
             </span>
             <div class="ctl-main">
               <h3>Refresh and shortcuts</h3>
-              <p class="control-sub">Refresh asks for the newest published numbers. The desk publishes them after it runs; the top bar shows when. If that time does not change, there is nothing newer yet, and Refresh cannot make new numbers.</p>
+              <p class="control-sub">Refresh asks for the newest published numbers. It cannot make new ones: the numbers come from the desk's private journal, and a publish script copies a safe version of them to this site. Until that script runs on its own after every desk run, a person has to run it. The top bar shows when the numbers were last published.</p>
               <div class="control-kbd"><span class="mono">1-5</span> Switch page · <span class="mono">R</span> Refresh · <span class="mono">T</span> Theme · <span class="mono">Esc</span> Close</div>
             </div>
           </div>
