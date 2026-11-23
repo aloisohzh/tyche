@@ -6,8 +6,12 @@ journaled. `tyche halt` writes both flags, never edit them by hand:
 - `journal/halt.json` - desk-local, persisted on Drive.
 - `data/halt.json` - shared, committed so cloud sessions see it through the git mount.
 
-Either flag halts. Agents and operators should read the merged state with
-`tyche halt-status --json` rather than opening one file.
+The flag with the **newest timestamp** governs (since 2026-11-23): a halt written after
+the last release blocks buys, and a release written after the last halt lets buys through
+again, whichever file carries it. So a cloud-journaled halt can be released from the repo
+by committing `data/halt.json` with `halted: false` and a fresh `ts` (the dashboard's
+Release button does exactly that), and an older release never unlocks a newer halt. Read
+the merged state with `tyche halt-status --json` rather than opening one file.
 
 ## Commands
 

@@ -89,11 +89,22 @@ def test_effective_halt_newest_active_wins(tmp_path: Path) -> None:
     assert eff["reason"] == "newer cloud halt" and eff["ts"] > older
 
 
-def test_effective_halt_or_semantics_fail_safe(tmp_path: Path) -> None:
+def test_effective_halt_newer_repo_release_clears_journal_halt(tmp_path: Path) -> None:
+    """A release committed after the desk's halt is the operator's latest word and wins."""
     journal = tmp_path / "journal"
     journal.mkdir()
     set_halt(journal, True, "desk engaged")
-    _write_repo_halt(tmp_path, False, "2099-01-01T00:00:00+00:00")
+    _write_repo_halt(tmp_path, False, "2099-01-01T00:00:00+00:00", "operator resume via repo")
+    eff = effective_halt(journal, tmp_path)
+    assert eff["halted"] is False and eff["source"] == "repo"
+
+
+def test_effective_halt_older_repo_release_does_not_clear_newer_halt(tmp_path: Path) -> None:
+    """A stale release (older than the halt) never unlocks buys: the newer halt still governs."""
+    journal = tmp_path / "journal"
+    journal.mkdir()
+    _write_repo_halt(tmp_path, False, "2026-11-18T09:45:07+00:00", "old resume")
+    set_halt(journal, True, "desk engaged later")
     eff = effective_halt(journal, tmp_path)
     assert eff["halted"] is True and eff["source"] == "journal"
 
