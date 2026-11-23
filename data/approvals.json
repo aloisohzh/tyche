@@ -1,8 +1,8 @@
 {
   "as_of": "2026-11-23",
-  "approved_at": "2026-11-23T15:11:25.087203+00:00",
+  "approved_at": "2026-11-23T15:31:37.410772+00:00",
   "approved_by": "operator (Alois, project thread 23 Nov 2026)",
-  "max_orders": 3,
+  "max_orders": 5,
   "orders": [
     {
       "symbol": "US.SPY",
@@ -24,7 +24,21 @@
       "max_qty": 39,
       "max_total_qty": 39,
       "limit_min": 474.0
+    },
+    {
+      "symbol": "US.AAPL",
+      "side": "buy",
+      "max_qty": 28,
+      "max_total_qty": 28,
+      "limit_max": 343.08
+    },
+    {
+      "symbol": "US.AAPL",
+      "side": "sell",
+      "max_qty": 28,
+      "max_total_qty": 28,
+      "limit_min": 315.39
     }
   ],
-  "note": "Exit note: sell the whole SPY and EFA lots (stops 727.50 / 100.00 breached on two completed bars, Nov 19-20) and the unowned MSFT lot. Floors sit about 5% under the Nov 23 premarket marks (708 / 97.4 / 499). No buy lines: entries stay on Ask me once the halt is released."
+  "note": "Exit note: sell the whole SPY and EFA lots (stops 727.50 / 100.00 breached on two completed bars, Nov 19-20) and the unowned MSFT lot; floors about 5% under the Nov 23 premarket marks. Plus the operator's yes to the AAPL PB-007 swing proposed at the Nov 23 premarket fire: buy up to 28 inside the 338.89-343.08 zone, stop 331.99, target 360.83, flat by Nov 27 12:30 ET; the sell line is its protectiv"
 }
