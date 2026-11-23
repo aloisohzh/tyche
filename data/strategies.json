@@ -1,0 +1,8 @@
+{
+  "enabled": {
+    "PB-004": false,
+    "PB-007": true
+  },
+  "updated_at": "2026-11-23T05:27:15.788052+00:00",
+  "updated_by": "operator (Alois, via Claude PR #31)"
+}
