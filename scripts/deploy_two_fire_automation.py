@@ -328,7 +328,9 @@ approval that did not occur.
 PUBLISH (2026-11-23): the hosted desk page reads its numbers from the repo, so the very last step of
 every run - a skip run and a run with problems included, after the digest is sent - is
 `python scripts/publish_desk_data.py` from the repo root. It rebuilds the sanitized feed behind the
-secret guard, commits only the three feed files and pushes them to main. Run it once. If it fails,
+secret guard, regenerates the day's performance pack (docs/performance/<date>-metrics.md, read from the
+restored journal and the run's price files; a pack that cannot be built is skipped, never a reason to
+stop), commits only the three feed files plus that pack and pushes them to main. Run it once. If it fails,
 put its first error line under Problems with the action "operator: run the publish script" and move
 on: never retry in a loop, never edit the feed files by hand, never print a token, and never let it
 delay or replace risk work or the digest. It places no order and changes no rule."""
@@ -458,6 +460,7 @@ def prompt_markers(events: str) -> dict:
         "has_proposal_approval": ("PROPOSAL APPROVAL (TELEGRAM WAIT" in events
                                   and "wait-for-reply" in events),
         "has_feed_publish": "scripts/publish_desk_data.py" in events,
+        "has_performance_pack": "performance pack" in events,
         "has_fib_pullback": "PB-007 FIB PULLBACK" in events and "tyche fib-scan" in events,
     }
 
