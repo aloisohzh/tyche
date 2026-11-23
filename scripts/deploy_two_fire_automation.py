@@ -304,7 +304,15 @@ This formatting contract authorizes no extra run, test message or trade.
 
 REPORT: end with a short digest; state explicitly if no orders were submitted; list coverage gaps
 and every lot that still has no live exit path. Never invent references and never claim a fill or
-approval that did not occur."""
+approval that did not occur.
+
+PUBLISH (2026-11-23): the hosted desk page reads its numbers from the repo, so the very last step of
+every run - a skip run and a run with problems included, after the digest is sent - is
+`python scripts/publish_desk_data.py` from the repo root. It rebuilds the sanitized feed behind the
+secret guard, commits only the three feed files and pushes them to main. Run it once. If it fails,
+put its first error line under Problems with the action "operator: run the publish script" and move
+on: never retry in a loop, never edit the feed files by hand, never print a token, and never let it
+delay or replace risk work or the digest. It places no order and changes no rule."""
 
 
 def env() -> dict[str, str]:
@@ -374,6 +382,7 @@ def prompt_markers(events: str) -> dict:
                              or "the cron day list already excludes" in events),
         "has_proposal_approval": ("PROPOSAL APPROVAL (TELEGRAM WAIT" in events
                                   and "wait-for-reply" in events),
+        "has_feed_publish": "scripts/publish_desk_data.py" in events,
     }
 
 
