@@ -159,14 +159,26 @@ def test_every_id_the_code_can_emit_has_a_lane() -> None:
 
 
 def test_enabled_playbook_ids_reads_each_lanes_own_switch() -> None:
-    """`strategy_by_id` only knows rotation configs; the other lanes would raise (L-036)."""
+    """`strategy_by_id` only knows rotation configs; the other lanes would raise (L-036).
+
+    The operator switch file (data/strategies.json) wins where it names a lane, so each expectation is
+    the lane's own config unless the committed switch file overrides it (L-037).
+    """
+    from tyche.lanes import read_overrides
+
     config = load_config(ROOT)
-    assert config.strategy_enabled("PB-001") is config.strategy_by_id("PB-001").enabled
-    assert config.strategy_enabled("PB-002") is config.tactical.enabled
-    assert config.strategy_enabled("PB-003") is (
-        config.tactical.enabled and config.tactical.options_enabled
+    overrides, problem = read_overrides(ROOT)
+    assert problem is None, problem
+
+    def expected(pid: str, lane_default: bool) -> bool:
+        return overrides.get(pid, lane_default)
+
+    assert config.strategy_enabled("PB-001") is expected("PB-001", config.strategy_by_id("PB-001").enabled)
+    assert config.strategy_enabled("PB-002") is expected("PB-002", config.tactical.enabled)
+    assert config.strategy_enabled("PB-003") is expected(
+        "PB-003", config.tactical.enabled and config.tactical.options_enabled
     )
-    assert config.strategy_enabled("PB-004") is config.scalp.enabled
+    assert config.strategy_enabled("PB-004") is expected("PB-004", config.scalp.enabled)
     enabled = config.enabled_playbook_ids()
     assert [pid for pid in PLAYBOOK_LANES if config.strategy_enabled(pid)] == enabled
     assert "PB-003" in set(PLAYBOOK_LANES) - set(enabled), (
