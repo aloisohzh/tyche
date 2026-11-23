@@ -141,8 +141,8 @@ There is exactly one exit per environment, and no code path can reach a live acc
 
 `journal.py` appends a hash-chained JSONL event for plans, verdicts, submissions, fills, halts, config
 changes and gate waits; `verify_chain` (`:91`) is run by `tyche journal-verify`, CI, and the `reserve`
-gate. Two kill-switch flags (journal-dir and repo-level) are merged by `halt.py:effective_halt`, so a
-halt from either location stops buys. `execution_state.py` reconciles cumulative budgets with what the
+gate. Two kill-switch flags (journal-dir and repo-level) are merged by `halt.py:effective_halt`: the
+newest-stamped flag governs, so a halt or a release from either location reaches every run. `execution_state.py` reconciles cumulative budgets with what the
 broker actually holds, and `unresolved_symbols()` blocks writes on a symbol with an open order.
 
 `persist.py` splits evidence: raw payloads to the Qoder Drive locker, sanitized summaries to git

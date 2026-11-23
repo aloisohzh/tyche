@@ -1,6 +1,6 @@
 {
   "halted": false,
-  "reason": "operator resume",
-  "ts": "2026-11-18T09:45:07.693302+00:00",
-  "set_by": "operator (CLI)"
+  "reason": "operator resume: 19 Nov writer incident reviewed, 23 Nov premarket reconcile found no second writer (Alois, 23 Nov 2026)",
+  "ts": "2026-11-23T15:11:25.087203+00:00",
+  "set_by": "operator (PR, project thread)"
 }

@@ -54,10 +54,15 @@ def read_repo_halt(root: Path) -> dict | None:
 
 
 def effective_halt(journal_dir: Path, root: Path) -> dict:
-    """Halt is engaged if the local journal flag OR the shared repo flag says so.
+    """The operator's most recent kill-switch decision, across both flags.
 
     The journal flag is desk-local (Drive-persisted); the repo flag rides the git
-    mount into every cloud session. Either one blocks buys; sells still pass.
+    mount into every cloud session. The flag with the newest timestamp governs: a
+    halt written after the last release blocks buys, and a release written after the
+    last halt lets buys through again. Until 2026-11-23 an active flag always won,
+    which left no way to release a cloud-journaled halt from the repo (the dashboard's
+    Release button and a committed data/halt.json were silently ignored while the
+    Drive journal still said halted). Sells pass in every state.
     """
     candidates: list[dict] = []
     local = read_halt(journal_dir)
@@ -68,7 +73,5 @@ def effective_halt(journal_dir: Path, root: Path) -> dict:
         candidates.append({**repo, "source": "repo"})
     if not candidates:
         return {"halted": False}
-    active = [c for c in candidates if c.get("halted")]
-    if active:
-        return max(active, key=lambda c: c.get("ts") or "")
-    return max(candidates, key=lambda c: c.get("ts") or "")
+    newest = max(candidates, key=lambda c: c.get("ts") or "")
+    return {**newest, "halted": bool(newest.get("halted"))}
