@@ -122,6 +122,8 @@ def card_view(item: dict) -> dict:
         "next_runs": schedule.get("upcoming_runs_at") or [],
         "last_run": schedule.get("last_run_at"),
         "window": metadata.get("window"),
+        # A card that stops on a set day (the PB-004 scalp, until 30 Nov) says so here, not in `window`.
+        "ends": metadata.get("ends"),
         "agent": {"id": agent.get("id"), "version": agent.get("version")},
         "updated_at": item.get("updated_at"),
     }

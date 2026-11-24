@@ -132,7 +132,7 @@ def test_nav_marks_prefer_broker_total_asset(srv, feed_env):
     # own total, and that is the account value the desk should chart.
     d = make_bundle(feed_env, "2026-11-18-midday2", nav=92089.79, cash=57360.28, mtime=1000)
     (d / "cash.json").write_text(json.dumps({"data": {"total_asset": 99974.12, "hold": 7884.33}}), encoding="utf-8")
-    make_bundle(feed_env, "2026-11-18-nocash", nav=92047.05, cash=57360.28, mtime=2000)
+    make_bundle(feed_env, "2026-11-18-eod-nocash", nav=92047.05, cash=57360.28, mtime=2000)
     series = srv.cloud_nav_marks(srv.load_cloud_runs())["***598"]
     assert [m["nav"] for m in series] == [99974.12, 92047.05]
 
@@ -245,3 +245,25 @@ def test_cloud_orders_read_history_orders_json(srv, feed_env):
     orders = srv.cloud_orders(srv.load_cloud_runs())
     assert [o["order_id"] for o in orders] == ["3116597"]
     assert orders[0]["symbol"] == "US.VNQ"
+
+
+def test_reading_time_comes_from_the_run_not_the_checkout(srv, feed_env):
+    # Same broker order in every bundle, files all stamped at checkout: the eod run must still be newest.
+    order = {"order_id": "1", "symbol": "VNQ", "side": 1, "qty": "83", "price": "94.98", "status": 2,
+             "cum_qty": "0", "avg_fill_price": "0", "create_time": "1795024387000000", "update_time": "1795024387000000"}
+    for run, nav in (("2026-11-18-midday3", 92047.11), ("2026-11-18-closing", 92047.05), ("2026-11-18-eod", 92030.6)):
+        make_bundle(feed_env, run, nav=nav, cash=57360.28, orders=[order], mtime=4_000_000_000)
+    runs = srv.load_cloud_runs()
+    assert [r["run"] for r in runs] == ["2026-11-18-midday3", "2026-11-18-closing", "2026-11-18-eod"]
+    assert runs[-1]["ts"].startswith("2026-11-18T21:30")  # 16:30 New York
+    assert runs[0]["ts"].startswith("2026-11-18T17:53")  # the broker's own order stamp beats 12:05
+
+
+def test_card_view_carries_the_end_date():
+    import importlib.util as iu
+    spec = iu.spec_from_file_location("cloud_api_end_test", ROOT / "scripts" / "cloud_api.py")
+    mod = iu.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    view = mod.card_view({"id": "d", "name": "Tyche scalp", "metadata": {"ends": "2026-11-30"}, "schedule": {}})
+    assert view["ends"] == "2026-11-30"
+    assert mod.card_view({"id": "d", "metadata": {}})["ends"] is None

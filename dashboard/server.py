@@ -21,6 +21,7 @@ import sys
 import threading
 import time
 import urllib.error
+from zoneinfo import ZoneInfo
 from datetime import UTC, date, datetime, timedelta
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -1241,7 +1242,7 @@ def _bundle_title(directory: Path) -> str:
 
 
 # Older bundles saved the broker's order history under the MCP tool name; newer ones as history_orders.json.
-ORDER_HISTORY_FILES = ("sim_trade_history_order_list.json", "history_orders.json")
+ORDER_HISTORY_FILES = ("sim_trade_history_order_list.json", "history_orders.json", "orders.json")
 
 
 def _order_history(directory: Path) -> list[dict]:
@@ -1264,6 +1265,55 @@ def _broker_ts(value) -> str | None:
         return None
 
 
+def _bundle_time(directory: Path, snap: dict) -> float:
+    """When a run bundle's reading was taken, as a POSIX time.
+
+    A git checkout stamps every file with the checkout time, so the file mtime is the publish time,
+    not the reading time (24 Nov: the 18 Nov reading showed as "Nov 23 15:05 ET"). Order: the
+    snapshot's own stamp, then the newest broker order update, then the date in the run's folder
+    name (noon UTC, so the day is right in both ET and SGT), and only then the file mtime.
+    """
+    for key in ("captured_at", "as_of", "ts"):
+        value = snap.get(key)
+        if isinstance(value, str):
+            try:
+                stamp = datetime.fromisoformat(value.replace("Z", "+00:00"))
+                return (stamp if stamp.tzinfo else stamp.replace(tzinfo=UTC)).timestamp()
+            except ValueError:
+                pass
+    try:
+        stamps = [int(o["update_time"]) / 1_000_000 for o in _order_history(directory) if o.get("update_time")]
+    except (KeyError, TypeError, ValueError):
+        stamps = []
+    named = _run_name_time(directory.name)
+    # An order stamp is only a lower bound (an order placed at midday shows up again in the close run),
+    # so the later of the two wins.
+    candidates = [t for t in (max(stamps) if stamps else None, named) if t is not None]
+    if candidates:
+        return max(candidates)
+    return (directory / "snapshot.json").stat().st_mtime
+
+
+# When each desk run fires, New York time, so a bundle named 2026-11-18-eod sorts after 2026-11-18-midday3.
+RUN_PART_TIMES = (("premarket", (8, 5)), ("midday", (12, 5)), ("closing", (15, 5)), ("close", (15, 5)), ("eod", (16, 30)))
+
+
+def _run_name_time(name: str) -> float | None:
+    match = re.match(r"(\d{4})-(\d{2})-(\d{2})(?:-(.*))?$", name)
+    if not match:
+        return None
+    year, month, day, rest = int(match[1]), int(match[2]), int(match[3]), (match[4] or "").lower()
+    hour, minute = 12, 0
+    for part, (h, m) in RUN_PART_TIMES:
+        if rest.startswith(part):
+            hour, minute = h, m
+            break
+    try:
+        return datetime(year, month, day, hour, minute, tzinfo=ZoneInfo("America/New_York")).timestamp()
+    except ValueError:
+        return None
+
+
 def load_cloud_runs() -> list[dict]:
     runs = []
     if not PERF_DIR.is_dir():
@@ -1275,15 +1325,7 @@ def load_cloud_runs() -> list[dict]:
             continue
         if not isinstance(snap, dict) or "nav" not in snap:
             continue
-        # git checkout resets mtimes, so prefer the newest broker timestamp in
-        # the bundle when present; fall back to file mtime.
-        ts = path.stat().st_mtime
-        try:
-            stamps = [int(o["update_time"]) / 1_000_000 for o in _order_history(path.parent) if o.get("update_time")]
-            if stamps:
-                ts = max(ts, max(stamps))
-        except (KeyError, TypeError, ValueError):
-            pass
+        ts = _bundle_time(path.parent, snap)
         runs.append({
             "run": path.parent.name,
             "ts": datetime.fromtimestamp(ts, UTC).isoformat(),
