@@ -1458,7 +1458,7 @@ def propose_envelope(
     proposal = propose_exit_envelope(
         snapshot, read_events(journal_path), today=today, collar_pct=pct,
         max_orders_per_day=config.risk.max_orders_per_day, watchlist=watchlist,
-        options_enabled=config.tactical.options_enabled, now=now,
+        options_enabled=config.options_live, now=now,
     )
     payload = proposal.as_payload()
     payload["problems"] = problems + proposal.problems

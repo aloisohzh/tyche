@@ -47,13 +47,15 @@ def test_paper_allocation_profile_preserves_risk_limits() -> None:
     ballast = sum(strategy.allocation_cap for strategy in config.enabled_strategies())
     assert ballast == pytest.approx(0.25)
     assert config.tactical.stock_allocation_cap == pytest.approx(0.25)
-    assert config.risk.max_option_premium_pct == pytest.approx(0.25)
-    # 2026-11-23: the tactical cap came down from 0.45 so PB-007's 0.20 fits when its switch is on;
-    # yaml-enabled lanes alone now sum to 0.75, and every switch on sums to exactly the 0.95 gross cap.
+    assert config.risk.max_option_premium_pct == pytest.approx(0.05)
+    # 2026-11-23: the tactical cap came down from 0.45 so PB-007's 0.20 fits when its switch is on.
+    # 2026-11-24: the PB-003 option premium slice came down from 0.25 to 0.05 for the long-options test,
+    # so yaml-enabled lanes sum to 0.55 and every switch on sums to 0.75, under the 0.95 gross cap.
     yaml_enabled_sum = ballast + config.tactical.stock_allocation_cap + config.risk.max_option_premium_pct
-    assert yaml_enabled_sum == pytest.approx(0.75)
+    assert yaml_enabled_sum == pytest.approx(0.55)
     pb007 = config.strategy_by_id("PB-007").allocation_cap
-    assert yaml_enabled_sum + pb007 == pytest.approx(config.risk.max_gross_exposure)
+    assert yaml_enabled_sum + pb007 == pytest.approx(0.75)
+    assert yaml_enabled_sum + pb007 <= config.risk.max_gross_exposure
     assert config.risk.max_gross_exposure == pytest.approx(0.95)
     assert config.risk.min_cash_weight == pytest.approx(0.05)
     assert config.risk.option_risk_per_trade_pct == pytest.approx(0.0075)
@@ -186,9 +188,8 @@ def test_enabled_playbook_ids_reads_each_lanes_own_switch() -> None:
     assert config.strategy_enabled("PB-004") is expected("PB-004", config.scalp.enabled)
     enabled = config.enabled_playbook_ids()
     assert [pid for pid in PLAYBOOK_LANES if config.strategy_enabled(pid)] == enabled
-    assert "PB-003" in set(PLAYBOOK_LANES) - set(enabled), (
-        "options_enabled is false, so PB-003 must not read as live"
-    )
+    assert config.tactical.options_enabled is False, "options stay switch-gated; the yaml is not the switch"
+    assert config.options_live is (config.tactical.enabled and config.strategy_enabled("PB-003"))
 
 
 def test_unmapped_strategy_id_says_how_to_fix_it() -> None:

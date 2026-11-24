@@ -260,8 +260,8 @@ is true, the executor may submit paper orders under today's operator authority; 
 entries are proposals only. The authority has exactly two modes, read from data/approvals.json at the
 fire: WITHIN MY BOUNDS when a same-day envelope exists (submit inside it, no Telegram ask), otherwise
 ASK ME (no envelope: an entry is submitted only after the operator's Telegram /approve N in this run,
-journaled with `tyche approve-telegram`). Never write, edit or re-date the envelope. Options stay
-disabled until their own entry/exit validation. Broker writes follow the PB-001 lifecycle contract:
+journaled with `tyche approve-telegram`). Never write, edit or re-date the envelope. Options trade
+only under PB-003 LONG OPTIONS below. Broker writes follow the PB-001 lifecycle contract:
 the executor is the only writer; require a same-day exact setup/config/account-bound entry AND exit
 authorization (the envelope's lines, or the approved proposal's `order` block with its exit_floor), a
 fresh independent exact-order audit and a successful tyche reserve persisted before ONE paper
@@ -305,8 +305,24 @@ the entry zone; fills are recorded with strategy id PB-007. A scan that finds no
 outcome, not a problem: the SMA50/200 filter is meant to produce nothing in a downtrend. When the switch
 is off, skip this block entirely and say so in one line of the digest.
 
+PB-003 LONG OPTIONS (2026-11-24): a test through Fri 27 Nov 2026, live only while `tyche strategies
+--json` lists PB-003 as enabled (the operator's switch file decides; never edit it in a run). Entries only
+at the 15:05 fires of Tue 24 and Wed 25 Nov: the researcher may express a tactical pick as ONE standard
+long call (bullish setup) or ONE long put (bearish setup) on a config/tactical.yaml symbol. Pull
+quote_option_chain with filter_standard=STANDARD and an expiry AFTER 2026-11-27 (so nothing can expire
+or be exercised inside the window) within 30 days, pick the contract nearest 0.55 absolute delta that
+meets the lane's open-interest, volume and 5% spread gates, and write the watchlist entry with its option
+block, premium_limit and exit_at at the next fire's start. The setup takes the normal tactical path:
+preview, exact-order audit, the operator's Telegram /approve (or the same-day envelope), reserve, ONE
+limit buy at the ask. Never sell an option to open, never a spread. A held option is exited at the next
+08:05 or 15:05 fire when the underlying's stop or target, a 40% premium loss or exit_at is reached, by
+asking the operator on Telegram for the sell and then the OPERATOR EXIT path (limit at the bid, never
+below 60% of the price paid). Never submit at 12:05. A broker rejection of an option order is the test's
+answer: journal it, put the exact error in Problems, and do not retry it in that fire. When the switch is
+off, skip this block and say so in one line of the digest.
+
 BUDGET: PB-001 ballast 25%, tactical stock cap 25% (cut from 45% on 2026-11-23), PB-007 swing 20% (only while its switch is on),
-aggregate option premium cap 25%, cash >=5%, gross <=95% on every order.
+PB-003 option premium cap 5% (cut from 25% on 2026-11-24), cash >=5%, gross <=95% on every order.
 
 STATE: this automation is the only scheduled execution owner. The paused Forward schedule and every
 other desk schedule must remain paused; never run two writers. Verify ownership first; if ownership
@@ -536,6 +552,7 @@ def prompt_markers(events: str) -> dict:
         "has_fib_pullback": "PB-007 FIB PULLBACK" in events and "tyche fib-scan" in events,
         "has_nav_references": "NAV REFERENCES" in events and "100,000.00 starting" in events,
         "has_operator_exit": "OPERATOR EXIT" in events and "tyche exit-now" in events,
+        "has_long_options": "PB-003 LONG OPTIONS" in events and "Never sell an option to open" in events,
     }
 
 

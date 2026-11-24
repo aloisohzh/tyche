@@ -217,7 +217,7 @@ def feed_desk(srv, monkeypatch, rows, *, env="paper"):
     })
     risk = SimpleNamespace(exit_collar_pct=0.05, max_orders_per_day=6)
     monkeypatch.setattr(srv, "load_config",
-                        lambda root: SimpleNamespace(risk=risk, tactical=SimpleNamespace(options_enabled=False)))
+                        lambda root: SimpleNamespace(risk=risk, tactical=SimpleNamespace(options_enabled=False), options_live=False))
 
 
 def row(symbol="US.MSFT", qty=39, cost=480.0, last=500.0):

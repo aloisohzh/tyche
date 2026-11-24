@@ -299,7 +299,7 @@ def plan_tick(
                 continue
             if entry.option:
                 dte = (entry.option.expiry - today).days
-                if not cfg.options_enabled or not cfg.min_option_dte <= dte <= cfg.max_option_dte:
+                if not config.options_live or not cfg.min_option_dte <= dte <= cfg.max_option_dte:
                     reject("option disabled or outside DTE limits; no 0DTE entries")
                     continue
                 if q.open_interest < cfg.min_option_open_interest or q.volume < cfg.min_option_volume:

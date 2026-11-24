@@ -125,6 +125,7 @@ def test_confirmed_setup_produces_bounded_risk_preview(option):
 @pytest.mark.parametrize("pending_premium", [0, 100])
 def test_option_allocation_cap_includes_held_and_pending_premiums(pending_premium):
     config = load_config(ROOT)
+    config.risk.max_option_premium_pct = 0.25  # boundary fixture: 24,400 held + 600 = 25% of 100k NAV
     held_contract = OptionContract(underlying="US.SPY", expiry=CONTRACT.expiry, right="call", strike=700)
     pending_contract = OptionContract(underlying="US.AMD", expiry=CONTRACT.expiry, right="call", strike=150)
     snapshot = AccountSnapshot(
@@ -249,9 +250,11 @@ def test_entry_gates_fail_closed(mutation):
     assert not run(args, now)["orders"]
 
 
-@pytest.mark.parametrize("mutation", ["oi", "volume", "dte", "premium", "greeks", "disabled"])
-def test_option_entry_gates(mutation):
+@pytest.mark.parametrize("mutation", ["oi", "volume", "dte", "premium", "greeks", "disabled", "switched_off"])
+def test_option_entry_gates(mutation, monkeypatch):
     args = case(True)
+    if mutation == "switched_off":  # PB-003 off in the operator switch file (2026-11-24 switch route)
+        monkeypatch.setattr(type(args[7]), "strategy_enabled", lambda self, pid: pid != "PB-003")
     run(args)
     advance(args, NOW + timedelta(seconds=120))
     quote = args[2][-1]
@@ -266,8 +269,17 @@ def test_option_entry_gates(mutation):
     elif mutation == "greeks":
         quote.delta = None
     elif mutation == "disabled":
-        args[7].tactical.options_enabled = False
+        args[7].tactical.enabled = False
     assert not run(args, NOW + timedelta(seconds=120))["orders"]
+
+
+def test_option_entry_needs_the_pb003_switch_not_the_yaml(monkeypatch):
+    args = case(True)
+    args[7].tactical.options_enabled = False  # the yaml flag no longer gates entries
+    monkeypatch.setattr(type(args[7]), "strategy_enabled", lambda self, pid: True)
+    run(args)
+    advance(args, NOW + timedelta(seconds=120))
+    assert run(args, NOW + timedelta(seconds=120))["orders"], "switch on must let a valid long option enter"
 
 
 @pytest.mark.parametrize("option", [False, True])
