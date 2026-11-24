@@ -24,6 +24,7 @@ Discipline carried over from the lessons it was written against:
     python scripts/deploy_managed_agents.py apply-system coordinator --file ... --apply
     python scripts/deploy_managed_agents.py create-skill midday-watch --apply
     python scripts/deploy_managed_agents.py publish-skill exact-order-audit
+    python scripts/deploy_managed_agents.py ship-skill scout-data-suite --apply
     python scripts/deploy_managed_agents.py pin-card dep_00vzb9h4ezawwl4thnva --apply
     python scripts/deploy_managed_agents.py attach auditor --skill-id skill_x --version 179... --apply
     python scripts/deploy_managed_agents.py roster --pin auditor 9 --apply
@@ -447,7 +448,7 @@ def _post_multipart(path: str, parts: list, apply: bool) -> dict:
         return json.loads(response.read())
 
 
-def cmd_publish_skill(args) -> None:
+def cmd_publish_skill(args) -> str | None:
     """Add an immutable version to an existing Managed skill; pins are a separate, deliberate step."""
     name = args.skill
     skill_id = _skill_id(name)
@@ -486,6 +487,45 @@ def cmd_publish_skill(args) -> None:
     for r in roles:
         print(f"  nothing re-pinned: {r} still runs {pins[r]} until "
               f"`attach {r} --skill-id {skill_id} --version {new_version} --apply`")
+    return new_version
+
+
+def cmd_ship_skill(args) -> None:
+    """One paste for an edited repo skill: publish a version, re-pin it on every role that carries it,
+    re-pin those children in the desk roster, then move the desk card to the new desk version.
+
+    Each write is the same single-field-group write the separate subcommands make (and prints the same
+    before/after proof); this only saves copying opaque version strings between them by hand.
+    """
+    name = args.skill
+    skill_id = _skill_id(name)
+    roles = SKILLS[name]["roles"]
+    if not args.apply:
+        print(f"DRY RUN ship-skill {name} ({skill_id}) for roles {roles}:")
+        print("  1. publish-skill (new immutable version)")
+        print(f"  2. attach {', '.join(roles)} to that version")
+        children = [r for r in roles if r != "coordinator"]
+        if children:
+            print(f"  3. roster re-pin {', '.join(children)} on the desk")
+        print(f"  4. pin-card {', '.join(CARD_IDS)} to the new desk version")
+        print("  nothing sent; re-run with --apply")
+        return
+    version = cmd_publish_skill(argparse.Namespace(skill=name, apply=True))
+    if not version:
+        raise SystemExit("publish returned no version; nothing re-pinned")
+    pins = []
+    for role in roles:
+        print(f"-- attach {role}")
+        cmd_attach(argparse.Namespace(role=role, skill_id=skill_id, version=version, add=False, apply=True))
+        if role != "coordinator":
+            pins.append(f"{role}={_agent(role)['version']}")
+    if pins:
+        print(f"-- roster {pins}")
+        cmd_roster(argparse.Namespace(pin=pins, apply=True))
+    for card in CARD_IDS:
+        print(f"-- pin-card {card}")
+        cmd_pin_card(argparse.Namespace(card=card, version=None, apply=True))
+    print(f"shipped {name} {version}; run `verify` to see every agent against the baseline")
 
 
 def cmd_create_skill(args) -> None:
@@ -671,6 +711,11 @@ def main(argv=None) -> None:
     k.add_argument("skill", choices=sorted(SKILLS))
     k.add_argument("--apply", action="store_true")
     k.set_defaults(func=cmd_publish_skill)
+
+    h = sub.add_parser("ship-skill", help="publish an edited skill and re-pin it all the way to the desk card")
+    h.add_argument("skill", choices=sorted(n for n, s in SKILLS.items() if s["id"]))
+    h.add_argument("--apply", action="store_true")
+    h.set_defaults(func=cmd_ship_skill)
 
     n = sub.add_parser("create-skill", help="create the cloud object for a repo skill that has none yet")
     n.add_argument("skill", choices=sorted(n for n, s in SKILLS.items() if not s["id"]))
