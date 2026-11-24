@@ -976,8 +976,10 @@ function renderExpectancy() {
   const rows = byPlaybook ? e.playbooks : (e.sleeves.length ? e.sleeves : [{ name: "No closed trades yet", closed_n: 0 }]);
   const nameCell = (s) => {
     if (!byPlaybook) return esc(s.name);
-    const tag = s.enabled === true ? '<span class="chip ok-chip">On</span>' : s.enabled === false ? '<span class="chip">Off</span>' : "";
-    return `<div class="score-name"><b>${esc(s.name)}</b>${tag}</div>${s.id ? `<div class="dim mono" style="font-size:11px">${esc(s.id)}</div>` : ""}`;
+    const tag = s.enabled === true ? '<span class="chip ok-chip">On</span>' : s.enabled === false ? `<span class="chip"${s.reason ? ` title="${esc(s.reason)}"` : ""}>Off</span>` : "";
+    const why = s.enabled === false && (s.backtest || s.reason)
+      ? `<div class="dim" style="font-size:11px">${esc(backtestLine(s.backtest) || s.reason)}</div>` : "";
+    return `<div class="score-name"><b>${esc(s.name)}</b>${tag}</div>${s.id ? `<div class="dim mono" style="font-size:11px">${esc(s.id)}</div>` : ""}${why}`;
   };
   $("#sleeve-rows").innerHTML = rows.map((s) =>
     `<tr><td>${nameCell(s)}</td><td class="num">${s.closed_n}</td><td class="num">${pc(s.win_rate)}</td><td class="num">${r2(s.avg_win_r)}</td><td class="num">${r2(s.avg_loss_r)}</td><td class="num">${r2(s.expectancy_r)}</td><td class="num">${s.expectancy_pct == null ? "-" : (100 * s.expectancy_pct).toFixed(2) + "%"}</td></tr>`).join("");
@@ -1508,6 +1510,15 @@ function strategyIdFor(name, sid) {
   return hit ? hit.strategy_id : null;
 }
 
+function backtestLine(b) {
+  // One plain sentence for a recorded backtest verdict (research/backtests/results.json).
+  if (!b || !b.trades) return "";
+  const pct = (v) => (v == null ? "-" : (v >= 0 ? "+" : "") + (100 * v).toFixed(1) + "%");
+  const when = b.run_on ? new Date(b.run_on + "T00:00:00Z").toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" }) : "";
+  const verdict = b.verdict === "pass" ? "PASSED" : b.verdict === "fail" ? "FAILED" : "INCONCLUSIVE";
+  return `Backtest ${when}: ${verdict} - ${b.trades} trades, ${pct(b.return_pct)} (SPY ${pct(b.spy_return_pct)}).`;
+}
+
 function strategyRow(row, canControl) {
   const meta = [row.strategy_id, row.lane ? ucfirst(row.lane).replace(/_/g, " ") + " lane" : null, row.rules_hash ? "Rules locked" : "No rules file"].filter(Boolean).join(" · ");
   const metaTitle = row.rules_hash ? `Frozen rules hash ${row.rules_hash}` : "";
@@ -1539,7 +1550,7 @@ function strategyRow(row, canControl) {
     </div>
     <div class="strat-what">${esc(row.what || "")}${row.rules_file_problem ? ` <span class="strat-problem-inline">${esc(ucfirst(row.rules_file_problem))}</span>` : ""}</div>
     <div class="strat-tags">${tags}</div>
-    <div class="strat-note">${esc(decided)}</div>
+    <div class="strat-note">${row.reason ? `<div class="strat-reason"><b>${row.enabled ? "Note" : "Why it is off"}:</b> ${esc(row.reason)}</div>` : ""}${backtestLine(row.backtest) ? `<div>${esc(backtestLine(row.backtest))}</div>` : ""}${esc(decided)}</div>
     <div class="strat-ctl">${control}</div>
   </div>`;
 }

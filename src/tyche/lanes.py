@@ -38,7 +38,16 @@ def _read_raw(path: Path) -> dict[str, Any]:
             raise ValueError(f"{path.name} carries an unknown switch key {key!r}")
         if not isinstance(value, bool):
             raise TypeError(f"{path.name} switch {key!r} must be a boolean")
+    reasons = payload.get("reasons", {})
+    if not isinstance(reasons, dict) or any(not isinstance(v, str) for v in reasons.values()):
+        raise TypeError(f"{path.name} 'reasons' must map playbook ids to text")
     return payload
+
+
+def read_reasons(root: Path) -> dict[str, str]:
+    """Why the operator set each switch (plain words for the dashboard); empty when none is recorded."""
+    reasons = read_state(root).get("reasons") or {}
+    return {key.strip().upper(): text for key, text in reasons.items()}
 
 
 def read_overrides(root: Path) -> tuple[dict[str, bool], str | None]:
@@ -79,8 +88,12 @@ def effective(
     return lane_default, "lane config", problem
 
 
-def set_enabled(root: Path, strategy_id: str, enabled: bool, actor: str = "operator") -> dict[str, Any]:
-    """Flip one switch and return the stored payload. Unknown ids are rejected, not ignored."""
+def set_enabled(root: Path, strategy_id: str, enabled: bool, actor: str = "operator",
+                reason: str | None = None) -> dict[str, Any]:
+    """Flip one switch and return the stored payload. Unknown ids are rejected, not ignored.
+
+    `reason` is stored next to the switch; flipping without one drops the old reason, so a stale
+    "why it is off" never sits beside a switch that is now on."""
     key = strategy_id.strip().upper()
     if not PLAYBOOK_ID.match(key):
         raise ValueError(f"{strategy_id!r} is not a playbook id (expected PB-<digits>)")
@@ -89,6 +102,13 @@ def set_enabled(root: Path, strategy_id: str, enabled: bool, actor: str = "opera
     if path.is_file():
         payload = _read_raw(path)  # never clobber a file we cannot parse
     payload["enabled"][key] = bool(enabled)
+    reasons = payload.setdefault("reasons", {})
+    if reason and reason.strip():
+        reasons[key] = reason.strip()[:400]
+    else:
+        reasons.pop(key, None)
+    if not reasons:
+        payload.pop("reasons")
     payload["updated_at"] = datetime.now(UTC).isoformat()
     payload["updated_by"] = actor
     path.parent.mkdir(parents=True, exist_ok=True)

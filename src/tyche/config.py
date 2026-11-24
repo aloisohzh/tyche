@@ -8,7 +8,7 @@ from typing import Literal
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from tyche.lanes import SOURCE_LABEL, effective
+from tyche.lanes import SOURCE_LABEL, effective, read_reasons
 
 Sleeve = Literal["equity", "defensive", "real_asset", "credit"]
 RegimeKey = Literal["risk_on", "neutral", "risk_off"]
@@ -440,6 +440,7 @@ class AppConfig(BaseModel):
     def playbook_switches(self) -> list[dict]:
         """Every claimable playbook id with what the desk and Scout should treat as live (L-036)."""
         claimed = sorted({strategy.id for strategy in self.strategies} | set(PLAYBOOK_LANES))
+        reasons = read_reasons(self.root)
         rows = []
         for strategy_id in claimed:
             lane_default = self._lane_enabled(strategy_id)
@@ -453,6 +454,7 @@ class AppConfig(BaseModel):
                     "operator_override": enabled if source == SOURCE_LABEL else None,
                     "enabled": enabled,
                     "source": source,
+                    "reason": reasons.get(strategy_id) if source == SOURCE_LABEL else None,
                     "switch_file_problem": problem,
                 }
             )

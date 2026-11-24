@@ -2,8 +2,11 @@
   "enabled": {
     "PB-003": true,
     "PB-004": true,
-    "PB-007": true
+    "PB-007": false
   },
-  "updated_at": "2026-11-24T02:42:55.728207+00:00",
-  "updated_by": "operator (Alois, project thread 24 Nov: test long calls/puts with a 5% slice through Fri 27 Nov)"
+  "updated_at": "2026-11-24T03:37:56+00:00",
+  "updated_by": "operator (Alois, project thread 24 Nov: switch PB-007 off after the failed backtest)",
+  "reasons": {
+    "PB-007": "Off since 24 Nov 2026: failed its backtest. It lost money in 2025 and again in 2026 (94 trades, profit factor 0.66 against the 1.2 needed); the two tweaks tried did not fix it."
+  }
 }

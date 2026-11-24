@@ -1,0 +1,21 @@
+{
+  "note": "Backtest verdicts the dashboard shows beside each strategy. One row per run that decided something; newest last. Produced with `tyche fib-backtest` (fee-net, live rules unless what_if says otherwise).",
+  "results": [
+    {
+      "strategy_id": "PB-007",
+      "run_on": "2026-11-24",
+      "rules_hash": "e26f006da28a",
+      "start": "2025-05-01",
+      "end": "2026-11-23",
+      "trades": 94,
+      "win_rate": 0.3936,
+      "mean_r": -0.2111,
+      "profit_factor": 0.6555,
+      "return_pct": -0.0529,
+      "spy_return_pct": 0.3148,
+      "max_drawdown_pct": -0.0627,
+      "verdict": "fail",
+      "summary": "Lost money in 2025 (-1.9%) and in 2026 (-3.7%); a 20-day hold and a wider stop did not fix it."
+    }
+  ]
+}

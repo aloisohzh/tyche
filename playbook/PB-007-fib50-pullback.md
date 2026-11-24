@@ -8,18 +8,25 @@ classification:
   instruments: [Stocks]            # large caps and sector ETFs, no options leg
   regime_fit: [Bull, Range]        # SMA50/200 filter keeps it out of downtrending names by construction
   direction: Long
-  validation: Unvalidated
+  validation: Failed               # backtest 24 Nov 2026: lost money in 2025 and 2026
 ---
 
 # PB-007 - Fib 50% pullback (trend-filtered mean reversion)
 
-- **Status:** pre-registered, disabled (`config/strategies/pb-007.yaml: enabled: false`). The first
+- **Status (24 Nov 2026): switched OFF after a failed backtest.** `tyche fib-backtest` over daily bars
+  2025-05-01..2026-11-23 (live rules `e26f006da28a`, fee-net): 94 trades, win rate 39%, mean -0.21R,
+  profit factor 0.66 (1.2 needed), return -5.3% vs SPY +31.5%; exits 51 stop, 10 target, 29 deadline.
+  Split check: lost in 2025 (-1.9%, PF 0.69) and in 2026 (-3.7%, PF 0.61). What-ifs: a 20-session hold
+  narrowed the loss (PF 0.90 / 0.71) but still failed; a 0.5 ATR stop buffer left no trade passing the
+  1.5 reward/risk filter. The operator switched it off (`data/strategies.json`, reason recorded there).
+  To revive it, change the rules, re-freeze, and pass the same backtest first.
+- **Original status:** pre-registered, disabled (`config/strategies/pb-007.yaml: enabled: false`). The first
   window run is a test of the plumbing (scan -> review -> audit -> approve -> fill -> R), not an
   edge claim.
 - **Rules hash:** `e26f006da28a` (sha256 of `config/strategies/pb-007.yaml` + `config/universe.yaml`, CRLF
   normalized, first 12). First registration for this lane; record it with `tyche rules-freeze --record`
   before the first approval.
-- **Validation:** unvalidated. No backtest, no matched-null comparison; the LEAN sanity check is
+- **Validation:** failed (see Status). Before 24 Nov: unvalidated. No backtest, no matched-null comparison; the LEAN sanity check is
   parked as research (ADR 0015).
 - **Sleeve:** equity (swing), 20% NAV allocation cap carved from the tactical stock budget
 - **Env:** paper (competition)

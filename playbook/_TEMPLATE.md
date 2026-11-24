@@ -8,7 +8,7 @@ classification:
   instruments: [Stocks, Options]
   regime_fit: [Bull, Bear, Range, Any]   # list: every regime the setup is meant to run in
   direction: Long | Long puts | Both
-  validation: Unvalidated | Sanity-checked | Validated
+  validation: Unvalidated | Sanity-checked | Validated | Failed
 ---
 
 # PB-XXX - <setup name>
