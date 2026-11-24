@@ -498,7 +498,7 @@ def _live_broker_order(rows: list[dict], events: list[dict], symbol: str) -> dic
 def rollout_check(config_root: Path = typer.Option(Path.cwd())) -> None:
     config = load_config(config_root)
     emit({"local_planner_enabled": config.tactical.enabled,
-          "local_options_enabled": config.tactical.options_enabled,
+          "local_options_enabled": config.options_live,
           "execution_gate_enabled": config.tactical.execution_enabled,
           "cloud_monitor_verified": False, "broker_option_round_trip_verified": False,
           "target_monitor_interval_seconds": config.tactical.monitor_interval_seconds,

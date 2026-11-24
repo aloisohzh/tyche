@@ -219,3 +219,14 @@ def test_operator_exit_is_direct_never_at_midday_and_paper_only():
     assert "tyche exit-now" in clause and "ONE" in clause and "Never at the 12:05 fire" in clause
     assert "Paper account only" in clause and "never retry" in clause
     assert _module().prompt_markers(prompt)["has_operator_exit"]
+
+
+def test_long_options_clause_is_switch_gated_buy_only_and_never_midday():
+    prompt = _module().card_prompt(PERMANENT)
+    clause = prompt.split("PB-003 LONG OPTIONS (2026-11-24):", 1)[1].split("\n\n", 1)[0]
+    assert "tyche strategies\n--json" in clause or "tyche strategies --json" in clause
+    assert "Never sell an option to open" in clause and "never a spread" in clause
+    assert "AFTER 2026-11-27" in clause and "Never submit at 12:05" in clause
+    assert "Options stay\ndisabled" not in prompt
+    assert "PB-003 option premium cap 5%" in prompt
+    assert _module().prompt_markers(prompt)["has_long_options"]

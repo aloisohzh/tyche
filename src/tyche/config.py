@@ -428,6 +428,15 @@ class AppConfig(BaseModel):
         """Effective enablement: the desk's switch file if it names this id, else the lane config."""
         return self.strategy_switch(strategy_id)[0]
 
+    @property
+    def options_live(self) -> bool:
+        """Whether PB-003 long options may enter: the tactical lane is on and PB-003 is switched on.
+
+        The operator switch (data/strategies.json) wins over `options_enabled` in config/tactical.yaml,
+        so turning options on or off never re-hashes the PB-002/PB-003 lane (L-037, 2026-11-24).
+        """
+        return self.tactical.enabled and self.strategy_enabled("PB-003")
+
     def playbook_switches(self) -> list[dict]:
         """Every claimable playbook id with what the desk and Scout should treat as live (L-036)."""
         claimed = sorted({strategy.id for strategy in self.strategies} | set(PLAYBOOK_LANES))

@@ -141,9 +141,9 @@ STRATEGY_META = {
     },
     "PB-003": {
         "name": "Tactical options (single leg)",
-        "what": ("The same desk picks, but bought as one long call or one long put instead of shares, and closed "
-                 "before the end of the day. Options are switched off in the lane config, so it cannot trade yet."),
-        "holding": "Same day",
+        "what": ("The same desk picks, but bought as one call (expecting a rise) or one put (expecting a fall) "
+                 "instead of shares. The most it can lose is what was paid. Test runs to Fri 27 Nov."),
+        "holding": "Days",
     },
     "PB-004": {
         "name": "Intraday breakout (scalp)",
@@ -2233,7 +2233,7 @@ def propose_envelope() -> dict:
         proposal = propose_exit_envelope(
             snapshot, read_events(JOURNAL), today=datetime.now(ET).date(),
             collar_pct=config.risk.exit_collar_pct, max_orders_per_day=config.risk.max_orders_per_day,
-            watchlist=watchlist, options_enabled=config.tactical.options_enabled,
+            watchlist=watchlist, options_enabled=config.options_live,
         )
     except ValueError as exc:
         return {"ok": False, "error": f"nothing drafted: {exc}"}
