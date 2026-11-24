@@ -412,7 +412,7 @@ def test_tactical_reservation_respects_disabled_gate(tmp_path, monkeypatch):
     assert len(read_events(journal)) == 1
 
 
-@pytest.mark.parametrize("blocker", [None, "exit", "setup", "date", "pending", "corruption", "stalequote"])
+@pytest.mark.parametrize("blocker", [None, "unbound", "exit", "setup", "date", "pending", "corruption", "stalequote"])
 def test_exact_reservation_is_atomic_and_one_shot(tmp_path, monkeypatch, blocker):
     args = case(True)
     args[7].tactical.execution_enabled = True  # synthetic drill only
@@ -431,6 +431,13 @@ def test_exact_reservation_is_atomic_and_one_shot(tmp_path, monkeypatch, blocker
     for key, path in paths.items():
         cmd.extend(["--" + key, str(path)])
     runner = CliRunner()
+    if blocker == "unbound":
+        # The operator's symbol-level pre-approval: no setup hash on either line still authorizes the
+        # kernel's own setup inside the line's bounds.
+        for line in batch.orders:
+            line.setup_hash = None
+        paths["envelope"].write_text(batch.model_dump_json())
+        blocker = None
     if blocker:
         if blocker in {"exit", "setup", "date"}:
             if blocker == "exit":

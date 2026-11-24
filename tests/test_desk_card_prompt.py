@@ -239,3 +239,17 @@ def test_a_sell_only_exit_note_never_silences_the_telegram_ask():
     assert "including on a day with a sell-only exit note" in prompt
     assert "VNQ ...597 and SMH ...500 are closed" in prompt
     assert _module().prompt_markers(prompt)["has_rulings"]
+
+
+def test_an_on_demand_run_trades_like_the_close_fire_on_fresh_quotes():
+    """The operator can fire the desk card outside its schedule; inside the session that run is a full
+    trading run with the Telegram asks, outside it the run only reconciles."""
+    prompt = _module().card_prompt(PERMANENT)
+    clause = " ".join(prompt.split("ON-DEMAND RUN (2026-11-24, operator):", 1)[1].split("\n\n", 1)[0].split())
+    for must in ("within 10 minutes after 08:05, 12:05 or 15:05 ET", "fresh quotes",
+                 "everything the 15:05 close fire does", "PROPOSAL APPROVAL", "never scanned", "submits nothing",
+                 "ON-DEMAND RUN"):
+        assert must in clause, must
+    assert _module().prompt_markers(prompt)["has_on_demand"]
+    source = (ROOT / "scripts" / "deploy_two_fire_automation.py").read_text()
+    assert '"--run-now" in sys.argv' in source and "refusing to run a deployment that is not the Tyche desk card" in source
