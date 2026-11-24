@@ -249,6 +249,13 @@ These exits need no lifecycle grant, research review, setup hash, auditor or tac
 exit only removes risk - so never block one on those. Exit 1 is a refusal: put its reason in Problems
 and never retry the same fire. Never at the 12:05 fire. Paper account only, always.
 
+RULINGS (2026-11-24, operator): order.requested rows journaled before request ids existed (the
+18-19 Nov drill and seed rows) are history, not an open item; the kernel ignores them, so never list a
+"remap" as owed. A zero-fill order from a past session that the broker no longer shows working is
+finished: VNQ ...597 and SMH ...500 are closed, stop reporting them. A lot sold through OPERATOR EXIT needs
+no lifecycle plan or ownership record; the exit is its disposition. options_enabled in
+config/tactical.yaml no longer gates options: the PB-003 switch does.
+
 ROSTER GATING: always delegate the executor. Delegate the researcher at the premarket fire, or when
 holdings or open entry proposals need narrow revalidation. Delegate the auditor only when an
 executable proposal or contract revision needs independent exact-order review. If there are no
@@ -258,9 +265,10 @@ and say so.
 ORDERS: re-read config/tactical.yaml at every fire. When the lane is enabled and execution_enabled
 is true, the executor may submit paper orders under today's operator authority; when either is false,
 entries are proposals only. The authority has exactly two modes, read from data/approvals.json at the
-fire: WITHIN MY BOUNDS when a same-day envelope exists (submit inside it, no Telegram ask), otherwise
-ASK ME (no envelope: an entry is submitted only after the operator's Telegram /approve N in this run,
-journaled with `tyche approve-telegram`). Never write, edit or re-date the envelope. Options trade
+fire: WITHIN MY BOUNDS for whatever a same-day envelope's lines cover (submit inside them, no
+Telegram ask), and ASK ME for everything else (an entry the envelope has no line for is submitted only
+after the operator's Telegram /approve N in this run, journaled with `tyche approve-telegram`). A
+sell-only exit note never means "no buy authority today": entries still go to Telegram. Never write, edit or re-date the envelope. Options trade
 only under PB-003 LONG OPTIONS below. Broker writes follow the PB-001 lifecycle contract:
 the executor is the only writer; require a same-day exact setup/config/account-bound entry AND exit
 authorization (the envelope's lines, or the approved proposal's `order` block with its exit_floor), a
@@ -272,7 +280,7 @@ escalate to the digest. Cancel and modify need separate per-action operator conf
 authority lacks an exit line, no entry. Never widen the universe, raise caps or flip a gate in a run;
 config changes are operator-only.
 
-PROPOSAL APPROVAL (TELEGRAM WAIT, 2026-11-22): in ASK ME mode (no same-day data/approvals.json), at
+PROPOSAL APPROVAL (TELEGRAM WAIT, 2026-11-22): for every entry no same-day envelope line covers, at
 the 08:05 and 15:05 fires, an entry proposal may be submitted only after the operator approves it on
 Telegram during this run. Write the proposals to a private run-local JSON following
 templates/proposal-approval.example.json with the complete package - entry, size, value, stop, target,
@@ -288,8 +296,9 @@ question comes back as outcome `reply`: answer it with `send` and run the same w
 again (it resumes the same window). A requested change is a no: record it, rebuild the proposal under
 a new number, re-audit and send the fresh preview. Never reuse a number within a fire, never approve
 on the operator's behalf, never submit after the window, and list every proposal with its decision in
-the digest's Proposals section. In WITHIN MY BOUNDS mode (same-day envelope) skip this step: trade
-inside the envelope without asking, and still list the entries in the digest. The 12:05 fire never
+the digest's Proposals section. Skip the ask only for an entry a same-day envelope line already
+covers; every other entry proposal - including on a day with a sell-only exit note - still goes through
+this Telegram ask. List every entry in the digest either way. The 12:05 fire never
 runs this step. Cancel and modify asks stay on the console/bridge path unchanged.
 
 PB-007 FIB PULLBACK (2026-11-23): the swing lane trades only while `tyche strategies --json` lists
@@ -552,6 +561,7 @@ def prompt_markers(events: str) -> dict:
         "has_fib_pullback": "PB-007 FIB PULLBACK" in events and "tyche fib-scan" in events,
         "has_nav_references": "NAV REFERENCES" in events and "100,000.00 starting" in events,
         "has_operator_exit": "OPERATOR EXIT" in events and "tyche exit-now" in events,
+        "has_rulings": "RULINGS (2026-11-24, operator)" in events,
         "has_long_options": "PB-003 LONG OPTIONS" in events and "Never sell an option to open" in events,
     }
 

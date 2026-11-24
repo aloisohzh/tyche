@@ -202,6 +202,20 @@ def resolve_batch(envelope_path: Path | None, events: list[dict], today: date) -
             envelope_note = f"envelope invalid ({str(exc)[:120]})"
         else:
             if batch.valid_on(today):
+                # An envelope covers only its own lines. Today's Telegram yeses still count for
+                # everything else, so a sell-only exit note never silences "Ask me" for entries
+                # (the 24 Nov premarket fire sent no approval cards for exactly that reason).
+                asked = telegram_batch(events, today)
+                if asked is not None:
+                    extra = [line for line in asked.orders if batch.line_for(line.symbol, line.side) is None]
+                    if extra:
+                        batch = batch.model_copy(update={
+                            "orders": [*batch.orders, *extra],
+                            "max_orders": batch.max_orders + len(extra),
+                            "note": (batch.note + " | plus " + asked.note)[:400],
+                        })
+                        return batch, MODE_BOUNDS, (f"within my bounds for {today}, plus {len(extra)} "
+                                                    "Telegram-approved line(s)")
                 return batch, MODE_BOUNDS, f"within my bounds: envelope armed for {today}"
             envelope_note = f"envelope dated {batch.as_of} is not valid today"
     else:

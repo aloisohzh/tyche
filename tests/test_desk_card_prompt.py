@@ -144,8 +144,8 @@ def test_orders_clause_names_the_two_modes_and_forbids_writing_the_envelope():
     file and never author it, so a mode can only be set by the operator from the desk."""
     prompt = _module().card_prompt(PERMANENT)
     clause = " ".join(prompt.split("ORDERS:", 1)[1].split("\n\n", 1)[0].split())
-    for must in ("exactly two modes", "WITHIN MY BOUNDS when a same-day envelope exists", "no Telegram ask",
-                 "otherwise ASK ME", "Telegram /approve N in this run", "tyche approve-telegram",
+    for must in ("exactly two modes", "WITHIN MY BOUNDS for whatever a same-day envelope's lines cover", "no Telegram ask",
+                 "ASK ME for everything else", "Telegram /approve N in this run", "tyche approve-telegram",
                  "Never write, edit or re-date the envelope", "entry AND exit authorization",
                  "`order` block with its exit_floor", "ONE paper"):
         assert must in clause, must
@@ -160,7 +160,8 @@ def test_proposal_approval_is_explicit_numbered_and_never_automatic():
     for must in ("08:05 and 15:05 fires", "wait-for-reply", "render-proposal",
                  "templates/proposal-approval.example.json", "stop, target, exit-by", "`order` block",
                  "10-minute window", "`approved`", "tyche approve-telegram", "exact-order audit, reserve",
-                 "in ASK ME mode", "In WITHIN MY BOUNDS mode (same-day envelope) skip this step",
+                 "for every entry no same-day envelope line covers",
+                 "Skip the ask only for an entry a same-day envelope line already covers",
                  "any free-text reply is a no", "A requested change is a no", "new number",
                  "never approve on the operator's behalf", "never submit after the window",
                  "The 12:05 fire never runs this step"):
@@ -230,3 +231,11 @@ def test_long_options_clause_is_switch_gated_buy_only_and_never_midday():
     assert "Options stay\ndisabled" not in prompt
     assert "PB-003 option premium cap 5%" in prompt
     assert _module().prompt_markers(prompt)["has_long_options"]
+
+
+def test_a_sell_only_exit_note_never_silences_the_telegram_ask():
+    prompt = _module().card_prompt(PERMANENT)
+    assert "never means \"no buy authority today\"" in prompt
+    assert "including on a day with a sell-only exit note" in prompt
+    assert "VNQ ...597 and SMH ...500 are closed" in prompt
+    assert _module().prompt_markers(prompt)["has_rulings"]

@@ -210,7 +210,9 @@ def test_resolve_batch_prefers_todays_envelope_then_telegram_then_nothing(tmp_pa
     assert mode == MODE_ASK and "not valid today" in why and asked_again.approved_by == asked.approved_by
     envelope = _write_batch(tmp_path, batch())
     bounds, mode, why = resolve_batch(envelope, read_events(journal), TODAY)
-    assert mode == MODE_BOUNDS and bounds.max_orders == 2 and bounds.line_for("US.SPY", "buy") is None
+    # Since 2026-11-24 the envelope no longer hides today's Telegram yes for a line it does not cover.
+    assert mode == MODE_BOUNDS and bounds.line_for("DBC", "buy") and bounds.line_for("US.SPY", "buy")
+    assert bounds.max_orders == 2 + len(asked.orders) and "Telegram-approved" in why
     bad = tmp_path / "bad.json"
     bad.write_text("{not json")
     _, mode, why = resolve_batch(bad, read_events(journal), TODAY)
@@ -317,3 +319,19 @@ def test_shipped_scalp_envelope_matches_the_scalp_lane():
     assert envelope.valid_until is not None
     symbols = set(load_config(root).scalp.symbols)
     assert {(o.symbol, o.side) for o in envelope.orders} == {(s, side) for s in symbols for side in ("buy", "sell")}
+
+
+def test_a_sell_only_envelope_still_honours_todays_telegram_buys(tmp_path):
+    from tyche.approvals import resolve_batch
+    envelope = tmp_path / "approvals.json"
+    envelope.write_text(batch(orders=[{"symbol": "US.SPY", "side": "sell", "max_qty": 28, "limit_min": 690.0}],
+                              max_orders=1).model_dump_json(), encoding="utf-8")
+    events = [{"type": "approval.telegram", "payload": {
+        "as_of": TODAY.isoformat(), "ref": "abcd1234", "n": 1, "symbol": "US.KO", "side": "buy",
+        "qty": 82, "limit": 96.6, "exit_floor": 92.0}}]
+    merged, mode, how = resolve_batch(envelope, events, TODAY)
+    assert mode == "bounds" and "Telegram-approved" in how
+    assert merged.line_for("US.SPY", "sell") and merged.line_for("US.KO", "buy") and merged.line_for("US.KO", "sell")
+    assert merged.max_orders == 3
+    alone, _, _ = resolve_batch(envelope, [], TODAY)
+    assert alone.line_for("US.KO", "buy") is None and alone.max_orders == 1
