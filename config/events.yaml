@@ -37,3 +37,24 @@ events:
   source: jin10 calendar item 235457 via MCP news_search; PBoC monthly 20th 09:15
     Beijing schedule
   added_at: '2026-11-19T13:30:34.375722Z'
+- date: '2026-11-25'
+  name: GDP Q3 second estimate QoQ cons 3.4 prev 2.2
+  kind: macro
+  time_et: 08:30
+  symbols:
+  - US.SPY
+  - US.QQQ
+  - US.IWM
+  source: https://www.bea.gov/news/schedule (Nov 25 08:30 ET) + MCP quote_economic_calendar_hot
+    20261125 indicatorId 375
+  added_at: '2026-11-24T13:21:24.346576Z'
+- date: '2026-11-25'
+  name: Initial Jobless Claims cons 201K prev 203K holiday-shifted
+  kind: macro
+  time_et: 08:30
+  symbols:
+  - US.SPY
+  - US.TLT
+  source: MCP quote_economic_calendar_hot 20261125 indicatorId 294 event_time 1795613400;
+    BEA schedule confirms Nov-25 08:30 macro slot
+  added_at: '2026-11-24T13:21:24.740697Z'
