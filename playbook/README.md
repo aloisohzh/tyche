@@ -51,8 +51,8 @@ Thesis · Edge (why it should work, and why it might not) · Universe/liquidity 
 
 One row per playbook id, and an id is claimed once and kept forever (L-029). [INDEX.yaml](INDEX.yaml)
 is the machine-readable roster; this table is the human-facing copy of it, and
-`test_playbook_ids_are_claimed_once` reads both. `planned` rows are placeholders with no file and no
-trade behind them.
+`test_playbook_ids_are_claimed_once` reads both. `planned` rows have no lane and no
+trade behind them; one may already have its plan page (PB-006).
 
 | id | Setup | Status | Regime fit | Direction | Note |
 |---|---|---|---|---|---|
@@ -61,7 +61,7 @@ trade behind them.
 | PB-003 | [Tactical long options](PB-003-tactical-long-options.md) | **live** | Bull, Bear, Range | Both | one long call (bullish pick) or one long put (bearish pick) on a tactical name; 5% NAV premium cap, 0.75% per trade, entries at the 15:05 ET fires of 24-25 Nov, contracts expire after 27 Nov. On by the switch file from 2026-11-24; `options_enabled` in the yaml stays `false`. Shares PB-002's hash `a1d9df1c687c` |
 | PB-004 | [Intraday momentum scalp](PB-004-intraday-momentum-scalp.md) | **live** | Bull | Long | the deterministic breakout lane in `config/scalp.yaml`; rules `72077d5d4808`, the lane's first computable hash (L-036 fixed 2026-11-20). Submission still gated by the executor's rollout hold |
 | PB-005 | Defined-risk option vertical | parked | Any | Both | **conflicts with the instrument rules:** a vertical is a spread, and desk/auditor policy allows standard single-leg long calls and puts only. Do not trade without an ADR |
-| PB-006 | Sector rotation heat | planned | Bull | Long | relative-strength sleeve; renumbered from the PB-004 collision in L-029 |
+| PB-006 | [Sector rotation heat](PB-006-sector-rotation-heat.md) | planned | Bull | Long | relative-strength sleeve: weekly, holds the top three of twelve sector funds (ten Vanguard sectors plus SOXX and IGV) that are beating SPY and above their 50-day average; proposed 15% cap. Plan written 2026-11-24; **no lane, no config, no backtest yet**, so it cannot be switched on. Renumbered from the PB-004 collision in L-029 |
 | PB-007 | [Fib 50% pullback](PB-007-fib50-pullback.md) | **live** (disabled) | Bull, Range | Long | swing mean reversion with an SMA50/200 regime filter on daily bars; `kind: fib_pullback` in `config/strategies/pb-007.yaml`, plans through the lifecycle lane (ADR 0017); ships `enabled: false`, first run is a plumbing test |
 
 Write a playbook only when you intend to trade it this window. Do not scaffold all seven for show.

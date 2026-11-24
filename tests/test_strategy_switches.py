@@ -196,3 +196,32 @@ def test_the_live_switch_file_says_why_pb007_is_off():
     state = read_state(ROOT)
     assert state["enabled"]["PB-007"] is False
     assert "backtest" in state["reasons"]["PB-007"]
+
+
+def test_every_switch_row_says_whether_it_can_be_turned_on(srv, desk):
+    view = srv.build_strategies()
+    assert all(row["switchable"] and row["readiness"]["state"] == "ready" for row in view["strategies"])
+    assert srv.switch_readiness({"rules_hash": None, "cap": 0.2})["state"] == "no_rules"
+    assert srv.switch_readiness({"rules_hash": "abc", "cap": None})["state"] == "no_capital"
+    assert srv.switch_readiness({"rules_hash": "abc", "cap": 0})["state"] == "no_capital"
+
+
+def test_roster_ids_without_a_lane_are_listed_with_the_reason(srv):
+    roster = {
+        "PB-001": {"id": "PB-001", "file": "playbook/PB-001-etf-rotation-ballast.md", "status": "live"},
+        "PB-005": {"id": "PB-005", "file": None, "status": "parked", "tags": {"regime_fit": ["Any"], "direction": "Both"}},
+        "PB-006": {"id": "PB-006", "file": "playbook/PB-006-sector-rotation-heat.md", "status": "planned"},
+        "PB-099": {"id": "PB-099", "file": None, "status": "planned"},
+    }
+    rows = {row["strategy_id"]: row for row in srv.planned_strategies(roster, {"PB-001"})}
+    assert list(rows) == ["PB-005", "PB-006", "PB-099"]
+    assert all(row["switchable"] is False and row["enabled"] is False for row in rows.values())
+    assert rows["PB-005"]["readiness"]["state"] == "platform_limit"
+    assert rows["PB-006"]["readiness"]["state"] == "not_built"
+    assert rows["PB-099"]["readiness"]["state"] == "no_rules"
+    assert all(row["readiness"]["reason"] and row["readiness"]["needs"] for row in rows.values())
+
+
+def test_planned_rows_never_become_switchable(srv, desk):
+    out = srv.toggle_strategy({"strategy_id": "PB-006", "enabled": True})
+    assert out["ok"] is False

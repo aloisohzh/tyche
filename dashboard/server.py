@@ -210,6 +210,86 @@ STRATEGY_META = {
     },
 }
 STRATEGY_LABELS = {sid: meta["name"] for sid, meta in STRATEGY_META.items()}
+# Playbook ids that are claimed in playbook/INDEX.yaml but have no lane in the code, so there is nothing
+# to switch. Controls still lists them, with the plain reason each one cannot be turned on. They are
+# kept out of STRATEGY_META on purpose: that table drives the score rows and the switch list.
+PLANNED_META = {
+    "PB-005": {
+        "name": "Option spread (two legs)",
+        "what": ("Buys one option and sells another on the same stock at the same time, so the most it can "
+                 "lose is fixed up front."),
+        "blocker": "platform_limit",
+        "reason": ("The desk can only send one-leg orders: buy one call or buy one put. A spread needs two legs, "
+                   "one of them sold, and the desk's safety checks and the moomoo order link do not allow a sold "
+                   "option. The challenge rules also recommend single-leg options."),
+        "needs": "A change to the desk's order rules to allow a sold option leg, with a written decision first.",
+    },
+    "PB-006": {
+        "name": "Sector rotation heat",
+        "what": ("Once a week, ranks 12 sector funds by how strongly they have been rising and holds the top three, "
+                 "for example chips or software when AI stocks are hot. Sells a fund when it drops out of the top "
+                 "five or falls under its 50-day average."),
+        "blocker": "not_built",
+        "reason": ("The one-page plan is written, but the desk has no code for it yet and no share of the account "
+                   "has been set aside. The plan proposes 15%."),
+        "needs": "Build the weekly ranking into the desk, pass a backtest, then set its 15% share.",
+    },
+}
+READINESS_LABELS = {
+    "ready": "Ready",
+    "no_rules": "No rules written yet",
+    "no_capital": "No money set aside",
+    "platform_limit": "Platform limit",
+    "not_built": "Not built yet",
+}
+
+
+def switch_readiness(row: dict) -> dict:
+    """Whether a lane's switch can be used, and the plain reason when it cannot.
+
+    Only facts the files state: a lane with no resolvable rules file has nothing frozen to trade, and a
+    lane whose cap is missing or zero has no money to trade with. The "would it fit under the gross cap"
+    check is done in the browser, because it depends on which other switches are on right now.
+    """
+    if not row.get("rules_hash"):
+        return {"state": "no_rules", "label": READINESS_LABELS["no_rules"],
+                "reason": "There is no rules file the desk can lock for this strategy, so it has nothing to follow.",
+                "needs": "Write the rules file and lock it."}
+    if not row.get("cap"):
+        return {"state": "no_capital", "label": READINESS_LABELS["no_capital"],
+                "reason": "No share of the account is set aside for this strategy, so it has no money to trade with.",
+                "needs": "Set its share of the account in its config file."}
+    return {"state": "ready", "label": READINESS_LABELS["ready"], "reason": "", "needs": ""}
+
+
+def planned_strategies(roster: dict, claimed: set[str]) -> list[dict]:
+    """Roster ids with no lane behind them: shown in Controls as rows that cannot be switched yet."""
+    rows = []
+    for sid, entry in sorted(roster.items()):
+        if sid in claimed:
+            continue
+        meta = PLANNED_META.get(sid, {})
+        thesis_file = entry.get("file")
+        state = meta.get("blocker") or ("not_built" if thesis_file else "no_rules")
+        rows.append({
+            "strategy_id": sid,
+            "name": meta.get("name") or sid,
+            "enabled": False,
+            "switchable": False,
+            "roster_status": entry.get("status", "planned"),
+            "thesis_file": thesis_file,
+            "thesis_url": PLAYBOOK_URL + thesis_file if thesis_file else None,
+            **playbook_facts(sid, entry),
+            "what": meta.get("what") or "",
+            "readiness": {
+                "state": state,
+                "label": READINESS_LABELS.get(state, "Not ready"),
+                "reason": meta.get("reason") or "This strategy is only an idea so far. Nothing has been written or built.",
+                "needs": meta.get("needs") or "Write the one-page plan first.",
+            },
+        })
+    return rows
+
 REGIME_WORDS = {"Bull": "Bullish", "Bear": "Bearish", "Range": "Sideways", "Any": "Any market"}
 DIRECTION_WORDS = {"Long": "Buys only", "Long puts": "Puts only", "Both": "Calls or puts"}
 HOLDING_WORDS = {"Scalping": "Minutes", "Intraday": "Minutes, flat by the close", "Swing": "Days",
@@ -2611,9 +2691,13 @@ def build_strategies() -> dict:
                 "backtest": backtests.get(sid),
             }
         )
+    for row in rows:
+        row["switchable"] = True
+        row["readiness"] = switch_readiness(row)
     state = read_state(ROOT)
     return {
         "strategies": rows,
+        "planned": planned_strategies(roster, {row["strategy_id"] for row in rows}),
         "allocation": allocation_summary(config, rows),
         "live": sorted(row["strategy_id"] for row in rows if row["enabled"]),
         "switch_file": {

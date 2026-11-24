@@ -6,6 +6,7 @@ records when the **described product** changed, which is what a reader needs to 
 
 | Date | PRD | Changed | Evidence |
 |---|---|---|---|
+| 2026-11-24 | v1.26 | **Can it be turned on?** Desk 0.16.6: Controls shows a readiness answer and reason for every strategy, lists PB-005 and PB-006 as not ready, and PB-006 gets its plan page (still planned, not tradable). | `dashboard/server.py` `switch_readiness`, `planned_strategies`; `dashboard/static/app.js` `strategyReadiness`; `playbook/PB-006-sector-rotation-heat.md` |
 | 2026-11-24 | v1.25 | **Live market calendar.** Desk 0.16.5: the Schedule page's day, time marker and trading status follow the browser clock instead of the publish-time snapshot. | `dashboard/static/app.js` `liveCal`, `renderCalendar` |
 | 2026-11-24 | v1.24 | **Scores by strategy.** Desk 0.16.4: the score table has one row per strategy (PB id, name, On/Off) instead of asset-class kinds. | `dashboard/server.py` `playbook_scores()`; `dashboard/static/app.js` `renderExpectancy`; `tests/test_cloud_feed.py` |
 | 2026-11-24 | v1.23 | **Readings and runs carry real dates.** Desk 0.16.3: cloud readings dated by when they were taken, not the publish time; the scalp card shows its 15-minute cadence and 30 Nov end; dated run log with renamed and retired cards marked; compact emergency stop. | `dashboard/server.py` `_bundle_time()`, `_run_name_time()`; `scripts/cloud_api.py` `card_view`; `desk-site/functions/handler.ts`; `dashboard/static/app.js` `cronField`, `runTitleCell`, `renderKillControl`; `tests/test_cloud_feed.py` |

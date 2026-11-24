@@ -9,8 +9,16 @@ const ucfirst = (s) => { const t = hy(s).trim(); return t ? t.charAt(0).toUpperC
 // A term with a one-line explanation on hover - the desk is read by people who do not trade for a living.
 const tip = (label, text) => `<span class="tip" data-tip="${esc(text)}">${esc(label)}</span>`;
 
-const VERSION = "0.16.5";
+const VERSION = "0.16.6";
 const CHANGELOG = [
+  {
+    version: "0.16.6", date: "2026-11-24", title: "Can it be turned on?",
+    items: [
+      "Controls: every strategy now answers Can it be turned on? with Yes, or Not yet and the reason: no rules written yet, no money set aside, no room left in the account, a platform limit, or not built yet. Each reason also says what the strategy needs.",
+      "A strategy that is not ready shows Not ready where the Turn on button was. One that is already on can always be turned off.",
+      "PB-005 (two-leg option spread) and PB-006 (sector rotation heat) are listed under Not ready to switch on. PB-005 is blocked by a platform limit: the desk can only send one-leg option orders. PB-006 now has its one-page plan, and still needs to be built and backtested.",
+    ],
+  },
   {
     version: "0.16.5", date: "2026-11-24", title: "Market calendar runs on the live clock",
     items: [
@@ -1526,17 +1534,59 @@ function backtestLine(b) {
   return `Backtest ${when}: ${verdict} - ${b.trades} trades, ${pct(b.return_pct)} (SPY ${pct(b.spy_return_pct)}).`;
 }
 
-function strategyRow(row, canControl) {
-  const meta = [row.strategy_id, row.lane ? ucfirst(row.lane).replace(/_/g, " ") + " lane" : null, row.rules_hash ? "Rules locked" : "No rules file"].filter(Boolean).join(" · ");
+const READY_LABELS = {
+  ready: "Ready", no_rules: "No rules written yet", no_capital: "No money set aside",
+  platform_limit: "Platform limit", not_built: "Not built yet",
+};
+
+// Whether a strategy can be switched on, and the plain reason when it cannot. The feed states the fixed
+// facts (no rules, no share of the account, a platform limit, not built). The "would it still fit under
+// the total limit" check is done here because it depends on which other switches are on right now.
+function strategyReadiness(row, view) {
+  const given = row.readiness || { state: "ready" };
+  if (given.state && given.state !== "ready") {
+    return { ...given, label: given.label || READY_LABELS[given.state] || "Not ready" };
+  }
+  const a = (view && view.allocation) || null;
+  if (a && !row.enabled && row.in_sum && row.cap) {
+    const onSum = (view.strategies || []).reduce((t, r) => t + (r.in_sum && r.enabled && r.cap ? r.cap : 0), 0);
+    if (onSum + row.cap > a.gross_cap + 1e-8) {
+      return {
+        state: "no_capital", label: "No room in the account",
+        reason: `Its share is ${pts(row.cap)}. The strategies that are on already use ${pts(onSum)}, and the total may not pass ${pts(a.gross_cap)}.`,
+        needs: `Free up ${pts(onSum + row.cap - a.gross_cap)}: lower a share or turn another strategy off first.`,
+      };
+    }
+  }
+  return { state: "ready", label: READY_LABELS.ready, reason: "", needs: "" };
+}
+
+function readinessHtml(row, ready) {
+  if (ready.state === "ready") {
+    const share = row.cap ? ` It has rules and ${pts(row.cap)} of the account set aside.` : "";
+    return `<div class="strat-ready is-ready"><b>Can it be turned on?</b> <span class="pill ok-pill">Yes</span> ${row.enabled ? "It is on now." : "It is ready."}${esc(share)}${!row.enabled && /^Failed/.test(row.proof_label || "") ? " But it failed its backtest, so it is best left off." : ""}</div>`;
+  }
+  return `<div class="strat-ready is-blocked" data-ready="${esc(ready.state)}"><b>Can it be turned on?</b> <span class="pill live-pill cached">Not yet: ${esc(ready.label)}</span>
+    <div class="strat-ready-why">${esc(ready.reason || "")}</div>
+    ${ready.needs ? `<div class="strat-ready-need"><b>What it needs:</b> ${esc(ready.needs)}</div>` : ""}</div>`;
+}
+
+function strategyRow(row, canControl, view) {
+  const switchable = row.switchable !== false;
+  const ready = strategyReadiness(row, view);
+  const blocked = ready.state !== "ready";
+  const meta = (switchable
+    ? [row.strategy_id, row.lane ? ucfirst(row.lane).replace(/_/g, " ") + " lane" : null, row.rules_hash ? "Rules locked" : "No rules file"]
+    : [row.strategy_id, "No switch yet"]).filter(Boolean).join(" · ");
   const metaTitle = row.rules_hash ? `Frozen rules hash ${row.rules_hash}` : "";
-  const decided = row.source === "data/strategies.json"
+  const decided = !switchable ? "" : row.source === "data/strategies.json"
     ? "Set by the operator switch"
     : "Default from the lane config";
-  const thesis = row.roster_status === "live" && row.thesis_url
-    ? `<a class="pill ok-pill strat-thesis" href="${esc(row.thesis_url)}" target="_blank" rel="noopener" title="Opens the one-page plan that was filed before trading">Written thesis</a>`
+  const thesis = row.thesis_url
+    ? `<a class="pill ok-pill strat-thesis" href="${esc(row.thesis_url)}" target="_blank" rel="noopener" title="Opens the one-page plan for this strategy">${switchable ? "Written thesis" : "Written plan"}</a>`
     : row.roster_status === "live"
       ? `<span class="pill ok-pill strat-thesis">Written thesis</span>`
-      : `<span class="pill live-pill cached strat-warn" title="No one-page plan was filed for this strategy before trading. The switch still works; see the note under this list.">No written thesis</span>`;
+      : `<span class="pill live-pill cached strat-warn" title="No one-page plan has been written for this strategy yet.">No written thesis</span>`;
   const tag = (label, value, hint) => `<span class="strat-tag"${hint ? ` title="${esc(hint)}"` : ""}><b>${esc(label)}</b>${esc(value || "Not stated")}</span>`;
   const tags = [
     tag("Outlook", row.outlook_label, "The market this strategy is meant for. It is not proof that it works there."),
@@ -1545,19 +1595,24 @@ function strategyRow(row, canControl) {
     tag("Proof", row.proof_label, "Not yet proven means no backtest and no live sample big enough to judge."),
   ].join("");
   const statePill = `<span class="pill kill ${row.enabled ? "clear" : "armed"}"><i class="dot"></i><span>${row.enabled ? "On" : "Off"}</span></span>`;
-  const control = canControl
-    ? `<button class="btn ${row.enabled ? "strat-off" : "btn-primary"}" type="button" data-strat="${esc(row.strategy_id)}" data-enabled="${row.enabled ? "0" : "1"}">${row.enabled ? "Turn off" : "Turn on"}</button>`
-    : adminLocked()
-      ? `${statePill}${lockedButton(row.enabled ? "Turn off" : "Turn on")}`
-      : statePill;
-  return `<div class="strategy-row" data-live="${row.enabled ? "1" : "0"}">
+  // A strategy that is not ready gets no "Turn on" button: the reason is shown instead. One that is
+  // already on can always be turned off.
+  const cannotTurnOn = !row.enabled && blocked;
+  const control = cannotTurnOn
+    ? `<span class="pill live-pill cached strat-notready">Not ready</span>`
+    : canControl
+      ? `<button class="btn ${row.enabled ? "strat-off" : "btn-primary"}" type="button" data-strat="${esc(row.strategy_id)}" data-enabled="${row.enabled ? "0" : "1"}">${row.enabled ? "Turn off" : "Turn on"}</button>`
+      : adminLocked()
+        ? `${statePill}${lockedButton(row.enabled ? "Turn off" : "Turn on")}`
+        : statePill;
+  return `<div class="strategy-row" data-live="${row.enabled ? "1" : "0"}" data-ready="${esc(ready.state)}">
     <div class="strat-head">
       <div class="strat-name"><strong>${esc(row.name)}</strong>${thesis}</div>
       <div class="strat-meta" title="${esc(metaTitle)}">${esc(meta)}</div>
     </div>
     <div class="strat-what">${esc(row.what || "")}${row.rules_file_problem ? ` <span class="strat-problem-inline">${esc(ucfirst(row.rules_file_problem))}</span>` : ""}</div>
     <div class="strat-tags">${tags}</div>
-    <div class="strat-note">${row.reason ? `<div class="strat-reason"><b>${row.enabled ? "Note" : "Why it is off"}:</b> ${esc(row.reason)}</div>` : ""}${backtestLine(row.backtest) ? `<div>${esc(backtestLine(row.backtest))}</div>` : ""}${esc(decided)}</div>
+    <div class="strat-note">${readinessHtml(row, ready)}${row.reason ? `<div class="strat-reason"><b>${row.enabled ? "Note" : "Why it is off"}:</b> ${esc(row.reason)}</div>` : ""}${backtestLine(row.backtest) ? `<div>${esc(backtestLine(row.backtest))}</div>` : ""}${esc(decided)}</div>
     <div class="strat-ctl">${control}</div>
   </div>`;
 }
@@ -1572,7 +1627,11 @@ function renderStrategies() {
     return;
   }
   const canControl = controlsEnabled();
-  wrap.innerHTML = view.strategies.map((row) => strategyRow(row, canControl)).join("");
+  const planned = view.planned || [];
+  wrap.innerHTML = view.strategies.map((row) => strategyRow(row, canControl, view)).join("")
+    + (planned.length
+      ? `<div class="strat-planned-head">Not ready to switch on (${planned.length})</div>` + planned.map((row) => strategyRow(row, false, view)).join("")
+      : "");
   wrap.querySelectorAll("[data-strat]").forEach((btn) => btn.addEventListener("click", () => {
     toggleStrategy(btn.dataset.strat, btn.dataset.enabled === "1");
   }));
