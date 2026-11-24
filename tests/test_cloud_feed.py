@@ -283,3 +283,25 @@ def test_score_table_has_one_row_per_strategy(srv):
     assert sum(r["closed_n"] for r in rows) == 2  # the rows add up to the total
     assert by_id[None]["name"] == "Not linked to a strategy"
     assert by_id[srv.closed_trade_strategy(trade.model_dump())]["closed_n"] >= 1
+
+
+def test_a_hand_written_order_row_cannot_stop_the_feed(srv):
+    """24 Nov 2026: the desk journaled an order.submitted row without `quantity` and the whole publish
+    crashed with KeyError, so no numbers reached the dashboard. Thin rows must be tolerated."""
+    def ev(n, kind, payload):
+        return {"ts": f"2026-11-24T13:1{n}:00+00:00", "type": kind, "payload": payload, "hash": f"h{n}"}
+    events = [
+        ev(0, "order.requested", {"symbol": "US.SPY", "side": "sell", "quantity": 28, "request_id": "r1"}),
+        ev(1, "order.requested", {"symbol": "US.EFA", "side": "sell", "qty": 142}),
+        ev(2, "order.requested", {}),
+        ev(3, "order.submitted", {"symbol": "US.SPY", "order_id": "111"}),
+        ev(4, "order.submitted", {"symbol": "US.EFA", "qty": 142, "order_id": "222"}),
+        ev(5, "order.submitted", {}),
+        ev(6, "order.filled", {}),
+        ev(7, "order.rejected", {}),
+    ]
+    orders = srv.build_orders(events, {"fills": {}, "cancelled": set()})
+    by_symbol = {o["symbol"]: o for o in orders}
+    assert by_symbol["US.SPY"]["order_id"] == "111" and by_symbol["US.SPY"]["status"] == "submitted"
+    assert by_symbol["US.EFA"]["quantity"] == 142 and by_symbol["US.EFA"]["order_id"] == "222"
+    assert by_symbol[""]["quantity"] is None

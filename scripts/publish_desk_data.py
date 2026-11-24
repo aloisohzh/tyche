@@ -374,9 +374,18 @@ def main() -> None:
     if "--offline" not in sys.argv:
         pull = git("pull", "--ff-only", "origin", "main", check=False)
         if pull.returncode != 0:
-            print("CLOUD SYNC FAILED — pull --ff-only rejected (diverged history or dirty overlap):\n" + (pull.stderr or pull.stdout))
-            raise SystemExit(1)
-        print("cloud sync: origin/main fast-forwarded")
+            # The desk may hold a commit of its own that it could not push (it has no push credential
+            # outside this script), while origin/main moved on. Replay that commit on top of origin
+            # instead of giving up; the push below then carries it too.
+            rebase = git(*identity_args(), "pull", "--rebase", "--autostash", "origin", "main", check=False)
+            if rebase.returncode != 0:
+                git("rebase", "--abort", check=False)
+                print("CLOUD SYNC FAILED — pull --ff-only and pull --rebase both rejected (conflict or dirty overlap):\n"
+                      + (pull.stderr or pull.stdout) + "\n" + (rebase.stderr or rebase.stdout))
+                raise SystemExit(1)
+            print("cloud sync: local desk commits replayed on top of origin/main")
+        else:
+            print("cloud sync: origin/main fast-forwarded")
     print(restore_journal())
     bundles = publish_run_bundles()
     subprocess.run(
