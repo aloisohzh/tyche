@@ -255,6 +255,15 @@ def test_an_on_demand_run_trades_like_the_close_fire_on_fresh_quotes():
     assert '"--run-now" in sys.argv' in source and "refusing to run a deployment that is not the Tyche desk card" in source
 
 
+def test_pb003_options_buy_at_the_live_price_once_approved():
+    prompt = _module().card_prompt(PERMANENT)
+    clause = " ".join(prompt.split("LIVE PRICE (operator ruling 2026-11-24):", 1)[1].split("\n\n", 1)[0].split())
+    for must in ("does not wait for the underlying to pull back", "at most 5%", "ONE fresh proposal",
+                 "never a second re-proposal"):
+        assert must in clause, must
+    assert _module().prompt_markers(prompt)["has_option_live_price"]
+
+
 def test_resting_orders_are_kernel_decided_day_limits_with_both_reasons_and_a_bounded_cancel():
     """Operator direction 2026-11-24: place the order instead of waiting for a run. The brief may only
     pass through what the kernel returned, every order carries a technical and a fundamental reason, the
