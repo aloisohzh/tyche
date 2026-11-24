@@ -1,0 +1,17 @@
+{
+ "account_id": "[REDACTED]",
+ "cash": 98831.144,
+ "frozen_cash": 0.0,
+ "broker_nav": 98831.144,
+ "prior_close_nav": 99380.951,
+ "high_water_nav": 100000.0,
+ "captured_at": "2026-11-24T17:12:05+00:00",
+ "positions": [],
+ "env": "paper",
+ "account_type": 2,
+ "market_id": 100,
+ "source": "sim_list",
+ "gross_exposure": 0.0,
+ "nav": 98831.144,
+ "notes": "Midday protection fire 2026-11-24. Flat account confirmed by two cash reads (17:07:25Z, 17:12:05Z). Oldest MCP read 2026-11-24T17:07:20Z. 3 zero-qty position residue rows (SPY/EFA/MSFT) omitted as positions; see mcp/positions.json."
+}

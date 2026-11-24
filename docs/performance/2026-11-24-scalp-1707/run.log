@@ -1,0 +1,12 @@
+SCALP RUN scalp-20261124T1707Z (scheduled start 17:07:00Z, hard stop 17:17:00Z)
+Gates: 1 pass (ET 2026-11-24); 2 pass (calendar exit 0, phase midday within RTH, per scalp-1652 precedent); 3 pass (PB-004 enabled, operator override); 4 pass (journal-verify OK).
+Ledger: /data/drive/tyche-raw/2026-11-24-ondemand-1638/journal/events.jsonl — latest verified descendant (95 events, chain intact, prefix-verified descendant of 90-event baseline b50430ad…; that on-demand run journaled run.end 17:03Z, no active writer).
+Lock: none present at start; claimed 17:07:19Z; deleted as last action.
+Feed (executor, read-only): 16 raw payloads in this dir, all ret_code=0, observed_at 17:09:09Z; accounts 17:09:09Z, cash/positions/history 17:09:15Z, quotes/books/bars ~17:09:55–17:10:10Z. sim_trade_order_list unregistered (known); orders.json from unfiltered history, single page has_more=false, 14 orders. Account ...2598 FLAT (MSFT/EFA/SPY zero-qty residue only), cash/NAV 98,831.144 unchanged vs 17:01Z. No outage.
+FILLS FIRST: no-op — no new tyche-scl- orders; the 7 Nov-19 incident orders already journaled; SMH 3118500 / VNQ 3116597 closed per operator ruling 2026-11-24. No resting tyche-tac orders present (3118578 MSFT status4 filled); nothing to name for the desk.
+CYCLE: tyche tactical scalp --record run 17:15:29Z, exit 0. Result: orders=[] requests=[] decisions=[] alerts=["stale/missing account snapshot; no orders"] — account capture 17:09:15Z exceeded the <=120s freshness gate at cycle time (executor capture finished 17:15:0xZ, near the run's time budget). Honest wait; no recapture possible within budget. 0 submitted, 0 skipped, 0 denied. No broker writes this run.
+Feed quirk note: no +31.5M s broker-side epoch offset vs sandbox clock this run; quote data_time lagged read time ~307s (executor report), a staleness risk independent of the epoch question. Timestamps saved verbatim, never adjusted.
+PROTECTION WATCH: skipped — no tactical lot held (positions flat; MSFT qty 0).
+Ledger after cycle: 95 events, chain intact, unchanged (no requests to journal).
+Telegram: silent per card (no order submitted or filled; no lot open at flatten time).
+SCALP RUN end: 17:15:5xZ completed within time limit (not a time-limit stop).

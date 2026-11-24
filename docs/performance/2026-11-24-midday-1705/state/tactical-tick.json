@@ -1,0 +1,30 @@
+{
+  "as_of": "2026-11-24T17:15:21.428270+00:00",
+  "phase": "midday",
+  "config_hash": "dd87c7da414e2af1d67c63d6eb3cb68fc5447deda3276dcc279d43e6a1c34dd6",
+  "orders": [],
+  "decisions": [
+    {
+      "setup_id": "TL-20261124-KO-DEF2",
+      "symbol": "US.KO",
+      "action": "wait",
+      "reason": "awaiting distinct fresh quote confirmations"
+    },
+    {
+      "setup_id": "TL-20261124-PG-DEF2",
+      "symbol": "US.PG",
+      "action": "wait",
+      "reason": "awaiting distinct fresh quote confirmations"
+    },
+    {
+      "setup_id": "TL-20261124-JNJ-DEF1",
+      "symbol": "US.JNJ",
+      "action": "wait",
+      "reason": "watchlist stale/inactive/invalidated or protection coverage incomplete"
+    }
+  ],
+  "alerts": [
+    "monitor starting or heartbeat gap; rebuild entry confirmations"
+  ],
+  "submitted": false
+}

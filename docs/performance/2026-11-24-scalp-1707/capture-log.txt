@@ -1,0 +1,8 @@
+scalp-20261124T1707Z read-only capture (no writes, no submits)
+observed_at (oldest actual read) = 2026-11-24T17:09:09Z
+accounts.json read 17:09:09Z ret_code 0
+cash.json / positions.json / orders(history) read 17:09:15Z ret_code 0 all; history unfiltered single page pagination.has_more=false next_key 0; 14 orders
+quotes.json / book-*.json (5) read 17:09:5xZ ret_code 0 all
+bars-*.json (5, ktype=1min num=30) read ~17:10:0xZ ret_code 0 all
+sim_trade_order_list: not attempted (unregistered in this MCP session, per scalp-1652 mcp-anomaly README); orders.json = sim_trade_history_order_list payload, prior-run shape {ret_code,ret_msg,data:{orders},pagination}
+Timestamps saved VERBATIM, unadjusted. Broker data_time/kline time_key are ~307s behind sandbox wall clock at read time; the sandbox epoch itself reads 1795540498 (vs real-world 2026-11-24T17:14Z ~1795924498), i.e. the prior +31.5M s epoch-offset anomaly is NOT reproduced as a broker-side offset -- broker feed is internally consistent with the sandbox clock, lag vs wall ~5.1 min.
