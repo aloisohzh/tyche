@@ -1,0 +1,16 @@
+{
+  "account_id": "[REDACTED]",
+  "cash": 98831.144,
+  "frozen_cash": 0.0,
+  "broker_nav": 98831.144,
+  "prior_close_nav": null,
+  "high_water_nav": null,
+  "captured_at": "2026-11-24T16:44:50Z",
+  "positions": [],
+  "env": "paper",
+  "account_type": 2,
+  "market_id": 100,
+  "source": "sim_list",
+  "gross_exposure": 0.0,
+  "nav": 98831.144
+}

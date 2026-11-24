@@ -1,0 +1,44 @@
+[
+  {
+    "symbol": "US.KO",
+    "at": "2026-11-24T16:46:23.005000Z",
+    "book_at": "2026-11-24T16:46:28.936000Z",
+    "last": 98.195,
+    "bid": 98.19,
+    "ask": 98.2,
+    "tradable": true,
+    "option": null,
+    "open_interest": 0,
+    "volume": 5274639,
+    "delta": null,
+    "implied_volatility": null
+  },
+  {
+    "symbol": "US.PG",
+    "at": "2026-11-24T16:46:20.563000Z",
+    "book_at": "2026-11-24T16:46:29.227000Z",
+    "last": 172.74,
+    "bid": 172.75,
+    "ask": 172.77,
+    "tradable": true,
+    "option": null,
+    "open_interest": 0,
+    "volume": 2875140,
+    "delta": null,
+    "implied_volatility": null
+  },
+  {
+    "symbol": "US.JNJ",
+    "at": "2026-11-24T16:46:23.561000Z",
+    "book_at": "2026-11-24T16:46:29.261000Z",
+    "last": 275.33,
+    "bid": 275.29,
+    "ask": 275.4,
+    "tradable": true,
+    "option": null,
+    "open_interest": 0,
+    "volume": 1789098,
+    "delta": null,
+    "implied_volatility": null
+  }
+]

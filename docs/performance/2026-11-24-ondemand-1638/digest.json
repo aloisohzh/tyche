@@ -1,0 +1,30 @@
+{
+  "phase": "ON-DEMAND RUN",
+  "timestamp": "2026-11-24 | 17:03 UTC / 12:03 ET / 01:03 SGT (25 Nov)",
+  "urgent": false,
+  "mode": "PAPER ARMED - observe-only; halt released; account flat; no orders this run",
+  "stance": "Defensive staples bid (KO +2.4%, PG +1.8%) but all three pre-approved names ran above their entry zones, so the desk waited rather than chased.",
+  "orders_summary": "No orders submitted by this run. 0 fills, 0 pending.",
+  "orders": [],
+  "account": {
+    "nav": "98,831.14 (total_asset, broker read 16:49Z)",
+    "cash": "98,831.14; frozen 0; market value 0",
+    "positions": "Flat - no open lots (SPY/EFA/MSFT exits all filled at the open)",
+    "kill_switch": "OFF (halt released)"
+  },
+  "protection": [
+    "Account flat: no open lots, no uncovered positions, no pending or uncertain orders.",
+    "Ownership clean: no order newer than the desk's 13:12Z exits; PB-004 scalp card placed none."
+  ],
+  "problems": [
+    "PB-003 option feed-blocked: KO Dec-18 97C passes OI/volume/spread/delta gates but its quote is 350s old (120s freshness gate). No executable option; re-check at next fire.",
+    "KO/PG/JNJ all above entry zones after a run-up - WAIT, no chase. JNJ setup invalidated (stop 268.50 and target 275.25 both breached).",
+    "Researcher session failed twice; desk head assembled and schema-validated the watchlist from the completed report."
+  ],
+  "proposals": [
+    "KO DEF2 (watch): staples pullback buy 96.20-96.50, stop 95.40, target 98.30. WAIT, price 98.17 above zone. Invalidation: below 95.40.",
+    "PG DEF2 (watch): staples pullback buy 170.20-170.60, stop 169.00, target 173.20. WAIT, price 172.70 above zone. Invalidation: below 169.00.",
+    "JNJ DEF1: INVALIDATED, stay out. PB-003 KO 97C: no executable contract, no proposal sent. No Telegram approval requested - no executable entry existed."
+  ],
+  "next_check": "Next fire 12:05 ET (midday, alert-only); next trading decision 15:05 ET close. PB-007 off."
+}

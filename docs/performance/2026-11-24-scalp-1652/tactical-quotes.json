@@ -1,0 +1,72 @@
+[
+  {
+    "symbol": "US.NVDA",
+    "at": "2026-11-24T16:53:34.919000Z",
+    "book_at": "2026-11-24T16:53:48.648000Z",
+    "last": 151.19,
+    "bid": 151.22,
+    "ask": 151.23,
+    "tradable": true,
+    "option": null,
+    "open_interest": 0,
+    "volume": 200681444,
+    "delta": null,
+    "implied_volatility": null
+  },
+  {
+    "symbol": "US.AMD",
+    "at": "2026-11-24T16:53:34.255000Z",
+    "book_at": "2026-11-24T16:53:48.848000Z",
+    "last": 404.85,
+    "bid": 404.76,
+    "ask": 404.97,
+    "tradable": true,
+    "option": null,
+    "open_interest": 0,
+    "volume": 23551723,
+    "delta": null,
+    "implied_volatility": null
+  },
+  {
+    "symbol": "US.AVGO",
+    "at": "2026-11-24T16:53:32.688000Z",
+    "book_at": "2026-11-24T16:53:49.289000Z",
+    "last": 300.435,
+    "bid": 300.27,
+    "ask": 300.47,
+    "tradable": true,
+    "option": null,
+    "open_interest": 0,
+    "volume": 11387403,
+    "delta": null,
+    "implied_volatility": null
+  },
+  {
+    "symbol": "US.MU",
+    "at": "2026-11-24T16:53:34.964000Z",
+    "book_at": "2026-11-24T16:53:49.690000Z",
+    "last": 628.8277,
+    "bid": 628.0,
+    "ask": 628.21,
+    "tradable": true,
+    "option": null,
+    "open_interest": 0,
+    "volume": 20311376,
+    "delta": null,
+    "implied_volatility": null
+  },
+  {
+    "symbol": "US.SMH",
+    "at": "2026-11-24T16:53:34.986000Z",
+    "book_at": "2026-11-24T16:53:50.224000Z",
+    "last": 422.265,
+    "bid": 422.18,
+    "ask": 422.33,
+    "tradable": true,
+    "option": null,
+    "open_interest": 0,
+    "volume": 7387924,
+    "delta": null,
+    "implied_volatility": null
+  }
+]

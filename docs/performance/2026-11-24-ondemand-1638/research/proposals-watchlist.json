@@ -1,0 +1,144 @@
+{
+  "as_of": "2026-11-24",
+  "entries": [
+    {
+      "symbol": "US.KO",
+      "sleeve": "defensive",
+      "strategy": "PB-002",
+      "setup_id": "TL-20261124-KO-DEF2",
+      "direction": "bullish",
+      "status": "watch",
+      "entry_low": 96.20,
+      "entry_high": 96.50,
+      "stop": 95.40,
+      "target": 98.30,
+      "expiry": "2026-11-24",
+      "exit_at": "2026-11-24T20:50:00+00:00",
+      "reviewed_at": "2026-11-24T17:01:14+00:00",
+      "max_quantity": 51,
+      "confirmation_ticks": 2,
+      "market_cap_usd": 379000000000.0,
+      "thesis": "Defensive staples rotation bid: KO +2.38% on the day with three Buy reiterations (MS $103, BofA $100, RBC $96) and a benign CFO handover. Uptrend intact but extended at 98.17, above the old zone and at the old target; wait for a pullback into the 96.20-96.50 open/premarket shelf rather than chase.",
+      "synthesis": "Staples complex bid (KO/PG/PEP/MCD all +1.7-2.4%) into a Fed hike tape; analyst PTs 100/103 leave headroom above the 98.30 day-high retest target. Entry only on a pullback to the open shelf with R/R >= 1.5.",
+      "edge": "Pullback entry at the 96.20-96.50 open/premarket shelf gives R/R 1.64-2.63 to the 98.30 day-high retest with a 95.40 stop under the day low; chasing at 98.17 collapses R/R to ~0.2.",
+      "bear_case": "Staples rotation reverses (PEP/MCD/PG roll over together); a hawkish 50bp Fed tail headline lifts yields and pressures staples; KO fails the 95.40 stop.",
+      "invalidation": "Trade below 95.40; staples-rotation reversal; hawkish 50bp Fed tail headlines.",
+      "horizon": "same-session, flat by 20:50Z before the Nov-25 08:30 ET macro triple",
+      "catalyst": "CFO succession announced 2026-11-23 21:33Z (Murphy retire 2027, BMY CFO David Elkins effective 2027-04-02); MS calls it benign, keeps Overweight $103.",
+      "sources": [
+        "news.futunn.com/post/1005383343 (Dow Jones 2026-11-23T21:33Z KO CFO succession)",
+        "news.futunn.com/post/1005437317 (Zhitong/MS 2026-11-24T07:03Z KO CFO benign, Overweight $103)",
+        "news.futunn.com/post/1005473561 (Morgan Stanley 2026-11-24T11:33Z KO Buy PT $103)",
+        "news.futunn.com/post/1005466933 (BofA 2026-11-24T10:31Z KO Buy PT $100)",
+        "news.futunn.com/post/1005449136 (RBC 2026-11-24T08:32Z KO Buy PT $96)"
+      ],
+      "factors": [
+        {"name": "trend_structure", "axis": "technical", "state": "pass", "why": "Uptrend with higher lows intact", "detail": "Extended at 98.17 above old zone; wait for pullback to 96.20-96.50 shelf"},
+        {"name": "analyst_reiterations", "axis": "fundamental", "state": "pass", "why": "Three Buy reiterations today", "detail": "MS $103, BofA $100, RBC $96; PTs above day-high target"},
+        {"name": "cfo_handover", "axis": "catalyst", "state": "pass", "why": "CFO succession benign per MS", "detail": "Announced 11-23 21:33Z; MS keeps Overweight $103"},
+        {"name": "spread", "axis": "liquidity", "state": "pass", "why": "Tight two-sided book", "detail": "0.010% spread, bid 98.19/ask 98.20"},
+        {"name": "fed_regime", "axis": "macro", "state": "unknown", "why": "Hike odds from run brief only, not re-sourced", "detail": "Dec 25bp ~96%, 50bp tail; Nov-25 08:30 ET PCE/GDP/claims triple ahead"},
+        {"name": "capital_flow", "axis": "flow", "state": "unknown", "why": "Capital-flow tools not run this intraday pass", "detail": "No flow evidence gathered"},
+        {"name": "sentiment_feed", "axis": "sentiment", "state": "unknown", "why": "Sentiment feed not fetched", "detail": "Intraday revalidation, not a discovery run"}
+      ],
+      "outlook": {
+        "regime": "Fed hike cycle; defensive staples rotation bid",
+        "conviction": "medium",
+        "alignment": {"technical": "bull", "fundamental": "bull", "catalyst": "bull", "liquidity": "bull", "macro": "neutral", "flow": "neutral", "sentiment": "neutral"}
+      },
+      "invalidated": false
+    },
+    {
+      "symbol": "US.PG",
+      "sleeve": "defensive",
+      "strategy": "PB-002",
+      "setup_id": "TL-20261124-PG-DEF2",
+      "direction": "bullish",
+      "status": "watch",
+      "entry_low": 170.20,
+      "entry_high": 170.60,
+      "stop": 169.00,
+      "target": 173.20,
+      "expiry": "2026-11-24",
+      "exit_at": "2026-11-24T20:50:00+00:00",
+      "reviewed_at": "2026-11-24T17:01:14+00:00",
+      "max_quantity": 28,
+      "confirmation_ticks": 2,
+      "market_cap_usd": 398000000000.0,
+      "thesis": "Defensive staples rotation bid: PG +1.83% with yesterday's analyst PT raises (MS 185->192, BofA 185->190, Citi Buy $190, consensus Overweight avg $176.90). Uptrend intact but extended at 172.70, above the old zone and near the old target; wait for a pullback into 170.20-170.60.",
+      "synthesis": "Today's move is consistent with the staples rotation, not a PG-specific catalyst (no new same-day PG item sourced). Pullback entry at the lower old zone + today's open 170.64 gives R/R >= 1.5 to the 173.20 day-high retest.",
+      "edge": "Pullback entry at 170.20-170.60 gives R/R 1.63-2.50 to 173.20 with a 169.00 stop under the day low; chasing at 172.70 collapses R/R below 1.5.",
+      "bear_case": "Staples rotation reverses; a Nov-25 macro shock (setup is flat by 20:50Z so no overnight carry); PG fails the 169.00 stop.",
+      "invalidation": "Trade below 169.00; staples-rotation reversal; Nov-25 macro shock.",
+      "horizon": "same-session, flat by 20:50Z before the Nov-25 08:30 ET macro triple",
+      "catalyst": "No new same-day PG-specific catalyst sourced; 11-23 analyst PT raises support headroom.",
+      "sources": [
+        "news.futunn.com/post/1005344842 (Morgan Stanley 2026-11-23T11:31Z PG PT 185->192)",
+        "news.futunn.com/post/1005344841 (BofA 2026-11-23T11:31Z PG PT 185->190)",
+        "news.futunn.com/post/1005349545 (Citi 2026-11-23T12:31Z PG Buy $190)",
+        "news.futunn.com/post/1005340126 (FactSet 2026-11-23T10:32:29Z PG consensus Overweight avg PT $176.90)"
+      ],
+      "factors": [
+        {"name": "trend_structure", "axis": "technical", "state": "pass", "why": "Uptrend intact", "detail": "Extended at 172.70 above old zone; wait for pullback to 170.20-170.60"},
+        {"name": "analyst_pt_raises", "axis": "fundamental", "state": "pass", "why": "11-23 PT raises 190/192", "detail": "MS 192, BofA 190, Citi 190; consensus 176.90 above day-high target"},
+        {"name": "same_day_catalyst", "axis": "catalyst", "state": "unknown", "why": "No new same-day PG-specific catalyst sourced", "detail": "First news query returned stale 2021 SEDAR notices (recorded gap); move consistent with rotation"},
+        {"name": "spread", "axis": "liquidity", "state": "pass", "why": "Tight two-sided book", "detail": "0.012% spread, bid 172.75/ask 172.77"},
+        {"name": "fed_regime", "axis": "macro", "state": "unknown", "why": "Hike odds from run brief only, not re-sourced", "detail": "Nov-25 08:30 ET PCE/GDP/claims triple ahead"},
+        {"name": "capital_flow", "axis": "flow", "state": "unknown", "why": "Capital-flow tools not run this intraday pass", "detail": "No flow evidence gathered"},
+        {"name": "sentiment_feed", "axis": "sentiment", "state": "unknown", "why": "Sentiment feed not fetched", "detail": "Intraday revalidation, not a discovery run"}
+      ],
+      "outlook": {
+        "regime": "Fed hike cycle; defensive staples rotation bid",
+        "conviction": "medium",
+        "alignment": {"technical": "bull", "fundamental": "bull", "catalyst": "neutral", "liquidity": "bull", "macro": "neutral", "flow": "neutral", "sentiment": "neutral"}
+      },
+      "invalidated": false
+    },
+    {
+      "symbol": "US.JNJ",
+      "sleeve": "defensive",
+      "strategy": "PB-002",
+      "setup_id": "TL-20261124-JNJ-DEF1",
+      "direction": "bullish",
+      "status": "dropped",
+      "entry_low": 269.80,
+      "entry_high": 271.20,
+      "stop": 268.50,
+      "target": 275.25,
+      "expiry": "2026-11-24",
+      "exit_at": "2026-11-24T20:50:00+00:00",
+      "reviewed_at": "2026-11-24T17:01:14+00:00",
+      "max_quantity": 17,
+      "confirmation_ticks": 2,
+      "market_cap_usd": 662000000000.0,
+      "thesis": "INVALIDATED at 16:04Z: day low 268.08 broke the 268.50 stop AND day high 275.70 exceeded the 275.25 target. Price now 275.29, above the old target. No fresh post-invalidation catalyst justifies a new setup; ex-div $1.34 today (record 11-24, pay 12-08). Stay out.",
+      "synthesis": "Pre-invalidation news (JPM Hold PT 285->300, TREMFYA phase-4 STAR success, Ollin $3.325B acquisition, all 11-20) is stale relative to the invalidation and is not fresh post-event evidence. Default stay out.",
+      "edge": "None remaining; the setup invalidated on both stop and target within the session.",
+      "bear_case": "Already realized: the session traversed the full stop-to-target range and invalidated the setup.",
+      "invalidation": "Invalidated 16:04Z (low 268.08 < stop 268.50; high 275.70 > target 275.25). Invalidation stands.",
+      "horizon": "dropped; no same-session entry",
+      "catalyst": "Ex-div $1.34 today (record 11-24, pay 12-08); feed prev_close 268.71 is the dividend-adjusted reference.",
+      "sources": [
+        "news.futunn.com/post/1005291326 (futu 2026-11-23T01:00:01Z JNJ ex-div $1.34 record 11-24 pay 12-08)",
+        "news.futunn.com/post/1005197395 (JPM 2026-11-20T13:31Z JNJ Hold PT 285->300, pre-invalidation)",
+        "news.futunn.com/post/1005194419 (2026-11-20T13:02:51Z TREMFYA phase-4 STAR success, pre-invalidation)",
+        "news.futunn.com/post/1005169424 (2026-11-20T09:17:49Z Ollin $3.325B acquisition, pre-invalidation)"
+      ],
+      "factors": [
+        {"name": "stop_target_breach", "axis": "technical", "state": "fail", "why": "Session low broke stop and high exceeded target", "detail": "Low 268.08 < stop 268.50; high 275.70 > target 275.25; invalidated 16:04Z"},
+        {"name": "post_invalidation_catalyst", "axis": "catalyst", "state": "unknown", "why": "No fresh post-invalidation evidence", "detail": "All sourced news pre-dates the invalidation (11-20)"},
+        {"name": "fundamentals", "axis": "fundamental", "state": "unknown", "why": "Pre-invalidation news only", "detail": "JPM Hold PT 300, TREMFYA STAR success, Ollin acquisition all 11-20"},
+        {"name": "spread", "axis": "liquidity", "state": "pass", "why": "Tight two-sided book", "detail": "0.040% spread, bid 275.29/ask 275.40"},
+        {"name": "fed_regime", "axis": "macro", "state": "unknown", "why": "Hike odds from run brief only", "detail": "Nov-25 macro triple ahead"},
+        {"name": "capital_flow", "axis": "flow", "state": "unknown", "why": "Capital-flow tools not run", "detail": "No flow evidence gathered"},
+        {"name": "sentiment_feed", "axis": "sentiment", "state": "unknown", "why": "Sentiment feed not fetched", "detail": "Intraday revalidation"}
+      ],
+      "outlook": {
+        "regime": "Fed hike cycle; defensive staples rotation bid",
+        "conviction": "low",
+        "alignment": {"technical": "bear", "fundamental": "neutral", "catalyst": "neutral", "liquidity": "bull", "macro": "neutral", "flow": "neutral", "sentiment": "neutral"}
+      },
+      "invalidated": true
+    }
+  ]
+}

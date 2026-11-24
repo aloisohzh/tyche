@@ -1,0 +1,1 @@
+sim_trade_order_list tool remains UNREGISTERED in executor MCP at scalp-1637 fire (2026-11-24 ~16:42Z). orders.json captured via sim_trade_history_order_list, unfiltered, single page, pagination.has_more=false.
