@@ -1182,17 +1182,79 @@ _CLOUD_ORDER_STATUS = {
 }
 
 
+CHALLENGE_TITLE = "Moomoo x Qoder AI Paper Trading Agent Challenge"
+
+
 def challenge_mask() -> str:
+    """The challenge account's masked number (***598). Never the full number: the feed is public.
+
+    The drill accounts.json carries the raw id on the laptop. The published run bundles are
+    redacted, so on the desk card the number comes from TYCHE_ALLOWED_ACCOUNT_IDS, which holds
+    only the challenge account since 23 Nov. "challenge" is the last resort.
+    """
     path = DRILL_DIR / "accounts.json"
     if path.is_file():
         try:
             accounts = json.loads(path.read_text(encoding="utf-8"))["data"]["accounts"]
             for acct in accounts:
                 if acct.get("account_type") == CHALLENGE_ACCOUNT_TYPE and acct.get("market_id") == 100:
-                    return mask_id(str(acct["account_id"]))
+                    masked = mask_id(str(acct["account_id"]))
+                    if masked.startswith("***"):
+                        return masked
         except (json.JSONDecodeError, KeyError, TypeError):
             pass
+    allowed = [a.strip() for a in os.environ.get("TYCHE_ALLOWED_ACCOUNT_IDS", "").split(",")]
+    numeric = [a for a in allowed if re.fullmatch(r"\d{6,}", a)]
+    if len(numeric) == 1:
+        return mask_id(numeric[0])
     return "challenge"
+
+
+def account_value(cash: float, hold: float | None, gross: float, broker_total: float | None) -> float:
+    """What the account is worth, the way moomoo shows it.
+
+    Cash the broker is holding for a resting order is still the account's money, so it counts.
+    The broker's own total wins when it reported one; otherwise free cash + held cash + holdings.
+    """
+    try:
+        total = float(broker_total) if broker_total is not None else 0.0
+    except (TypeError, ValueError):
+        total = 0.0
+    if total > 0:
+        return round(total, 2)
+    return round(float(cash or 0) + float(hold or 0) + float(gross or 0), 2)
+
+
+def _bundle_title(directory: Path) -> str:
+    """The challenge account's full name from a run bundle's accounts.json (ids there are redacted)."""
+    path = directory / "accounts.json"
+    if not path.is_file():
+        return ""
+    try:
+        accounts = json.loads(path.read_text(encoding="utf-8")).get("data", {}).get("accounts", [])
+    except (json.JSONDecodeError, OSError, AttributeError):
+        return ""
+    for acct in accounts:
+        if acct.get("account_type") == CHALLENGE_ACCOUNT_TYPE and acct.get("market_id") == 100:
+            return str(acct.get("account_title") or "")
+    return ""
+
+
+# Older bundles saved the broker's order history under the MCP tool name; newer ones as history_orders.json.
+ORDER_HISTORY_FILES = ("sim_trade_history_order_list.json", "history_orders.json")
+
+
+def _order_history(directory: Path) -> list[dict]:
+    for name in ORDER_HISTORY_FILES:
+        path = directory / "mcp" / name
+        if path.is_file():
+            try:
+                orders = json.loads(path.read_text(encoding="utf-8")).get("data", {}).get("orders", [])
+            except (json.JSONDecodeError, OSError, AttributeError):
+                continue
+            if isinstance(orders, list):
+                return orders
+    return []
 
 
 def _broker_ts(value) -> str | None:
@@ -1216,15 +1278,12 @@ def load_cloud_runs() -> list[dict]:
         # git checkout resets mtimes, so prefer the newest broker timestamp in
         # the bundle when present; fall back to file mtime.
         ts = path.stat().st_mtime
-        history = path.parent / "mcp" / "sim_trade_history_order_list.json"
-        if history.is_file():
-            try:
-                orders = json.loads(history.read_text(encoding="utf-8")).get("data", {}).get("orders", [])
-                stamps = [int(o["update_time"]) / 1_000_000 for o in orders if o.get("update_time")]
-                if stamps:
-                    ts = max(ts, max(stamps))
-            except (json.JSONDecodeError, OSError, KeyError, TypeError, ValueError):
-                pass
+        try:
+            stamps = [int(o["update_time"]) / 1_000_000 for o in _order_history(path.parent) if o.get("update_time")]
+            if stamps:
+                ts = max(ts, max(stamps))
+        except (KeyError, TypeError, ValueError):
+            pass
         runs.append({
             "run": path.parent.name,
             "ts": datetime.fromtimestamp(ts, UTC).isoformat(),
@@ -1253,7 +1312,18 @@ def cloud_snapshot(runs: list[dict]) -> dict | None:
                 names["US." + pos["symbol"]] = pos.get("stock_name", "")
         except (json.JSONDecodeError, KeyError, TypeError):
             pass
-    nav = snap["nav"]
+    hold, total_asset = None, None
+    cash_path = run["dir"] / "cash.json"
+    if cash_path.is_file():
+        try:
+            data = json.loads(cash_path.read_text(encoding="utf-8")).get("data", {})
+            hold = float(data["hold"]) if data.get("hold") is not None else None
+            total_asset = float(data["total_asset"]) if data.get("total_asset") is not None else None
+        except (json.JSONDecodeError, KeyError, TypeError, ValueError):
+            pass
+    # The snapshot's nav leaves out cash held for a resting order (18 Nov: 92,047 against moomoo's
+    # 99,931). The account value is the broker's total, the same figure the moomoo app shows.
+    nav = account_value(snap["cash"], hold, snap["gross_exposure"], total_asset) if total_asset or hold else snap["nav"]
     positions = []
     for pos in snap.get("positions", []):
         mv = pos["market_value"]
@@ -1272,17 +1342,11 @@ def cloud_snapshot(runs: list[dict]) -> dict | None:
             }
         )
     positions.sort(key=lambda p: p["market_value"], reverse=True)
-    hold, total_asset = None, None
-    cash_path = run["dir"] / "cash.json"
-    if cash_path.is_file():
-        try:
-            data = json.loads(cash_path.read_text(encoding="utf-8")).get("data", {})
-            hold = float(data["hold"]) if data.get("hold") is not None else None
-            total_asset = float(data["total_asset"]) if data.get("total_asset") is not None else None
-        except (json.JSONDecodeError, KeyError, TypeError, ValueError):
-            pass
     return {
         "account": challenge_mask(),
+        "account_title": _bundle_title(run["dir"]) or CHALLENGE_TITLE,
+        "account_type": CHALLENGE_ACCOUNT_TYPE,
+        "market_id": 100,
         "env": snap.get("env", "paper"),
         "cash": snap["cash"],
         "nav": nav,
@@ -1303,12 +1367,8 @@ def cloud_orders(runs: list[dict]) -> list[dict]:
     if not challenge:
         return []
     run = challenge[-1]
-    path = run["dir"] / "mcp" / "sim_trade_history_order_list.json"
-    if not path.is_file():
-        return []
-    try:
-        orders = json.loads(path.read_text(encoding="utf-8")).get("data", {}).get("orders", [])
-    except (json.JSONDecodeError, OSError):
+    orders = _order_history(run["dir"])
+    if not orders:
         return []
     acct = challenge_mask()
     out = []
@@ -1470,7 +1530,7 @@ def _load_capture(directory: Path) -> dict | None:
             ]
             cash = float(snap.get("cash") or 0)
             gross = round(sum(p["market_value"] for p in positions), 2)
-            nav = round(cash + gross, 2) or float(snap.get("broker_nav") or 0)
+            nav = account_value(cash, snap.get("frozen_cash"), gross, snap.get("broker_nav"))
             for p in positions:
                 p["weight"] = p["market_value"] / nav if nav else 0
             positions.sort(key=lambda p: p["market_value"], reverse=True)
@@ -1519,7 +1579,7 @@ def _load_capture(directory: Path) -> dict | None:
                                        pos.get("qty"), pos.get("cost_price"), pos.get("cur_price"),
                                        pos.get("mv"), 0))
     gross = round(sum(p["market_value"] for p in positions), 2)
-    nav = float(cash_data.get("total_asset") or 0) or round(balance + gross, 2)
+    nav = account_value(balance, hold, gross, cash_data.get("total_asset"))
     for p in positions:
         p["weight"] = p["market_value"] / nav if nav else 0
     positions.sort(key=lambda p: p["market_value"], reverse=True)
@@ -1601,7 +1661,7 @@ def live_broker_snapshot() -> tuple[dict | None, str | None]:
             for p in snap.positions
         ]
         gross = round(sum(p["market_value"] for p in rows), 2)
-        nav = round(snap.cash + gross, 2)
+        nav = account_value(snap.cash, snap.frozen_cash, gross, snap.broker_nav)
         for p in rows:
             p["weight"] = p["market_value"] / nav if nav else 0
         rows.sort(key=lambda p: p["market_value"], reverse=True)
