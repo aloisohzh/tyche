@@ -9,8 +9,17 @@ const ucfirst = (s) => { const t = hy(s).trim(); return t ? t.charAt(0).toUpperC
 // A term with a one-line explanation on hover - the desk is read by people who do not trade for a living.
 const tip = (label, text) => `<span class="tip" data-tip="${esc(text)}">${esc(label)}</span>`;
 
-const VERSION = "0.16.2";
+const VERSION = "0.16.3";
 const CHANGELOG = [
+  {
+    version: "0.16.3", date: "2026-11-24", title: "Real dates on readings and runs, scalp card shown properly",
+    items: [
+      "The account card's last reading shows when the reading was taken, not when the page was published. The newest saved reading is the 18 Nov end-of-day run until tonight's run publishes a fresh one.",
+      "The scalp timer card shows its 28 runs a day as one line (every 15 minutes, 09:07 to 15:52 New York) and says it stops by itself after Mon 30 Nov.",
+      "Every run shows the date as well as the time. A run from the desk card before it was renamed says so, and a run from a card that is now switched off is marked Old card.",
+      "Emergency stop: the right side is just the state, the button and one line. The reason and time of the last change moved to the list on the left.",
+    ],
+  },
   {
     version: "0.16.2", date: "2026-11-24", title: "Account value matches moomoo, clearer money chart",
     items: [
@@ -362,7 +371,8 @@ const sgtTime = (ts) => tzTime(ts, TZ_SGT);
 const etHHMM = (ts) => tzTime(ts, TZ_ET, false);
 const sgtHHMM = (ts) => tzTime(ts, TZ_SGT, false);
 const dualTime = (ts) => ts ? `${etHHMM(ts)} ET · ${sgtHHMM(ts)} SGT` : "-";
-const dualCell = (ts) => ts ? `<div>${etTime(ts)} ET</div><div class="dim">${sgtTime(ts)} SGT</div>` : "-";
+// Date and time in both zones: a run log without dates cannot say which day a row belongs to.
+const dualCell = (ts) => ts ? `<div>${dateLabel(ts)} · ${etTime(ts)} ET</div><div class="dim">${sgtDateLabel(ts)} · ${sgtTime(ts)} SGT</div>` : "-";
 const dateLabel = (ts) => ts ? new Date(ts).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: TZ_ET }) : "-";
 // A date shown next to a Singapore clock time must be the Singapore date, or "Nov 22 11:53 SGT" can name the wrong day.
 const sgtDateLabel = (ts) => ts ? new Date(ts).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: TZ_SGT }) : "-";
@@ -572,6 +582,13 @@ function srcLabel(src) {
   const cap = s.match(/^broker capture\s+(\S+)/i);
   if (cap) return "Broker capture";
   if (/^live moomoo/i.test(s)) return "Live from moomoo";
+  const run = s.match(/^cloud:(\d{4}-\d{2}-\d{2})-?(.*)$/i);
+  if (run) {
+    // The date follows on the same line, so only the part of the day is named here.
+    const raw = run[2].replace(/\d+$/, "").replace(/-/g, " ").trim().toLowerCase();
+    const part = { eod: "end of day", closing: "close", premarket: "before the open" }[raw] || raw;
+    return `Desk run${part ? ` (${part})` : ""}`;
+  }
   return ucfirst(s);
 }
 function renderDesk() {
@@ -1427,16 +1444,28 @@ function renderKillControl() {
   if (!wrap) return;
   const halted = STATE.halt.halted;
   const canControl = controlsEnabled();
-  const srcTag = STATE.halt.source === "repo" ? " · shared cloud flag" : "";
+  // The reason and time of the last change sit with the facts on the left, so the right side stays short:
+  // the state, one line, and the button.
+  const lastRow = $("#kill-last-row");
+  if (lastRow) {
+    const reason = ucfirst(STATE.halt.reason || "");
+    const when = STATE.halt.ts ? `${sgtDateLabel(STATE.halt.ts)}, ${dualTime(STATE.halt.ts)}` : "";
+    lastRow.hidden = !reason && !when;
+    $("#kill-last").innerHTML = `${halted ? "Switched on" : "Switched off"}${when ? ` ${esc(when)}` : ""}${reason ? `<div class="dim">${esc(reason)}</div>` : ""}`;
+  }
+  const note = canControl
+    ? (halted ? "Releasing lets buys through again. The change is written down and reaches the cloud desk." : "Blocks new buys everywhere at once. Selling to cut risk still works.")
+    : (LIVE ? "Locked. Unlock the operator console above to use it." : "Read-only copy. The stop is used from the live desk.");
   wrap.innerHTML = `
-    <div class="kill-state ${halted ? "armed" : "clear"}"><span class="kill-lamp ${halted ? "armed" : "clear"}"></span><strong>${halted ? "Engaged" : "Released"}</strong></div>
-    <div class="kill-sub">${halted ? "No buying anywhere." : "Trading is allowed. The stop is off."}</div>
-    <div class="kill-meta">${esc(ucfirst(STATE.halt.reason || ""))}${STATE.halt.ts ? ` · ${dualTime(STATE.halt.ts)}` : ""}${srcTag}</div>
+    <div class="kill-head">
+      <div class="kill-state ${halted ? "armed" : "clear"}"><span class="kill-lamp ${halted ? "armed" : "clear"}"></span><strong>${halted ? "Engaged" : "Released"}</strong></div>
+      <div class="kill-sub">${halted ? "No buying anywhere." : "Trading is allowed."}</div>
+    </div>
     ${canControl ? `
-      ${halted ? "" : '<input type="text" id="halt-reason" class="search halt-reason" maxlength="200" placeholder="Reason for halting (journaled)" aria-label="Halt reason">'}
+      ${halted ? "" : '<input type="text" id="halt-reason" class="search halt-reason" maxlength="200" placeholder="Reason for stopping (written down)" aria-label="Reason for stopping">'}
       <button class="btn ${halted ? "btn-primary" : "disarm-btn"} kill-btn" id="kill-toggle">${halted ? "Release kill-switch" : "Engage kill-switch"}</button>
-      <p class="table-note" style="padding:10px 0 0">${halted ? "Releasing lets buys through again after your review. The change is journaled and reaches the cloud desk." : "Engaging blocks new buys everywhere immediately; de-risking sells still pass. The change is journaled and reaches the cloud desk."}</p>
-    ` : `${adminLocked() ? lockedButton(halted ? "Release kill-switch" : "Engage kill-switch", "kill-btn") : ""}<p class="table-note" style="padding:10px 0 0">${LIVE ? "Locked - unlock the operator console above to operate the kill-switch." : "Read-only snapshot - the kill-switch is operated from the live desk."}</p>`}`;
+    ` : `${adminLocked() ? lockedButton(halted ? "Release kill-switch" : "Engage kill-switch", "kill-btn") : ""}`}
+    <p class="kill-note">${note}</p>`;
   const btn = $("#kill-toggle");
   if (btn) btn.addEventListener("click", () => toggleHalt(!halted));
   wrap.querySelectorAll("[data-locked-action]").forEach((b) => b.addEventListener("click", jumpToUnlock));
@@ -2201,7 +2230,12 @@ function cardStatusHtml(name) {
   // Today by the real clock, not the published calendar: the feed can be days old.
   const today = etDateStr(new Date().toISOString()) || "";
   let role = "";
-  if (card.window && today) {
+  if (card.ends && today) {
+    const endLabel = new Date(card.ends + "T12:00:00Z").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
+    role = today <= card.ends
+      ? `<span class="chip provisional">Runs until ${endLabel}</span>`
+      : `<span class="chip">Ended ${endLabel}</span>`;
+  } else if (card.window && today) {
     const [ws, we] = String(card.window).split("..");
     if (ws && !we) role = today >= ws ? '<span class="chip ok-chip">Running now · no end date</span>' : `<span class="chip dry">Starts ${dateLabel(ws + "T12:00:00Z")}</span>`;
     else if (ws && we) {
@@ -2215,6 +2249,31 @@ function cardStatusHtml(name) {
 
 // One row per wake-up time of each live card, derived from the card's own cron and next runs.
 // Phase and activity come from the published day timeline so the table stays in the desk's words.
+const pad2 = (n) => String(n).padStart(2, "0");
+// Expand one cron field ("7,22,37,52", "9-15", "*/15", "5") into its sorted values.
+function cronField(field, lo, hi) {
+  const out = new Set();
+  for (const part of String(field).split(",")) {
+    const [range, stepRaw] = part.split("/");
+    const step = parseInt(stepRaw, 10) || 1;
+    let a = lo, b = hi;
+    if (range !== "*") {
+      const [x, y] = range.split("-").map((v) => parseInt(v, 10));
+      if (Number.isNaN(x)) continue;
+      a = x; b = y === undefined || Number.isNaN(y) ? (stepRaw ? hi : x) : y;
+    }
+    for (let v = a; v <= b; v += step) out.add(v);
+  }
+  return [...out].sort((p, q) => p - q);
+}
+// An ET clock time moved to Singapore using a real upcoming run as the offset, so DST is the clock's job.
+function shiftClock(etHm, refIso) {
+  const toMin = (hm) => { const [h, m] = hm.split(":").map(Number); return h * 60 + m; };
+  const offset = toMin(sgtHHMM(refIso)) - toMin(etHHMM(refIso));
+  const raw = toMin(etHm) + offset;
+  const t = ((raw % 1440) + 1440) % 1440;
+  return `${pad2(Math.floor(t / 60))}:${pad2(t % 60)}` + (raw >= 1440 ? " (+1d)" : "");
+}
 function liveScheduleRows(cal) {
   const cards = (AUTO?.schedules || []).filter((c) => c && c.cron);
   const tl = cal?.timeline || [];
@@ -2225,10 +2284,24 @@ function liveScheduleRows(cal) {
     const parts = String(card.cron).trim().split(/\s+/);
     if (parts.length < 5) continue;
     const [min, hours, dom, , dow] = parts;
-    const hourList = hours.split(",").map((h) => parseInt(h, 10)).filter((h) => !Number.isNaN(h)).sort((a, b) => a - b);
+    const hourList = cronField(hours, 0, 23);
+    const minList = cronField(min, 0, 59);
     const days = dom === "*" && /^1-5$/.test(dow) ? "Mon–Fri" : dom === "*" && dow === "*" ? "Every day" : card.window || "-";
+    const perDay = hourList.length * minList.length;
+    if (perDay > 6) {
+      // A frequent card (the 15-minute scalp) gets one summary tile, not one tile per ring.
+      const first = `${pad2(hourList[0])}:${pad2(minList[0])}`;
+      const last = `${pad2(hourList[hourList.length - 1])}:${pad2(minList[minList.length - 1])}`;
+      const gap = minList.length > 1 ? minList[1] - minList[0] : 60;
+      const ref = (card.next_runs || [])[0];
+      rows.push({ name: card.name, window: card.window, timezone: card.timezone, cron: card.cron, days, summary: true,
+        per_day: perDay, every_min: gap, et_time: first, et_last: last,
+        sgt_time: ref ? shiftClock(first, ref) : "-", sgt_last: ref ? shiftClock(last, ref) : "-",
+        phase: phaseAt(first), activity: "active" });
+      continue;
+    }
     for (const h of hourList) {
-      const et = `${String(h).padStart(2, "0")}:${String(parseInt(min, 10) || 0).padStart(2, "0")}`;
+      const et = `${pad2(h)}:${pad2(minList[0] ?? 0)}`;
       // Singapore time from a real upcoming fire at this ET hour, so DST is handled by the clock, not by arithmetic.
       const fire = (card.next_runs || []).find((iso) => etHHMM(iso) === et);
       let sgt = "-";
@@ -2349,6 +2422,16 @@ function renderCalendar() {
     const days = fires[0]?.days || "-";
     const tiles = fires.map((f) => {
       const meta = PHASE_META[f.phase] || { name: "unknown", hue: "var(--faint)" };
+      if (f.summary) {
+        const nextDay = (s) => /\+1d/.test(s || "") ? " (next day)" : "";
+        const clean = (s) => String(s || "-").replace(/\s*\(\+1d\)/, "");
+        return `<div class="timer-fire" style="--seg-hue:${meta.hue}">
+        <div class="timer-fire-ny"><b class="mono">Every ${f.every_min} minutes</b> · ${f.per_day} runs a day</div>
+        <div class="timer-fire-sg dim"><span class="mono">${esc(f.et_time)} to ${esc(f.et_last)}</span> New York · <span class="mono">${esc(clean(f.sgt_time))} to ${esc(clean(f.sgt_last))}</span> Singapore${nextDay(f.sgt_last)}</div>
+        <div class="timer-fire-what"><span class="cal-activity active">TRADES</span></div>
+        <div class="dim">Looks for quick in-and-out trades while the market is open</div>
+      </div>`;
+      }
       return `<div class="timer-fire" style="--seg-hue:${meta.hue}">
         <div class="timer-fire-ny"><b class="mono">${esc(f.et_time)}</b> New York</div>
         <div class="timer-fire-sg dim"><span class="mono">${esc(String(f.sgt_time || "-").replace(/\s*\(\+1d\)/, ""))}</span> Singapore${/\+1d/.test(f.sgt_time || "") ? " (next day)" : ""}</div>
@@ -2357,11 +2440,13 @@ function renderCalendar() {
       </div>`;
     }).join("");
     const dayWords = days === "Mon–Fri" ? "every weekday (Monday to Friday)" : days === "Every day" ? "every day" : `on ${days}`;
-    const times = fires.length === 1 ? "once" : fires.length === 2 ? "twice" : `${fires.length} times`;
+    const count = fires[0]?.summary ? fires[0].per_day : fires.length;
+    const times = count === 1 ? "once" : count === 2 ? "twice" : `${count} times`;
+    const endWords = card.ends ? ` until ${new Date(card.ends + "T12:00:00Z").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" })}, then stops by itself` : "";
     panels.push(`<div class="timer-card">
       <div class="timer-card-head">
         <div><div class="timer-card-name">${esc(name)}</div>
-        <div class="dim">Wakes the desk ${times} ${dayWords}. It skips weekends and US market holidays by itself.</div></div>
+        <div class="dim">Wakes the desk ${times} ${dayWords}${endWords}. It skips weekends and US market holidays by itself.</div></div>
         ${cardStatusHtml(name)}
       </div>
       <div class="timer-fires">${tiles}</div>
@@ -2447,15 +2532,39 @@ function renderAutomation() {
   $("#session-rows").innerHTML = sessions.map((s) => {
     const st = s.status || "unknown";
     return `<tr title="${esc("Run id " + s.id)}">
-      <td><strong style="font-size:12px">${esc(s.title || s.id)}</strong></td>
+      <td>${runTitleCell(s)}</td>
       <td style="color:var(--muted)">${esc(ORIGIN_LABEL[s.origin] || ucfirst(s.origin) || "-")}</td>
       <td><span class="sess-status ${esc(st)}"><i></i>${esc(ucfirst(st))}</span></td>
-      <td>${s.deployment_id ? `<span class="chip dry" title="${esc("Card " + s.deployment_id)}">Timer card</span>` : '<span class="dim">-</span>'}</td>
+      <td>${runCardChip(s)}</td>
       <td class="num">${(s.usage?.total_credits ?? 0).toFixed(1)}</td>
       <td class="num">${fmtDur(s.stats?.active_seconds)}</td>
       <td class="mono" style="font-size:10.5px">${dualCell(s.created_at)}</td>
     </tr>`;
   }).join("") || '<tr><td colspan="7" style="color:var(--faint)">No sessions returned - the cloud API was unreachable.</td></tr>';
+}
+
+// The run's name. A run from today's card shows the card's current name, and its old name when it ran under one.
+function runTitleCell(s) {
+  const card = s.deployment_id ? (AUTO?.schedules || []).find((c) => c.id === s.deployment_id) : null;
+  if (card && s.title && card.name && s.title !== card.name) {
+    return `<strong style="font-size:12px">${esc(card.name)}</strong><div class="dim" style="font-size:11px">Same card, then called "${esc(s.title)}"</div>`;
+  }
+  const retired = s.deployment_id && !card && (AUTO?.schedules || []).length;
+  return `<strong style="font-size:12px">${esc(s.title || s.id)}</strong>${retired ? '<div class="dim" style="font-size:11px">From a card that is now switched off</div>' : ""}`;
+}
+
+// Which timer card started a run: today's card by its short name, or "Old card" for one since retired or renamed.
+function runCardChip(s) {
+  if (!s.deployment_id) return '<span class="dim">-</span>';
+  const card = (AUTO?.schedules || []).find((c) => c.id === s.deployment_id);
+  if (!card) {
+    return (AUTO?.schedules || []).length
+      ? `<span class="chip" title="${esc("This run came from a timer card that has since been switched off")}">Old card</span>`
+      : '<span class="chip dry">Timer card</span>';
+  }
+  const short = /scalp/i.test(card.name || "") ? "Scalp card" : "Desk card";
+  const renamed = s.title && card.name && s.title !== card.name;
+  return `<span class="chip dry" title="${esc(renamed ? "Same card, run before it was renamed to " + card.name : card.name)}">${short}</span>`;
 }
 
 /* ---------------- instrumentation ---------------- */

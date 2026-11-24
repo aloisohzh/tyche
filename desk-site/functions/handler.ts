@@ -84,6 +84,7 @@ function cardView(d: Json): Json {
     next_runs: Array.isArray(upcoming) ? upcoming : [],
     last_run: schedule.last_run_at ?? null,
     window: metadata.window ?? null,
+    ends: metadata.ends ?? null,
     agent: { id: agent.id, version: agent.version },
     updated_at: d.updated_at,
   };
