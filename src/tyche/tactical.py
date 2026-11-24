@@ -12,6 +12,7 @@ from datetime import datetime, timedelta
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
 
+from tyche.approvals import OPTION_LIVE_SLACK
 from tyche.config import AppConfig
 from tyche.execution_state import combined_usage, unresolved_symbols
 from tyche.fees import estimate_fees
@@ -284,7 +285,9 @@ def plan_tick(
             if attempts >= cfg.max_entries_per_setup:
                 reject("setup entry already attempted; no automatic re-entry")
                 continue
-            if not entry.entry_low <= last <= entry.entry_high:
+            # Option entries buy at the live price once approved (operator ruling 2026-11-24, PB-003
+            # test): the underlying's zone still sets stop/target, but no pullback is awaited.
+            if entry.option is None and not entry.entry_low <= last <= entry.entry_high:
                 reject("outside entry zone; do not chase")
                 continue
             distance = abs((entry.entry_high if entry.direction == "bullish" else entry.entry_low) - entry.stop)
@@ -317,7 +320,7 @@ def plan_tick(
                 if q.delta is None or q.implied_volatility is None or not 0.45 <= abs(q.delta) <= 0.80:
                     reject("option Greeks missing or delta outside directional range")
                     continue
-                if q.ask > entry.premium_limit:
+                if q.ask > round(entry.premium_limit * (1 + OPTION_LIVE_SLACK), 2):
                     reject("option ask exceeds approved research debit limit")
                     continue
                 budget = config.risk.option_risk_per_trade_pct * projected.nav

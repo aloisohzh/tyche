@@ -37,6 +37,9 @@ MODE_ASK = "ask"
 MODE_BOUNDS = "bounds"
 
 
+OPTION_LIVE_SLACK = 0.05  # PB-003 approved option buys may pay up to 5% over the previewed price
+
+
 class ApprovalLine(BaseModel):
     model_config = ConfigDict(allow_inf_nan=False)
     max_total_qty: int | None = Field(default=None, gt=0)
@@ -116,7 +119,11 @@ class TelegramApproval(BaseModel):
         return self
 
     def lines(self) -> list[ApprovalLine]:
-        bound = {"limit_max": self.limit} if self.side == "buy" else {"limit_min": self.limit}
+        # PB-003 option buys trade at the live ask (operator ruling 2026-11-24): an approved option buy
+        # may fill up to OPTION_LIVE_SLACK above the price on the card, so a small move between the
+        # preview and the reserve does not void the yes.
+        cap = round(self.limit * (1 + OPTION_LIVE_SLACK), 2) if self.multiplier == 100 else self.limit
+        bound = {"limit_max": cap} if self.side == "buy" else {"limit_min": self.limit}
         out = [ApprovalLine(symbol=self.symbol, side=self.side, max_qty=self.qty, max_total_qty=self.qty,
                             multiplier=self.multiplier, setup_hash=self.setup_hash, **bound)]
         if self.side == "buy" and self.exit_floor is not None:

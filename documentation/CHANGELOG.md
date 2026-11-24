@@ -6,6 +6,7 @@ records when the **described product** changed, which is what a reader needs to 
 
 | Date | PRD | Changed | Evidence |
 |---|---|---|---|
+| 2026-11-24 | v1.31 | **Options buy at the live price.** PB-003 entries no longer wait for a pullback; an approved option buy may pay up to 5% over the card price, and a bigger move gets one fresh proposal in the same run. | `src/tyche/tactical.py`, `src/tyche/approvals.py`, `scripts/deploy_two_fire_automation.py`, tests |
 | 2026-11-24 | v1.30 | **On-demand desk run.** Fire the desk card once now (`--run-now`, or Run now on the desk); in session it trades like the close fire on fresh quotes. Envelope lines without a setup hash are a symbol-level pre-approval. 24 Nov pre-approval for KO, PG, JNJ. | `scripts/deploy_two_fire_automation.py`, `src/tyche/tactical_cli.py`, `data/approvals.json`, `tests/test_desk_card_prompt.py`, `tests/test_tactical.py` |
 | 2026-11-24 | v1.29 | **Scalp runs never overlap.** 10-minute time limit and a Drive run lock in the scalp card brief; operator rulings on closed orders and outages; prompt-only `--apply-update` for the scalp card. | `scripts/deploy_scalp_card.py`, `tests/test_scalp_card.py` |
 | 2026-11-24 | v1.28 | **Publish survives a thin order row.** Desk 0.16.7: the feed builder tolerates order rows with missing fields, and the publish step replays an unpushed desk commit instead of stopping. | `dashboard/server.py` `build_orders`, `_payload_qty`; `scripts/publish_desk_data.py` `main` |
