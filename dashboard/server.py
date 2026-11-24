@@ -54,7 +54,7 @@ from tyche.market_calendar import (
     strategy_for,
 )
 from tyche.pipeline import rules_hash  # noqa: E402
-from tyche.trade_risk import compute_expectancy  # noqa: E402
+from tyche.trade_risk import _aggregate, compute_expectancy  # noqa: E402
 from tyche.watchlist import Watchlist  # noqa: E402
 
 
@@ -116,6 +116,40 @@ def closed_trade_strategy(trade: dict) -> str | None:
     if sid == "PB-002" and _is_option_symbol(symbol):
         sid = "PB-003"
     return sid
+def playbook_scores(closed: list, strategies_view) -> list[dict]:
+    """One score row per strategy the desk knows (PB-001 ...), in the order of Strategies in play.
+
+    Finished trades are attributed by closed_trade_strategy(); one that matches no strategy gets its own
+    row so the table always adds up to the total. Same maths as the sleeve scores (trade_risk._aggregate).
+    """
+    switches = {}
+    if isinstance(strategies_view, dict):
+        for row in strategies_view.get("strategies") or []:
+            switches[row.get("strategy_id")] = bool(row.get("enabled"))
+    groups: dict[str | None, list] = {}
+    for trade in closed:
+        groups.setdefault(closed_trade_strategy(trade.model_dump()), []).append(trade)
+    ids = list(STRATEGY_META) + sorted(k for k in groups if k and k not in STRATEGY_META)
+    rows = []
+    for sid in ids:
+        agg = _aggregate(groups.get(sid, []), sid)
+        rows.append({
+            "id": sid, "name": STRATEGY_LABELS.get(sid, sid), "enabled": switches.get(sid),
+            "closed_n": agg.closed_n, "win_rate": agg.win_rate, "avg_win_r": agg.avg_win_r,
+            "avg_loss_r": agg.avg_loss_r, "expectancy_r": agg.expectancy_r,
+            "expectancy_pct": agg.expectancy_pct, "pnl_net": agg.pnl_net,
+        })
+    if groups.get(None):
+        agg = _aggregate(groups[None], "none")
+        rows.append({
+            "id": None, "name": "Not linked to a strategy", "enabled": None,
+            "closed_n": agg.closed_n, "win_rate": agg.win_rate, "avg_win_r": agg.avg_win_r,
+            "avg_loss_r": agg.avg_loss_r, "expectancy_r": agg.expectancy_r,
+            "expectancy_pct": agg.expectancy_pct, "pnl_net": agg.pnl_net,
+        })
+    return rows
+
+
 PLAYBOOK = STRATEGY_CFG["id"]
 RULES_HASH = rules_hash(ROOT, PLAYBOOK)
 OUTLOOK_MAP = {"risk_on": "bullish", "neutral": "range", "risk_off": "bearish"}
@@ -2008,6 +2042,8 @@ def build_state() -> dict:
                 "fee_net_series": fee_net_series(closed_trades),
                 "unattributed_fills": exp_report.unattributed_fills,
                 "open_lots": [lot.model_dump(mode="json") for lot in exp_report.open_lots],
+                # The score table's rows: one per strategy (PB id), which is what the operator switches.
+                "playbooks": playbook_scores(exp_report.closed_trades, strategies_view),
                 "sleeves": [
                     {
                         "name": SLEEVE_LABELS.get(name, name.replace("_", " ").title()),
