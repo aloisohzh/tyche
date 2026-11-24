@@ -263,7 +263,16 @@ def plan_tick(
             if entry.underlying not in cfg.etf_symbols and (entry.market_cap_usd or 0) < config.universe.min_market_cap_usd:
                 reject("verified underlying market cap required")
                 continue
-            if entry.exit_at is None or entry.exit_at > close - timedelta(minutes=cfg.session_exit_minutes_before_close):
+            if entry.exit_at is None:
+                reject("explicit exit deadline required")
+                continue
+            if entry.option is not None:
+                # PB-003 holds overnight by design: its deadline is the next fire's start (operator
+                # ruling 2026-11-24). It must still fall before the contract can expire or be exercised.
+                if entry.exit_at.astimezone(ET).date() >= entry.option.expiry:
+                    reject("option exit deadline must fall before the contract's expiry")
+                    continue
+            elif entry.exit_at > close - timedelta(minutes=cfg.session_exit_minutes_before_close):
                 reject("explicit exit deadline before session close required")
                 continue
             if now >= entry.exit_at - timedelta(seconds=max(600, cfg.monitor_interval_seconds)):
