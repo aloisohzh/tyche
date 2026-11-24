@@ -9,8 +9,17 @@ const ucfirst = (s) => { const t = hy(s).trim(); return t ? t.charAt(0).toUpperC
 // A term with a one-line explanation on hover - the desk is read by people who do not trade for a living.
 const tip = (label, text) => `<span class="tip" data-tip="${esc(text)}">${esc(label)}</span>`;
 
-const VERSION = "0.16.1";
+const VERSION = "0.16.2";
 const CHANGELOG = [
+  {
+    version: "0.16.2", date: "2026-11-24", title: "Account value matches moomoo, clearer money chart",
+    items: [
+      "Account value now counts the cash moomoo is holding for an order that has not filled yet. Before, that cash was left out, so the desk showed about $92,000 while moomoo showed about $99,900.",
+      "The account shows its full moomoo name and its number with all but the last three digits hidden, instead of 'challenge · challenge'. The full number is never published because the site's data is public.",
+      "Where my money is: the ring chart with labels on top of each other is now one bar and a list. Each line gives the holding, its share and its dollar amount. Cash on hold for an order gets its own line.",
+      "Orders the desk sent reads the broker's order list from run bundles saved under either file name, so orders no longer go missing.",
+    ],
+  },
   {
     version: "0.16.1", date: "2026-11-23", title: "Capital allocation under Strategies in play",
     items: [
@@ -431,11 +440,17 @@ function accountMeta(a) {
 }
 function acctTitle(a) {
   const meta = accountMeta(a);
-  return meta?.title || (a === STATE.feed?.primary_account ? "Moomoo x Qoder challenge" : "Paper account");
+  return meta?.title || (a === STATE.feed?.primary_account ? "Moomoo x Qoder AI Paper Trading Agent Challenge" : "Paper account");
+}
+// A masked broker number looks like ***598. The site never shows the full number: its data is public.
+function acctNumber(a) {
+  return /^\*{3}\d{3,4}$/.test(String(a || "")) ? `Account ${a}` : "";
 }
 function acctLabel(a) {
   const title = acctTitle(a);
-  return title ? `${title} · ${a}` : a;
+  const num = acctNumber(a);
+  if (title && num) return `${title} · ${num}`;
+  return title || num || String(a || "-");
 }
 function acctShort(a) {
   const meta = accountMeta(a);
@@ -1913,47 +1928,33 @@ function renderRiskGuards() {
 }
 
 function renderDonut() {
+  // A stacked bar plus one row per slice. Labels sit in rows, never on the chart, so nothing overlaps.
   const wrap = $("#donut-wrap");
   const snap = currentSnap();
-  if (!snap) { wrap.innerHTML = '<p class="table-note">No snapshot</p>'; return; }
+  if (!snap) { wrap.innerHTML = '<p class="table-note">No reading from the broker yet</p>'; return; }
   const total = snap.nav || 0;
   const frac = (v) => (total ? v / total : 0);
-  const ranked = snap.positions
-    .map((p, i) => ({ label: sym(p.symbol), value: p.market_value, hue: DONUT_HUES[i % DONUT_HUES.length] }))
+  const ranked = (snap.positions || [])
+    .map((p, i) => ({ label: sym(p.symbol), name: p.name || "", value: p.market_value, hue: DONUT_HUES[i % DONUT_HUES.length] }))
     .sort((a, b) => b.value - a.value);
-  const rest = ranked.slice(4);
-  const all = ranked.slice(0, 4);
-  if (rest.length) all.push({ label: `Other (${rest.length})`, value: rest.reduce((a, s) => a + s.value, 0), hue: "var(--chart-other)" });
-  if (snap.cash > 0) all.push({ label: "Cash", value: snap.cash, hue: "var(--chart-cash)" });
-  const segs = all.filter((s) => s.value > 0).sort((a, b) => b.value - a.value);
-  const r = 54, C = 2 * Math.PI * r;
-  let offset = 0;
-  const arcs = [], chips = [];
-  segs.forEach((s) => {
-    const f = frac(s.value);
-    arcs.push(`<circle r="${r}" cx="70" cy="70" fill="none" style="stroke:${s.hue}" stroke-width="17"
-      stroke-dasharray="${(f * C).toFixed(2)} ${C.toFixed(2)}" stroke-dashoffset="${(-offset * C).toFixed(2)}"
-      transform="rotate(-90 70 70)"><title>${esc(s.label)} ${pct(f)}</title></circle>`);
-    if (f >= 0.1) {
-      const mid = (offset + f / 2) * 2 * Math.PI - Math.PI / 2;
-      const lx = 70 + r * Math.cos(mid), ly = 70 + r * Math.sin(mid);
-      const txt = pct(f), w = txt.length * 4.6 + 6;
-      chips.push(`<g><rect x="${(lx - w / 2).toFixed(1)}" y="${(ly - 5.5).toFixed(1)}" width="${w.toFixed(1)}" height="11" rx="3" style="fill:var(--surface)"/>` +
-        `<text x="${lx.toFixed(1)}" y="${(ly + 3).toFixed(1)}" text-anchor="middle" style="fill:var(--ink)" font-size="7.5" font-weight="600" font-family="IBM Plex Mono, monospace">${txt}</text></g>`);
-    }
-    offset += f;
-  });
-  const legend = segs.map((s) => `<li><i style="background:${s.hue}"></i>${esc(s.label)}<span class="mono">${pct(frac(s.value))}</span></li>`).join("");
+  const rest = ranked.slice(5);
+  const all = ranked.slice(0, 5);
+  if (rest.length) all.push({ label: `Other (${rest.length})`, name: rest.map((s) => s.label).join(", "), value: rest.reduce((a, s) => a + s.value, 0), hue: "var(--chart-other)" });
+  const hold = Number(snap.order_hold || 0);
+  if (snap.cash > 0) all.push({ label: "Cash", name: "free to use", value: snap.cash, hue: "var(--chart-cash)" });
+  if (hold > 0) all.push({ label: "Cash on hold", name: "waiting for an order to fill", value: hold, hue: "var(--chart-other)", hatch: true });
+  const segs = all.filter((s) => s.value > 0);
+  const bar = segs.map((s) => `<span class="alloc-seg${s.hatch ? " hatch" : ""}" style="width:${(frac(s.value) * 100).toFixed(2)}%;background:${s.hue}" title="${esc(s.label)} ${pct(frac(s.value))}"></span>`).join("");
+  const rows = segs.map((s) => `<li>
+      <i style="background:${s.hue}"${s.hatch ? ' class="hatch"' : ""}></i>
+      <span class="alloc-name"><b>${esc(s.label)}</b>${s.name ? `<small>${esc(s.name)}</small>` : ""}</span>
+      <span class="alloc-num mono"><b>${pct(frac(s.value))}</b><small>${money(s.value, 0)}</small></span>
+    </li>`).join("");
   const summary = segs.map((s) => `${s.label} ${pct(frac(s.value))}`).join(", ");
   wrap.innerHTML = `
-    <svg viewBox="0 0 140 140" width="200" height="200" role="img" aria-label="Allocation by market value: ${esc(summary)}">
-      <circle r="${r}" cx="70" cy="70" fill="none" style="stroke:var(--surface2)" stroke-width="17"/>
-      ${arcs.join("")}
-      ${chips.join("")}
-      <text x="70" y="66" text-anchor="middle" style="fill:var(--ink)" font-size="15" font-weight="600" font-family="IBM Plex Mono, monospace">${snap.positions.length}</text>
-      <text x="70" y="82" text-anchor="middle" style="fill:var(--muted)" font-size="8.5" letter-spacing="1">HOLDINGS AND CASH</text>
-    </svg>
-    <ul class="donut-legend">${legend}</ul>`;
+    <div class="alloc-total"><span class="mono">${money(total, 0)}</span><small>in the account, split like this</small></div>
+    <div class="alloc-bar" role="img" aria-label="Where the money is: ${esc(summary)}">${bar}</div>
+    <ul class="alloc-rows">${rows}</ul>`;
 }
 
 function renderPositions() {

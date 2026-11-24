@@ -165,7 +165,8 @@ def test_cloud_snapshot_broker_reconcile(srv, tmp_path, monkeypatch):
     out = srv.cloud_snapshot(srv.load_cloud_runs())
     assert out["order_hold"] == 7884.33
     assert out["broker_total_asset"] == 99974.12
-    assert out["broker_total_asset"] == pytest.approx(out["nav"] + out["order_hold"])
+    # The account value is the broker's total: cash held for a resting order still counts.
+    assert out["nav"] == 99974.12
 
 
 def test_build_state_snapshots_map(srv, desk, monkeypatch):

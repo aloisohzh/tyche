@@ -206,3 +206,42 @@ def test_secret_guard_covers_the_repo_token_from_the_process_environment(monkeyp
     with pytest.raises(SystemExit, match="SECRET GUARD FAILED"):
         module.assert_no_secrets('{"x": "github_pat_test_value_123456"}', _Srv, values)
     module.assert_no_secrets('{"x": "clean"}', _Srv, values)
+
+
+def test_challenge_mask_from_allowlist_when_bundle_ids_are_redacted(srv, feed_env, monkeypatch):
+    (feed_env.parent / "drill" / "accounts.json").unlink()
+    monkeypatch.setenv("TYCHE_ALLOWED_ACCOUNT_IDS", FAKE_CHALLENGE_ID)
+    assert srv.challenge_mask() == "***598"
+    monkeypatch.setenv("TYCHE_ALLOWED_ACCOUNT_IDS", FAKE_CHALLENGE_ID + ",9999748")
+    assert srv.challenge_mask() == "challenge"  # ambiguous: never guess which one is the challenge
+
+
+def test_account_value_counts_cash_on_hold(srv, feed_env):
+    d = make_bundle(feed_env, "2026-11-18-midday3", nav=92047.11, cash=57360.28, positions=[
+        {"symbol": "US.SPY", "quantity": 28, "avg_cost": 731.54, "last_price": 730.94, "market_value": 34686.83},
+    ])
+    (d / "cash.json").write_text(json.dumps({"data": {"hold": "7884.33", "total_asset": "99931.44"}}), encoding="utf-8")
+    (d / "accounts.json").write_text(json.dumps({"data": {"accounts": [
+        {"account_id": "[REDACTED]", "account_title": "US Margin Account [Paper Trading]", "account_type": 1, "market_id": 100},
+        {"account_id": "[REDACTED]", "account_title": "Moomoo x Qoder AI Paper Trading Agent Challenge",
+         "account_type": 2, "market_id": 100},
+    ]}}), encoding="utf-8")
+    snap = srv.cloud_snapshot(srv.load_cloud_runs())
+    assert snap["nav"] == 99931.44
+    assert snap["account_title"] == "Moomoo x Qoder AI Paper Trading Agent Challenge"
+    assert snap["positions"][0]["weight"] == pytest.approx(34686.83 / 99931.44)
+    # no broker total: free cash + held cash + holdings
+    assert srv.account_value(57360.28, 7884.33, 34686.83, None) == 99931.44
+    assert srv.account_value(100.0, None, 50.0, 0) == 150.0
+
+
+def test_cloud_orders_read_history_orders_json(srv, feed_env):
+    d = make_bundle(feed_env, "2026-11-18-midday3", nav=92047.11, cash=57360.28)
+    (d / "mcp" / "history_orders.json").write_text(json.dumps({"data": {"orders": [
+        {"order_id": "3116597", "symbol": "VNQ", "side": 1, "qty": "83", "price": "94.98", "status": 2,
+         "cum_qty": "0", "avg_fill_price": "0", "create_time": "1795024387000000",
+         "update_time": "1795024387000000", "text": "tyche rebalance"},
+    ]}}), encoding="utf-8")
+    orders = srv.cloud_orders(srv.load_cloud_runs())
+    assert [o["order_id"] for o in orders] == ["3116597"]
+    assert orders[0]["symbol"] == "US.VNQ"
