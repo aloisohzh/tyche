@@ -35,6 +35,18 @@ TELEGRAM_APPROVAL_EVENT = "approval.telegram"
 OPERATOR_AUTHORIZATION_KINDS = frozenset({"envelope", "telegram"})
 MODE_ASK = "ask"
 MODE_BOUNDS = "bounds"
+# A kernel-triggered exit (stop, target, invalidation, time, option expiry) of a lot the desk holds:
+# it only removes risk, so it needs no operator line that day (operator direction 2026-11-24).
+MODE_PROTECTIVE = "protective"
+
+
+def cancelled_request_ids(events: list[dict]) -> set[str]:
+    """Requests whose broker order was cancelled (the desk's own resting take-profit, pulled for a stop).
+
+    A cancelled order never traded, so it hands its quantity and its order-budget slot back.
+    """
+    return {str(e.get("payload", {}).get("request_id")) for e in events
+            if e.get("type") == "order.cancelled" and e.get("payload", {}).get("request_id")}
 
 
 class ApprovalLine(BaseModel):
@@ -152,6 +164,8 @@ def _decided_at(text: str, today: date) -> datetime:
 
 def authorization_record(mode: str, today: date) -> dict:
     """The authorization stamp an order.requested carries: which yes let it through."""
+    if mode == MODE_PROTECTIVE:
+        return {"kind": MODE_PROTECTIVE, "as_of": today.isoformat()}
     return {"kind": "telegram" if mode == MODE_ASK else "envelope", "as_of": today.isoformat()}
 
 
@@ -229,19 +243,25 @@ def resolve_batch(envelope_path: Path | None, events: list[dict], today: date) -
 def envelope_usage(journal_path: Path, today: date) -> int:
     """Count today's operator-authorized order.requested events in the journal (both modes)."""
     count = 0
-    for record in read_events(journal_path):
+    events = read_events(journal_path)
+    cancelled = cancelled_request_ids(events)
+    for record in events:
         if record.get("type") != "order.requested":
             continue
-        auth = record.get("payload", {}).get("authorization") or {}
-        if auth.get("kind") in OPERATOR_AUTHORIZATION_KINDS and auth.get("as_of") == today.isoformat():
+        payload = record.get("payload", {})
+        auth = payload.get("authorization") or {}
+        if (auth.get("kind") in OPERATOR_AUTHORIZATION_KINDS and auth.get("as_of") == today.isoformat()
+                and str(payload.get("request_id")) not in cancelled):
             count += 1
     return count
 
 
 def envelope_totals(events: list[dict], today: date, symbol: str, side: str) -> tuple[int, float]:
+    cancelled = cancelled_request_ids(events)
     rows = [e.get("payload", {}) for e in events if e.get("type") == "order.requested"
             and e.get("payload", {}).get("authorization", {}).get("kind") in OPERATOR_AUTHORIZATION_KINDS
-            and e.get("payload", {}).get("authorization", {}).get("as_of") == today.isoformat()]
+            and e.get("payload", {}).get("authorization", {}).get("as_of") == today.isoformat()
+            and str(e.get("payload", {}).get("request_id")) not in cancelled]
     qty = sum(int(r.get("quantity", r.get("qty", 0))) for r in rows
               if r.get("symbol") == symbol and r.get("side") == side)
     return qty, sum(request_notional(r) for r in rows)

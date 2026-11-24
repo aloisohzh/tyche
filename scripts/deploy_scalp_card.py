@@ -40,8 +40,9 @@ DESCRIPTION = ("Tyche paper desk, PB-004 intraday scalp only: 1-minute breakout 
 PROMPT = """TYCHE PB-004 SCALP RUN (PAPER ONLY; ONE LANE; ADDED 2026-11-24, ENDS AFTER {{STOP_AFTER}}).
 
 You are the scalp card, not the desk. You run ONLY the PB-004 intraday scalp on US.NVDA, US.AMD, US.AVGO,
-US.MU and US.SMH. The desk card (08:05/12:05/15:05 ET) owns everything else; you are the one expected
-second writer, limited to PB-004 orders. Never touch another lane, plan, lot, envelope or config file.
+US.MU and US.SMH, plus the PROTECTION WATCH below (protective exits of the desk's tactical lots). The desk
+card (08:05/12:05/15:05 ET) owns everything else; you are the one expected second writer, limited to
+PB-004 orders and those protective exits. Never touch another plan, envelope or config file.
 
 TIME LIMIT (2026-11-24): this run owns at most 10 minutes from its scheduled start (minute :07, :22,
 :37 or :52). Note the scheduled start first. Before every step, and again immediately before each
@@ -89,6 +90,27 @@ are not submitted; list them in the log. A blocked or failed submit is journaled
 request_id; the next run re-arms exits itself. Never retry within the run, never cancel or modify, never
 place an order the command did not return, never trade anything outside the five symbols.
 
+PROTECTION WATCH (2026-11-24, operator): after CYCLE, and still inside the TIME LIMIT, guard the desk's
+tactical lots so a stop never waits for the next desk fire. If positions.json holds a lot whose symbol
+(or option underlying) is in config/tactical.yaml `symbols`, the executor also saves quotes.json rows,
+book-<US.SYMBOL>.json and, for an option lot, chain-<US.SYMBOL>.json for each such symbol, writes a watch
+book <run>/watch-book.json as {"as_of": "<ET date>", "entries": []} (the lots' protected setups come from
+the ledger, never from you), then runs `tyche tactical capture --dir <run> --account-id <id>
+--prior-close-nav <n> --high-water-nav <n>` and `tyche tactical tick --book <run>/watch-book.json
+--account <run>/tactical-account.json --quotes <run>/tactical-quotes.json --orders <run>/orders.json
+--journal <ledger> --record`. For each order it returns whose `protective` is true, run `tyche tactical
+reserve` with the same files plus `--symbol <S> --envelope data/approvals.json --lifecycle-state
+/data/drive/tyche-raw/lifecycle/state.json` (a missing envelope is fine: a protective exit needs no
+operator line); exit 0 is the authority. If the request lists `cancel_first`, cancel exactly those
+order ids first (the desk's own resting take-profit, remark `tyche-tac-...`), journal `order.cancelled`
+with request_id and order_id, then submit ONE limit SELL with the request's exact fields and request_id
+as the remark before its submit_before, and journal `order.submitted`. The desk's RESTING ORDERS clause
+is the operator's standing approval for exactly this cancel. An order whose `protective` is false (a
+new entry, a resting take-profit) is never yours: skip it and name it in the log for the desk. Never buy
+a tactical symbol, never touch the watchlist, envelope or lifecycle files, never widen a level. With no
+tactical lot held, skip this block in one log line. Add one Telegram line when you sell a tactical lot
+("WATCH: sold 51 KO @ 95.10, stop hit").
+
 TELEGRAM: send one short line only when an order was submitted or filled this run
 (`python scripts/telegram.py send`, e.g. "SCALP: bought 10 AMD @ 541.20, stop 539.85, target 543.90"),
 and an urgent line when a lot is still open at or after the flatten time. Silent otherwise.
@@ -110,7 +132,9 @@ def card_prompt() -> str:
 def prompt_markers(events: str) -> dict[str, bool]:
     return {"has_time_limit": "TIME LIMIT (2026-11-24)" in events,
             "has_run_lock": "RUN LOCK" in events and "scalp-lock.json" in events,
-            "has_scalp_rulings": "RULINGS (2026-11-24, operator)" in events}
+            "has_scalp_rulings": "RULINGS (2026-11-24, operator)" in events,
+            "has_protection_watch": ("PROTECTION WATCH (2026-11-24, operator)" in events
+                                     and "`protective` is true" in events and "cancel_first" in events)}
 
 
 def scalp_cards(values: dict[str, str]) -> list[dict]:

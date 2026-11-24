@@ -18,9 +18,12 @@ classification:
 - **Status:** trading in config (`config/tactical.yaml: enabled: true`, `execution_enabled: true`); every
   entry still waits for the operator's Telegram `/approve` in Ask me mode, or a same-day envelope in
   Within my bounds.
-- **Rules hash:** `a1d9df1c687c` (sha256 of `config/tactical.yaml` + `config/universe.yaml`, CRLF normalized,
+- **Rules hash:** `58a3ce686238` (sha256 of `config/tactical.yaml` + `config/universe.yaml`, CRLF normalized,
   first 12). PB-002 and PB-003 are one lane with one parameter file, so they share this hash: editing the
-  file re-registers the pair. `d5ef9567c736` was the hash from the morning of 2026-11-23, when the five
+  file re-registers the pair. `a1d9df1c687c` was the hash from the evening of 2026-11-23 until 2026-11-24, when
+  the resting-order settings (`resting_entries`, `resting_reach_pct`, `resting_cutoff_minutes`,
+  `resting_take_profit`) were added so the desk places its entry and take-profit orders instead of waiting
+  for the next run; `d5ef9567c736` was the hash from the morning of 2026-11-23, when the five
   defensives joined the symbol list, until the evening of 2026-11-23, when the lane cap
   (`stock_allocation_cap`) was cut from 45% to 25% so every lane's cap fits under the 95% gross cap even
   with all switches on (PRD §7 item 15); `b6bc571033ac` was the hash before the defensives. Each re-freeze
@@ -70,6 +73,14 @@ explicit exit deadline at least 10 minutes before the close. The last price must
 limit at the ask, which must itself be inside the zone. One entry attempt per setup, ever: no re-entry
 after a stop, a target or a closed setup. At most 3 new orders per tick.
 
+**Resting entry (2026-11-24).** When the price sits up to `resting_reach_pct` (3%) above the zone, or
+premarket inside that reach, the kernel does not wait for a run to catch the pullback: it returns ONE
+limit buy resting at `entry_high` (the fair-value top of the zone), time in force DAY, so it fills if the
+market comes to the plan's price and expires with the day if it does not. Never within
+`resting_cutoff_minutes` (60) of the close, never for options, never a second buy while one rests. Every
+entry, resting or immediate, must carry a passing technical AND a passing fundamental factor in its
+thesis; the kernel refuses one without both (`reasons` on the order).
+
 ## Invalidation
 Per trade: the underlying trades at or through the stop; the researcher marks the setup invalidated; the
 exit deadline arrives; or the setup's expiry date passes. Any of these produces a limit sell at the bid.
@@ -84,6 +95,13 @@ both measured against projected NAV including pending buys. The researcher may s
 `max_quantity` on a setup.
 
 ## Exit
+**Resting take-profit (2026-11-24).** A held lot with no exit trigger gets ONE limit sell resting at the
+setup's target (DAY), re-placed each session until it fills, the stop is hit or the deadline passes. A
+stop or other protective trigger while it rests returns a sell for the whole lot with `cancel_first`
+naming the resting order: cancel it, journal `order.cancelled`, then sell at the bid. Protective exits
+(stop, target, invalidation, time) are authorized by the entry's approval (`protective` in `reserve`), so
+a stop does not wait for an operator line; the scalp card checks them every 15 minutes between fires.
+
 Target: limit sell at the bid when the last price reaches the setup's target. Stop: limit sell at the bid
 when the last price reaches the stop (synthetic monitor, not a resting broker stop). Time: the setup's
 exit deadline, and in any case 10 minutes before the regular close on the final day. Fresh invalidation

@@ -45,3 +45,27 @@ Expected: the check-only run reports PB-002 and PB-003 as drift (declared `a1d9d
 (two events); the final verify is `ok` and the final `rules-freeze` exits 0. If the repo path differs,
 substitute the checkout the desk uses.
 
+
+## 2026-11-24 night: PB-002/PB-003 resting-order settings (one lane pair only)
+
+Four keys joined `config/tactical.yaml` (`resting_entries`, `resting_reach_pct`, `resting_cutoff_minutes`,
+`resting_take_profit`), which re-hashes the PB-002/PB-003 pair (`a1d9df1c687c` -> `58a3ce686238`). The
+other lanes are unchanged and need no row. From a console session on `tyche-desk-drive`, between fires,
+with the repo on main at or after the resting-orders commit:
+
+```
+cd /workspace/tyche && git checkout main && git pull
+LATEST=$(ls -d /data/drive/tyche-raw/*/journal/events.jsonl | sort | tail -1)
+tyche journal-verify --path "$LATEST"
+NEW=/data/drive/tyche-raw/2026-11-24-resting-orders-freeze/journal
+mkdir -p "$NEW" && cp "$LATEST" "$NEW/events.jsonl"
+tyche rules-freeze --journal "$NEW/events.jsonl" --json
+tyche rules-freeze --record --journal "$NEW/events.jsonl" --lane PB-002 --lane PB-003 --reason "resting-order settings added (a1d9df1c687c -> 58a3ce686238), operator direction 2026-11-24"
+tyche journal-verify --path "$NEW/events.jsonl"
+tyche rules-freeze --journal "$NEW/events.jsonl"
+```
+
+Expected: the check-only run reports PB-002 and PB-003 as drift (declared `58a3ce686238`, recorded
+`a1d9df1c687c`); the record run appends one `rules.refrozen` row per lane; the final verify is `ok` and the
+final `rules-freeze` exits 0. Until this runs, the kernel still trades (the freeze guard is a ledger check,
+not an order gate) and the drift shows on the desk's rules panel.

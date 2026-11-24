@@ -36,3 +36,17 @@ def test_apply_update_refuses_anything_but_the_scalp_card():
     source = (ROOT / "scripts" / "deploy_scalp_card.py").read_text()
     assert '"--apply-update" in sys.argv' in source
     assert "refusing to update a deployment that is not the Tyche scalp card" in source
+
+
+def test_the_scalp_card_guards_tactical_stops_between_desk_fires_and_never_opens_a_tactical_lot():
+    mod = _module()
+    prompt = mod.card_prompt()
+    assert prompt.index("CYCLE") < prompt.index("PROTECTION WATCH (2026-11-24, operator)") < prompt.index("TELEGRAM:")
+    clause = " ".join(prompt.split("PROTECTION WATCH (2026-11-24, operator):", 1)[1].split("\n\nTELEGRAM", 1)[0].split())
+    for must in ('{"as_of": "<ET date>", "entries": []}', "tyche tactical tick", "tyche tactical reserve",
+                 "`protective` is true", "cancel_first", "journal `order.cancelled`", "ONE limit SELL",
+                 "`protective` is false", "never yours", "Never buy a tactical symbol", "never widen a level",
+                 "a missing envelope is fine"):
+        assert must in clause, must
+    assert mod.prompt_markers(prompt)["has_protection_watch"]
+    assert "limited to\nPB-004 orders and those protective exits" in prompt

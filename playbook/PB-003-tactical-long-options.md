@@ -20,7 +20,7 @@ classification:
   switch, not the yaml, now decides (`AppConfig.options_live`), so turning options on or off never
   re-hashes the lane. Every entry still waits for the operator's Telegram `/approve` in Ask me mode, or a
   same-day envelope in Within my bounds.
-- **Rules hash:** `a1d9df1c687c` (sha256 of `config/tactical.yaml` + `config/universe.yaml`, CRLF normalized,
+- **Rules hash:** `58a3ce686238` (sha256 of `config/tactical.yaml` + `config/universe.yaml`, CRLF normalized,
   first 12). PB-002 and PB-003 are one lane with one parameter file, so they share this hash; see the
   [PB-002 page](PB-002-tactical-stocks.md) for the history. This page adds no rules bytes, so no re-freeze.
 - **Validation:** unvalidated. No option order has been sent on this account before this test.

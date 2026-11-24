@@ -2,7 +2,7 @@
 name: paper-submit-protocol
 description: Use before any broker write on a tyche paper run - entry, exit, cancel, modify or reconciliation - and whenever a submit timed out or came back with an uncertain status. Trigger on every approved order the desk is about to act on.
 role: executor
-version: 2
+version: 3
 ---
 
 # Paper submit protocol
@@ -19,7 +19,7 @@ Write fresh broker reads into the run directory as `accounts.json`, `cash.json`,
 `pipeline.action == wait` means no submit on either path. `tyche execute` withholds it; on the MCP path journal `tyche record-order gate.wait --data '{...}'` and move on. The gate withholds only new non-defensive entries; sells and defensive entries act.
 
 ## 4. Submit one order, verbatim, in the window
-Submit with `sim_trade_input_order` only while `now < submit_before`. It is always_allow: the call executes at once, so a second call is a second order. Cancel and modify are always_ask and need their own per-action operator approval; an envelope never approves them. Journal `tyche record-order order.submitted --data '{...}'`, reconcile fills from `sim_trade_history_order_list`, journal `order.filled` or `order.rejected`, and let the core reconcile cash (`tyche.fees.reconcile_cash`).
+Submit with `sim_trade_input_order` only while `now < submit_before`. It is always_allow: the call executes at once, so a second call is a second order. Cancel and modify are always_ask and need their own per-action operator approval; an envelope never approves them. One standing exception (desk brief RESTING ORDERS, 2026-11-24): when the reserved request carries `cancel_first`, cancel exactly those order ids (the desk's own resting take-profit, remark `tyche-tac-...`) first, journal `order.cancelled` with request_id and order_id, then submit the sell. A request whose `resting` field is set is a DAY limit that rests until filled or the close; submit it once and never re-place it from stale quotes. Journal `tyche record-order order.submitted --data '{...}'`, reconcile fills from `sim_trade_history_order_list`, journal `order.filled` or `order.rejected`, and let the core reconcile cash (`tyche.fees.reconcile_cash`).
 
 ## 5. An uncertain outcome blocks retry
 On a timeout, transport error or unclear status, read `sim_trade_history_order_list` before any further write; if the broker shows the order, submit nothing and journal what you found. Only status 4 at full cumulative quantity is proven terminal; status 5 is not, so treat it as unresolved and report the lot as unprotected.

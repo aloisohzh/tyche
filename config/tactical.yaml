@@ -23,3 +23,8 @@ option_exit_minutes_before_close: 45
 session_exit_minutes_before_close: 10
 max_new_orders_per_tick: 3
 max_entries_per_setup: 1
+# Resting orders (2026-11-24): place the order instead of waiting for the next run.
+resting_entries: true
+resting_reach_pct: 0.03
+resting_cutoff_minutes: 60
+resting_take_profit: true
