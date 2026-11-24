@@ -15,6 +15,7 @@ from tyche.approvals import (
     TELEGRAM_APPROVAL_EVENT,
     ApprovalBatch,
     TelegramApproval,
+    authorization_record,
     authorize_order,
     envelope_totals,
     envelope_usage,
@@ -1250,6 +1251,87 @@ def authorize(
         "today": today.isoformat(),
     }))
     raise typer.Exit(0 if authorized else 1)
+
+
+@app.command("exit-now")
+def exit_now(
+    account: Path = typer.Option(..., "--account", help="snapshot.json from `tyche snapshot` (fresh broker read)."),
+    symbol: str = typer.Option(..., "--symbol", help="Held symbol, e.g. US.SPY."),
+    qty: int = typer.Option(..., "--qty", help="Shares to sell; at most the shares held."),
+    limit: float = typer.Option(..., "--limit", help="Sell limit price; must be at or above the approved floor."),
+    orders: Path | None = typer.Option(None, "--orders", help="Raw broker order-list JSON (all pages) to rule out a working sell."),
+    path: Path = typer.Option(Path("data/approvals.json"), "--path"),
+    journal_path: Path = typer.Option(Path("journal/events.jsonl"), "--journal"),
+    config_root: Path = typer.Option(Path.cwd(), "--config-root"),
+) -> None:
+    """Operator exit: reserve ONE paper sell of a held position the operator has approved today.
+
+    The direct path for "sell this holding": a same-day envelope sell line (Within my bounds) or a
+    journaled Telegram approval is the whole authority. It needs no lifecycle grant, research
+    review, setup hash or tactical universe, because an exit only removes risk. It still refuses a
+    live or non-allowlisted account, a quantity above what is held, a limit under the approved
+    floor, a sell already working at the broker, and a second reservation past the approval.
+    Exit 0 prints the request_id to put in the broker remark and submit_before; 1 is a refusal.
+    """
+    now = datetime.now(UTC)
+    today = now.astimezone(ET).date()
+
+    def answer(payload: dict, code: int) -> None:
+        console.print_json(json.dumps({**payload, "symbol": symbol, "today": today.isoformat()}, default=str))
+        raise typer.Exit(code)
+
+    if qty <= 0 or not 0 < limit < float("inf"):
+        answer({"authorized": False, "reason": "quantity and limit must be positive"}, 1)
+    config = load_config(config_root)
+    try:
+        snap = AccountSnapshot.model_validate_json(account.read_text(encoding="utf-8"))
+    except (OSError, ValidationError) as exc:
+        answer({"authorized": False, "reason": f"account snapshot unreadable: {str(exc)[:160]}"}, 1)
+        return
+    # The one hard rule: never a live account.
+    if (snap.env != "paper" or snap.market_id != config.risk.sim_market_id
+            or snap.account_type not in config.risk.sim_account_types
+            or snap.account_id not in config.risk.account_allowlist):
+        answer({"authorized": False, "reason": "not a verified, allowlisted US paper account"}, 1)
+    held = snap.position(symbol)
+    if held is None or held.sellable < qty:
+        answer({"authorized": False, "reason": f"{held.sellable if held else 0} sellable, cannot sell {qty}"}, 1)
+    valid, _, error = verify_chain(journal_path)
+    if not valid:
+        answer({"authorized": False, "reason": f"journal integrity: {error}"}, 1)
+    if orders is not None:
+        from tyche.execution_state import broker_orders, order_finished, order_symbol
+        try:
+            rows = broker_orders(json.loads(orders.read_text(encoding="utf-8")))
+        except (OSError, ValueError, TypeError) as exc:
+            answer({"authorized": False, "reason": f"order list unusable: {str(exc)[:160]}"}, 1)
+            return
+        working = [r for r in rows if order_symbol(r) == symbol and r.get("side") == 2 and not order_finished(r, today)]
+        if working:
+            answer({"authorized": False, "reason": "a sell for this symbol is already working at the broker",
+                    "order_ids": [str(r.get("order_id")) for r in working]}, 1)
+    with journal_lock(journal_path):
+        events = read_events(journal_path)
+        batch, mode, how = resolve_batch(path, events, today)
+        if batch is None:
+            answer({"authorized": False, "reason": how}, 1)
+        used_qty, used_notional = envelope_totals(events, today, symbol, "sell")
+        ok, reason = authorize_order(
+            batch, symbol=symbol, side="sell", qty=qty, limit=limit, today=today,
+            used=envelope_usage(journal_path, today), used_qty=used_qty, used_notional=used_notional,
+        )
+        if not ok:
+            answer({"authorized": False, "reason": reason, "mode": mode}, 1)
+        request_id = "tyche-exit-" + os.urandom(12).hex()
+        append_locked(journal_path, "order.requested", {
+            "request_id": request_id, "symbol": symbol, "side": "sell", "quantity": qty,
+            "limit_price": limit, "strategy_id": "operator-exit", "reason": reason,
+            "authorization": authorization_record(mode, today),
+        })
+    answer({"authorized": True, "request_id": request_id, "side": "sell", "quantity": qty, "limit": limit,
+            "mode": mode, "reason": reason, "submit_before": (now + timedelta(seconds=90)).isoformat(),
+            "instructions": "Submit ONE US paper limit sell with exactly these fields and request_id as the "
+                            "remark, before submit_before; then journal order.submitted. Never re-run to retry."}, 0)
 
 
 @app.command("approve-telegram")

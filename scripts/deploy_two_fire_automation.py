@@ -237,6 +237,18 @@ request live or an order live, do not submit a second sell, and never journal a 
 same request_id. Synthetic exits are not resting broker stops; a blocked or late exit leaves the
 lot unprotected and must be reported as such, not implied filled.
 
+OPERATOR EXIT (2026-11-24): at the 08:05 and 15:05 fires, right after reconciling and before any
+other trading step, sell every held lot the operator has approved to sell today - each sell line of a
+same-day data/approvals.json, or a sell approved on Telegram. For each: fresh quote, limit = the higher
+of the approved floor and the bid less 0.5% (2 decimals), quantity = the sellable lot up to the line's
+max; then the executor runs `tyche exit-now --account <run>/snapshot.json --symbol <S> --qty <Q>
+--limit <L> --orders <run>/orders.json --journal <ledger>`. Exit 0 is the whole authority: submit ONE
+sim_trade_input_order limit sell with exactly those fields and request_id as the remark before
+submit_before (at 08:05 it rests for the open), journal order.submitted, reconcile at the next fire.
+These exits need no lifecycle grant, research review, setup hash, auditor or tactical universe - an
+exit only removes risk - so never block one on those. Exit 1 is a refusal: put its reason in Problems
+and never retry the same fire. Never at the 12:05 fire. Paper account only, always.
+
 ROSTER GATING: always delegate the executor. Delegate the researcher at the premarket fire, or when
 holdings or open entry proposals need narrow revalidation. Delegate the auditor only when an
 executable proposal or contract revision needs independent exact-order review. If there are no
@@ -516,6 +528,7 @@ def prompt_markers(events: str) -> dict:
         "has_performance_pack": "performance pack" in events,
         "has_fib_pullback": "PB-007 FIB PULLBACK" in events and "tyche fib-scan" in events,
         "has_nav_references": "NAV REFERENCES" in events and "100,000.00 starting" in events,
+        "has_operator_exit": "OPERATOR EXIT" in events and "tyche exit-now" in events,
     }
 
 

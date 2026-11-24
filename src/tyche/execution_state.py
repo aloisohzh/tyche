@@ -1,7 +1,7 @@
 """Cumulative paper budgets and conservative broker-order reconciliation."""
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Any
 
 from tyche.market_calendar import ET
@@ -64,6 +64,32 @@ def combined_usage(events: list[dict], rows: list[dict], today, contracts: dict)
     return len(current) + len(unmatched), notional
 
 
+# Broker status 2 is the one verified "still working" state. Everything else with zero fills that
+# was created before today's US session (ET) is a DAY order the broker has expired: the operator
+# ruled on 2026-11-24 (VNQ ...597, SMH ...500) that this counts as finished, not "unresolved".
+WORKING_STATUS = 2
+
+
+def expired_unfilled(status, quantity, cum_qty, created_us, today: date) -> bool:
+    """True for a zero-fill order from an earlier session that is not shown as working."""
+    try:
+        if float(cum_qty) != 0 or float(quantity) <= 0 or status in (4, WORKING_STATUS):
+            return False
+        created = datetime.fromtimestamp(int(created_us) / 1_000_000, UTC).astimezone(ET).date()
+    except (TypeError, ValueError, OverflowError):
+        return False  # unparseable stays blocking: never guess an order finished
+    return created < today
+
+
+def order_finished(row: dict, today: date | None = None) -> bool:
+    """Full verified fill, or a zero-fill order from a past session (see expired_unfilled)."""
+    if row.get("status") == 4 and float(row.get("cum_qty", 0)) == float(row.get("qty", 0)):
+        return True
+    today = today or datetime.now(UTC).astimezone(ET).date()
+    return expired_unfilled(row.get("status"), row.get("qty"), row.get("cum_qty", 0),
+                            row.get("create_time"), today)
+
+
 def broker_orders(payload: Any) -> list[dict]:
     if not isinstance(payload, dict) or payload.get("ret_code") != 0:
         raise ValueError("successful broker order-list payload required")
@@ -90,9 +116,8 @@ def pending_intents(rows: list[dict], contracts: dict[str, OptionContract]) -> l
         if not quantity.is_integer() or not cumulative.is_integer() or not 0 <= cumulative <= quantity or quantity <= 0:
             raise ValueError("invalid broker quantity or cumulative fill")
         qty, filled = int(quantity), int(cumulative)
-        # Only FILLED (4) was verified against the broker. Unknown/cancel states
-        # conservatively remain pending until a verified terminal mapping is added.
-        if row.get("status") == 4 and filled == qty:
+        # FILLED (4) is verified terminal; a zero-fill order from a past session is expired.
+        if order_finished(row):
             continue
         remaining = qty - filled
         if remaining <= 0:
@@ -112,8 +137,7 @@ def unresolved_symbols(events: list[dict], rows: list[dict]) -> set[str]:
     """Atomic reservations remain blocked until their broker receipt is reconciled."""
     submitted = {e.get("payload", {}).get("request_id"): e.get("payload", {}).get("order_id")
                  for e in events if e.get("type") == "order.submitted"}
-    filled_ids = {str(r.get("order_id")) for r in rows
-                  if r.get("status") == 4 and float(r.get("cum_qty", 0)) == float(r.get("qty", 0))}
+    filled_ids = {str(r.get("order_id")) for r in rows if order_finished(r)}
     pending = set()
     for event in events:
         p = event.get("payload", {})
