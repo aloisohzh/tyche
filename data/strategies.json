@@ -1,8 +1,8 @@
 {
   "enabled": {
-    "PB-004": false,
+    "PB-004": true,
     "PB-007": true
   },
-  "updated_at": "2026-11-23T05:27:15.788052+00:00",
-  "updated_by": "operator (Alois, via Claude PR #31)"
+  "updated_at": "2026-11-24T02:16:07+00:00",
+  "updated_by": "operator (Alois, project thread 24 Nov: scalp on until 30 Nov; the scalp card stops itself after that)"
 }

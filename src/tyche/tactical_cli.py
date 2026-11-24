@@ -330,6 +330,9 @@ def scalp(
         config = load_config(config_root)
         if not config.scalp.enabled:
             raise ValueError("scalp lane disabled in config/scalp.yaml")
+        if record and not config.strategy_enabled("PB-004"):
+            # The operator's switch (data/strategies.json) gates the arm path; a dry run still evaluates.
+            raise ValueError("PB-004 is switched off (tyche strategies); dry run only")
         now = now_utc()
         missing = [name for name in FEED_FILES if not (feed / name).is_file()]
         if missing:

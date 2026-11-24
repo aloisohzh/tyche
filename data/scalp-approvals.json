@@ -1,0 +1,80 @@
+{
+  "as_of": "2026-11-24",
+  "valid_until": "2026-11-30",
+  "approved_at": "2026-11-24T02:16:07+00:00",
+  "approved_by": "operator (Alois, project thread 24 Nov 2026: switch on the scalp till 30th Nov)",
+  "max_orders": 200,
+  "orders": [
+    {
+      "symbol": "US.NVDA",
+      "side": "buy",
+      "max_qty": 60,
+      "max_total_qty": 2000,
+      "limit_max": 1500.0
+    },
+    {
+      "symbol": "US.NVDA",
+      "side": "sell",
+      "max_qty": 60,
+      "max_total_qty": 2000,
+      "limit_min": 50.0
+    },
+    {
+      "symbol": "US.AMD",
+      "side": "buy",
+      "max_qty": 60,
+      "max_total_qty": 2000,
+      "limit_max": 800.0
+    },
+    {
+      "symbol": "US.AMD",
+      "side": "sell",
+      "max_qty": 60,
+      "max_total_qty": 2000,
+      "limit_min": 270.0
+    },
+    {
+      "symbol": "US.AVGO",
+      "side": "buy",
+      "max_qty": 60,
+      "max_total_qty": 2000,
+      "limit_max": 1500.0
+    },
+    {
+      "symbol": "US.AVGO",
+      "side": "sell",
+      "max_qty": 60,
+      "max_total_qty": 2000,
+      "limit_min": 50.0
+    },
+    {
+      "symbol": "US.MU",
+      "side": "buy",
+      "max_qty": 60,
+      "max_total_qty": 2000,
+      "limit_max": 1100.0
+    },
+    {
+      "symbol": "US.MU",
+      "side": "sell",
+      "max_qty": 60,
+      "max_total_qty": 2000,
+      "limit_min": 370.0
+    },
+    {
+      "symbol": "US.SMH",
+      "side": "buy",
+      "max_qty": 60,
+      "max_total_qty": 2000,
+      "limit_max": 700.0
+    },
+    {
+      "symbol": "US.SMH",
+      "side": "sell",
+      "max_qty": 60,
+      "max_total_qty": 2000,
+      "limit_min": 235.0
+    }
+  ],
+  "note": "Standing PB-004 scalp envelope, 24-30 Nov only. Read only by the scalp card (tyche tactical scalp --envelope data/scalp-approvals.json). Price bounds are fat-finger guards; the scalp's own sizing (0.1% NAV risk, 5% NAV notional, 4 open) is the real limit."
+}
