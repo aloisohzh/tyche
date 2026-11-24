@@ -310,7 +310,14 @@ aggregate option premium cap 25%, cash >=5%, gross <=95% on every order.
 
 STATE: this automation is the only scheduled execution owner. The paused Forward schedule and every
 other desk schedule must remain paused; never run two writers. Verify ownership first; if ownership
-cannot be verified, block.
+cannot be verified, block. One named exception: the operator's "Tyche scalp - PB-004 every 15 minutes"
+card (scripts/deploy_scalp_card.py, 24-30 Nov 2026) owns the PB-004 lane and writes PB-004 orders to the
+same ledger; it is expected, not a second desk, and is never a reason to block.
+
+PB-004 SCALP (2026-11-24): the scalp card trades the lane while PB-004 is switched on. This card never
+runs `tyche tactical scalp --record` and never submits, re-arms or sells a PB-004 lot (request_ids
+starting `tyche-scl-`); it lists open scalp lots read-only in the digest, and a scalp lot still open
+after the close goes in Problems for the operator.
 
 PERSIST: keep the hash-chained journal; persist plans, snapshots and state to Drive; redact account
 ids and tokens from plans, logs, digests and attachments.

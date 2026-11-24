@@ -62,6 +62,9 @@ class ApprovalBatch(BaseModel):
     model_config = ConfigDict(allow_inf_nan=False)
     max_notional: float | None = Field(default=None, gt=0)
     as_of: date
+    # Optional last day a standing envelope covers (inclusive). Absent means as_of only: the daily
+    # envelope stays same-day. The PB-004 scalp's standing envelope (data/scalp-approvals.json) uses it.
+    valid_until: date | None = None
     approved_at: datetime
     approved_by: str = "operator"
     max_orders: int = Field(ge=1)
@@ -73,10 +76,14 @@ class ApprovalBatch(BaseModel):
         keys = [(o.symbol, o.side) for o in self.orders]
         if len(keys) != len(set(keys)):
             raise ValueError("duplicate symbol+side lines in envelope")
+        if self.valid_until is not None and self.valid_until < self.as_of:
+            raise ValueError("valid_until is before as_of")
         return self
 
     def valid_on(self, today: date) -> bool:
-        return self.as_of == today
+        if self.valid_until is None:
+            return self.as_of == today
+        return self.as_of <= today <= self.valid_until
 
     def line_for(self, symbol: str, side: str) -> ApprovalLine | None:
         return next((o for o in self.orders if o.symbol == symbol and o.side == side), None)

@@ -292,3 +292,28 @@ def test_cli_approve_telegram_without_an_approval_file_journals_nothing(tmp_path
     proposals.with_name("proposals.json.approved.json").write_text("not json", encoding="utf-8")
     broken = CliRunner().invoke(app, ["approve-telegram", str(proposals), "--journal", str(journal)])
     assert broken.exit_code == 1 and len(read_events(journal)) == 1
+
+
+def test_standing_envelope_covers_its_window_only():
+    standing = batch(valid_until=date(2026, 11, 21))
+    assert not standing.valid_on(date(2026, 11, 18))
+    assert all(standing.valid_on(date(2026, 11, d)) for d in (19, 20, 21))
+    assert not standing.valid_on(date(2026, 11, 22))
+    assert not batch().valid_on(date(2026, 11, 20))  # no valid_until: same day only
+    with pytest.raises(ValidationError):
+        batch(valid_until=date(2026, 11, 18))
+
+
+def test_shipped_scalp_envelope_matches_the_scalp_lane():
+    from pathlib import Path
+
+    from tyche.config import load_config
+
+    root = Path(__file__).resolve().parents[1]
+    path = root / "data" / "scalp-approvals.json"
+    if not path.is_file():
+        pytest.skip("no standing scalp envelope in this checkout")
+    envelope = ApprovalBatch.model_validate_json(path.read_text(encoding="utf-8"))
+    assert envelope.valid_until is not None
+    symbols = set(load_config(root).scalp.symbols)
+    assert {(o.symbol, o.side) for o in envelope.orders} == {(s, side) for s in symbols for side in ("buy", "sell")}
