@@ -15,6 +15,7 @@ Run from the laptop repo root (reads QODER_PAT and the desk secrets from the git
   .venv\\Scripts\\python.exe scripts\\deploy_scalp_card.py            dry run: shows the card, writes nothing
   .venv\\Scripts\\python.exe scripts\\deploy_scalp_card.py --apply    creates the card
   .venv\\Scripts\\python.exe scripts\\deploy_scalp_card.py --pause <deployment_id>
+  .venv\\Scripts\\python.exe scripts\\deploy_scalp_card.py --apply-update <deployment_id>   prompt only
 Never prints secret values.
 """
 from __future__ import annotations
@@ -41,6 +42,18 @@ PROMPT = """TYCHE PB-004 SCALP RUN (PAPER ONLY; ONE LANE; ADDED 2026-11-24, ENDS
 You are the scalp card, not the desk. You run ONLY the PB-004 intraday scalp on US.NVDA, US.AMD, US.AVGO,
 US.MU and US.SMH. The desk card (08:05/12:05/15:05 ET) owns everything else; you are the one expected
 second writer, limited to PB-004 orders. Never touch another lane, plan, lot, envelope or config file.
+
+TIME LIMIT (2026-11-24): this run owns at most 10 minutes from its scheduled start (minute :07, :22,
+:37 or :52). Note the scheduled start first. Before every step, and again immediately before each
+submit, check the clock: once 10 minutes have passed, stop at once - no further submits, no journal
+writes beyond what is already done - and log "SCALP RUN end: time limit". Never submit an order after
+that point, even if the command returned it. The next run picks up anything left; its FILLS FIRST step
+journals what the broker shows.
+
+RUN LOCK: before the GATE, read /data/drive/tyche-raw/scalp-lock.json. If it names another run whose
+`started_at` is under 12 minutes old, stop with one log line "SCALP RUN skipped: run <id> still holds
+the lock" (no Telegram). Otherwise write it with this run's id and started_at (UTC), and delete it as
+the last action of the run, whatever the outcome. A lock 12 minutes or older is stale: overwrite it.
 
 GATE (stop at the first that fails, with one line in the run log and nothing else - no Telegram):
 1. ET date after {{STOP_AFTER}}: stop; the operator pauses this card.
@@ -80,6 +93,11 @@ TELEGRAM: send one short line only when an order was submitted or filled this ru
 (`python scripts/telegram.py send`, e.g. "SCALP: bought 10 AMD @ 541.20, stop 539.85, target 543.90"),
 and an urgent line when a lot is still open at or after the flatten time. Silent otherwise.
 
+RULINGS (2026-11-24, operator): a zero-fill order from a past session that is not working (status 2)
+is finished - SMH 3118500 and VNQ 3116597 are closed, not unresolved, and never block a run. Empty
+positions are broker truth when the account read itself succeeded and today's orders show the lots
+were sold; only an error code (ret_code non-zero) on cash, positions or orders is an outage.
+
 PERSIST: the journal on Drive; redact account ids and tokens everywhere. Paper only; live trading is
 forbidden.
 """
@@ -87,6 +105,12 @@ forbidden.
 
 def card_prompt() -> str:
     return PROMPT.replace("{{STOP_AFTER}}", STOP_AFTER)
+
+
+def prompt_markers(events: str) -> dict[str, bool]:
+    return {"has_time_limit": "TIME LIMIT (2026-11-24)" in events,
+            "has_run_lock": "RUN LOCK" in events and "scalp-lock.json" in events,
+            "has_scalp_rulings": "RULINGS (2026-11-24, operator)" in events}
 
 
 def scalp_cards(values: dict[str, str]) -> list[dict]:
@@ -132,6 +156,28 @@ def main() -> None:
         desk.req(values, "POST", f"/deployments/{deployment_id}/pause")
         after = desk.req(values, "GET", f"/deployments/{deployment_id}")
         print(json.dumps({"paused": deployment_id, "status": after.get("status")}, indent=2))
+        return
+    if "--apply-update" in sys.argv:
+        import hashlib
+        deployment_id = sys.argv[sys.argv.index("--apply-update") + 1]
+        before = desk.req(values, "GET", f"/deployments/{deployment_id}")
+        if not str(before.get("name", "")).startswith("Tyche scalp"):
+            raise SystemExit("refusing to update a deployment that is not the Tyche scalp card")
+        keys_before = set(desk._parse_env_string(before.get("environment_variables")))
+        desk.req(values, "POST", f"/deployments/{deployment_id}", desk.update_payload(before, card_prompt()))
+        after = desk.req(values, "GET", f"/deployments/{deployment_id}")
+        keys_after = set(desk._parse_env_string(after.get("environment_variables")))
+        keep = ("name", "status", "agent", "environment_id", "vault_ids", "metadata", "resources", "schedule")
+        drift = [k for k in keep
+                 if json.dumps(before.get(k), sort_keys=True) != json.dumps(after.get(k), sort_keys=True)]
+        events = json.dumps(after.get("initial_events") or [])
+        print(json.dumps({"updated": deployment_id, "status": after.get("status"),
+                          "agent_pin": (after.get("agent") or {}).get("version"),
+                          "card_env_keys": sorted(keys_after), "env_keys_unchanged": keys_after == keys_before,
+                          "drift": drift, "prompt_sha256": hashlib.sha256(events.encode()).hexdigest()[:16],
+                          **prompt_markers(events)}, indent=2))
+        if drift or not all(prompt_markers(events).values()):
+            raise SystemExit("scalp card update incomplete; inspect cloud state")
         return
     agent_id = desk.card_agent(sys.argv)
     agent = desk.req(values, "GET", f"/agents/{agent_id}")
