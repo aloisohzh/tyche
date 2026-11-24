@@ -9,8 +9,15 @@ const ucfirst = (s) => { const t = hy(s).trim(); return t ? t.charAt(0).toUpperC
 // A term with a one-line explanation on hover - the desk is read by people who do not trade for a living.
 const tip = (label, text) => `<span class="tip" data-tip="${esc(text)}">${esc(label)}</span>`;
 
-const VERSION = "0.16.4";
+const VERSION = "0.16.5";
 const CHANGELOG = [
+  {
+    version: "0.16.5", date: "2026-11-24", title: "Market calendar runs on the live clock",
+    items: [
+      "Schedule: the day, the time marker on the bar, the current part of the day and Trading now or Skipping now follow your own clock and redraw every 30 seconds. Before, they froze at the moment the page was last published, so a Tuesday evening could still show Monday 15:39 ET.",
+      "Holidays, half days and big news days still come from the published calendar, which covers the days ahead. A day it does not cover yet says so.",
+    ],
+  },
   {
     version: "0.16.4", date: "2026-11-24", title: "Scores by strategy",
     items: [
@@ -2340,17 +2347,59 @@ function liveScheduleRows(cal) {
   return rows;
 }
 
-function renderCalendar() {
-  const cal = AUTO?.calendar;
-  const card = $("#cal-card");
-  if (!cal) { card.style.display = "none"; return; }
-  card.style.display = "";
+// The market calendar as it stands right now, by this browser's clock. The published calendar is a
+// snapshot from the last publish (it once showed "Nov 23 15:39 ET" all of the next day), so only its
+// fixed facts are used: the session phases, what each phase may do, and the holidays and events ahead.
+const REGULAR_TIMELINE = [["pre_market", "04:00", "09:30"], ["opening_drive", "09:30", "10:30"], ["midday", "10:30", "15:00"],
+  ["closing_drive", "15:00", "16:00"], ["after_hours", "16:00", "20:00"]];
+const HALF_TIMELINE = [["pre_market", "04:00", "09:30"], ["opening_drive", "09:30", "10:30"], ["midday", "10:30", "12:00"],
+  ["closing_drive", "12:00", "13:00"], ["after_hours", "13:00", "20:00"]];
+function liveCal(cal, nowIso = new Date().toISOString()) {
+  const today = etDateStr(nowIso);
+  const weekday = new Date(nowIso).toLocaleDateString("en-US", { weekday: "short", timeZone: TZ_ET });
+  const published = today === cal.timeline_day;
+  const ahead = (cal.upcoming || []).find((u) => u.date === today);
+  let trading, half, holiday, events, earnings, known = true;
+  if (published) {
+    trading = cal.trading_day; half = cal.half_day; holiday = cal.holiday; events = cal.events || []; earnings = cal.earnings_season;
+  } else if (ahead) {
+    trading = !ahead.closed; half = !!ahead.half_day; holiday = ahead.closed || null;
+    events = (ahead.events || []).map((e) => (typeof e === "string" ? { name: e } : e)); earnings = ahead.earnings_season || null;
+  } else {
+    trading = !["Sat", "Sun"].includes(weekday); half = false; holiday = null; events = []; earnings = null; known = false;
+  }
+  const timeline = !trading ? [] : (published && (cal.timeline || []).length
+    ? cal.timeline
+    : (half ? HALF_TIMELINE : REGULAR_TIMELINE).map(([phase, start, end]) => ({ phase, start, end })));
+  const hhmm = etHHMM(nowIso);
+  const seg = timeline.find((t) => hhmm >= t.start && hhmm < t.end);
+  const phase = seg ? seg.phase : "closed";
+  const strategy = (cal.phase_strategies || []).find((x) => x.phase === phase) || { activity: "noop" };
+  let run, reason;
+  if (!trading) { run = false; reason = `market closed: ${holiday || "weekend"}`; }
+  else if (phase === "closed") { run = false; reason = "outside trading session (04:00-20:00 ET)"; }
+  else { run = true; reason = `${phase} active`; }
+  const etLabel = new Date(nowIso).toLocaleTimeString("en-US", { timeZone: TZ_ET, timeZoneName: "short" }).split(" ").pop();
+  return {
+    ...cal, now_utc: nowIso, now_et_hhmm: hhmm, et_label: etLabel, today, weekday, trading_day: trading, half_day: half,
+    holiday, events, earnings_season: earnings, timeline, phase, run, reason, known,
+    strategy: { ...strategy, event_caution: !!(events.length && strategy.activity === "active") },
+    upcoming: (cal.upcoming || []).filter((u) => u.date > today),
+  };
+}
 
-  const etHHMMNow = cal.now_et.slice(11, 16);
-  const etDate = new Date(cal.now_et);
+function renderCalendar() {
+  const published = AUTO?.calendar;
+  const card = $("#cal-card");
+  if (!published) { card.style.display = "none"; return; }
+  card.style.display = "";
+  const cal = liveCal(published);
+
+  const etHHMMNow = cal.now_et_hhmm;
+  const etDate = new Date(cal.now_utc);
   const dayName = etDate.toLocaleDateString("en-US", { weekday: "short", timeZone: TZ_ET });
   const monDay = etDate.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: TZ_ET });
-  $("#cal-now").textContent = `${dayName} ${monDay} · ${etHHMMNow} ${cal.et_label} · ${sgtHHMM(cal.now_utc)} SGT`;
+  $("#cal-now").textContent = `${dayName} ${monDay} · ${etHHMMNow} ${cal.et_label} · ${sgtHHMM(cal.now_utc)} SGT · live`;
 
   const gate = $("#cal-gate");
   gate.className = "cal-gate " + (cal.run ? "run" : "skip");
@@ -2416,7 +2465,8 @@ function renderCalendar() {
   const earn = cal.earnings_season ? `<span class="cal-event" style="--ev-hue:var(--cyan)"><i></i>${esc(cal.earnings_season)}</span>` : "";
   const half = cal.half_day ? '<span class="cal-flag half">Half day · 13:00 ET close</span>' : "";
   const hol = cal.holiday ? `<span class="cal-flag closed">Closed · ${esc(cal.holiday)}</span>` : "";
-  const today = (evChips || earn || half || hol) ? `${evChips}${earn}${half}${hol}` : '<span class="cal-none">No scheduled events</span>';
+  const today = (evChips || earn || half || hol) ? `${evChips}${earn}${half}${hol}`
+    : (cal.known ? '<span class="cal-none">No scheduled events</span>' : '<span class="cal-none">Not in the published calendar yet. The next desk run adds it.</span>');
   const ahead = (cal.upcoming || []).map((u) => {
     const dd = new Date(u.date + "T12:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
     if (u.closed) return `<span class="cal-day closed"><b>${dd}</b><span>${esc(u.closed)}</span></span>`;
@@ -2734,6 +2784,8 @@ function setup() {
     $("#clock").textContent = `SGT ${sgtTime(now)} · ET ${etTime(now)}`;
   }, 1000);
   setInterval(tickCountdowns, 1000);
+  // The market calendar follows the clock: redraw it every 30 seconds so the time marker moves.
+  setInterval(() => { if (AUTO) safeRender("calendar", renderCalendar); }, 30000);
   setInterval(() => { if (STATE) ($("#updated-stamp") || {}).innerHTML = stampText(); }, 30000);
 
   document.querySelectorAll(".nav-item").forEach((n) => n.addEventListener("click", () => showView(n.dataset.view)));
