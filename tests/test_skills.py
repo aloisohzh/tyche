@@ -22,7 +22,7 @@ SKILLS_DIR = ROOT / "skills"
 LIVE_PROMPTS = ROOT / "templates" / "prompts" / "live"
 CARD_SCRIPT = ROOT / "scripts" / "deploy_two_fire_automation.py"
 
-BODY_CHAR_BUDGET = 2500
+BODY_CHAR_BUDGET = 3200  # raised 2026-11-24 for scout-data-suite's community-sentiment step
 ROLES = {"coordinator", "researcher", "auditor", "executor", "shared"}
 
 # Numbers that belong to config/ or docs/risk-card.md. A skill may name the key, never the value.
