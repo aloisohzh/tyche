@@ -1,0 +1,191 @@
+{
+  "schema_version": 1,
+  "plans": [
+    {
+      "plan_id": "LC-20261119-SPY-ADOPT-r2",
+      "revision": 2,
+      "symbol": "US.SPY",
+      "strategy_id": "PB-001",
+      "rules_hash": "4105d7a680a3",
+      "thesis": "Adopt existing PB-001 ballast holding of 28 SPY (reconciled avg cost 731.54) under explicit protection: retain diversified US beta as portfolio ballast while the daily-close stop at 727.50 defines thesis invalidation. Take-profit 775.64 is the 20-completed-session structural high (2026-11-04 bar, window 2026-10-22..2026-11-18) stated as a profit-taking guard, NOT a price forecast; PB-001 strategy exits occur by rebalance, not by prediction of reaching this level.",
+      "invalidation_rules": [
+        "(i) A completed daily close below 727.50 (stop basis daily_close) latches the stop_loss exit; intraday trades below the level alone do not trigger it.",
+        "(ii) Rotation momentum <= 0 or regime risk_off triggers a trim per PB-001, evaluated at rebalance only; this is NOT automatic liquidation.",
+        "(iii) A material thesis-breaking event acknowledged by a fresh timestamped review (verdict invalidated with cited condition-specific evidence) invalidates the plan.",
+        "(iv) No broker-native stop exists: protection is a synthetic hourly monitor; gaps, halts, delayed runs and limit non-fills can exceed the planned loss."
+      ],
+      "created_at": "2026-11-19T14:53:03Z",
+      "mode": "adopt_position",
+      "quantity": 28,
+      "entry_low": 734.18,
+      "entry_high": 741.55,
+      "stop": {
+        "price": 727.5,
+        "basis": "daily_close"
+      },
+      "take_profit": {
+        "price": 775.64,
+        "basis": "daily_close"
+      },
+      "entry_expires_at": "2026-11-19T20:00:00Z",
+      "exit_deadline": "2026-11-27T17:00:00Z",
+      "exit_on_invalidation": true,
+      "review_max_age_minutes": 60,
+      "quote_max_age_seconds": 300,
+      "max_slippage_bps": 30
+    },
+    {
+      "plan_id": "LC-20261119-EFA-ADOPT-r2",
+      "revision": 2,
+      "symbol": "US.EFA",
+      "strategy_id": "PB-001",
+      "rules_hash": "4105d7a680a3",
+      "thesis": "Adopt existing PB-001 ballast holding of 142 EFA (reconciled avg cost 100.495) under explicit protection: retain developed-ex-US equity diversification as ballast with daily-close invalidation at 100.00. This thesis is protective retention under a defined stop, NOT a claim EFA will rise; weakness (three consecutive down sessions into 100.26 close, intraday 99.96 low on Nov-18, yen at ~159.94/USD) is acknowledged in the review. Take-profit 105.80 is the 20-completed-session structural high (2026-11-04 bar) stated as a profit-taking guard, NOT a price forecast; PB-001 strategy exits occur by rebalance.",
+      "invalidation_rules": [
+        "(i) A completed daily close below 100.00 (stop basis daily_close) latches the stop_loss exit; intraday trades below the level alone do not trigger it.",
+        "(ii) Rotation momentum <= 0 or regime risk_off triggers a trim per PB-001, evaluated at rebalance only; this is NOT automatic liquidation.",
+        "(iii) A material thesis-breaking event acknowledged by a fresh timestamped review (verdict invalidated with cited condition-specific evidence) invalidates the plan.",
+        "(iv) No broker-native stop exists: protection is a synthetic hourly monitor; gaps, halts, delayed runs and limit non-fills can exceed the planned loss."
+      ],
+      "created_at": "2026-11-19T14:53:03Z",
+      "mode": "adopt_position",
+      "quantity": 142,
+      "entry_low": 100.02,
+      "entry_high": 101.02,
+      "stop": {
+        "price": 100.0,
+        "basis": "daily_close"
+      },
+      "take_profit": {
+        "price": 105.8,
+        "basis": "daily_close"
+      },
+      "entry_expires_at": "2026-11-19T20:00:00Z",
+      "exit_deadline": "2026-11-27T17:00:00Z",
+      "exit_on_invalidation": true,
+      "review_max_age_minutes": 60,
+      "quote_max_age_seconds": 300,
+      "max_slippage_bps": 30
+    }
+  ],
+  "reviews": [
+    {
+      "plan_hash": "e73ee77d4b6abca10545bd296537fcee34b9a2511440e49fcf1d3ad23f9c89df",
+      "reviewed_at": "2026-11-19T15:11:03Z",
+      "valid_until": "2026-11-19T16:11:03Z",
+      "verdict": "valid",
+      "reason": "Protective-retention thesis intact. RTH last 735.83 (exchange 15:11:03.712Z) is +0.77% vs Nov-18 close 730.20 and +1.15% above the 727.50 daily-close stop; intraday low 735.29 well above stop; no completed daily close below 727.50 exists (Nov-18 closed 730.20; today's session incomplete). Faded from open 737.54/high 739.8999 but risk-on regime intact (Dec 25bp HIKE ~90%, 50bp tail ~8%; Nasdaq +1.60% at open). New since 14:55Z review: Oct Leading Index unexpectedly declined (Fisco 15:03:14Z, numeric value unavailable via MCP - growth-scare watch item, no visible market reaction); ANT first trade still UNCONFIRMED (TO_BE_OPEN, zero ticks ~15:11-15:12Z; 14:50Z was quotation-indication open, not a trade) - debut volatility pending, now pinned as EV-20261119-ANT-DEBUT; Barr speech 19:15Z inside holding window requires post-event review. None of these is condition-specific invalidation evidence.",
+      "evidence": [
+        "MCP quote_stock_quote US.SPY data_time 1795101063712 = 2026-11-19T15:11:03.712Z: last 735.83, open 737.54, high 739.8999, low 735.29, prev_close 730.20, volume 8152276, sec_status NORMAL; quote_market_state US.SPY AFTERNOON RTH (trade_section 1795098600-1795122000).",
+        "No completed daily close below 727.50: Nov-18 close 730.20 per baseline premarket-1305 kline capture cited in 14:55:34Z review; today's daily bar incomplete (RTH ends 21:00Z).",
+        "Sina/\u73af\u7403\u5e02\u573a\u64ad\u62a5 news_id 1005057113 publish_time 1795098660000 = 2026-11-19T14:31:00Z: open Dow +0.39% / S&P +0.95% / Nasdaq +1.60%; CME FedWatch Dec 25bp HIKE probability ~90%; US 10Y ~5.08%; Waller 50bp rhetoric context.",
+        "Fisco flash news_id 1005060935 publish_time 1795100594000 = 2026-11-19T15:03:14Z: USDJPY 159.92; US Oct Leading Economic Index unexpectedly declined (qualitative only; numeric actual not returned by quote_economic_calendar_hot which listed only claims id294).",
+        "MCP quote_stock_quote US.ANT (fetched ~15:11Z): sec_status TO_BE_OPEN, volume 0, last 83 placeholder, data_time 1795035600000; MCP quote_rt_ticker US.ANT ticker_list=null (~15:12Z); flash 1005061142 publish_time 1795100773000 = 15:06:13Z: indicated open ~$100 (+20% vs $83 IPO price) - first trade pending, debut-volatility event imminent.",
+        "Gelonghui news_id 1005058820 publish_time 1795099667000 = 2026-11-19T14:47:47Z: Anthropic record IPO lifts storage/AI-chip/optical complex (MU +5%, NVDA +4%, AMD/AVGO +3%) - risk-on confirmation.",
+        "Fresh news check completed: news_search 'stocks Fed' (en) + '\u7f8e\u80a1' (zh-CN) TIME sort plus targeted 'Anthropic \u4e0a\u5e02'/'AMD'/'\u65e5\u5143'/'\u9886\u5148\u7ecf\u6d4e\u6307\u6807'; freshest item flash 1005061142 publish 15:06:13Z; no new SPY-material thesis-breaking event beyond acknowledged pins and the proposed ANT-debut event.",
+        "Barr speech 19:15Z (EV-20261119-BARR, AASTOCKS NOW.1555643 publish 12:32:30Z, desk-pinned) and PBoC LPR Nov-20 01:15Z (EV-20261120-PBOC-LPR, jin10 id235457) remain pending inside holding window; post-event reviews required.",
+        "EV-20261119-ANT-DEBUT acknowledgment (desk pin notified 15:21Z, config/events.yaml 'ANT Nasdaq first trade pending', time_et null): researcher MCP observation ~15:11Z quote_stock_quote US.ANT sec_status TO_BE_OPEN / volume 0 and quote_rt_ticker US.ANT ticker_list=null (~15:12Z) confirm first trade UNCONFIRMED; flash 1005061142 publish_time 1795100773000 = 2026-11-19T15:06:13Z indicates ~$100 open (+20% vs $83). Material to held SPY via risk-on/AI-halo sentiment; imminent-event entry block applies around the confirmed debut; post-debut review at next hourly check (17:05Z).",
+        "Timestamp disclosure (desk-moved from reviewed_at_note to satisfy schema): Bounded timestamp: anchored to freshest MCP exchange payload (quote_stock_quote US.SPY data_time 1795101063712 = 15:11:03.712Z); evidence fetch ran 15:09:30Z-delegation to a few minutes after 15:11Z (final LEI/flow batch). Researcher has no wall clock; desk should stamp arrival time and recompute valid_until = stamped reviewed_at + 60min if later. Desk triage 15:21Z: bounded stamps retained, arrival disclosed separately; this file updated only to acknowledge newly pinned EV-20261119-ANT-DEBUT (bookkeeping, no new evidence fetch, verdict/fields unchanged)."
+      ],
+      "acknowledged_events": [
+        "EV-20261119-CLAIMS",
+        "EV-20261119-PHILLYFED",
+        "EV-20261119-BARR",
+        "EV-20261120-PBOC-LPR",
+        "EV-20261119-ANT-DEBUT"
+      ]
+    },
+    {
+      "plan_hash": "add27d1a3e75fece0fe292c51050d9324ac33326a58ac4516cd93e3b39a9b33c",
+      "reviewed_at": "2026-11-19T15:11:03Z",
+      "valid_until": "2026-11-19T16:11:03Z",
+      "verdict": "valid",
+      "reason": "Protective retention remains supportable; verdict is retention-under-protection, NOT a bullish forecast. No completed daily close below 100.00 (Nov-18 close 100.26; today incomplete; RTH low 100.235 above stop). WEAKNESS PERSISTS AND HAS INCREASED AT THE MARGIN: last 100.255 (15:11:01.246Z) is -0.005% vs prior close 100.26 and only +0.255% above the 100.00 daily-close stop, versus 100.52 at the 14:30Z baseline - EFA gave back its opening bounce while SPY holds +0.77%. Three-down-session baseline and Nov-18 intraday 99.96 breach unchanged. USDJPY 159.92 (Fisco 15:03:14Z) vs 159.97 (13:33:03Z): yen marginally stronger, headwind near 160 essentially unchanged, not worsening; Ueda reiterated further BoJ hikes (two-way for EFA). Oct LEI unexpected decline (Fisco 15:03:14Z) is a growth-scare watch item with no visible market reaction; ANT first trade still pending (TO_BE_OPEN), now pinned as EV-20261119-ANT-DEBUT; Barr 19:15Z and PBoC LPR Nov-20 01:15Z pending inside holding window. No condition-specific invalidation evidence: the first completed close below 100.00 would latch stop_loss for execution at the next permitted session; the post-close hourly check must verify the official close.",
+      "evidence": [
+        "MCP quote_stock_quote US.EFA data_time 1795101061246 = 2026-11-19T15:11:01.246Z: last 100.255, open 100.54, high 100.58, low 100.235, prev_close 100.26, volume 2019455, sec_status NORMAL; quote_market_state US.EFA AFTERNOON RTH.",
+        "No completed daily close below 100.00: Nov-18 close 100.26 per baseline premarket-1305 kline capture cited in 14:55:34Z review (intraday low 99.96 did not latch daily_close stop); today's daily bar incomplete (RTH ends 21:00Z).",
+        "Baseline comparison: EFA 100.52 at 14:30:51.526Z (capture1-raw-summary.json, prior review) vs 100.255 now - opening bounce faded to flat; SPY +0.77% same session shows EFA-specific relative weakness continuing.",
+        "FX direction: Fisco flash news_id 1005060935 publish_time 1795100594000 = 2026-11-19T15:03:14Z USDJPY 159.92, vs Fisco news_id 1005050659 publish_time 1795095183000 = 13:33:03Z USDJPY 159.97 - yen marginally stronger; unhedged yen headwind documented, essentially unchanged near 160. No direct FX quote tool available; news-flash evidence only.",
+        "InvestingCube news_id 1005026251 publish_time 1795081660000 = 2026-11-19T09:47:40Z: BoJ Gov Ueda reaffirmed further rate increases; Reuters poll cited expects Dec hike and another by end-March; BoJ held 1.25% in October - two-way EFA exposure (yen translation vs Japan-equity support), context not invalidation.",
+        "Fisco flash 1005060935 (15:03:14Z): US Oct Leading Economic Index unexpectedly declined; numeric actual unavailable via MCP (quote_economic_calendar_hot returned only claims id294) - watch item, no visible market reaction (Sina 1005057113 publish 14:31:00Z: indices up at open).",
+        "MCP quote_stock_quote US.ANT sec_status TO_BE_OPEN volume 0 + quote_rt_ticker US.ANT ticker_list=null (~15:11-15:12Z); flash 1005061142 publish 1795100773000 = 15:06:13Z indicated open ~$100 (+20%): ANT first trade pending, not the desk-assumed completed 14:50Z debut.",
+        "Fresh news check completed: news_search 'stocks Fed' (en) + '\u7f8e\u80a1' (zh-CN) TIME sort plus '\u65e5\u5143'/'\u9886\u5148\u7ecf\u6d4e\u6307\u6807'/'Anthropic \u4e0a\u5e02'; freshest item flash 1005061142 publish 15:06:13Z; no source reports a completed EFA close below 100.00 and no new EFA-material thesis-breaking event beyond the acknowledged pins.",
+        "Barr 19:15Z (EV-20261119-BARR) and PBoC LPR 2026-11-20T01:15Z (EV-20261120-PBOC-LPR, jin10 id235457) pending inside holding window; post-event reviews required at the next hourly checks after each.",
+        "EV-20261119-ANT-DEBUT acknowledgment (desk pin notified 15:21Z, config/events.yaml 'ANT Nasdaq first trade pending', time_et null): researcher MCP observation ~15:11Z quote_stock_quote US.ANT sec_status TO_BE_OPEN / volume 0 and quote_rt_ticker US.ANT ticker_list=null (~15:12Z) confirm first trade UNCONFIRMED; flash 1005061142 publish_time 1795100773000 = 2026-11-19T15:06:13Z indicates ~$100 open (+20% vs $83). Acknowledged for completeness; primary relevance is US-halo sentiment (SPY/AMD/MU/SMH), second-order for EFA's developed-ex-US mandate; no EFA-specific invalidation content; post-debut review at next hourly check (17:05Z).",
+        "Timestamp disclosure (desk-moved from reviewed_at_note to satisfy schema): Bounded timestamp: anchored to freshest MCP exchange payload (quote_stock_quote batch data_time 1795101063769 = 15:11:03.769Z; EFA row 1795101061246 = 15:11:01.246Z); evidence fetch ran 15:09:30Z-delegation to a few minutes after 15:11Z. Researcher has no wall clock; desk should stamp arrival time and recompute valid_until = stamped reviewed_at + 60min if later. Desk triage 15:21Z: bounded stamps retained, arrival disclosed separately; this file updated only to acknowledge newly pinned EV-20261119-ANT-DEBUT (bookkeeping, no new evidence fetch, verdict/fields unchanged)."
+      ],
+      "acknowledged_events": [
+        "EV-20261119-CLAIMS",
+        "EV-20261119-PHILLYFED",
+        "EV-20261119-BARR",
+        "EV-20261120-PBOC-LPR",
+        "EV-20261119-ANT-DEBUT"
+      ]
+    }
+  ],
+  "news_checked_at": "2026-11-19T15:11:03Z",
+  "news_feed_ok": true,
+  "events": [
+    {
+      "event_id": "EV-20261119-CLAIMS",
+      "at": "2026-11-19T13:30:00Z",
+      "symbols": [
+        "US.SPY",
+        "US.QQQ",
+        "US.IWM",
+        "US.TLT",
+        "US.IEF"
+      ],
+      "material": true,
+      "source": "MCP quote_economic_calendar_hot 20261119 indicatorId 294; config/events.yaml pin 2026-11-19T13:30:33Z",
+      "summary": "US Initial Jobless Claims 08:30 ET (prev 198K, cons 200K); hawkish-hike regime sensitivity; post-event revalidation required before entries."
+    },
+    {
+      "event_id": "EV-20261119-PHILLYFED",
+      "at": "2026-11-19T13:30:00Z",
+      "symbols": [
+        "US.SPY",
+        "US.IWM",
+        "US.SMH"
+      ],
+      "material": true,
+      "source": "https://www.philadelphiafed.org/surveys-and-data/regional-economic-analysis/manufacturing-business-outlook-survey; config/events.yaml pin 2026-11-19T13:30:33Z",
+      "summary": "Philadelphia Fed Mfg Index (Nov) 08:30 ET (prev 20.6, cons 20.9); prices-paid feeds hike narrative."
+    },
+    {
+      "event_id": "EV-20261120-PBOC-LPR",
+      "at": "2026-11-20T01:15:00Z",
+      "symbols": [
+        "US.EFA",
+        "US.EEM"
+      ],
+      "material": true,
+      "source": "jin10 calendar item 235457 via MCP news_search; config/events.yaml pin 2026-11-19T13:30:34Z",
+      "summary": "PBoC LPR fixing 09:15 Beijing Nov 20 (01:15Z / Nov19 20:15 ET); China easing signal for held EFA and EEM ballast; review at next pre-market check."
+    },
+    {
+      "event_id": "EV-20261119-BARR",
+      "at": "2026-11-19T19:15:00Z",
+      "symbols": [],
+      "material": true,
+      "source": "AASTOCKS NOW.1555643 publish 2026-11-19T12:32Z (desk-verified fetch); config/events.yaml pin 2026-11-19T14:35:19Z",
+      "summary": "Fed Governor Michael Barr speech 14:15 ET (19:15Z), market-wide; inside holding window; post-event review required at next hourly check after 19:15Z."
+    },
+    {
+      "event_id": "EV-20261119-ANT-DEBUT",
+      "at": "2026-11-19T14:50:00Z",
+      "symbols": [
+        "US.ANT",
+        "US.AMD",
+        "US.MU",
+        "US.SMH",
+        "US.NVDA",
+        "US.SPY",
+        "US.QQQ"
+      ],
+      "material": true,
+      "source": "MCP quote US.ANT TO_BE_OPEN vol 0 ~15:11Z; Gelonghui 1005025572 publish 14:39:00Z; flash 1005061142 publish 15:06:13Z; config/events.yaml pin 2026-11-19T15:20Z",
+      "summary": "ANT Nasdaq first trade PENDING: 14:50Z was indication-open only (~$100 vs $83 IPO, +20%). Confirmed debut is an imminent-event entry block for tactical halo names; second-order for SPY ballast, acknowledged for completeness. Update pin time after first trade observed."
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "bootstrap_at_utc": "2026-11-19T14:10:26.018419+00:00",
+  "operator_authorization": "operator:aloisohzh 2026-11-19 explicit instruction: Ok. I want to trade today. Do the 3 items (item 2 bootstrap)",
+  "prior_ledger_search": "find /data/drive/tyche-raw -name state.json -> no results; lifecycle dir absent; observe-0455 and premarket-1305 book.json are unapproved research books (no approvals ledger anywhere); 2026-11-18 bundles contain no lifecycle state",
+  "journal_lineage": "/data/drive/tyche-raw/2026-11-19-premarket-1305/journal/events.jsonl verified (15 events, head cf2ab0696436b0b669519a050c9639c8a3c15b0c4e88cc26a7bff48bbfc163c1), restored to run dir",
+  "initialized": {
+    "book_plans": 0,
+    "book_events": [
+      "EV-20261119-CLAIMS",
+      "EV-20261119-PHILLYFED",
+      "EV-20261120-PBOC-LPR"
+    ],
+    "state_approvals": 0,
+    "state_reservations": 0
+  },
+  "writer": "sole validation owner session sess_00vz13yvcgmwwfskc72x; forward schedule paused 13:53Z by operator"
+}

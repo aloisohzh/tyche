@@ -1,0 +1,34 @@
+{
+  "phase": "PREMARKET",
+  "timestamp": "2026-11-20 | 13:38 UTC / 08:38 ET / 21:38 SGT",
+  "urgent": true,
+  "mode": "PAPER ARMED - observe-only: kill-switch ON, buys blocked, no approved exit grants",
+  "stance": "Hike-cycle risk-off deepens (Waller 50bp talk, AMD probe day-2). Desk reconciled the account, confirmed both ballast stops breached on official Nov-19 closes, published research and pinned 5 events - no trades.",
+  "orders_summary": "No orders submitted by this run. Lots below are existing holdings, not new orders.",
+  "orders": [],
+  "account": {
+    "nav": "98,379.68 (cash+frozen+MV reconciles exactly; -1.54% vs prior close)",
+    "cash": "45,680.12 (46.4% NAV); frozen 0; no pending orders",
+    "positions": "SPY 28, EFA 142, MSFT 39 - all uncovered; no options",
+    "kill_switch": "ON - writer-safety incident Nov-19; buys blocked until operator resume"
+  },
+  "protection": [
+    "SPY 28: Nov-19 close 715.87 breached daily-close stop 727.50; pre-market 709.21. No live exit order; adoption contract expired unapproved.",
+    "EFA 142: close 98.78 breached stop 100.00; pre-market 97.76 on a thin book (850 shares, 0.71% spread). No live exit order.",
+    "MSFT 39: unowned fill @503.33, no plan/stop/target/deadline; pre-market 487.15; ~19% NAV near the 20% name cap.",
+    "No resting broker stops anywhere; checks only at 08:05/12:05/15:05 ET. Gaps, halts or nonfills can exceed planned stop loss.",
+    "VNQ order 3116597 and SMH 3118500 remain status-5: no shares filled, not proven cancelled; no retry without operator confirmation."
+  ],
+  "problems": [
+    "Halt: 8 orders Nov-19 17:23-18:15Z have no desk record (match your PB-004/MSFT test lanes; unverified). Operator: confirm source, then resume.",
+    "Executor account allowlist ***[REDACTED] excludes challenge ***598; lifecycle gate fails closed. Operator: re-provision env.",
+    "SPY/EFA breached stops need a decision: approved exit at today's 15:05 ET close fire, or explicit hold with a new r3 contract. Midday fire cannot submit.",
+    "MSFT 39 needs disposition before any adoption or sell; $0.98/share dividend receivable Dec-10.",
+    "Git push auth failed: halt flag + event pins are local commit 4bcc383 + Drive bundle only; retry at close fire.",
+    "Drawdown -3.75% vs working high-water 102,208.99 (pin needs operator confirmation); 4% soft limit approaching."
+  ],
+  "proposals": [
+    "MSFT tactical: no same-session long edge today (technical/macro/flow/sentiment/catalyst fail); watchlist empty. Waller 08:25 / Cook 12:15 ET event risk."
+  ],
+  "next_check": "17:05 UTC / 12:05 ET midday watch-and-shout (alert-only, no submissions); then 20:05 UTC / 15:05 ET close fire. Calendar's 14:05Z tyche-hourly entry is a paused schedule."
+}

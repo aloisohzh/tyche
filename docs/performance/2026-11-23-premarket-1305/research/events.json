@@ -1,0 +1,51 @@
+{
+  "proposed_at": "2026-11-23T13:45:00Z",
+  "note": "PROPOSALS ONLY - researcher never writes config/events.yaml. Desk Head validates and pins via 'tyche events add'. Kind vocabulary is macro|fomc|earnings|ipo|index (src/tyche/market_calendar.py Event); corporate-action and regulatory items below are proposed as kind=macro with the specific nature in the name - Desk Head may re-type or reject. Already pinned and NOT re-proposed: PCE price index 2026-11-25 08:30 ET and Beige Book 2026-11-25 14:00 ET (EVENTS_2026 in market_calendar.py), Nov-19 claims/PhillyFed, Nov-20 PBoC LPR (config/events.yaml). Fed speakers this week: schedule NOT verified in MCP feed - no proposal, gap recorded. quote_ipo_list_us: no universe-symbol IPO/listing in the next 14 days (nearest dated item US.YNTE Primagrove 2026-11-30, outside universe).",
+  "proposals": [
+    {
+      "date": "2026-11-25",
+      "name": "US Initial Jobless Claims 08:30 ET (prev 203K, cons 201K)",
+      "kind": "macro",
+      "time_et": "08:30",
+      "symbols": ["US.SPY", "US.QQQ", "US.IWM", "US.TLT", "US.IEF"],
+      "source": "MCP quote_economic_calendar_hot 20261125 indicatorId 294, event_time 1795613400 = 2026-11-25T13:30:00Z; https://news.moomoo.com/new-calendar/detail?show_bottom_bar=1&indicatorId=294",
+      "materiality": "Same 08:30 window as PCE/GDP; labor surprise moves Dec-hike pricing and the whole ballast; weekly Thursday release pulled to Wednesday by the Thanksgiving holiday."
+    },
+    {
+      "date": "2026-11-25",
+      "name": "US GDP QoQ 08:30 ET (prev 3.4%, cons 3.4%)",
+      "kind": "macro",
+      "time_et": "08:30",
+      "symbols": ["US.SPY", "US.QQQ", "US.IWM"],
+      "source": "MCP quote_economic_calendar_hot 20261125 indicatorId 375, event_time 1795613400; https://news.moomoo.com/new-calendar/detail?show_bottom_bar=1&indicatorId=375",
+      "materiality": "Growth-vs-hike narrative input on the same print window as PCE; a downside surprise feeds the Ackman-style 'Dec hike = policy error' recession debate (WSCN 1005344282, 2026-11-23T11:42:29Z)."
+    },
+    {
+      "date": "2026-11-24",
+      "name": "JNJ ex-dividend $1.34/share (mechanical ~0.5% open price adjustment)",
+      "kind": "macro",
+      "time_et": null,
+      "symbols": ["US.JNJ"],
+      "source": "MCP quote_corporate_actions_dividends US.JNJ: ex_date 2026/11/24, record 2026/11/24, payable 2026/12/08; Futu news.futunn.com/post/1005291326 pub 2026-11-23T01:00:01Z",
+      "materiality": "Direct price-level event for a tactical-lane symbol: any overnight JNJ hold sees a mechanical drop that can trip a synthetic stop; kind=macro used because the vocabulary has no corporate-action kind - Desk Head to validate typing."
+    },
+    {
+      "date": "2026-11-23",
+      "name": "EU opens formal antitrust investigation into Coca-Cola Europacific Partners (KO-system bottler)",
+      "kind": "macro",
+      "time_et": null,
+      "symbols": ["US.KO"],
+      "source": "WSJ news.futunn.com/post/1005341828 pub 1795431360000 = 2026-11-23T10:56:00Z",
+      "materiality": "Regulatory headline risk touching the KO brand system on a tactical-lane symbol today; indirect (CCEP is a separate listed bottler) but capable of moving KO sentiment/flow; already cited as a KO entry-rejection factor this run."
+    },
+    {
+      "date": "2026-12-04",
+      "name": "PEP ex-dividend $1.48/share (mechanical ~1.05% open price adjustment)",
+      "kind": "macro",
+      "time_et": null,
+      "symbols": ["US.PEP"],
+      "source": "DJ news.futunn.com/post/1004944185 pub 2026-11-18 (PR: payable 2027-01-06, record 2026-12-04); Futu news.futunn.com/post/1005104708 pub 2026-11-19T23:45:01Z",
+      "materiality": "Within the 14-day scan window but AFTER the challenge ends Nov-28 - pin for calendar completeness only; no in-window trade impact. Desk Head may skip."
+    }
+  ]
+}

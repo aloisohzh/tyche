@@ -1,0 +1,5 @@
+{
+  "created_at": "2026-11-19T14:53:03+00:00",
+  "change_vs_r1": "exit_deadline 2026-11-27T17:30:00Z -> 17:00:00Z ONLY (auditor F-04 mandatory; last Nov-27 RTH hourly check 12:05 ET=17:05Z detects and executes flatten 55min before 13:00 ET early close); plan_id -r2, revision 2",
+  "status": "UNAPPROVED proposal; operator must explicitly approve full exact previews/hashes (auditor F-22); r1 hashes NOT approved, superseded"
+}

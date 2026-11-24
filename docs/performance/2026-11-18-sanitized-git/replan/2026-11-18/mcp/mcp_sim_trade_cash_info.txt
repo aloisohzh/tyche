@@ -1,0 +1,1 @@
+{"ret_code":0,"ret_msg":"success","data":{"balance":"100000","hold":"0","long_mv":"0","max_power_long":"200000","mv":"0","realized_profit":null,"short_mv":"0","total_asset":"100000","unrealized_profit":null}}

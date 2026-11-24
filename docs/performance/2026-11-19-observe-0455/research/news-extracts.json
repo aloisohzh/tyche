@@ -1,0 +1,82 @@
+{
+  "_meta": "Key sourced extracts from moomoo news_search (keyword 'FOMC minutes', lang=en, fetched 2026-11-19 ~04:59 UTC). Extracts only, not full HTML bodies. publish_time converted from ms epoch to UTC. A second search ('Fed December rate hike') returned a large mixed payload persisted transiently at /tmp/tool-outputs/mcp_94b38852596a65fd60cef8a9.txt (mostly stale items; not relied on). A 'Nikkei Japan stocks' search returned only stale articles (Oct 2026 and older) — recorded as an EFA-specific coverage gap.",
+  "items": [
+    {
+      "news_id": "1004960262",
+      "source": "CFTime",
+      "publish_time_ms": 1795049859000,
+      "publish_time_utc": "2026-11-19T00:57:39Z",
+      "url": "https://news.futunn.com/post/1004960262",
+      "source_url": "https://cftime.io/bitcoin-63k-fomc-minutes-hikes-anthropic-ipo-83/",
+      "key_claims": [
+        "Fed released minutes of the Oct 27-28 FOMC meeting on Nov 18 (US time); 'almost all' participants judged further increases in the target range 'could be appropriate'; 'many' see the AI investment boom as a significant inflation-risk source (attributed to Yahoo Finance).",
+        "October meeting held rates at 3.75%-4.00%; Hammack and Cook dissented in favor of a hike.",
+        "Governor Waller, before the minutes release, argued the December meeting may need a 50bp hike; core CPI running 0.3% m/m for three months; 'Fed needs to break the psychology that 3% inflation is normal' (attributed to CoinDesk). US 2y yield +4.1bp to 4.83% early that day.",
+        "CME FedWatch: >95% priced for a 25bp hike at the Dec 9 meeting (attributed to CryptoTicker); up from ~85% the prior week.",
+        "Wednesday Nov 18: Dow -1.15% (first time since Oct 2008 with three straight sessions down >1%); S&P 500 -0.3%; Nasdaq +0.35% (attributed to CoinDesk). Gold -2.35% to $3,774/oz, 14-month low."
+      ]
+    },
+    {
+      "news_id": "1004961079",
+      "source": "Zhitong Caijing (智通财经)",
+      "publish_time_ms": 1795048627000,
+      "publish_time_utc": "2026-11-19T00:37:07Z",
+      "url": "https://news.futunn.com/post/1004961079",
+      "source_url": "https://www.zhitongcaijing.com/content/detail/1525381.html",
+      "key_claims": [
+        "Gold stabilizing near $3,730/oz after Wednesday's -3.2% drop (lowest close since Sep 2025); minutes show almost all officials see further hikes needed in coming months to return inflation to 2%.",
+        "Waller said Wednesday inflation is moving in the wrong direction and urged considering a 50bp hike in December.",
+        "Market pricing three 25bp hikes by June next year; a dollar index gauge rose 0.4% Wednesday.",
+        "Gold also caught in AI-equity selling as the post-NVDA-earnings rally faded; Wall Street volatile again."
+      ]
+    },
+    {
+      "news_id": "1004952667",
+      "source": "Jin10 (金十数据)",
+      "publish_time_ms": 1795044573000,
+      "publish_time_utc": "2026-11-18T23:29:33Z",
+      "url": "https://news.futunn.com/post/1004952667",
+      "source_url": "https://xnews.jin10.com/details/235457",
+      "key_claims": [
+        "FOMC minutes: almost all Fed officials in October judged further hikes may be needed in coming months; 'a few' policymakers said a December hike may need to be 'more than 25bp' if inflation data disappoint.",
+        "Waller: Fed needs to be more aggressive on hikes; should hike 50bp in December if not signaling a January hike.",
+        "PBoC publishes November LPR on Nov 20 at 09:15 (Beijing time).",
+        "NY Fed-side commodity wrap: WTI -3.65% to $82.87; COMEX gold -3.53% to $3,727.80."
+      ]
+    },
+    {
+      "news_id": "1004948915",
+      "source": "Fisco Japan",
+      "publish_time_ms": 1795040595000,
+      "publish_time_utc": "2026-11-18T22:23:15Z",
+      "url": "https://news.futunn.com/post/1004948915",
+      "source_url": "https://web.fisco.jp/",
+      "key_claims": [
+        "Minutes of the Oct 27-28 meeting: 'almost all' members saw further action at the next meeting as appropriate; two officials argued for defending a hike of 25bp or MORE at the December FOMC; Hammack and Cook supported hiking.",
+        "Waller (CNBC interview on the 18th): inflation moving in the wrong direction, broadening; Fed should consider 50bp in December; his threshold for a large hike was core inflation 0.3% m/m.",
+        "October CPI came in above expectations, strengthening the case for a 50bp discussion.",
+        "Several officials supported holding but called the decision 'finely balanced'; staff warned of significant risk of disorderly rise in 5-year inflation expectations.",
+        "Overall hawkish; short-term markets fully price a December hike; focus shifts to hike size; dollar likely to stay firm.",
+        "NOTE: this article's opening sentence contains an internally inconsistent date ('Oct 27 published minutes of Oct 28 meeting') — treated as a translation typo; release date Nov 18 per CFTime/Jin10."
+      ]
+    },
+    {
+      "news_id": "1004946744",
+      "source": "Fisco Japan",
+      "publish_time_ms": 1795038667000,
+      "publish_time_utc": "2026-11-18T21:51:07Z",
+      "url": "https://news.futunn.com/post/1004946744",
+      "source_url": "https://web.fisco.jp/",
+      "key_claims": [
+        "NY Nov 18 close: Dow 50,198.17 (-561.25); Nasdaq 24,429.89 (+101.51). NVDA earnings well received, easing AI worries and lifting tech; UNH/healthcare dragged the Dow; hawkish minutes + Waller 50bp remarks kept the Dow under pressure all day.",
+        "FX Nov 18 NY close: USDJPY 159.35 (range 159.13-159.48); EURUSD 1.0973; GBPUSD 1.3147; EURJPY 174.85.",
+        "Eurozone October final CPI +4.0% y/y, as expected (London session data).",
+        "UK inflation easing cooled BoE hike expectations; sterling sold off. BoE Bailey: growth improving; longer Middle East conflict lasts, the more rates need to stay high.",
+        "US rates Nov 18 close: 2y 4.803%, 10y 5.067%, 30y 5.410%.",
+        "US Oct housing starts 1.309M (consensus 1.25M); building permits 1.295M (consensus 1.375M); pending home sales -4.7% m/m (consensus -2.0%).",
+        "SF Fed Daly: labor market stable but little growth momentum; inflation too high for a long time; policy supports a cautious approach.",
+        "FOMC minutes quotes: 'almost all' see further action appropriate; two policymakers argued for >25bp in December; many see AI diffusion as an important upside inflation risk; most see inflation pressures broadening."
+      ]
+    }
+  ]
+}

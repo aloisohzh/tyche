@@ -1,0 +1,1 @@
+capture2 batch: parallel MCP reads issued 2026-11-19T15:17:41.672Z (pre-call clock); exchange quote stamps 1795101473488-1795101475031 ms = 15:17:53.488Z-15:17:55.031Z; observed_at used = 2026-11-19T15:17:41Z (conservative oldest)

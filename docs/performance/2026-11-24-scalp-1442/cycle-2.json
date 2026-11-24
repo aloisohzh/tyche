@@ -1,0 +1,34 @@
+{
+  "as_of": "2026-11-24T15:17:54.808666+00:00",
+  "strategy": "PB-004",
+  "orders": [],
+  "decisions": [
+    {
+      "symbol": "US.NVDA",
+      "action": "wait",
+      "reason": "no 5-bar breakout"
+    },
+    {
+      "symbol": "US.AMD",
+      "action": "wait",
+      "reason": "no 5-bar breakout"
+    },
+    {
+      "symbol": "US.AVGO",
+      "action": "wait",
+      "reason": "no 5-bar breakout"
+    },
+    {
+      "symbol": "US.MU",
+      "action": "wait",
+      "reason": "no 5-bar breakout"
+    },
+    {
+      "symbol": "US.SMH",
+      "action": "wait",
+      "reason": "no 5-bar breakout"
+    }
+  ],
+  "alerts": [],
+  "submitted": false
+}

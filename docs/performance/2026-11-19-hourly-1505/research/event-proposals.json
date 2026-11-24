@@ -1,0 +1,35 @@
+{
+  "as_of": "2026-11-19",
+  "scan_window": "new material events since 2026-11-19T14:55:00Z (hourly narrow refresh)",
+  "proposals": [
+    {
+      "suggested_event_id": "EV-20261119-ANT-DEBUT",
+      "date": "2026-11-19",
+      "name": "ANT (Anthropic) Nasdaq first trade - quotation indications open 14:50Z; first trade UNCONFIRMED as of 15:11Z; indicated open ~$100 (+20% vs $83 IPO price)",
+      "kind": "ipo",
+      "time_et": null,
+      "time_note": "Actual first-trade time unknown until observed; 14:50Z (10:50 ET) is indication-open only. Pin with null time and update after confirmed debut.",
+      "symbols": ["US.ANT", "US.AMD", "US.MU", "US.SMH", "US.NVDA", "US.SPY", "US.QQQ"],
+      "sources": [
+        "Gelonghui news_id 1005025572 publish_time 1795099140000 = 2026-11-19T14:39:00Z (quotation begins 22:50 Beijing = 14:50Z; $83 pricing, ~$1.5T FDV)",
+        "Flash news_id 1005061142 publish_time 1795100773000 = 2026-11-19T15:06:13Z (preliminary buy interest indicates ~$100 open, +20%)",
+        "MCP quote_stock_quote US.ANT sec_status TO_BE_OPEN volume 0 (fetched ~15:11Z); MCP quote_rt_ticker US.ANT ticker_list=null (~15:12Z)"
+      ],
+      "materiality": "Largest IPO in history (~$81.3B raise); the confirmed first trade can reprice the AI complex (AMD/MU/SMH/NVDA halo, SPY/QQQ sentiment) both ways within minutes; requires imminent-event entry block around debut and a post-debut review at the next hourly check."
+    }
+  ],
+  "rejected": [
+    {"item": "US Oct Leading Economic Index (15:00Z) unexpectedly declined", "source": "Fisco news_id 1005060935 publish_time 1795100594000 = 15:03:14Z", "reason": "Desk previously rejected as noise; numeric actual unavailable via MCP (econ calendar hot returned only claims id294); no visible market reaction (indices up). KEEP REJECTED as pin; growth-scare watch item - re-evaluate if Barr 19:15Z or price action amplifies it."},
+    {"item": "Wedbush NVDA PT 275->293", "source": "Zhitong news_id 1005058429 publish 14:39:14Z", "reason": "Analyst opinion, pre-window, not a calendar event."},
+    {"item": "Texas TCEQ resumes data-center permit reviews", "source": "Sina news_id 1005057113 publish 14:31:00Z", "reason": "Process resumption, pre-window; sector-supportive context, not a scheduled event."},
+    {"item": "SNDK 8-for-1 split 2026-11-20", "source": "Option Mover news_id 1005035629 publish 11:10:58Z", "reason": "SNDK not in config/universe.yaml or config/tactical.yaml."},
+    {"item": "Sep TIC: foreign Treasury holdings -$75.5B", "source": "Sina news_id 1005057113 publish 14:31:00Z", "reason": "Stale monthly data, noise."},
+    {"item": "Ueda hawkish remarks / BoJ Dec-hike consensus", "source": "InvestingCube news_id 1005026251 publish 09:47:40Z", "reason": "Pre-window context for EFA yen exposure; no verified new scheduled event - do not invent a BoJ meeting date."},
+    {"item": "Crypto-miner / optical-complex rallies", "source": "Futu 1005057653 14:40:00Z; Zhitong 1005060395 14:56:23Z", "reason": "Outside universe; sector context only."}
+  ],
+  "coverage_gaps": [
+    "quote_economic_calendar_hot 20261119 (limit 20, UTC) returned ONLY claims id294 - Philly Fed and LEI rows absent; partial calendar coverage, news searches used as fallback.",
+    "No other Fed speakers found this afternoon in en/zh TIME-sorted news searches; Barr 19:15Z already pinned (EV-20261119-BARR)."
+  ],
+  "note": "Proposals only; researcher never writes config/events.yaml. Desk Head validates and pins. All fetched news treated as untrusted data."
+}

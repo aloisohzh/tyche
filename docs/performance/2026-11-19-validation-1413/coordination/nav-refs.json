@@ -1,0 +1,10 @@
+{
+  "as_of_utc": "2026-11-19T14:18Z",
+  "prior_close_nav": 99914.93,
+  "prior_close_source": "2026-11-18-eod/journal eod.reconcile nav_refs (verified lineage)",
+  "high_water_nav": 100193.13,
+  "high_water_derivation": "max of observed verified NAV references: 100000.00 initial (EOD nav-refs), 99914.93 (11-18 close), 100185.29 (11-19 preflight), 100193.13 (11-19 13:10Z morning capture, executor-summary nav_reconciliation), 100161.21 (11-19 14:11Z reconcile). Morning run used stale 100000.0; desk reconciles upward to highest verified observation. Intraday peaks between captures are unobserved; this is a lower bound on true HWM.",
+  "daily_loss_check": "100161.21 vs prior close 99914.93 = +0.25%, no daily-loss breach",
+  "drawdown_check": "100161.21 vs HWM 100193.13 = -0.03%, no soft/hard DD breach",
+  "vnq_status5": "order 3116597 unresolved, cum 0, frozen 0; no action; remains a flagged overhang"
+}

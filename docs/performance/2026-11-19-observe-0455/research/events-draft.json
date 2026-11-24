@@ -1,0 +1,90 @@
+[
+  {
+    "event_id": "EVT-20261118-FOMC-MINUTES",
+    "at": "2026-11-18T19:00:00+00:00",
+    "source": "CFTime 2026-11-19T00:57:39Z https://news.futunn.com/post/1004960262 ; Jin10 2026-11-18T23:29:33Z https://news.futunn.com/post/1004952667 ; Fisco 2026-11-18T22:23:15Z https://news.futunn.com/post/1004948915 . Release clock time 14:00 ET per desk directive; exact release minute not independently sourced this run.",
+    "summary": "Minutes of the Oct 27-28 FOMC (rates held 3.75%-4.00%, Hammack/Cook dissenting for a hike) released Nov 18: 'almost all' participants saw further rate increases as potentially appropriate; 'a few'/'two' officials argued a December hike of more than 25bp could be warranted if inflation stays hot; many flagged AI investment as an upside inflation risk; staff warned of disorderly inflation-expectations risk. Hawkish tone confirmed by multiple timestamped sources.",
+    "symbols": ["US.SPY", "US.EFA"],
+    "material": true
+  },
+  {
+    "event_id": "EVT-20261118-WALLER-50BP",
+    "at": "2026-11-18T00:00:00+00:00",
+    "source": "Fisco 2026-11-18T21:51:07Z and 22:23:15Z https://news.futunn.com/post/1004946744 , https://news.futunn.com/post/1004948915 ; Jin10 2026-11-18T23:29:33Z https://news.futunn.com/post/1004952667 . Date-only marker: intraday interview time not sourced.",
+    "summary": "Fed Governor Waller (CNBC, Nov 18): inflation moving in the wrong direction and broadening; Fed should consider a 50bp hike in December if not signaling a January hike; core CPI at 0.3% m/m for three months meets his large-hike threshold.",
+    "symbols": ["US.SPY", "US.EFA"],
+    "material": true
+  },
+  {
+    "event_id": "EVT-20261118-FEDWATCH-DEC-ODDS",
+    "at": "2026-11-19T00:57:39+00:00",
+    "source": "CFTime 2026-11-19T00:57:39Z https://news.futunn.com/post/1004960262 (attributing CME FedWatch via CryptoTicker); Zhitong 2026-11-19T00:37:07Z https://news.futunn.com/post/1004961079 . Observation time = source publication time; no direct CME access this run.",
+    "summary": "CME FedWatch pricing >95% for a 25bp HIKE at the Dec 9 FOMC (up from ~85% a week earlier); 50bp is a discussed tail, not the base case. Zhitong: market prices three 25bp hikes by June 2027. Desk context of ~96% is consistent with the sourced >95%.",
+    "symbols": ["US.SPY", "US.EFA"],
+    "material": true
+  },
+  {
+    "event_id": "EVT-20261118-NVDA-EARNINGS-TECH",
+    "at": "2026-11-18T00:00:00+00:00",
+    "source": "Fisco NY wrap 2026-11-18T21:51:07Z https://news.futunn.com/post/1004946744 ; CFTime 2026-11-19T00:57:39Z https://news.futunn.com/post/1004960262 . Date-only marker: exact earnings release timestamp not sourced this run.",
+    "summary": "NVDA earnings well received; tech rebounded Nov 18 (Nasdaq +0.35%, 24,429.89) while Dow fell 1.15% to 50,198.17 (third straight >1% drop, first since Oct 2008) and S&P 500 fell ~0.3%. Post-earnings rally later faded per Zhitong. Index-sentiment input for SPY.",
+    "symbols": ["US.SPY"],
+    "material": true
+  },
+  {
+    "event_id": "EVT-20261118-EZ-UK-INFLATION",
+    "at": "2026-11-18T21:51:07+00:00",
+    "source": "Fisco London/NY wrap 2026-11-18T21:51:07Z https://news.futunn.com/post/1004946744 (report time; underlying EZ CPI release earlier Nov 18 London session).",
+    "summary": "Eurozone October final CPI +4.0% y/y, in line with expectations. UK inflation easing cooled BoE hike expectations; sterling sold off (GBPUSD 1.3147 NY close). BoE Bailey: growth improving but rates may need to stay high if the Middle East conflict persists. Regional macro inputs for EFA (Europe weight).",
+    "symbols": ["US.EFA"],
+    "material": true
+  },
+  {
+    "event_id": "EVT-20261118-USD-STRENGTH",
+    "at": "2026-11-18T21:51:07+00:00",
+    "source": "Fisco 2026-11-18T21:51:07Z https://news.futunn.com/post/1004946744 ; Zhitong 2026-11-19T00:37:07Z https://news.futunn.com/post/1004961079 .",
+    "summary": "Dollar firm on hawkish Fed: dollar index gauge +0.4% Wednesday; USDJPY NY close 159.35; EURUSD 1.0973. UST closes Nov 18: 2y 4.803%, 10y 5.067%, 30y 5.410%. USD strength is a direct headwind to USD-denominated EFA returns (Europe/Japan holdings).",
+    "symbols": ["US.EFA", "US.SPY"],
+    "material": true
+  },
+  {
+    "event_id": "EVT-20261119-JOBLESS-CLAIMS-0830",
+    "at": "2026-11-19T13:30:00+00:00",
+    "source": "moomoo quote_economic_calendar_hot date=20261119, indicatorId=294, event_time=1795095000 (raw-calendar-hot.json), fetched 2026-11-19T04:59Z. SCHEDULED, not yet released.",
+    "summary": "US Initial Jobless Claims 08:30 ET: consensus 198K, previous 200K, importance 3/3. First macro print of the Nov 19 session; a hot labor print reinforces the hike path.",
+    "symbols": ["US.SPY", "US.EFA"],
+    "material": true
+  },
+  {
+    "event_id": "EVT-20261120-CHINA-LPR",
+    "at": "2026-11-20T01:15:00+00:00",
+    "source": "Jin10 2026-11-18T23:29:33Z https://news.futunn.com/post/1004952667 (Nov 20 09:15 Beijing time). SCHEDULED.",
+    "summary": "PBoC November Loan Prime Rate fixing. EAFE index excludes China A-shares; indirect global-sentiment relevance only — marked non-material for these holdings.",
+    "symbols": ["US.SPY", "US.EFA"],
+    "material": false
+  },
+  {
+    "event_id": "EVT-20261125-PCE-GDP-0830",
+    "at": "2026-11-25T13:30:00+00:00",
+    "source": "moomoo quote_economic_calendar_hot date=20261125, indicatorIds 905/294/375, event_time=1795613400 (raw-calendar-hot.json), fetched 2026-11-19T05:02Z. SCHEDULED.",
+    "summary": "US 08:30 ET triple release Wed Nov 25 (day before Thanksgiving): Core PCE Price Index YoY (previous 3.1%), Initial Jobless Claims, and GDP QoQ (consensus 3.4%, previous 2.2%); all importance 3/3. Largest scheduled macro risk inside the holding window; a hot Core PCE would strengthen the December 50bp tail.",
+    "symbols": ["US.SPY", "US.EFA"],
+    "material": true
+  },
+  {
+    "event_id": "EVT-20261126-THANKSGIVING-CLOSED",
+    "at": "2026-11-26T00:00:00+00:00",
+    "source": "Desk challenge calendar directive (delegation 2026-11-19T04:58Z). Session schedule, not news.",
+    "summary": "US market closed for Thanksgiving Thu Nov 26; no hourly RTH checks that day. Nov 25 PCE/GDP is the last major data before the holiday gap.",
+    "symbols": ["US.SPY", "US.EFA"],
+    "material": true
+  },
+  {
+    "event_id": "EVT-20261127-EARLY-CLOSE",
+    "at": "2026-11-27T18:00:00+00:00",
+    "source": "Desk challenge calendar directive (delegation 2026-11-19T04:58Z): challenge ends Fri 2026-11-27 with 13:00 ET early close; last scheduled hourly RTH check 12:05 ET.",
+    "summary": "Challenge final day: RTH closes 13:00 ET (18:00 UTC). Last scheduled hourly RTH check 12:05 ET — exit_deadline for both adoption plans is set to 2026-11-27T12:05:00-05:00 accordingly.",
+    "symbols": ["US.SPY", "US.EFA"],
+    "material": true
+  }
+]

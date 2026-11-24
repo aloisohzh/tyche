@@ -1,0 +1,14 @@
+{
+  "decided_at_utc": "2026-11-19T14:45Z",
+  "decision": "ABANDON item 3 drill - zero orders, zero reservations, zero tactical ticks recorded",
+  "blockers": [
+    "PRIMARY: TYCHE_ALLOWED_ACCOUNT_IDS missing in desk AND executor session environments (probed 14:10:12Z); config allowlist resolves to demo placeholders; plan_tick account verification and tactical reserve cannot pass; operator restoration not received by 14:44Z decision point",
+    "TIMING: at 14:44Z the minimum sequence (fresh executor spawn+probe ~2min, consolidated-book re-capture, tick1, >=10min gap, tick2, exact-hash audit <=120s window, reserve, submit <=30s) cannot complete before the 14:58Z hard write cutoff with safe margins",
+    "SECONDARY: MCP order books returned dual per-exchange shape (NASDAQ+ARCA); normalize_quotes requires one verified consolidated book - re-capture needed",
+    "SECONDARY: git push credentials absent in session (push --dry-run auth failure)"
+  ],
+  "gate_state": "execution_enabled was flipped true in working tree ~14:15Z but NEVER committed; reverted uncommitted edit 14:45Z; git HEAD config remains execution_enabled: false throughout; no restore commit needed",
+  "journal_state": "no tactical.monitor/order.requested events written; journal head unchanged cf2ab0696436b0b669519a050c9639c8a3c15b0c4e88cc26a7bff48bbfc163c1 (15 events)",
+  "candidate_evidence": "AMD last 540.64 in zone 538.00-543.50 (bid 540.71/ask 541.00) at 14:30:53Z; MU 735.025 in zone; SMH 1-share ~472 < min_order_notional 500 non-viable; watchlist published with AMD max_quantity=1 (research working copy only, not authorization)",
+  "measured_latency": "executor env probe->block report ~1min; desk->executor message relay observed ~1-2min; auditor pre-review still pending at 14:45Z (>20min from delegation) - child round-trip latency alone would jeopardize the 120s audit window without the file-handshake design"
+}

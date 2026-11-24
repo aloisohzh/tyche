@@ -1,0 +1,24 @@
+{
+  "as_of_utc": "2026-11-19T15:20:30Z",
+  "desk": "tyche-desk hourly-1505",
+  "proposals_reviewed": [
+    {
+      "id": "EV-20261119-ANT-DEBUT",
+      "decision": "PINNED",
+      "detail": "First trade UNCONFIRMED (MCP US.ANT TO_BE_OPEN, vol 0, rt_ticker null ~15:11Z); 14:50Z was indication-open only (~$100 vs $83 IPO, flash 15:06:13Z). Static calendar anchor 'Anthropic (ANT) Nasdaq IPO debut' already existed; added symbol-scoped events.yaml pin (US.ANT AMD MU SMH NVDA SPY QQQ, time_et null until observed). Imminent-event entry block applies around confirmed debut; tactical lane lacks code-level imminence gate (F-14) so desk/executor must impose it. Goes into lifecycle book as MarketEvent; reviews must acknowledge.",
+      "sources": "researcher event-proposals.json: Gelonghui 1005025572 14:39:00Z; MCP quote ~15:11Z; flash 15:06:13Z"
+    },
+    {
+      "id": "EV-20261119-BARR",
+      "decision": "RE-PINNED",
+      "detail": "Book claimed config/events.yaml pin 14:35:19Z but current events.yaml had no Barr entry (git clean; lost in the 14:45Z config revert that also reverted the execution_enabled flip, F-12). Re-pinned from desk-verified AASTOCKS NOW.1555643 (publish 12:32:30Z), time_et 14:15. Calendar merge verified: 5 events today, event_caution=true, max_orders=1."
+    }
+  ],
+  "rejected_noise": [
+    "Oct LEI decline (Fisco 15:03:14Z): numeric value unavailable via MCP, prior desk rejection stands; growth-scare watch item into Barr 19:15Z",
+    "Wedbush NVDA PT raise: analyst opinion, no scheduled catalyst",
+    "TCEQ permits, TIC flows, Ueda remarks: no plausible universe price/flow impact",
+    "SNDK split: non-universe"
+  ],
+  "calendar_after": {"events_today": 5, "event_caution": true, "max_orders": 1}
+}

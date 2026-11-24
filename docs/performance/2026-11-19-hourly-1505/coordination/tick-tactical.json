@@ -1,0 +1,54 @@
+{
+  "checked_at_utc": "2026-11-19T15:19:30Z",
+  "mode": "read-only inspection; NO reserve, NO --record, NO submission",
+  "tactical_tick_executed": false,
+  "capture_attempt": {
+    "command": "tyche tactical capture --dir R/mcp --account-id ***598 --prior-close-nav 99914.93 --high-water-nav 100193.13",
+    "exit_code": 1,
+    "result": {"ok": false, "reason": "no verified two-sided quotes", "submitted": false},
+    "artifact": "R/coordination/tactical-capture-attempt.json"
+  },
+  "global_blockers": [
+    "execution_gate_enabled=false (tactical rollout gate; operator envelopes, durable-writer proof, option drill, cadence validation still open)",
+    "quote_order_book tool NOT registered in this executor session; no book-*.json could be captured, so tactical capture cannot verify two-sided executable quotes (<=5% option / <=0.3% stock spread checks impossible). No books were fabricated and stale books from validation-1413 were NOT reused.",
+    "No same-ET-day operator entry+exit envelope and no fresh independent exact-order Audit exist for any setup (R/audit/ empty).",
+    "event_caution=true (halve size/count) and calendar max_orders=1; Anthropic (ANT) IPO debut today is an imminent material event for the AI/semiconductor complex.",
+    "No news tool coverage in this session: news_feed_ok=false; fresh post-event revalidation cannot be evidenced by executor. Research watchlist is UNAPPROVED scout output.",
+    "NO SUBMISSIONS THIS HOUR per delegation regardless of the above."
+  ],
+  "quote_observation_batch1": {
+    "source": "quote_stock_quote (last prices only, NOT executable two-sided quotes)",
+    "exchange_stamps_utc": {"US.AMD": "2026-11-19T15:11:40.138Z", "US.MU": "2026-11-19T15:11:40.959Z", "US.SMH": "2026-11-19T15:11:38.983Z"},
+    "age_note": "These stamps are >60s old at any later tick and were never executable; observation only."
+  },
+  "setups": [
+    {
+      "setup_id": "TAC-20261119-AMD-L1",
+      "symbol": "US.AMD",
+      "entry_band": [538.0, 543.5], "stop": 535.0, "target": 556.5, "exit_at": "2026-11-19T20:05:00Z",
+      "last_observed": 540.11,
+      "band_status": "inside band at 15:11:40Z observation (reference only)",
+      "decision": "BLOCKED",
+      "reasons": ["gate disabled", "no operator envelope/audit", "no two-sided book capture (tool absent)", "event caution + ANT debut imminence", "no fresh executor-verifiable post-event review"]
+    },
+    {
+      "setup_id": "TAC-20261119-MU-L1",
+      "symbol": "US.MU",
+      "entry_band": [728.5, 740.0], "stop": 728.0, "target": 758.5, "exit_at": "2026-11-19T20:05:00Z",
+      "last_observed": 754.5005,
+      "band_status": "ABOVE entry_high 740.0 (and within 0.53% of target 758.5); chasing not permitted",
+      "decision": "BLOCKED",
+      "reasons": ["price outside entry band", "gate disabled", "no operator envelope/audit", "no two-sided book capture (tool absent)", "event caution + ANT debut imminence"]
+    },
+    {
+      "setup_id": "TAC-20261119-SMH-L1",
+      "symbol": "US.SMH",
+      "entry_band": [469.5, 474.0], "stop": 466.0, "target": 486.5, "exit_at": "2026-11-19T20:05:00Z",
+      "last_observed": 476.56,
+      "band_status": "ABOVE entry_high 474.0; chasing not permitted",
+      "decision": "BLOCKED",
+      "reasons": ["price outside entry band", "gate disabled", "no operator envelope/audit", "no two-sided book capture (tool absent)", "event caution + ANT debut imminence"]
+    }
+  ],
+  "submitted": false
+}

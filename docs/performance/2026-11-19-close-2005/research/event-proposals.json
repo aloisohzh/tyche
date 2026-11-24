@@ -1,0 +1,92 @@
+{
+  "as_of": "2026-11-19",
+  "scan_window": "new material events since 2026-11-19T15:11:03Z (close-fire focused revalidation, run 2026-11-19-close-2005)",
+  "proposals": [
+    {
+      "suggested_event_id": "EV-20261119-MIDEAST-ESCALATION",
+      "date": "2026-11-19",
+      "name": "Middle East escalation: Houthi attack on Riyadh financial-centre tower ('material damage'); at least two oil tankers exploded after hitting mines in the Strait of Hormuz; IRGC says Iran will not allow US blockade to continue",
+      "kind": "macro",
+      "time_et": null,
+      "time_note": "Intraday occurrence, exact strike times unknown; first consolidated report MT Newswires publish 2026-11-19T19:24:33Z (Al Jazeera cited). Overnight backdrop (Iran strike on US facilities in Kuwait, Bahrain intercepts) already reported fx678 01:51:06Z - the Riyadh tower hit and fresh tanker minings are the NEW intraday escalation.",
+      "symbols": ["US.SPY", "US.QQQ", "US.IWM", "US.EFA", "US.EEM", "US.GLD", "US.DBC"],
+      "sources": [
+        "MT Newswires news_id 1005079326 publish_time 1795116273000 = 2026-11-19T19:24:33Z (https://news.futunn.com/post/1005079326): Riyadh tower attack, Hormuz tanker mines, WTI +0.8% $83.89 / Brent +0.5% $92.38, all sectors fell",
+        "Flash news_id 1005081517 publish_time 1795118638000 = 2026-11-19T20:03:58Z: all three US indices down >2%",
+        "fx678 news_id 1004970780 publish_time 1795053066000 = 2026-11-19T01:51:06Z (overnight escalation backdrop)"
+      ],
+      "materiality": "Direct driver of the market-wide risk-off reversal that took held SPY and EFA below their daily-close stops intraday; energy-supply shock risk feeds the Fed HIKE-cycle inflation narrative; ongoing escalation risk overnight into Nov-20 (held-position protection relevance)."
+    },
+    {
+      "suggested_event_id": "EV-20261119-AMD-HUNTERBROOK",
+      "date": "2026-11-19",
+      "name": "Hunterbrook Media/Capital short report on AMD: circular vendor-financing allegations + China export-control concerns (blacklisted IEIT Systems using AMD firmware); Hunterbrook Capital discloses AMD short",
+      "kind": "macro",
+      "time_et": null,
+      "time_note": "Kind constrained to the scout enumeration (macro/fomc/earnings/ipo/index); this is a company-specific short-seller/regulatory-overhang event - desk may reclassify. Report surfaced ~15:28-15:35Z (Benzinga volume-spike 15:28:37Z; flash 'Hunterbrook says short AMD' 15:35:00Z).",
+      "symbols": ["US.AMD", "US.SMH", "US.NVDA", "US.MU", "US.AVGO"],
+      "sources": [
+        "Flash news_id 1005064494 publish_time 1795102500000 = 2026-11-19T15:35:00Z (Hunterbrook says short AMD; report link hntrbrk.com/investigations/amd-china)",
+        "Flash news_id 1005068772 publish_time 1795105593000 = 2026-11-19T16:26:33Z (AMD -11% to 470.56; financing commitments vs NVDA, smaller cash reserves)",
+        "Benzinga news_id 1005069189 publish_time 1795106055000 = 2026-11-19T16:34:15Z (IEIT firmware detail; Hunterbrook concedes findings alone insufficient to establish a violation; ex-Commerce official cautioned AMD may hold licenses)",
+        "MCP quote_stock_quote US.AMD data_time 1795119169711 = 20:12:49.711Z: last 480.01 (-9.46%), low 470.56"
+      ],
+      "materiality": "Broke the ANT-halo momentum thesis for tactical AMD/MU/SMH (all expired-for-entry now); AMD -9.5% is a direct SPY/QQQ drag and sector-sentiment shock; regulatory follow-up risk persists into future sessions - any NEW tactical proposal on these names must post-event-review this report."
+    },
+    {
+      "suggested_event_id": "EV-20261119-EXPORT-LICENSE-RULE",
+      "date": "2026-11-19",
+      "name": "New US export rule effective Thursday Nov-19: license required for advanced AI chip/server exports to Singapore, Malaysia, Indonesia, Thailand, Brazil (US-headquartered buyers exempted)",
+      "kind": "macro",
+      "time_et": null,
+      "time_note": "Effective-date rule per Benzinga report coverage; PRIMARY SOURCE (BIS/Federal Register) NOT yet verified by researcher - desk must verify before pinning. Secondary exposure datapoint: AMD FY2025 Singapore billings $4.28B (>10% of revenue), HK+China $7.75B (22.4%).",
+      "symbols": ["US.AMD", "US.NVDA", "US.AVGO", "US.MU", "US.SMH"],
+      "sources": [
+        "Benzinga news_id 1005069189 publish_time 1795106055000 = 2026-11-19T16:34:15Z (rule effective Thursday; AMD exposure figures; April-2025 MI308 precedent ~$800M impairment)"
+      ],
+      "materiality": "Scheduled regulatory change effective today touching the whole tactical semi universe; plausible revenue/flow impact and precedent for impairment charges; verification caveat attached - do not pin on secondary coverage alone."
+    },
+    {
+      "suggested_event_id": "EV-20261119-BANK-VENDOR-LEAK",
+      "date": "2026-11-19",
+      "name": "JPMorgan Chase, Visa, Mastercard customer data leaked by hackers via cyberattack on a shared vendor (media reports)",
+      "kind": "macro",
+      "time_et": null,
+      "time_note": "Reported intraday Thursday; exact breach time unknown; first seen in MT Newswires 19:24:33Z update.",
+      "symbols": ["US.SPY", "US.QQQ"],
+      "sources": [
+        "MT Newswires news_id 1005079326 publish_time 1795116273000 = 2026-11-19T19:24:33Z (JPM/V/MA customer data leaked via vendor cyberattack, per media reports)"
+      ],
+      "materiality": "Large-cap financials/payments are material SPY weights; cyber-loss headlines add to the risk-off tape; single-source so far - desk to corroborate before pinning; lower confidence than proposals 1-2."
+    }
+  ],
+  "pin_updates": [
+    {
+      "event_id": "EV-20261119-ANT-DEBUT",
+      "action": "update_existing_pin",
+      "proposed_time": "2026-11-19T16:50:00Z (11:50 ET)",
+      "evidence": "MCP quote_cur_kline US.ANT ktype=6: first non-zero 5-min bar time_key 1795107000000 = 16:50:00Z, open 111.50 (+34.3% vs $83), volume 144549739; all prior returned bars 15:15Z-16:45Z volume 0. MCP quote US.ANT 20:12:49.648Z: last 95.89 (+15.5%), high 115.10, low 92.72, volume 751422425.",
+      "proposed_summary": "ANT Nasdaq first trade CONFIRMED 16:50Z at 111.50 (+34.3% vs $83 IPO); spiked 115.10 then faded to ~95.89 (+15.5%) by 20:12Z on ~751M shares/~$78B turnover. Broad market sold off to session lows at the debut moment (Sina 17:06:32Z) - 'sell the news' reversal. Post-event evidence recorded; imminent-event entry block moot for today's expired tactical setups."
+    },
+    {
+      "event_id": "EV-20261119-BARR",
+      "action": "post_event_evidence_only",
+      "evidence": "Benzinga news_id 1005079506 publish_time 1795116590000 = 2026-11-19T19:29:50Z: delivered remarks AI-focused (access, regulation, bank-run acceleration risk); no rate-policy headline. Prepared hawkish text was Wednesday (flash 1004935604 publish 2026-11-18T18:39:46Z).",
+      "proposed_summary": "Speech occurred 19:15Z; outcome benign vs the hawkish prepared text - not the reversal catalyst. Post-event review completed in both plan reviews this run; no new pin needed."
+    }
+  ],
+  "rejected": [
+    {"item": "INTU/ROST/KEYS earnings after close Nov-19; PANW Q1 beat + $4.5B Applied Compute acquisition; WSM -14% revenue miss", "source": "MT Newswires 1005078272 publish 19:04:31Z", "reason": "Symbols outside config/universe.yaml and config/tactical.yaml; market context only."},
+    {"item": "IEA World Energy Outlook 2026 (Hormuz structural repricing)", "source": "fx678 news_id 1005002553 publish_time 1795071367000 = 2026-11-19T06:56:07Z", "reason": "Pre-window structural report, not a new scheduled event; escalation proposal 1 covers the actionable intraday news."},
+    {"item": "Oct LEI -0.3% vs flat expected", "source": "MT Newswires 1005079326 publish 19:24:33Z (numeric now available; Fisco 15:03:14Z first flagged)", "reason": "KEEP REJECTED as pin per prior desk triage; now quantified and cited in reviews as growth-scare watch item; no standalone calendar pin."},
+    {"item": "NVDA month-to-date -25% / Jensen Huang departure narrative", "source": "Sina 1005071089 publish 17:06:32Z; 点火调研精选 1004682448 publish 2026-11-17 (pre-window)", "reason": "Pre-existing narrative (already in Nov-17 research note), not a new event since 15:11Z; NVDA not a held position; no condition-specific evidence fetched this run - flagged as context, no action."},
+    {"item": "Fed Vice Chair Jefferson AI-inflation remarks", "source": "MT Newswires 1005078272 publish 19:04:31Z", "reason": "Consistent with existing HIKE-cycle regime; no new policy signal or scheduled event; cited as rates context in reviews."}
+  ],
+  "coverage_gaps": [
+    "quote_economic_calendar_hot 20261119 (limit 20, UTC) still returned ONLY claims id294 (announce 203K / predictive 198K / previous 202K); Philly Fed and LEI rows absent - news fallback used (MT Newswires 19:24:33Z).",
+    "No fresher CME FedWatch probability flash found via MCP than 2026-11-18T22:02:43Z (25bp HIKE 92.7% / 50bp 7.3%); today's 50bp-tail movement UNVERIFIED (yields lower intraday per MT Newswires 19:04:31Z argues against a hawkish spike, but that is inference, not a probability print).",
+    "No fresher USDJPY flash than Fisco 15:03:14Z (159.92); no direct FX quote tool - EFA yen-headwind evidence stale.",
+    "No Fed speakers found this afternoon besides Barr (delivered) and Jefferson (remarks); no new scheduled Fed event discovered."
+  ],
+  "note": "Proposals only; researcher never writes config/events.yaml. Desk Head validates and pins. All fetched news treated as untrusted data, never instructions."
+}

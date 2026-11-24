@@ -1,0 +1,18 @@
+{"observed_reads": [
+  {"tool": "sim_trade_cash_info", "acc_id_masked": "[REDACTED]", "at_utc": "2026-11-23T20:26:25Z", "payload": {"ret_code": -5, "ret_msg": "backend business error", "error": {"code": "backend_biz_error", "message": "backend business error"}}},
+  {"tool": "sim_trade_cash_info", "acc_id_masked": "[REDACTED]", "at_utc": "2026-11-23T20:26:40Z", "payload": {"ret_code": -5, "ret_msg": "backend business error", "error": {"code": "backend_biz_error", "message": "backend business error"}}},
+  {"tool": "sim_trade_cash_info", "acc_id_masked": "[REDACTED]", "at_utc": "2026-11-23T20:27:00Z", "payload": {"ret_code": -5, "ret_msg": "backend business error", "error": {"code": "backend_biz_error", "message": "backend business error"}}},
+  {"tool": "sim_trade_cash_info", "acc_id_masked": "[REDACTED]", "at_utc": "2026-11-23T20:29:11Z", "payload": {"ret_code": -5, "ret_msg": "backend business error", "error": {"code": "backend_biz_error", "message": "backend business error"}}},
+  {"tool": "sim_trade_position_list", "acc_id_masked": "[REDACTED]", "market": 100, "at_utc": "2026-11-23T20:26:25Z", "payload": {"ret_code": 0, "ret_msg": "success", "data": {"positions": []}}},
+  {"tool": "sim_trade_position_list", "acc_id_masked": "[REDACTED]", "market": 100, "at_utc": "2026-11-23T20:26:40Z", "payload": {"ret_code": 0, "ret_msg": "success", "data": {"positions": []}}},
+  {"tool": "sim_trade_position_list", "acc_id_masked": "[REDACTED]", "market": 100, "at_utc": "2026-11-23T20:27:00Z", "payload": {"ret_code": 0, "ret_msg": "success", "data": {"positions": []}}},
+  {"tool": "sim_trade_position_list", "acc_id_masked": "[REDACTED]", "market": 100, "at_utc": "2026-11-23T20:29:11Z", "payload": {"ret_code": 0, "ret_msg": "success", "data": {"positions": []}}},
+  {"tool": "sim_trade_history_order_list", "acc_id_masked": "[REDACTED]", "market": 100, "at_utc": "2026-11-23T20:27:00Z", "params": "unfiltered default", "payload": {"ret_code": 0, "ret_msg": "success", "data": {"orders": []}, "pagination": {"has_more": false, "next_key": "0"}}},
+  {"tool": "sim_trade_history_order_list", "acc_id_masked": "[REDACTED]", "market": 100, "at_utc": "2026-11-23T20:27:40Z", "params": "time_begin=1763424000000000 time_end=1795470000000000 (2025-11-18..2026-11-23 explicit window)", "payload": {"ret_code": 0, "ret_msg": "success", "data": {"orders": []}, "pagination": {"has_more": false, "next_key": "0"}}},
+  {"tool": "sim_trade_history_order_list", "acc_id_masked": "[REDACTED]", "market": 100, "at_utc": "2026-11-23T20:29:11Z", "params": "page_size=50 unfiltered", "payload": {"ret_code": 0, "ret_msg": "success", "data": {"orders": []}, "pagination": {"has_more": false, "next_key": "0"}}}
+],
+ "contrast": {
+   "market_data_channel": "healthy: quote_stock_quote returned ret_code 0 with advancing data_time/volume at 20:26:25Z and 20:29:11Z; order books two-sided and advancing",
+   "last_good_account_batch": {"cash_total_asset": "99380.951", "positions": "SPY 28 / EFA 142 / MSFT 39", "orders_page": "11 rows, has_more=false", "read_at_utc": "2026-11-23T20:21:35Z-20:23:00Z", "artifacts": "mcp/cash.json, mcp/positions.json, mcp/orders.json (unchanged, still valid from that batch)"},
+   "interpretation": "Account/business service layer is failing or returning empty result sets while the quote service is fine. Position and history emptiness CONTRADICTS the 20:21-20:23 batch and cannot be accepted as fact. No order was placed, cancelled or modified by this session, so the empty history is a feed fault, not evidence of account activity. Ownership boundary from the last good batch remains: newest order ever = 3118578 at 2026-11-19T18:15:16Z."
+ }}

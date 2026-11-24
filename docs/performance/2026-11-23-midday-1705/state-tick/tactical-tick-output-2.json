@@ -1,0 +1,25 @@
+{
+  "as_of": "2026-11-23T17:19:35.790373+00:00",
+  "phase": "midday",
+  "config_hash": "3e1fe7494bb60569e55b5412e104ebca421097c31fe50c4c7397e332485ee8cb",
+  "orders": [],
+  "decisions": [
+    {
+      "setup_id": "TL-20261123-JNJ-DEF1",
+      "symbol": "US.JNJ",
+      "action": "wait",
+      "reason": "watchlist stale/inactive/invalidated or protection coverage incomplete"
+    },
+    {
+      "setup_id": "TL-20261123-PEP-DEF1",
+      "symbol": "US.PEP",
+      "action": "wait",
+      "reason": "watchlist stale/inactive/invalidated or protection coverage incomplete"
+    }
+  ],
+  "alerts": [
+    "monitor starting or heartbeat gap; rebuild entry confirmations",
+    "unprotected tactical positions: US.MSFT; block new entries"
+  ],
+  "submitted": false
+}

@@ -1,0 +1,26 @@
+**TYCHE CLOSE — URGENT RISK ALERT** 2026-11-19 20:31 UTC / 15:31 ET / 04:31 SGT (Nov 20)
+PAPER ARMED — observe-only close fire. ZERO orders submitted by this run. Kill-switch ENGAGED (writer-safety).
+
+STANCE: another lane traded this paper account without journal receipts: 8 tyche-style orders 17:23–18:15Z. MSFT 39 @503.33 FILLED 18:15Z — no plan, no approval, no receipt (~19.7% NAV, unowned). NVDA/AMD/MU round-trips (net +72.34), SMH buy status5 cum0. Single-writer invariant falsified; all production writes blocked until the operator identifies the writer.
+
+ACCOUNT: NAV 99,353.01 | cash 45,680.12 (was 65,244.61) | frozen 0 | positions 3 (SPY 28, EFA 142, MSFT 39) | kill-switch ON. Daily −0.56% (limit 2.5%), DD −0.84% from HWM (soft 4%) — inside limits.
+
+ORDERS (this run):
+ACTION SYMBOL QTY VALUE STATUS REASON
+none US.SPY 28 — BLOCKED adoption r2: no operator approval + entry window expired 20:00Z (lifecycle entry-expiry rule)
+none US.EFA 142 — BLOCKED same
+none US.MSFT 39 — NO-PLAN unattributed fill; no adoption from holding alone
+Submitted: 0. No cancels/modifies. Long-option exposure: none.
+
+PROTECTION: SPY 717.56 and EFA 98.89 are BELOW proposed daily-close stops 727.50 / 100.00 intraday; plans UNAPPROVED → no authorized exit path, no broker-native stops anywhere. MSFT fully unowned. Resting protective orders: 0. Official 21:00Z close lands after this fire; next scheduled check tomorrow 13:05Z — close-verification gap: Nov-19 completed daily bars must be checked before any stop action. Synthetic stops do not guarantee fills; gaps can exceed planned loss.
+
+PROBLEMS / OPERATOR ACTIONS BEFORE NEXT SESSION:
+1. Identify + pause the submitting lane (tyche-scl-/tyche-tac- request texts, 17:23–18:15Z; check paused Forward schedule / ad-hoc sessions).
+2. Re-provision executor account allowlist env var (env acct …4748 vs actual acct …598) — lifecycle tick gate rc=1, not staleness.
+3. SPY/EFA: r2 adoption expired unapproved; decide r3 revision or exit after verifying official closes vs stops.
+4. MSFT 39 disposition: explicit operator direction required.
+5. status5 unresolved (terminal semantics unproven): VNQ …6597, SMH …8500.
+6. Research: reviews refreshed UNCERTAIN (valid to 21:12Z); Mideast escalation + Hunterbrook AMD short report pinned as events; AMD/MU/SMH tactical proposals expired-for-entry; gate closed.
+7. Stray "--help" msg at 20:29Z was a helper CLI slip — disregard.
+
+Journal 18 events, chain verified; incident + halt journaled. Raw evidence private Drive 2026-11-19-close-2005. No fills or approvals claimed.

@@ -1,0 +1,32 @@
+{
+  "plan_hash": "add27d1a3e75fece0fe292c51050d9324ac33326a58ac4516cd93e3b39a9b33c",
+  "reviewed_at": "2026-11-20T20:13:00Z",
+  "valid_until": "2026-11-20T21:13:00Z",
+  "verdict": "invalidated",
+  "reason": "CONFIRMED DAILY-CLOSE STOP BREACH (rule i) RE-AFFIRMED at the 15:05 ET close fire. The completed 2026-11-19 US.EFA daily bar closed 98.78 < 100.00 daily_close stop (verified premarket on two concordant MCP payloads: quote_stock_quote data_time 2026-11-19T20:59:59.937Z and quote_cur_kline completed bar 20261119, payload /tmp/tool-outputs/mcp_6fa4ecd7dec49ced4b8c3ed2.txt; desk head confirms official Nov-19 daily bars per delegation). No source contradicts that close. Nov-20 RTH extends the decline to a fifth consecutive down session (pending official close): last 96.355 (-2.46% vs Nov-19 close 98.78, -3.65% below the 100.00 stop) at 2026-11-20T20:09:02.538Z, session low 96.295, freshest tick 96.41 BUY at 20:11:31.218Z. EFA-specific context: Japan Oct core CPI 2.2% (2026 high, slightly below cons 2.3%) with BoJ Dec-hike odds 72% and Nikkei -2.1% on the print (fx678 1005115810 pub 01:49:40Z). Freshest verified FX: USDJPY 158.8771 at 12:41:22Z (AASTOCKS 1005192469) vs Thu US close 159.6792 - yen bid remains a translation tailwind; no newer FX print captured this run. EV-20261120-EZCONF (EZ Nov consumer confidence flash, 10:00 ET) outcome UNVERIFIED - no print found in MCP feed; this gap does not weaken the rule-(i) breach evidence. Nov-19 institutional net buying (+108.69M main flow, premarket payload) remains a retention argument for a possible NEW r3 adoption proposal only, NOT a cure for the latched r2 stop. Rule (i) of LC-20261119-EFA-ADOPT-r2 remains met: stop_loss latched for execution at the next permitted session under the authorized lifecycle. Halt ENGAGED; r2 entry window expired unapproved 2026-11-19T20:00:00Z; operator decision required. No new entries under this lifecycle; no automatic re-entry. Executor must capture fresh two-sided quotes before any action; a second completed-bar breach (Nov-20) is likely at 21:00Z but PENDING the official close; not assumed.",
+  "evidence": [
+    "MCP quote_stock_quote US.EFA data_time 1795205342538 = 2026-11-20T20:09:02.538Z, data_date 2026-11-20: last_price 96.355, open 97.85, high 98.355, low 96.295, prev_close 98.78, volume 19,163,483, turnover 1,860,712,304.508, sec_status NORMAL, suspension false. 96.355 < 100.00 stop by 3.65%.",
+    "MCP quote_rt_ticker US.EFA: price 96.41 BUY time 1795205491218 = 2026-11-20T20:11:31.218Z (AUTO_MATCH, 100 sh); 96.40 SELL @1795205490761 (615 sh); 96.40 BUY @1795205489588 (1,671 sh). Fresh regular-session ticks confirm the 96.4 zone; book depth still requires executor verification.",
+    "Completed-bar breach basis (unchanged from premarket review, re-cited): quote_stock_quote US.EFA data_time 1795121999937 = 2026-11-19T20:59:59.937Z last 98.78; quote_cur_kline ktype=2 autype=1 completed bar 20261119 close 98.78 low 98.62 vol 26,623,202, payload /tmp/tool-outputs/mcp_6fa4ecd7dec49ced4b8c3ed2.txt. Delegation states official Nov-19 daily bars completed: EFA 98.78 < 100.00.",
+    "Japan Oct CPI / BoJ: fx678 1005115810 publish_time 1795139380000 = 2026-11-20T01:49:40Z (news.fx678.com/C/20261120/202611200946471714.shtml): core ex-fresh-food 2.2% y/y (Sep 2.1%, cons 2.3%, 2026 high); headline 2.3%; core-core 2.2%; energy +2.2% m/m after subsidy expiry; Nikkei -2.1%, 10y JGB -2bp to 2.805%, USDJPY ~159.59 in Asia trade; BoJ Dec 25bp hike probability 72%; government to restart energy subsidies in Dec. Q3 GDP contracted but BoJ expected to look through (DBS Ma Tieying).",
+    "FX: freshest verified USDJPY 158.8771 (AASTOCKS 1005192469 pub 1795178482000 = 2026-11-20T12:41:22Z) vs Thu US close 159.6792 - yen bid (risk-off + BoJ hike pricing) is a translation tailwind for EFA's Japan sleeve; the 159.59 Asia print (01:49Z) is EARLIER, not a fade. No post-12:41Z FX print captured; intraday FX path unverified.",
+    "EV-20261120-EZCONF outcome UNVERIFIED: news_search zh '欧元区 消费者信心' and en 'consumer confidence eurozone' returned no Nov-20 flash print (cons was -18.2 vs prior -17.9 per Fisco 1005145122, premarket payload). quote_economic_calendar_hot 20261120 empty again (data [], has_more false). Gap recorded; no value inferred.",
+    "EV-20261120-UMICH outcome (macro tape): WSCN 1005215853 pub 1795203790000 = 2026-11-20T19:43:10Z: UMich Nov final 51.5, 1y inflation expectations 4.7%->3.7%; Benzinga 1005207392 pub 15:00:23Z confirms 51.5. Global risk-off persists despite the disinflationary surprise: SPY -3.18% intraday (quote batch 20:09:03Z).",
+    "EV-20261120-WALLER / EV-20261120-COOK: Waller 08:25 ET speech content NOT found in MCP feed (unverified); Cook partial - Sina 1005221580 pub 1795197836000 = 18:03:56Z: Fed will monitor AI-buildout-related financial conditions. Fed Dec pricing freshest MCP print: flash 1005089990 pub 1795125694000 = 2026-11-19T22:01:34Z, Dec +25bp 96.4% / +50bp 3.6%; post-event pricing UNKNOWN.",
+    "EV-20261119-MIDEAST-ESCALATION follow-through: no new headline after 17:00Z (zh '霍尔木兹', en 'Iran Hormuz'); freshest Benzinga 1005139205 pub 05:33:29Z; IEA WEO calls Hormuz disruption the largest energy supply shock on record while GS sees 2027 surplus (fx678 1005128728 pub 1795143652000 = 2026-11-20T03:00:52Z); Brent ~92.70, muted reaction - energy-shock stagflation drag on developed-ex-US equities remains the macro backdrop for EFA.",
+    "Retention arguments for a possible r3 proposal only (from premarket payloads, unchanged): Nov-19 main capital flow +108,685,212.059 / super +105,990,895.666 (quote_capital_flow_history US.EFA DAY bar 1795064400000) - institutional net buying into the down session; yen bid per FX evidence above.",
+    "COVERAGE GAPS: EZ consumer confidence flash outcome; Waller speech content; fresh FedWatch; econ calendar hot empty; post-12:41Z FX. Fresh news check completed 2026-11-20 ~20:08-20:12Z (news_search en/zh TIME sort + quote batch/ticks)."
+  ],
+  "acknowledged_events": [
+    "EV-20261119-CLAIMS",
+    "EV-20261119-PHILLYFED",
+    "EV-20261119-BARR",
+    "EV-20261120-PBOC-LPR",
+    "EV-20261119-ANT-DEBUT",
+    "EV-20261119-MIDEAST-ESCALATION",
+    "EV-20261120-WALLER",
+    "EV-20261120-UMICH",
+    "EV-20261120-COOK",
+    "EV-20261120-EZCONF"
+  ]
+}

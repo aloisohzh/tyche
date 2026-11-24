@@ -1,0 +1,1 @@
+2026-11-24T14:45Z: tool sim_trade_order_list (live order list) is not registered in this executor MCP session; only sim_trade_history_order_list was available. orders-live.raw.json is a verbatim copy of the fully-paginated (has_more=false) history response, NOT an independent live-poll snapshot. Merged orders.json is therefore identical to history rows (14, dedup by order_id).

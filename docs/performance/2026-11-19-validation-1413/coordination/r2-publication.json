@@ -1,0 +1,21 @@
+{
+  "published_at_utc": "2026-11-19T14:55:34+00:00",
+  "reviewed_at": "2026-11-19T14:55:34+00:00",
+  "valid_until": "2026-11-19T15:55:34+00:00",
+  "news_checked_at": "2026-11-19T14:55:34+00:00",
+  "news_note": "researcher targeted pass completed ~14:57Z (Gelonghui 14:47:47Z chips higher; ANT first quote ~14:50Z volatility noted, not thesis-breaking); desk stamps arrival/assembly time, disclosed per F-21",
+  "created_at_note": "staged plans carry created_at 14:53:03Z (python clock 1s after shell date 14:53:02Z); hashes computed over 14:53:03Z payloads, confirmed by preview CLI and recomputation",
+  "plan_hashes": {
+    "LC-20261119-SPY-ADOPT-r2": "e73ee77d4b6abca10545bd296537fcee34b9a2511440e49fcf1d3ad23f9c89df",
+    "LC-20261119-EFA-ADOPT-r2": "add27d1a3e75fece0fe292c51050d9324ac33326a58ac4516cd93e3b39a9b33c"
+  },
+  "r1_status": "superseded unapproved; preserved at R/state/book-r1-superseded.json; no r1 grants ever written",
+  "approval_gates_pending": [
+    "operator explicit full r2 preview/hash approval (F-22)",
+    "operator F-01 acceptance",
+    "operator F-02 acknowledgment/remediation path",
+    "TYCHE_ALLOWED_ACCOUNT_IDS restoration",
+    "auditor r2 references",
+    "fresh <=120s broker capture at approve time"
+  ]
+}

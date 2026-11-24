@@ -1,0 +1,58 @@
+{
+  "phase": "MIDDAY",
+  "timestamp": "2026-11-23 | 17:22 UTC / 12:22 ET / 01:22 SGT (24 Nov)",
+  "urgent": true,
+  "mode": "PAPER ARMED - halt released by operator 15:11 UTC; midday fire is alert-only, submits nothing",
+  "stance": "Equities bounced Monday but all three held lots still have no live exit order; the operator's same-day exit envelope is verified and waits for the 15:05 ET close fire.",
+  "orders_summary": "No orders submitted by this run. 11 orders ever on the paper account, none new since the 19 Nov boundary - no second writer.",
+  "orders": [
+    {
+      "action": "HOLD",
+      "symbol": "US.SPY",
+      "qty": "28",
+      "value": "723.04 last (17:18 UTC)",
+      "status": "UNCOVERED - stop breached",
+      "reason": "Daily-close stop 727.50 breached on two completed bars (715.87, 689.81); last 4.47 below stop. No live exit order. Envelope sell 28 floor 690.00 at close fire."
+    },
+    {
+      "action": "HOLD",
+      "symbol": "US.EFA",
+      "qty": "142",
+      "value": "98.72 last (17:18 UTC)",
+      "status": "UNCOVERED - stop breached",
+      "reason": "Daily-close stop 100.00 breached on two completed bars (98.78, 96.14); last 1.29 below stop. No live exit order. Envelope sell 142 floor 94.50 at close fire."
+    },
+    {
+      "action": "HOLD",
+      "symbol": "US.MSFT",
+      "qty": "39",
+      "value": "499.20 last (17:18 UTC)",
+      "status": "UNCOVERED - unowned incident lot",
+      "reason": "No lifecycle plan, no journal receipt (19 Nov incident). No stop, no deadline, no exit order. Envelope sell 39 floor 474.00 at close fire."
+    }
+  ],
+  "account": {
+    "nav": "99,415.80 (17:19 UTC, incl frozen 0.00)",
+    "cash": "45,680.12 (45.95%)",
+    "positions": "SPY 28, EFA 142, MSFT 39 - market value 53,735.68, gross 54.05%",
+    "kill_switch": "OFF - operator release 15:11 UTC, incident reviewed"
+  },
+  "protection": [
+    "SPY 28: stop 727.50 vs last 723.04 - breached, no live exit. Operator action: close fire 15:05 ET sells 28 inside envelope floor 690.00.",
+    "EFA 142: stop 100.00 vs last 98.72 - breached, no live exit. Operator action: close fire sells 142 inside floor 94.50.",
+    "MSFT 39: no plan, no stop, no live exit. Operator action: close fire sells 39 inside floor 474.00.",
+    "No approved exit request exists (approvals empty), so no protection.gap is journaled; monitoring is not a broker stop and synthetic limits are not fills.",
+    "AAPL PB-007 buy 28 approved in envelope, zone 338.89-343.08; last 348.60 is 5.52 above zone - no chase; entry expires 15:50 ET today."
+  ],
+  "problems": [
+    "Two old buys still unproven finished (status 5, no shares filled): VNQ 83 at 94.98, SMH 10 at 454.48. Operator: confirm terminal semantics.",
+    "MSFT 39 and the 19 Nov scalp round-trips have no journal receipts - writer attribution still open; envelope exit is the disposition.",
+    "Research reviews expired 14:15/14:25 UTC - blocks new entries, not the approved envelope exits. Close fire needs fresh quotes and audit.",
+    "JNJ/PEP premarket proposals: operator said not carried over; no envelope lines - treated as expired ideas, no action."
+  ],
+  "proposals": [
+    "AAPL PB-007 pullback: buy 28 in 338.89-343.08, stop 331.99, target 360.83, flat by 27 Nov 12:30 ET. Invalidation: close below stop. Operator approved; last above zone, pullback-only.",
+    "JNJ/PEP defensive ideas: not carried over per operator note - no orders."
+  ],
+  "next_check": "15:05 ET close fire (20:05 UTC) today, verified from the active three-fire card; it executes the envelope exits after fresh quotes, audit and reserve."
+}

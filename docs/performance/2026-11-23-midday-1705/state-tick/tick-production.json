@@ -1,0 +1,48 @@
+{
+  "checked_at": "2026-11-23T17:15:25.912754+00:00",
+  "cadence_minutes": 60,
+  "gaps": [
+    "US.MSFT: held position missing a complete lifecycle plan"
+  ],
+  "decisions": [
+    {
+      "plan_id": "LC-20261119-SPY-ADOPT-r2",
+      "plan_hash": "e73ee77d4b6abca10545bd296537fcee34b9a2511440e49fcf1d3ad23f9c89df",
+      "symbol": "US.SPY",
+      "action": "review",
+      "reason": "held position has no approved lifecycle ownership",
+      "quantity": 0,
+      "limit_price": null,
+      "authorized": false,
+      "warnings": [
+        "research review expired or future-dated"
+      ]
+    },
+    {
+      "plan_id": "LC-20261119-EFA-ADOPT-r2",
+      "plan_hash": "add27d1a3e75fece0fe292c51050d9324ac33326a58ac4516cd93e3b39a9b33c",
+      "symbol": "US.EFA",
+      "action": "review",
+      "reason": "held position has no approved lifecycle ownership",
+      "quantity": 0,
+      "limit_price": null,
+      "authorized": false,
+      "warnings": [
+        "research review expired or future-dated"
+      ]
+    },
+    {
+      "plan_id": "PB-007-20261120-AAPL",
+      "plan_hash": "3dd88f8660b24f5d242cc8e1b6d69d40364048fc9c416ded97ea6eb2879dd1ec",
+      "symbol": "US.AAPL",
+      "action": "review",
+      "reason": "research review expired or future-dated",
+      "quantity": 0,
+      "limit_price": null,
+      "authorized": false,
+      "warnings": [
+        "research review expired or future-dated"
+      ]
+    }
+  ]
+}

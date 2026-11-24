@@ -1,0 +1,68 @@
+{
+  "as_of": "2026-11-20",
+  "news_checked_at": "2026-11-20T13:15:49Z",
+  "news_feed_ok": true,
+  "timestamp_disclosure": "Researcher has no wall clock; reviewed_at bounded to freshest observed MCP exchange payload (SPY pre-market tick time 1795180549970 = 2026-11-20T13:15:49.970Z). Desk should stamp arrival time and recompute valid_until = stamped reviewed_at + 60min if later.",
+  "reviews": [
+    {
+      "plan_hash": "e73ee77d4b6abca10545bd296537fcee34b9a2511440e49fcf1d3ad23f9c89df",
+      "reviewed_at": "2026-11-20T13:15:49Z",
+      "valid_until": "2026-11-20T14:15:49Z",
+      "verdict": "invalidated",
+      "reason": "CONFIRMED DAILY-CLOSE STOP BREACH (rule i). The completed 2026-11-19 US.SPY daily bar closed 715.87, below the 727.50 daily_close stop (-1.60% below stop; -1.96% vs Nov-18 close 730.20). VERIFIED on two concordant MCP payloads: (1) quote_stock_quote US.SPY data_time 1795122000255 = 2026-11-19T21:00:00.255Z (RTH closing print, data_date 2026-11-19, sec_status NORMAL) last_price 715.87; (2) quote_cur_kline ktype=2 autype=1 completed bar date 20261119 close 715.87, low 715.65, volume 76,702,574 (payload /tmp/tool-outputs/mcp_f8161d2ca411dad0deb9c63b.txt). PENDING: executor official daily-bar confirmation per delegation (desk head runs scripts/mcp_prices.py on the same payloads); no source contradicts the close. Invalidation rule (i) of LC-20261119-SPY-ADOPT-r2 is met on the exchange feed available to research: a completed daily close below 727.50 latches the stop_loss exit for execution at the next permitted session under the authorized lifecycle. Deterioration continues pre-market: SPY tick 709.15 at 2026-11-20T13:15:49.955Z; Nasdaq futures -1.7% (MT Newswires 1005193361 pub 12:52:11Z). Fresh catalysts since the 2026-11-19T20:12:49Z uncertain review: Waller (50bp-hike advocate) speaks TODAY 08:25 ET / 13:25Z (AASTOCKS 1005192469 / MT 1005192254 pub 12:41:22Z) - imminent-event entry block; NVDA House-Democrat probe (MT 1005193361); Hunterbrook AMD day-2 follow-through (AMD pre -6.65%); PBoC LPR unchanged 3.00%/3.50% (post-event review of EV-20261120-PBOC-LPR complete, flash 1005103307 pub 01:00:00Z, AASTOCKS 1005105809 pub 01:15:00Z). This verdict is condition-specific evidence for rule (i), not a discretionary liquidation call: halt is ENGAGED and r2 entry window expired unapproved 2026-11-19T20:00:00Z; operator decision / r3 adoption path required. No new entries under this lifecycle; no automatic re-entry.",
+      "evidence": [
+        "MCP quote_stock_quote US.SPY data_time 1795122000255 = 2026-11-19T21:00:00.255Z: last_price 715.87, open 737.46, high 739.8999, low 715.65, prev_close 730.20, volume 76,702,574, turnover 55,497,917,209.114, sec_status NORMAL, suspension false; data_date 2026-11-19 (completed RTH session; quote_market_state trade_section 1795098600-1795122000 = 14:30Z-21:00Z Nov-19).",
+        "MCP quote_cur_kline US.SPY num=370 ktype=2 autype=1, completed daily bar date 20261119 time_key 1795064400000: close 715.87, change_rate -1.9625%, low 715.65, last_close 730.20; prior bars 20261117 close 732.44 low 727.00, 20261118 close 730.20 low 726.795. Payload: /tmp/tool-outputs/mcp_f8161d2ca411dad0deb9c63b.txt. Completed close 715.87 < 727.50 stop.",
+        "MCP quote_rt_ticker US.SPY period=BEFORE: price 709.15 time 1795180549955 = 2026-11-20T13:15:49.955Z; 709.1415 @1795180549970; pre-market aggregate 709.27 (-0.921% vs close), overnight 713.47, after-hours 714.9901 (quote batch). Pre-market aggregate low field 692.15 is a single unverified print - flagged, not used as a level.",
+        "MT Newswires news_id 1005193361 publish_time 1795179131000 = 2026-11-20T12:52:11Z: Friday premarket Dow futures -0.2%, S&P -0.8%, Nasdaq -1.7%; ANT -6% pre after +~17% debut close; NVDA to be investigated by House Democrats over Commerce influence / China export-control evasion (Reuters via House letter); UMich Nov final 10:00 ET; Waller and Cook are Friday's Fed speakers.",
+        "AASTOCKS news_id 1005192469 (NOW.1555875) + MT Newswires 1005192254 publish_time 1795178482000 = 2026-11-20T12:41:22Z: Waller speaks 08:25 ET (13:25Z); UMich final + Oct state unemployment 10:00 ET; KC Fed services 11:00 ET; Cook 12:15 ET (17:15Z); USDJPY 158.8771 vs Thu US close 159.6792. Waller 50bp-Dec-hike advocacy: fx678 1004949845 publish 2026-11-18T17:45:36Z; post-minutes Dec 50bp odds 5.3%->7.3% (Reuters Nov-18 via Gelonghui wrap, persisted /tmp/tool-outputs/mcp_24ccb42626ee4a50f1d17cf5.txt). COVERAGE GAP: no fresher FedWatch print via MCP than Nov-18 22:02:43Z.",
+        "EV-20261120-PBOC-LPR post-event review: LPR 1Y 3.00% / 5Y 3.50% unchanged, 18th month (flash 1005103307 publish 1795136400000 = 2026-11-20T01:00:00Z; AASTOCKS 1005105809 publish 1795137300000 = 01:15:00Z). No China easing surprise.",
+        "EV-20261119-MIDEAST-ESCALATION follow-through: Benzinga 1005139205 publish 1795152809000 = 2026-11-20T05:33:29Z - Iran may defy US blockade (TankerTrackers/Fars, officially unconfirmed), further Hormuz vessel strikes (UKTMO), US paused strikes after Bahrain/Kuwait hits, Trump not rushing decisions (Axios); oil reaction muted (Brent ~91.87-92.70).",
+        "MCP quote_capital_flow_history US.SPY DAY bar 1795064400000 (Nov-19): main_in_flow -345,045,210.276, super_in_flow -178,835,981.196, net in_flow +47,047,263.438. MCP quote_unusual_technical US.SPY ts 1795064400: MA bearish alignment; KDJ strong oversold, close below lower BOLL, RSI24/OSC oversold; ts 1794978000: MA5<MA10 death cross.",
+        "Fresh news check completed 2026-11-20 ~13:05-13:16Z via MCP news_search (en: MSFT, Waller, FedWatch; zh-CN: 美股, LPR, 霍尔木兹, 美联储观察, 日元; TIME sort). Freshest material item: Futu 1005193786 publish 1795179601000 = 13:00:01Z. quote_economic_calendar_hot 20261120 returned empty (coverage gap; schedule sourced from news payloads)."
+      ],
+      "acknowledged_events": [
+        "EV-20261119-CLAIMS",
+        "EV-20261119-PHILLYFED",
+        "EV-20261119-BARR",
+        "EV-20261120-PBOC-LPR",
+        "EV-20261119-ANT-DEBUT",
+        "EV-20261119-MIDEAST-ESCALATION"
+      ]
+    },
+    {
+      "plan_hash": "add27d1a3e75fece0fe292c51050d9324ac33326a58ac4516cd93e3b39a9b33c",
+      "reviewed_at": "2026-11-20T13:15:49Z",
+      "valid_until": "2026-11-20T14:15:49Z",
+      "verdict": "invalidated",
+      "reason": "CONFIRMED DAILY-CLOSE STOP BREACH (rule i). The completed 2026-11-19 US.EFA daily bar closed 98.78, below the 100.00 daily_close stop (-1.22% below stop; -1.48% vs Nov-18 close 100.26; fourth consecutive down session). VERIFIED on two concordant MCP payloads: (1) quote_stock_quote US.EFA data_time 1795121999937 = 2026-11-19T20:59:59.937Z (RTH closing print, data_date 2026-11-19) last_price 98.78; (2) quote_cur_kline completed bar date 20261119 close 98.78, low 98.62, volume 26,623,202 (payload /tmp/tool-outputs/mcp_6fa4ecd7dec49ced4b8c3ed2.txt). PENDING: executor official daily-bar confirmation per delegation; no source contradicts the close. Rule (i) of LC-20261119-EFA-ADOPT-r2 is met on the exchange feed available to research: stop_loss latches for execution at the next permitted session under the authorized lifecycle. Post-event review of EV-20261120-PBOC-LPR COMPLETE: LPR unchanged 3.00%/3.50% (18th month) - no China easing catalyst. EFA-specific context: yen BID (USDJPY 158.8771 vs 159.6792 Thu US close, AASTOCKS 12:41:22Z; yen best G10 Friday, Zhitong 1005142839 06:06:06Z) is a translation tailwind, and Nov-19 main capital flow was POSITIVE +108.69M (super +105.99M) - institutional accumulation into weakness; BoJ Dec 17-18 hike expected (jin10 1005132207 04:09:36Z), Japan Oct CPI accelerated. These are retention arguments for a NEW r3 adoption proposal, NOT a cure for the latched r2 stop. Pre-market aggregate 97.76 is thin (850 shares); freshest tick 98.9025 at 13:05:19.012Z - executor must capture fresh two-sided quotes before any action. Halt ENGAGED; r2 entry window expired unapproved 2026-11-19T20:00:00Z; operator decision required. No new entries under this lifecycle; no automatic re-entry.",
+      "evidence": [
+        "MCP quote_stock_quote US.EFA data_time 1795121999937 = 2026-11-19T20:59:59.937Z: last_price 98.78, open 100.545, high 100.58, low 98.62, prev_close 100.26, volume 26,623,202, sec_status NORMAL, suspension false; data_date 2026-11-19. After-hours 98.53 (-0.253%); pre-market aggregate 97.76 (-1.032%) on only 850 shares.",
+        "MCP quote_cur_kline US.EFA num=370 ktype=2 autype=1, completed daily bar date 20261119 time_key 1795064400000: close 98.78, change_rate -1.4762%, low 98.62, last_close 100.26; prior bars 20261116 close 102.64, 20261117 close 101.35, 20261118 close 100.26 (low 99.96 intraday breach never latched). Payload: /tmp/tool-outputs/mcp_6fa4ecd7dec49ced4b8c3ed2.txt. Completed close 98.78 < 100.00 stop.",
+        "MCP quote_rt_ticker US.EFA period=BEFORE: 98.9025 BUY time 1795179919012 = 2026-11-20T13:05:19.012Z; 98.975 @1795179919010; 97.76 prints @1795179248693 (12:54:08Z) and @1795179120387 (12:52:00Z). Thin book; freshest tick above the aggregate pre-market last.",
+        "EV-20261120-PBOC-LPR outcome: flash 1005103307 publish 1795136400000 = 2026-11-20T01:00:00Z and AASTOCKS NOW.1555679 1005105809 publish 1795137300000 = 01:15:00Z - 1Y LPR 3.00% (cons 3.00%), 5Y 3.50%, unchanged 18th month; expert view no near-term cut (flash 1005135667 publish 1795150173000 = 04:49:33Z).",
+        "FX refresh (closes prior review's stale-yen gap): AASTOCKS 1005192469 publish 1795178482000 = 2026-11-20T12:41:22Z USDJPY 158.8771 vs Thu US close 159.6792; Zhitong 1005142839 publish 1795154766000 = 06:06:06Z yen +0.4% to 159.11, best G10, risk-off bid, 156-160 range view; Fisco 1005145122 publish 1795156620000 = 06:37:00Z hawkish-Fed dollar support vs safe-haven yen demand.",
+        "BoJ: jin10 1005132207 publish 1795147776000 = 2026-11-20T04:09:36Z - majority favor Dec hike to 1.5%, terminal-rate disagreement (1.75-2%); Ueda Diet remarks Thu treat consumption weakness as temporary. Japan Oct CPI accelerated (AASTOCKS 1005192469). Nikkei led Asia lower Friday (Zhitong 1005142839).",
+        "MCP quote_capital_flow_history US.EFA DAY bar 1795064400000 (Nov-19): main_in_flow +108,685,212.059, super_in_flow +105,990,895.666, net in_flow +57,756,779.979 - institutional net buying into the down session.",
+        "Global risk-off context: MT Newswires 1005193361 publish 12:52:11Z (futures lower, NVDA House probe, ANT -6% pre); Benzinga 1005139205 publish 05:33:29Z (Hormuz follow-through, muted oil); EEM pre -2.34% (quote batch). Eurozone Nov consumer confidence flash due 10:00 ET (cons -18.2 vs -17.9, Fisco 1005145122) - proposed event, not yet pinned.",
+        "COVERAGE GAPS: quote_unusual_technical US.EFA timed out this run; quote_economic_calendar_hot 20261120 empty; no fresher FedWatch print than Nov-18 22:02:43Z. Fresh news check completed 2026-11-20 ~13:05-13:16Z (news_search en/zh TIME sort); freshest material item 13:00:01Z."
+      ],
+      "acknowledged_events": [
+        "EV-20261119-CLAIMS",
+        "EV-20261119-PHILLYFED",
+        "EV-20261119-BARR",
+        "EV-20261120-PBOC-LPR",
+        "EV-20261119-ANT-DEBUT",
+        "EV-20261119-MIDEAST-ESCALATION"
+      ]
+    }
+  ],
+  "unreviewable_holdings": [
+    {
+      "symbol": "US.MSFT",
+      "quantity": 39,
+      "reason": "No lifecycle plan hash supplied; unowned residual fill 2026-11-19T18:15Z @503.33 (writer-safety incident, halt ENGAGED). Protection gap - operator disposition required before adoption. Research inputs in adoption-inputs.json.",
+      "observed_at": "2026-11-20T13:15:49Z"
+    }
+  ]
+}

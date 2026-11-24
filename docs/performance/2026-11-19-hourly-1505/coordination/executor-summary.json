@@ -1,0 +1,83 @@
+{
+  "run": "2026-11-19-hourly-1505",
+  "generated_at_utc": "2026-11-19T15:21:30Z",
+  "role": "tyche-executor, sole broker-write role; THIS HOUR READ-ONLY (no submissions, no approve/reserve/receipt/record-order, no --record, no production state writes)",
+  "account_masked": "***598 (Moomoo x Qoder challenge US paper, account_type=2, market_id=100, allowlist TYCHE_ALLOWED_ACCOUNT_IDS verified)",
+  "engine": {"repo": "/data/workspace/tyche", "head": "601c7319cbb7bc773782ba04b3025db1725ceb3f", "release_ancestor_verified": "3312287ce282cedacdafab552b40678e386ea90d", "config_hashes": {"tactical.yaml": "ea7ba60a523c2c9c9582e5c4ca8dbad080d39ffa3401862bca8bcb05459c1e5d", "risk.yaml": "69983dec7f9b83d5e0e02b36b8f4cf28661984e58962b97a858b94469f523df1", "rules_hash": "4105d7a680a3"}},
+  "reconciliation": {
+    "batch1_observed_at_utc": "2026-11-19T15:11:20Z (oldest broker read; accounts 15:10:55Z, quotes exchange stamps 15:11:37.368Z-15:11:40.959Z)",
+    "batch2_observed_at_utc": "2026-11-19T15:17:41Z (conservative pre-call clock; exchange quote stamps 15:17:53.488Z-15:17:55.031Z)",
+    "holdings": {"US.SPY": {"qty": 28, "qty_avbl": 28, "avg_cost": 731.54}, "US.EFA": {"qty": 142, "qty_avbl": 142, "avg_cost": 100.495}},
+    "holdings_drift": "NONE vs expected SPY 28 @731.54 + EFA 142 @100.495; no new/partial fills since Nov 18; no option holdings or option orders anywhere in history",
+    "nav_equation_batch1": "total_asset 100086.21 = cash balance 65244.61 + frozen hold 0.00 + market value 34841.60 (broker mv)",
+    "nav_equation_batch2": "total_asset 100007.36 = cash balance 65244.61 + frozen hold 0.00 + market value 34762.75 (broker mv)",
+    "snapshot_nav_note": "tyche snapshot nav=100083.97 (batch1, position cur_price marks, excludes frozen; frozen=0). 2.24 USD difference vs broker total_asset is mark-price timing between position cur_price and broker mv, not missing funds.",
+    "nav_refs": {"prior_close_nav": 99914.93, "high_water_nav": 100193.13, "source": "validation-1413/coordination/nav-refs.json via delegation"},
+    "drift_vs_prior_close_batch2": "+92.43 USD (+0.0925%)",
+    "hwm_check": "batch1 peak total_asset 100086.21 < HWM 100193.13 -> HWM NOT raised; drawdown from HWM 0.1854% (< 4% soft)",
+    "allocation_batch2_pct_nav": {"SPY": 20.54, "EFA": 14.21, "gross": 34.76, "cash": 65.24},
+    "risk_limits": "cash>=5% OK; gross<=95% OK; per-order 30% cap OK; daily loss 2.5% not breached (NAV above prior close)"
+  },
+  "orders": {
+    "pagination": "single unfiltered page orders-1.json, pagination.has_more=false explicitly (both batches identical); completeness from unfiltered pagination, time-window params unused",
+    "table": [
+      {"order_id": "3116580", "symbol": "SPY", "side": "buy", "qty": 28, "limit": 733.17, "status": 4, "cum_qty": 28, "avg_fill": 731.54, "updated_utc": "2026-11-18T17:45:00Z", "terminal": "VERIFIED (full status4, exact cumulative qty)"},
+      {"order_id": "3116594", "symbol": "EFA", "side": "buy", "qty": 142, "limit": 101.45, "status": 4, "cum_qty": 142, "avg_fill": 100.495, "updated_utc": "2026-11-18T17:49:45Z", "terminal": "VERIFIED (full status4, exact cumulative qty)"},
+      {"order_id": "3116597", "symbol": "VNQ", "side": "buy", "qty": 83, "limit": 94.98, "status": 5, "cum_qty": 0, "avg_fill": 0, "created_utc": "2026-11-18T17:53:07Z", "updated_utc": "2026-11-19T01:01:00Z", "terminal": "NOT VERIFIED - status5 unresolved"}
+    ],
+    "vnq_flag": "UNRESOLVED MANUAL-REVIEW (preserved). Re-checked this hour: status 5, cum_qty 0, frozen hold 0.00 (no funds frozen). Update stamp 2026-11-19T01:01:00Z. Status 5 is NOT proven canceled/expired; NO retry, NO cancel, NO modify. Operator manual review required.",
+    "market_field_quirk": "order records show market:2 vs positions market:100; order.market not trusted, account verified via allowlist+account_list"
+  },
+  "feed_health": {
+    "quote_stock_quote": "OK, live RTH stamps, sec_status NORMAL, no suspensions",
+    "quote_order_book": "TOOL NOT REGISTERED this session - no two-sided books captured; tactical lane blocked (see tick-tactical.json)",
+    "quote_market_state / quote_cur_kline / quote_market_snapshot": "tools not registered; RTH confirmed via delegation calendar + live exchange stamps; completed Nov18 closes reused from verified premarket-1305 raw kline captures (closes.json)",
+    "news_tools": "none registered; news_feed_ok=false for executor-side revalidation"
+  },
+  "kernel_plan": {
+    "recomputed_read_only": "tyche plan --as-of 2026-11-19 --strategy PB-001 on prices.csv rebuilt from verified premarket-1305 raw kline MCP captures (completed bars through 2026-11-18)",
+    "result": "regime=risk_off, conviction=low, checks 1/4 (golden_cross only), rules_hash 4105d7a680a3 - identical to verified premarket-1305 kernel plan",
+    "caveat": "rebuilt prices.csv sha256 d9bca485... differs from premarket plan inputs_ref 9ace6212... (formatting/ordering of original CSV not recoverable); regime/conviction/checks reproduced exactly. Kernel order suggestions (DBC/VNQ/EFA/SPY buys) are REFERENCE ONLY - low conviction act/wait gate applies to new non-defensive entries; nothing approved or submitted.",
+    "journal": "plan.created appended via supported CLI to R/journal/events.jsonl (15->16 events, chain verified OK)"
+  },
+  "lifecycle": {
+    "previews": {"SPY": {"plan_hash": "e73ee77d4b6abca10545bd296537fcee34b9a2511440e49fcf1d3ad23f9c89df", "hash_match": true, "approved": false, "planned_loss_at_stop_usd": 393.4, "planned_gain_at_target_usd": 954.52, "rr": 2.426}, "EFA": {"plan_hash": "add27d1a3e75fece0fe292c51050d9324ac33326a58ac4516cd93e3b39a9b33c", "hash_match": true, "approved": false, "planned_loss_at_stop_usd": 144.84, "planned_gain_at_target_usd": 678.76, "rr": 4.686}},
+    "tick": {"checked_at": "2026-11-19T15:18:55.906Z", "snapshot_age_seconds_at_tick": 75, "state": "R/state/state-copy.json (isolated; approvals/reservations empty; verified byte-identical to production state.json after tick)", "book": "R/state/book-at-start.json (byte-identical to production book.json)", "record": false},
+    "per_held_symbol": {
+      "US.SPY": {"plan_present": true, "grant": "MISSING (approvals empty; operator approval pending F-22/F-01/F-02)", "review_freshness": "book reviews valid until 15:55:34Z - fresh at tick, EXPIRES BEFORE next hourly check 17:05Z", "quote_age_seconds": 61, "last": 733.65, "pending_orders": "none", "would_exit": "NO - stop 727.50 daily_close basis; intraday breach would not latch; first evaluable close 2026-11-19T21:00:00Z", "tick_action": "review / authorized=false", "warning": "completed daily-close evidence unavailable for this lifecycle (expected: no completed close since plan creation)", "storage": "production state/book untouched (hashes verified)"},
+      "US.EFA": {"plan_present": true, "grant": "MISSING (approvals empty)", "review_freshness": "valid until 15:55:34Z - fresh at tick, expires before 17:05Z check", "quote_age_seconds": 62, "last": 100.11, "intraday_low": 100.08, "pending_orders": "none", "would_exit": "NO - stop 100.00 daily_close basis; price only 0.11 above stop intraday (low 100.08) - WATCH; first evaluable close 21:00Z", "tick_action": "review / authorized=false", "warning": "completed daily-close evidence unavailable for this lifecycle", "storage": "production state/book untouched"}
+    },
+    "protection_gap": "BOTH holdings remain UNOWNED (no approved lifecycle grant). Hourly synthetic protection is NOT active broker-side; stops are daily-close synthetic triggers, not resting orders. Gap/halt/nonfill can exceed planned stop loss. F-02 (legacy order.requested indices 3/5/7 lack request_id) still blocks lifecycle reserve/execute-exit fail-closed until operator-reviewed remediation."
+  },
+  "tactical": {"tick_executed": false, "capture": "FAILED exit1 'no verified two-sided quotes' (order-book tool absent; nothing fabricated)", "setups": "AMD inside band (obs only), MU 754.50 above band high 740, SMH 476.56 above band high 474; ALL BLOCKED (gate disabled, no envelope/audit, no books, event caution, ANT debut)", "detail": "R/coordination/tick-tactical.json"},
+  "blockers": [
+    "Lifecycle operator approval PENDING (F-22 verbatim preview/hash confirmation, F-01 acceptance, F-02 acknowledgment/remediation) - holdings unowned, protection gap persists",
+    "F-02 legacy journal request_id remediation outstanding - lifecycle exits cannot submit even after approval until fixed",
+    "Tactical execution_gate_enabled=false; no operator envelopes or audits exist",
+    "quote_order_book tool missing in this session - tactical two-sided quote validation impossible; desk should restore tool coverage before any tactical arming",
+    "Book reviews expire 15:55:34Z, before next hourly check 17:05Z - fresh reviews needed next run",
+    "VNQ order 3116597 status5 unresolved - manual review",
+    "EFA trading 0.11 above its 100.00 daily-close stop - elevated watch for tonight's 21:00Z close evaluation"
+  ],
+  "journal_note_for_desk": "Only supported CLI event appended was plan.created (via tyche plan). No supported CLI event type fits a generic hourly read-only reconciliation marker; noted here for desk instead of fabricating an event type. Drive originals never overwritten; journal lineage ef8321c4... (15 events) extended to 16 events, new sha256 9daffecd96440f2e273308606cde14074eff87e83f59b393b3ba9c6136d8f66a, chain verified OK.",
+  "artifacts_sha256": {
+    "mcp/accounts.json": "4450619f512cc8f79958d5e58e5442738cfdd903b725045e633cb1b0986e0413",
+    "mcp/cash.json": "e7348866bc6d3bddaf84f256b95640dc45a4d5f683a0c3cbf2ac6e512d513d8c",
+    "mcp/positions.json": "a355a6b4046fc294fbadc3c34567d29bd9b9d3b881070e42a0bdf09b482d9649",
+    "mcp/orders-1.json": "54e46d98061b992c300d5f5b9af67db8202793c2075d103251ee7b5311d89dbf",
+    "mcp/quotes.json": "a8a2fafcc487bd72c07a2123e4ddd46fce262a08aec0353b656f6e14be4cd532",
+    "mcp/snapshot.json": "8ee84f960ca5f4cab558c5d33bdcdb2f75b065f314bbb26033dc35b9a72bf1ce",
+    "mcp/closes.json": "8fa9d03a45a665d0afe2562d8226ff236a1ddfe3987f4c885819f48c89a60f42",
+    "mcp/capture2/market.json": "f6acb7a443edf829dd1a50381d414f8d3cc80615b10ff8dd0af7759949859e8d",
+    "coordination/preview-SPY-hourly.json": "3699c9257912d8fde2ed799d11fbd695953996764ffbf5bffb42bafe58b2bcd1",
+    "coordination/preview-EFA-hourly.json": "dfe259de072158349ee31785e0e03ce889553337be0b64037f44d694d54a50ad",
+    "coordination/tick-lifecycle.json": "06c74c2883ae00ac66b855ef2537d711302fb2841f4fa7aa862fff766442f417",
+    "coordination/tick-tactical.json": "b49cdced05f45ffd717119573a8305dc143a7386c785863ecefd9a3e06a77469",
+    "plan/2026-11-19-plan.json": "2c8969c00c7b23bae79a30e3e1c52a275c8e069654062fe446c2b73272ba1db0",
+    "plan/prices.csv": "d9bca485ba62666ad423136c90651a2f0fa93923361c26ed1f9db45bca89e709",
+    "journal/events.jsonl": "9daffecd96440f2e273308606cde14074eff87e83f59b393b3ba9c6136d8f66a",
+    "production_lifecycle/book.json (untouched)": "e2409538466e1e8c8a4840e7a75f5a9d5bfa803e3e2aab26a2ec4a870a52c745",
+    "production_lifecycle/state.json (untouched)": "a7a9e99496ffc4f9b6c1c2819e2ace95a3b8de421fe5f34b4238d7bd293f0d58"
+  },
+  "submitted": false
+}

@@ -1,0 +1,32 @@
+{
+  "plan_hash": "e73ee77d4b6abca10545bd296537fcee34b9a2511440e49fcf1d3ad23f9c89df",
+  "reviewed_at": "2026-11-20T20:13:00Z",
+  "valid_until": "2026-11-20T21:13:00Z",
+  "verdict": "invalidated",
+  "reason": "CONFIRMED DAILY-CLOSE STOP BREACH (rule i) RE-AFFIRMED at the 15:05 ET close fire. The completed 2026-11-19 US.SPY daily bar closed 715.87 < 727.50 daily_close stop (verified premarket on two concordant MCP payloads: quote_stock_quote data_time 2026-11-19T21:00:00.255Z and quote_cur_kline completed bar 20261119, payload /tmp/tool-outputs/mcp_f8161d2ca411dad0deb9c63b.txt; desk head confirms official Nov-19 daily bars per delegation). No source contradicts that close. Nov-20 RTH deterioration continues and deepens: last 693.13 (-3.18% vs Nov-19 close 715.87, -4.72% below the 727.50 stop) at 2026-11-20T20:09:03.087Z, session low 692.70, freshest tick 694.05 at 20:09:59.541Z. The premarket-flagged 692.15 print is now corroborated as a real level zone by the regular-session low 692.70. Tape context: SPX below its 200-DMA with 7200 as the key bull/bear line and VIX near 30 (WSCN 1005186470 pub 11:41:00Z); hedge-fund net tech selling strongest in a decade (same source). UMich Nov final 51.5 with 1y inflation expectations collapsing 4.7%->3.7% (WSCN 1005215853 pub 19:43:10Z) did NOT produce a sustained equity bounce. Today's Waller 08:25 ET speech content and post-event FedWatch Dec pricing are UNVERIFIED via MCP (coverage gaps; freshest FedWatch print Nov-19 22:01:34Z: 25bp 96.4% / 50bp 3.6%) - these gaps do not weaken the rule-(i) breach evidence. Rule (i) of LC-20261119-SPY-ADOPT-r2 remains met: stop_loss latched for execution at the next permitted session under the authorized lifecycle. Halt ENGAGED, r2 entry window expired unapproved 2026-11-19T20:00:00Z; this verdict is condition-specific evidence, not a discretionary liquidation call - operator decision / r3 adoption path required. No new entries under this lifecycle; no automatic re-entry. A second completed-bar breach (Nov-20) is likely at 21:00Z but is PENDING the official close; not assumed.",
+  "evidence": [
+    "MCP quote_stock_quote US.SPY data_time 1795205343087 = 2026-11-20T20:09:03.087Z, data_date 2026-11-20: last_price 693.13, open 713.40, high 718.29, low 692.70, prev_close 715.87, volume 85,127,688, turnover 59,960,598,297.84, sec_status NORMAL, suspension false. 693.13 < 727.50 stop by 4.72%.",
+    "MCP quote_rt_ticker US.SPY: price 694.05 time 1795205399541 = 2026-11-20T20:09:59.541Z (NON_AUTO_MATCH); 694.092487 BUY @1795205399535; 693.8058 SELL @1795205399517. Fresh regular-session ticks confirm the 693-694 zone.",
+    "Completed-bar breach basis (unchanged from premarket review, re-cited): quote_stock_quote US.SPY data_time 1795122000255 = 2026-11-19T21:00:00.255Z last 715.87; quote_cur_kline ktype=2 autype=1 completed bar 20261119 close 715.87 low 715.65 vol 76,702,574, payload /tmp/tool-outputs/mcp_f8161d2ca411dad0deb9c63b.txt. Delegation states official Nov-19 daily bars completed: SPY 715.87 < 727.50.",
+    "WSCN news_id 1005186470 publish_time 1795174860000 = 2026-11-20T11:41:00Z (wallstreetcn.com/articles/3786378): SPX broke 200-DMA and the May-onward range; 7200 key short-term support; VIX near 30 disproportionate to spot decline; GS hedge-fund net leverage 41.6% (5y low); 6-week rolling global tech net selling z-score -4.4 (strongest in 10 years).",
+    "EV-20261120-UMICH outcome: WSCN 1005215853 publish_time 1795203790000 = 2026-11-20T19:43:10Z (wallstreetcn.com/articles/3786402): UMich Nov final 51.5 vs Oct 48, slightly below Bloomberg cons 51.6; 1y inflation expectations 4.7%->3.7% (lowest since Feb); 5-10y also fell. Benzinga 1005207392 publish 1795186823000 = 15:00:23Z prints 51.5 vs 'expected 51.0' (consensus conflict 51.6/53.3/51.0 persists across sources; actual 51.5 is consistent in both).",
+    "EV-20261120-COOK partial outcome: Sina 1005221580 publish_time 1795197836000 = 2026-11-20T18:03:56Z: Cook says Fed will monitor AI-buildout-related financial conditions. No explicit Dec policy signal captured; full speech text UNVERIFIED.",
+    "EV-20261120-WALLER outcome UNVERIFIED: news_search en 'Waller'/'Fed Waller said', zh '沃勒'/'沃勒 讲话'/'沃勒 50个基点' and flash-only source filter returned no coverage of today's 08:25 ET speech; latest Waller items are the Nov-18 CNBC 50bp advocacy (Seeking Alpha 1004922537 pub 2026-11-18T14:25:02Z; flash 1004928453 pub 1795019464000 = 2026-11-18T16:31:04Z). Persisted search payloads /tmp/tool-outputs/mcp_ab3f16ca4afb5261eea34cec.txt, mcp_1d542ad87941abbc575ba54e.txt, mcp_27f2d7856c628bc48a581fd8.txt.",
+    "Fed Dec pricing (HIKE cycle): freshest MCP FedWatch flash 1005089990 publish_time 1795125694000 = 2026-11-19T22:01:34Z: Dec +25bp 96.4%, +50bp 3.6%; Jan cumulative +50bp 67.5%. 财闻 1005162331 pub 1795163756000 = 2026-11-20T08:35:56Z cites Nov-18 tool 94.7% and gold -30% from YTD high on hike bets. NO post-Waller/Cook/UMich FedWatch print available - current Dec pricing UNKNOWN.",
+    "EV-20261119-MIDEAST-ESCALATION follow-through: no NEW escalation/de-escalation headline after 17:00Z found (zh '霍尔木兹', en 'Iran Hormuz' searches); freshest remains Benzinga 1005139205 pub 2026-11-20T05:33:29Z (Iran may defy blockade, officially unconfirmed; US paused strikes; Trump not rushing decisions per Axios). Brent ~91.87-92.70, muted oil reaction persists (MT 1005193361 pub 12:52:11Z).",
+    "Cross-asset risk-off: RatingDog 1005176480 pub 1795167465000 = 2026-11-20T09:37:45Z: spot gold 3525.25, week -9.2%, hawkish Fed + real-rate/dollar strength + cross-asset deleveraging (Anthropic $81.34B IPO liquidity reallocation cited as amplifier, not proven cause).",
+    "COVERAGE GAPS: quote_economic_calendar_hot 20261120 returned empty again (data [], has_more false); Waller speech content and EZ Nov consumer confidence flash outcome not found in feed; no fresh FedWatch. Fresh news check completed 2026-11-20 ~20:08-20:12Z via MCP news_search (en/zh, TIME sort) + quote batch/ticks; freshest material item MT 1005222005 pub 18:26:59Z."
+  ],
+  "acknowledged_events": [
+    "EV-20261119-CLAIMS",
+    "EV-20261119-PHILLYFED",
+    "EV-20261119-BARR",
+    "EV-20261120-PBOC-LPR",
+    "EV-20261119-ANT-DEBUT",
+    "EV-20261119-MIDEAST-ESCALATION",
+    "EV-20261120-WALLER",
+    "EV-20261120-UMICH",
+    "EV-20261120-COOK",
+    "EV-20261120-EZCONF"
+  ]
+}

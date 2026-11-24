@@ -1,0 +1,71 @@
+{
+  "as_of": "2026-11-24",
+  "entries": [
+    {
+      "symbol": "US.KO261218C97000",
+      "sleeve": "defensive",
+      "strategy": "PB-003",
+      "setup_id": "TL-20261124-KO-OPT1",
+      "status": "watch",
+      "direction": "bullish",
+      "entry_low": 96.10,
+      "entry_high": 96.60,
+      "stop": 95.40,
+      "target": 98.40,
+      "expiry": "2026-11-24",
+      "exit_at": "2026-11-24T17:05:00Z",
+      "reviewed_at": "2026-11-24T16:10:05Z",
+      "option": {
+        "underlying": "US.KO",
+        "expiry": "2026-12-18",
+        "right": "call",
+        "strike": 97.0,
+        "multiplier": 100
+      },
+      "premium_limit": 2.67,
+      "max_quantity": 1,
+      "confirmation_ticks": 2,
+      "market_cap_usd": 378500000000,
+      "thesis": "PB-003 long-call expression of the strongest still-enterable PB-002 bullish pick (KO): risk-off rotation into staples under a Fed hike regime, confirmed by today's tape (KO +2.19% vs SPY -1.22%, QQQ -2.83%) and a fresh analyst catalyst stack (MS Buy/103, BofA Buy/100, RBC Buy/96 on Nov-24).",
+      "synthesis": "All entry/stop/target levels refer to the UNDERLYING US.KO and are copied unchanged from TL-20261124-KO-DEF1. KO last 97.975 (16:07:32Z) is ABOVE the 96.10-96.60 entry zone: this is a pullback-only watch proposal, no chase. JNJ was the strongest flow name but its stock setup window is exhausted (invalidated this run); PG has less remaining reward from zone. Contract US.KO261218C97000 is the ONLY candidate meeting every gate: DTE 24 (expiry 2026-12-18 strictly after 2026-11-27, within 2026-12-24), OI 122 >= 100, volume 94 >= 50, delta 0.6149 (nearest 0.55 among full passes, within 0.45-0.80), option spread 0.07/2.635 = 2.66% <= 5%, underlying spread 0.0204% <= 0.3%. TIMING FLAG: exit_at 2026-11-24T17:05:00Z is the 12:05 ET fire which is ALERT-ONLY; the first executable exit check after it is the 15:05 ET fire (20:05Z). This tension is operator-owned; the operator's Telegram approve decides.",
+      "edge": "Leveraged exposure (delta ~0.61, effective leverage ~22x at 2.67 premium vs 97.975 underlying) to a confirmed defensive rotation at defined underlying levels; max debit 267 USD = 0.27% NAV, well inside the 0.75% per-trade cap (741 USD) and the 5% aggregate premium cap.",
+      "bear_case": "KO 3-day cumulative main flow -117.4M USD does not confirm the rally; rotation can unwind if tech stabilizes; Nov-25 08:30 ET PCE/GDP/claims triple slot is a gap risk; theta -0.0448/day and IV 18.9% can bleed premium even if KO stalls; if KO never pulls back into the zone there is no trade.",
+      "invalidation": "Underlying print below 95.40 after entry; no pullback into 96.10-96.60 before exit_at; executable option market stale (>60s), spread >5%, or ask above premium_limit 2.67 at trigger time blocks entry. Long call can lose 100% of premium (267 USD) plus fees; gaps, halts, expiry and limit non-fills can defeat synthetic exits; exits between fires are NOT resting broker stops or guaranteed fills; daily-close triggers execute no earlier than the next permitted session. No ladder, no scaling, no automatic re-entry.",
+      "horizon": "Same-session per card: exit_at 2026-11-24T17:05:00Z (alert-only fire; first executable exit check 15:05 ET / 20:05Z - operator-owned timing tension).",
+      "catalyst": "Risk-off rotation (SPY -1.22%, QQQ -2.83%, TLT +0.33% at 16:08Z) + Nov-24 analyst reiterations: Morgan Stanley Buy/103 11:33Z, BofA Buy/100 10:31Z, RBC Buy/96 08:32Z; KO CFO succession clarified (David Elkins effective 2027-04-02).",
+      "sources": [
+        "MCP quote_stock_quote US.KO data_time 1795536452797 = 2026-11-24T16:07:32.797Z (last 97.975, prev_close 95.88, open 96.205, high 98.00, low 95.66, volume 4056478, turnover_rate 0.105%)",
+        "MCP quote_order_book US.KO exchange_data_time_ms 1795536535969 = 2026-11-24T16:08:55.969Z (bid 97.99 x20, ask 98.01 x225, NASDAQ)",
+        "MCP quote_option_chain US.KO filter_standard=STANDARD start 2026-11-28 end 2026-12-24, raw payload persisted at /tmp/tool-outputs/mcp_a942d03b6989ab4f9ea6348f.txt (119908 bytes); contract US.KO261218C97000 membership verified by exact-match grep (1 occurrence), option_standard_type STANDARD, lot_size 100",
+        "MCP quote_stock_quote US.KO261218C97000 data_time 1795536516518 = 2026-11-24T16:08:36.518Z (last 2.63, delta 0.614916091, gamma 0.080059504, theta -0.044750047, vega 0.096459872, IV 18.921%, open_interest 122, volume 94, contract_multiplier 100, AMERICAN, CALL, strike 97, expiry_date_distance 24)",
+        "MCP quote_order_book US.KO261218C97000 exchange_data_time_ms 1795536579612 = 2026-11-24T16:09:39.612Z (bid 2.60 x10, ask 2.67 x30)",
+        "MCP quote_stock_quote US.SPY/US.QQQ/US.TLT data_time 1795536501891/1795536502397/1795536499968 = 16:08:21.891Z/16:08:22.397Z/16:08:19.968Z",
+        "news.futunn.com/post/1005473561 (MS Buy/103, publish 1795519980000 = 2026-11-24T11:33:00Z)",
+        "news.futunn.com/post/1005466933 (BofA Buy/100, publish 1795516260000 = 2026-11-24T10:31:00Z)",
+        "news.futunn.com/post/1005449136 (RBC Buy/96, publish 1795509120000 = 2026-11-24T08:32:00Z)",
+        "news.futunn.com/post/1005437317 (CFO succession + MS commentary, publish 1795503780000 = 2026-11-24T07:03:00Z)",
+        "MCP quote_capital_flow_history US.KO bars 1795496400000/1795410000000/1795150800000 (Nov-24 main -646863.26; 3-day acc main -117416592.10)",
+        "market_cap_usd DERIVED estimate: volume 4056478 / turnover_rate 0.00105 = ~3.863B shares x 97.975 = ~378.5B USD (no MCP tool returns market cap directly)"
+      ],
+      "factors": [
+        {"name": "defensive_rotation_tape", "axis": "macro", "state": "pass", "why": "SPY -1.22%, QQQ -2.83%, TLT +0.33% at 16:08Z; KO +2.19%", "detail": "quote_stock_quote payloads"},
+        {"name": "underlying_structure", "axis": "technical", "state": "pass", "why": "KO low 95.66 held above stop 95.40; high 98.00 near target 98.40; uptrend intact", "detail": "KO quote 16:07:32Z"},
+        {"name": "analyst_catalyst_stack", "axis": "catalyst", "state": "pass", "why": "MS/BofA/RBC Buy reiterations Nov-24; CFO succession clarified", "detail": "news IDs 1005473561/1005466933/1005449136/1005437317"},
+        {"name": "main_capital_flow", "axis": "flow", "state": "fail", "why": "3-day cumulative main -117.42M USD; today near flat (-0.65M)", "detail": "quote_capital_flow_history US.KO"},
+        {"name": "option_executable_liquidity", "axis": "liquidity", "state": "pass", "why": "Bid 2.60 x10 / ask 2.67 x30 at 16:09:39Z, spread 2.66% <= 5%; OI 122, volume 94; underlying spread 0.0204%", "detail": "quote_order_book + quote_stock_quote option payload"},
+        {"name": "community_sentiment", "axis": "sentiment", "state": "unknown", "why": "Not fetched this narrow on-demand run", "detail": ""},
+        {"name": "seasonality", "axis": "seasonality", "state": "unknown", "why": "No input gathered", "detail": ""}
+      ],
+      "outlook": {"regime": "Fed hike, risk-off rotation", "conviction": "medium", "alignment": {"macro": "bull", "technical": "bull", "catalyst": "bull", "flow": "bear"}},
+      "notes": [
+        "UNAPPROVED research proposal - not an order authorization. Operator Telegram approve decides.",
+        "TIMING TENSION (operator-owned): exit_at 2026-11-24T17:05:00Z = 12:05 ET fire is ALERT-ONLY; first executable exit check after it is the 15:05 ET fire (20:05Z). Between fires, synthetic exits are not resting broker stops or guaranteed fills; gaps/halts/non-fills can exceed planned loss.",
+        "Entry triggers ONLY if underlying US.KO trades back into 96.10-96.60; at review time KO was 97.975/98.01 - above the zone. No chase. If no pullback, no trade.",
+        "premium_limit 2.67/share is ask-based at 16:09:39Z; full debit at ask = 267 USD for 1 contract (<= 741 USD = 0.75% of ~98831 NAV). Max 1 contract; 5% aggregate premium cap per run brief. Executor must re-verify executable market freshness <=60s and all gates at trigger time.",
+        "CONFIG DISCREPANCY: repo config/tactical.yaml has options_enabled: false; run brief states PB-003 enabled via operator switch (test through Fri Nov-27). Brief wins for research; Desk Head must confirm the lane is actually mounted before any execution.",
+        "Rejected candidates (all chain-verified STANDARD): KO261204C98000 delta 0.5211 nearest 0.55 but spread 0.20/1.25=16% FAIL; KO261211C98000 delta 0.5274 but volume 45<50 FAIL and spread 10.1% FAIL; KO261204C97000 spread 7.8% FAIL; KO261204C96000 spread 8.5% FAIL; KO261218C98000 OI 37<100 FAIL; KO261218C100000 delta 0.372 out of band.",
+        "Long call can lose 100% of premium plus fees. No ladder, no scaling, no automatic re-entry. Chain membership is not proof of paper-option support; executor verifies."
+      ]
+    }
+  ]
+}

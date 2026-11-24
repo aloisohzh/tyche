@@ -1,0 +1,153 @@
+{
+  "artifact": "adoption-final",
+  "author": "tyche-researcher (scout, read-only; proposals only, NOT approvals)",
+  "delegation": "FOLLOW-UP 1 + short addition (Barr pin EV-20261119-BARR), 2026-11-19 validation-1413 session",
+  "generated_at_utc_estimate": "2026-11-19T14:42:00Z",
+  "generated_at_note": "Labeled estimate: no independent clock; anchored to latest observed feed publish_time 1795099020000 = 2026-11-19T14:37:00Z (Zhitong news_id 1005055894) plus this file's assembly. Desk stamps authoritative created_at/reviewed_at/valid_until/news_checked_at.",
+  "schema_reference": "src/tyche/lifecycle.py LifecyclePlan (StrictModel, extra=forbid) lines 34-54; Review lines 77-83. Plan objects below contain ONLY schema fields; nulls are placeholders the desk MUST stamp before validation (created_at, plan_hash, reviewed_at, valid_until). Notes live outside plan objects.",
+  "band_source": {
+    "file": "/data/drive/tyche-raw/2026-11-19-validation-1413/coordination/capture1-raw-summary.json",
+    "generated_at_utc": "2026-11-19T14:33:30Z",
+    "session": "RTH (open 14:30:00Z; 54 traded seconds at read)",
+    "US.SPY": {"last": 737.865, "data_time_utc": "2026-11-19T14:30:54.250Z", "sec_status": "NORMAL"},
+    "US.EFA": {"last": 100.52, "data_time_utc": "2026-11-19T14:30:51.526Z", "sec_status": "NORMAL"}
+  },
+  "band_derivation": {
+    "formula": "entry_low = max(round(last*0.995, 2), stop+0.01); entry_high = max(round(last*1.005, 2), entry_low+0.01)",
+    "US.SPY": {
+      "last": 737.865,
+      "last_x_0.995": 734.175675,
+      "last_x_1.005": 741.554325,
+      "entry_low": 734.18,
+      "entry_high": 741.55,
+      "ordering_check": "727.50 < 734.18 <= 741.55 < 775.64 PASS"
+    },
+    "US.EFA": {
+      "last": 100.52,
+      "last_x_0.995": 100.0174,
+      "last_x_1.005": 101.0226,
+      "entry_low": 100.02,
+      "entry_high": 101.02,
+      "ordering_check": "100.00 < 100.02 <= 101.02 < 105.80 PASS",
+      "proximity_flag": "entry_low 100.02 is only 0.02 above the 100.00 stop; the +/-0.5% reference band nearly touches invalidation. Adoption cannot buy, so this is a documentation band, not entry permission; flagged for desk awareness."
+    }
+  },
+  "plans": [
+    {
+      "plan_id": "LC-20261119-SPY-ADOPT-r1",
+      "revision": 1,
+      "symbol": "US.SPY",
+      "strategy_id": "PB-001",
+      "rules_hash": "4105d7a680a3",
+      "thesis": "Adopt existing PB-001 ballast holding of 28 SPY (reconciled avg cost 731.54) under explicit protection: retain diversified US beta as portfolio ballast while the daily-close stop at 727.50 defines thesis invalidation. Take-profit 775.64 is the 20-completed-session structural high (2026-11-04 bar, window 2026-10-22..2026-11-18) stated as a profit-taking guard, NOT a price forecast; PB-001 strategy exits occur by rebalance, not by prediction of reaching this level.",
+      "invalidation_rules": [
+        "(i) A completed daily close below 727.50 (stop basis daily_close) latches the stop_loss exit; intraday trades below the level alone do not trigger it.",
+        "(ii) Rotation momentum <= 0 or regime risk_off triggers a trim per PB-001, evaluated at rebalance only; this is NOT automatic liquidation.",
+        "(iii) A material thesis-breaking event acknowledged by a fresh timestamped review (verdict invalidated with cited condition-specific evidence) invalidates the plan.",
+        "(iv) No broker-native stop exists: protection is a synthetic hourly monitor; gaps, halts, delayed runs and limit non-fills can exceed the planned loss."
+      ],
+      "created_at": null,
+      "mode": "adopt_position",
+      "quantity": 28,
+      "entry_low": 734.18,
+      "entry_high": 741.55,
+      "stop": {"price": 727.50, "basis": "daily_close"},
+      "take_profit": {"price": 775.64, "basis": "daily_close"},
+      "entry_expires_at": "2026-11-19T20:00:00Z",
+      "exit_deadline": "2026-11-27T17:30:00Z",
+      "exit_on_invalidation": true,
+      "review_max_age_minutes": 60,
+      "quote_max_age_seconds": 300,
+      "max_slippage_bps": 30
+    },
+    {
+      "plan_id": "LC-20261119-EFA-ADOPT-r1",
+      "revision": 1,
+      "symbol": "US.EFA",
+      "strategy_id": "PB-001",
+      "rules_hash": "4105d7a680a3",
+      "thesis": "Adopt existing PB-001 ballast holding of 142 EFA (reconciled avg cost 100.495) under explicit protection: retain developed-ex-US equity diversification as ballast with daily-close invalidation at 100.00. This thesis is protective retention under a defined stop, NOT a claim EFA will rise; weakness (three consecutive down sessions into 100.26 close, intraday 99.96 low on Nov-18, yen at ~159.94/USD) is acknowledged in the review. Take-profit 105.80 is the 20-completed-session structural high (2026-11-04 bar) stated as a profit-taking guard, NOT a price forecast; PB-001 strategy exits occur by rebalance.",
+      "invalidation_rules": [
+        "(i) A completed daily close below 100.00 (stop basis daily_close) latches the stop_loss exit; intraday trades below the level alone do not trigger it.",
+        "(ii) Rotation momentum <= 0 or regime risk_off triggers a trim per PB-001, evaluated at rebalance only; this is NOT automatic liquidation.",
+        "(iii) A material thesis-breaking event acknowledged by a fresh timestamped review (verdict invalidated with cited condition-specific evidence) invalidates the plan.",
+        "(iv) No broker-native stop exists: protection is a synthetic hourly monitor; gaps, halts, delayed runs and limit non-fills can exceed the planned loss."
+      ],
+      "created_at": null,
+      "mode": "adopt_position",
+      "quantity": 142,
+      "entry_low": 100.02,
+      "entry_high": 101.02,
+      "stop": {"price": 100.00, "basis": "daily_close"},
+      "take_profit": {"price": 105.80, "basis": "daily_close"},
+      "entry_expires_at": "2026-11-19T20:00:00Z",
+      "exit_deadline": "2026-11-27T17:30:00Z",
+      "exit_on_invalidation": true,
+      "review_max_age_minutes": 60,
+      "quote_max_age_seconds": 300,
+      "max_slippage_bps": 30
+    }
+  ],
+  "review_drafts": [
+    {
+      "plan_id_ref": "LC-20261119-SPY-ADOPT-r1",
+      "plan_hash": null,
+      "reviewed_at": null,
+      "valid_until": null,
+      "verdict": "valid",
+      "reason": "Protective-retention thesis intact: post-open RTH last 737.865 (14:30:54.250Z) is +1.05% vs Nov-18 close 730.20 and 1.42% above the 727.50 daily-close stop; no completed daily close below 727.50 exists (Nov-18 intraday low 726.795 breached but the close held). Post-13:30Z data (claims 203K vs 198K cons, Philly 6.3 vs 20.6 cons) cooled the Dec 50bp-hike tail to ~8% and, with the Anthropic IPO priced above range at $83, produced a risk-on bounce consistent with retaining ballast. Known risks retained in evidence: hawkish FOMC minutes/Waller 50bp rhetoric, Barr speech 19:15Z inside the holding window, kernel regime risk_off (rebalance-trim semantics only, not liquidation).",
+      "evidence": [
+        "Post-open last used for band: US.SPY 737.865 at 2026-11-19T14:30:54.250Z, sec_status NORMAL, RTH — coordination/capture1-raw-summary.json quotes (executor capture, generated 14:33:30Z).",
+        "Initial jobless claims week to Nov-14: actual 203K vs 198K consensus, prior revised 200K->202K; continuing claims 1.763M vs 1.710M cons (+70K) — Moomoo quote_economic_calendar_hot id294 (event 2026-11-19T13:30Z), checked in Phase A ~14:15-14:20Z; corroborated by desk-verified AASTOCKS NOW.1555643 (publish 12:32:30Z, claims 203K/continuing 1.763M/USDJPY 159.94).",
+        "Philly Fed Nov manufacturing index 6.3 vs 20.6 consensus — Benzinga flash publish_time 1795095017000 = 2026-11-19T13:30:17Z (Phase A news_search); desk addition confirms same AASTOCKS source describes the miss (跌幅超預期), consistent with 6.3.",
+        "Market reaction: Dec hike-50bp probability ~8% / 25bp ~90.7% (Zhitong publish 13:43:26Z); Nasdaq futures >+2% on Anthropic IPO $83 pricing above range raising $81.34B (CLS news_id 1005051087, publish_time 1795095560000 = 13:39:20Z).",
+        "Structural levels: 20-session high 775.64 (bar 2026-11-04, time_key 1793768400000), Nov-18 close 730.20 — research/structural-levels.json, grep-verified against premarket-1305 kline captures (\"date\":20261104,\"high_price\":775.64 and \"close_price\":730.2,\"code\":\"US.SPY\",\"date\":20261118).",
+        "Position reconciliation: SPY 28/28 available, order 3116580 status4 filled 28 avg 731.54 — capture1-raw-summary.json reconciliation (MATCH, no drift).",
+        "Fed Governor Barr speech TODAY 19:15Z (14:15 ET), market-wide, desk-pinned EV-20261119-BARR from AASTOCKS NOW.1555643 (publish 12:32:30Z): lands INSIDE the holding window; requires post-event review at the next hourly check after 19:15Z; an imminent material event within 30 minutes blocks NEW entries per review_problem (adoption is not a new entry, but desk should note the 18:45-19:15Z window).",
+        "Fresh news check completed for this finalization: news_search 'stocks Fed' (en) + '美股' (TIME sort); latest item Zhitong news_id 1005055894 publish_time 1795099020000 = 2026-11-19T14:37:00Z (cybersecurity stocks rally at open, PANW +8% post-earnings) — confirms risk-on open, no new SPY/EFA-material event beyond the four acknowledged pins.",
+        "PBoC LPR decision 2026-11-20T01:15Z (jin10 id235457, config/events.yaml pin) pending inside holding window; requires post-event review at the first hourly check of Nov-20."
+      ],
+      "acknowledged_events": ["EV-20261119-CLAIMS", "EV-20261119-PHILLYFED", "EV-20261119-BARR", "EV-20261120-PBOC-LPR"]
+    },
+    {
+      "plan_id_ref": "LC-20261119-EFA-ADOPT-r1",
+      "plan_hash": null,
+      "reviewed_at": null,
+      "valid_until": null,
+      "verdict": "valid",
+      "verdict_rationale_note_outside_review": "Re-assessed per FOLLOW-UP 1 semantics: any verdict != valid blocks lifecycle APPROVE, which would leave 142 shares with NO approved protection. The thesis under review is 'retain ballast UNDER PROTECTION with daily-close invalidation at 100.00', not 'EFA will rise'. That protective thesis is supportable on current evidence, so verdict valid WITH weakness explicitly recorded in reason/evidence. This is not a rubber stamp: had there been a completed close below 100.00 or a cited thesis-breaking event, the verdict would be invalidated/uncertain.",
+      "reason": "Protective-retention thesis supportable: no completed daily close below 100.00 (Nov-18 close 100.26; intraday low 99.96 did not latch a daily-close stop), and post-open RTH last 100.52 (14:30:51.526Z) has recovered +0.26% above prior close and sits 0.52% above the stop. WEAKNESS EXPLICIT: three consecutive down sessions into Nov-18; close only 0.26% above stop; Nov-18 intraday breach to 99.96; USD/JPY ~159.94-159.97 is a headwind for EFA's unhedged yen exposure; hawkish Fed minutes and Barr speech 19:15Z today; PBoC LPR 01:15Z Nov-20 pending; reference entry_low 100.02 nearly touches the stop. The first completed daily close below 100.00 latches stop_loss for execution at the next permitted RTH session; adopting with that protection is strictly better than leaving the position unapproved and unprotected. Verdict valid is for retention-under-protection, not a bullish forecast.",
+      "evidence": [
+        "Post-open last used for band: US.EFA 100.52 at 2026-11-19T14:30:51.526Z, sec_status NORMAL, RTH — coordination/capture1-raw-summary.json quotes (executor capture, generated 14:33:30Z).",
+        "Stop proximity: Nov-18 completed close 100.26, only 0.26% above 100.00 stop; Nov-18 intraday low 99.96 breached the level but daily_close basis did not trigger — premarket-1305 kline capture grep (\"close_price\":100.26,\"code\":\"US.EFA\",\"date\":20261118) and research/structural-levels.json; three down days ending Nov-18 per same daily bars.",
+        "Structural target: 20-session high 105.80 (bar 2026-11-04, time_key 1793768400000) — research/structural-levels.json, grep-verified (\"date\":20261104,\"high_price\":105.8).",
+        "Initial jobless claims 203K vs 198K cons (prior revised 202K), continuing 1.763M vs 1.710M cons — quote_economic_calendar_hot id294 (13:30Z), Phase A check ~14:15-14:20Z; AASTOCKS NOW.1555643 (12:32:30Z) corroborates 203K/1.763M/USDJPY 159.94.",
+        "Philly Fed Nov 6.3 vs 20.6 cons — Benzinga flash publish 1795095017000 = 13:30:17Z; desk-confirmed AASTOCKS wording 跌幅超預期 consistent. Macro mix cooled Dec 50bp-hike tail to ~8% (Zhitong 13:43:26Z), supporting the broad risk-on bounce EFA participates in (+0.26% at open vs +1.05% SPY — EFA lagging, consistent with its relative weakness).",
+        "FX headwind: USD/JPY 159.97 (Fisco flash publish 13:33:03Z, Phase A) / 159.94 (AASTOCKS NOW.1555643 12:32:30Z) — yen weakness is a documented drag on unhedged EFA returns; part of the explicit weakness, not hidden.",
+        "Position reconciliation: EFA 142/142 available, order 3116594 status4 filled 142 avg 100.495 — capture1-raw-summary.json reconciliation (MATCH, no drift).",
+        "Fed Governor Barr speech TODAY 19:15Z (14:15 ET), market-wide, desk-pinned EV-20261119-BARR (AASTOCKS NOW.1555643, publish 12:32:30Z): lands INSIDE the holding window and requires post-event review at the next hourly check after 19:15Z.",
+        "PBoC LPR 2026-11-20T01:15Z (jin10 id235457 pin) pending inside holding window; post-event review due at first Nov-20 hourly check; an LPR surprise moves CNY/Asia sentiment and thus EFA's Asia-Pacific developed exposure.",
+        "Fresh news check completed for this finalization: news_search 'stocks Fed' (en) + '美股' (TIME sort); latest item Zhitong news_id 1005055894 publish_time 1795099020000 = 14:37:00Z; no new EFA-material event beyond the four acknowledged pins; no completed close below 100.00 reported by any source."
+      ],
+      "acknowledged_events": ["EV-20261119-CLAIMS", "EV-20261119-PHILLYFED", "EV-20261119-BARR", "EV-20261120-PBOC-LPR"]
+    }
+  ],
+  "desk_stamping_instructions": {
+    "created_at": "NULL in both plans; desk stamps actual creation time (AwareDatetime, UTC). Note: trigger_price daily_close requires close_at >= plan.created_at, so with created_at on Nov-19 the first eligible close is Nov-19 21:00Z; the Nov-18 close cannot trigger either stop.",
+    "plan_hash": "NULL in review drafts; desk computes sha256 fingerprint of the stamped plan JSON (sorted keys) and binds each review to it.",
+    "reviewed_at_valid_until": "NULL; desk stamps actual review adoption time and valid_until = reviewed_at + 60 minutes (schema enforces reviewed_at < valid_until <= reviewed_at+1h).",
+    "news_checked_at_suggestion": "2026-11-19T14:40:00Z — labeled estimate of this finalization's actual news-check completion (latest observed feed item 14:37:00Z; two news_search calls completed immediately before writing). Desk should stamp its own actual check time; do not treat this estimate as an executed check by the desk.",
+    "news_feed_ok_suggestion": true,
+    "event_acknowledgment_timing": "review_problem requires reviewed_at >= event.at for events with at >= plan.created_at. Barr event at 19:15Z is FUTURE at review time; claims/Philly at 13:30Z precede creation. If the desk pins Barr with at=19:15Z and the engine treats future events as requiring reviewed_at >= at, a pre-19:15Z review cannot acknowledge it under that rule — desk must verify the engine's exact semantics for future-dated events; researcher flags this rather than guessing. All four IDs are included per desk instruction."
+  },
+  "notes": [
+    "REFERENCE BANDS ONLY: mode=adopt_position cannot buy; entry_low/entry_high are documentation bands derived from capture1 post-open lasts per the desk formula, NOT entry permission and NOT executable sizing.",
+    "Take-profit levels 775.64/105.80 are 20-session structural highs used as profit-taking guards, NOT forecasts; PB-001 exits by rebalance.",
+    "No broker-native stops: hourly synthetic monitor; gaps, halts, delayed runs, limit non-fills can exceed planned loss. Daily-close triggers execute no earlier than the next permitted RTH session.",
+    "exit_deadline 2026-11-27T17:30:00Z = 12:30 ET, before the 13:00 ET Nov-27 early close — inside challenge window and lands by a scheduled RTH check with processing margin.",
+    "Band ordering verified: SPY 727.50 < 734.18 <= 741.55 < 775.64; EFA 100.00 < 100.02 <= 101.02 < 105.80. created_at < entry_expires_at (2026-11-19T20:00:00Z) <= exit_deadline holds once desk stamps created_at today before 20:00Z.",
+    "Capture1 anomalies carried forward (executor-owned, no researcher action): NAV 100184.41 > delegated HWM 100000 needs desk reconciliation; VNQ order 3116597 status5 cum0 UNRESOLVED; dual per-exchange book shape.",
+    "Leading Index 15:00Z and KC Fed 16:00Z rejected as noise by desk (recorded); Barr 19:15Z pinned as EV-20261119-BARR.",
+    "This artifact is an UNAPPROVED research proposal. It grants nothing: no operator approval, no auditor evidence, no order authority. Desk validates against the pinned engine schema; researcher has no shell and claims no validation success."
+  ]
+}

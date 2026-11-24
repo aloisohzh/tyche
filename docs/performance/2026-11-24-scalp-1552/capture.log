@@ -1,0 +1,10 @@
+15:53:05Z delegation clock
+15:53:19 run dir created
+15:53:27 accounts.json (read ~15:53:20)
+15:53:30 cash.json probe ret0
+15:54:05 positions.json ret0
+15:54:40 quotes.json read
+15:55:0x book NVDA/AMD read; history read (today-window query empty; unfiltered full read 15:55:30, 14 rows has_more=false)
+15:56:0x book AVGO/MU read; ledger verified 81 events sha f90ca1b3...; 7 tyche-scl ids all present
+15:57:1x book SMH read; bars x5 read (ktype1 num30, last bar time_key 1795535760000)
+NOTE order_list tool unregistered -> history used (per prior runs)

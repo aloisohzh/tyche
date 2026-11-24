@@ -1,0 +1,11 @@
+# SCALP RUN scalp-20261124-1622 (PB-004, paper only)
+
+- Scheduled start: 2026-11-24 16:22 UTC (11:22 ET). Hard time limit 16:32:00Z.
+- Lock: none present at 16:22:19Z; wrote scalp-lock.json run_id scalp-20261124-1622.
+- GATE 1: ET date 2026-11-24 <= 2026-11-30 — pass.
+- GATE 2: tyche calendar exit 0, trading_day=true, phase=midday (within regular session 09:30-16:00 ET) — pass.
+- GATE 3: tyche strategies lists PB-004 enabled=true (operator switch 2026-11-24) — pass.
+- GATE 4: journal-verify on latest descendant /data/drive/tyche-raw/2026-11-24-ondemand-1604/journal/events.jsonl — OK, 88 events, chain intact (16:23Z).
+- NAV refs (Drive nav-refs.json, as_of 2026-11-23): prior_close_nav=99380.951, high_water_nav=100000.0.
+- WRITER CONFLICT WATCH: third session 2026-11-24-ondemand-1604 is mid-execution (KO option entry approved 16:22:04Z, order deadline 16:26:37Z, run-report Orders=PENDING). Its ledger is the latest verified descendant. No scalp journal copy/append until that writer settles, to avoid forking the chain. Broker reads proceed (read-only).
+- 16:23:54Z executor delegated: read-only feed capture into this run dir. No submits authorized in that task.

@@ -1,0 +1,30 @@
+**TYCHE PRE_MARKET — 2026-11-19**
+13:51 UTC / 08:51 ET / 21:51 SGT · hourly validation mode
+Stance: risk_off (1/4 checks), low conviction — research ready, everything held. PREVIEW ONLY - NOT ARMED. No orders submitted.
+
+ORDERS (all previews, none sent)
+ACTION SYMBOL QTY VALUE STATUS REASON
+SELL SPY 21 $15,319 BLOCKED account.reconcile (pre-market NAV drift $266 > 0.1% tol) + hold + max_orders=0
+SELL EFA 92 $9,215 BLOCKED same reconcile + hold
+BUY DBC 253 $7,474 BLOCKED reconcile + hold (low-conviction wait would also apply)
+BUY VNQ 78 $7,432 BLOCKED reconcile + hold + VNQ unresolved-order flag
+BUY AMD ≤36 ≤$19,566 RESEARCH ONLY unapproved; no two-sided quotes; post-13:30Z macro revalidation due; earliest entry 15:05Z w/ fresh review + 2 confirmations
+BUY MU ≤27 ≤$19,980 RESEARCH ONLY same; 5-day outflow −$749M, ranked below AMD
+BUY SMH ≤42 ≤$19,908 RESEARCH ONLY same; tactical 45% sleeve (code-verified); all 3 exceed cap — gate rejects, any 2 fit
+Stock longs: stop-loss not guaranteed; gaps/halts can exceed stops; limit non-fill possible; no ladder/re-entry. No options proposed (IV 85th pct crush risk).
+
+ACCOUNT (***598 paper)
+NAV $100,193.13 = cash $65,244.61 + frozen $0 + MV $34,948.52 (exact). Positions 2: SPY 28, EFA 142. Kill-switch off. Pending orders 0.
+
+PROTECTION — TOP RISK
+Coverage NONE: SPY+EFA 34.9% NAV unowned — no lifecycle contracts, no stops armed, heartbeat hourly only. ~−7.2% sleeve gap would breach 2.5% daily-loss limit. Ballast 9.9k over 25% cap (no adds; not liquidation permission). Adoption needs operator-controlled bootstrap.
+
+PROBLEMS
+1. VNQ order …6597 still status 5 cum 0 — semantics unknown; manual-review flag kept; VNQ writes blocked; cancel needs per-action confirm.
+2. NYSE check: 2026 pins match (Nov 26 closed, Nov 27 13:00 ET early close). 2028 Juneteenth only: source Jun 16 vs pin Jun 19 — pins govern; reviewed re-pin proposed.
+3. Tactical preview blocked: pre-market quotes have no bid/ask, stale >60s — nothing executable.
+4. Pinned events: claims + Philly Fed 13:30Z today (just printed — revalidation required), PBoC LPR Nov 20 01:15Z (EFA/EEM). LEI + port rumor rejected.
+
+NEXT VALIDATION BLOCKERS
+Durable single-writer unproven · lifecycle adoption grants missing · exact entry+exit envelopes + fresh ≤120s audit + operator release · post-print revalidation + 30-min review freshness (earliest 15:05Z) · executable RTH quotes ≤60s · NAV high-water persistence at release · options need own drill.
+Next hourly check 14:05Z. Raw: tyche-raw/2026-11-19-premarket-1305. Git 47de769 pushed.

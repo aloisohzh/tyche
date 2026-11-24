@@ -1,0 +1,50 @@
+{
+  "plan": {
+    "plan_id": "LC-20261119-EFA-ADOPT-r1",
+    "revision": 1,
+    "symbol": "US.EFA",
+    "strategy_id": "PB-001",
+    "rules_hash": "7799974f9fd0",
+    "thesis": "Adopt the existing PB-001 ballast holding of 142 EFA shares (cost 100.495) under hourly lifecycle protection; no adds, no re-entry. Developed-international equities are under pressure: EFA fell three straight sessions (-1.47%, -1.26%, -1.08%) to 100.26 on Nov 18 (exchange ts 2026-11-18T21:00:00Z), closing below the early-November range floor (Nov 6 low 101.27), amid a firm dollar (USDJPY 159.35 NY close, dollar index +0.4% Nov 18; Fisco 2026-11-18T21:51:07Z, Zhitong 2026-11-19T00:37:07Z) and a hawkish Fed. Eurozone Oct final CPI was in line at 4.0% and UK inflation easing cooled BoE hike expectations (Fisco same wrap). Retain the diversification ballast only while the Nov 18 low of 99.96 holds, with a structural stop below it; research verdict is UNCERTAIN, so this adoption is protection of an existing holding, not a new bullish entry.",
+    "invalidation_rules": [
+      "EFA last price trades below 99.40, extending the break of the observed 2026-11-18 low of 99.96 (moomoo K_DAY autype=1 fetched 2026-11-19T04:58Z, raw-kline-efa.json); the ~0.56% buffer under the observed low is a risk-design choice, the low itself is market-derived.",
+      "FX-driven deterioration: USDJPY sustains above 160.00 (Nov 18 NY close 159.35 per Fisco 2026-11-18T21:51:07Z https://news.futunn.com/post/1004946744) while EFA trades below 99.96 \u2014 dollar strength overwhelming the developed-equity thesis; the 160.00 round-number threshold is a risk-design choice anchored to the sourced 159.35 close.",
+      "December FOMC escalation beyond the priced-in 25bp becomes the base case: CME FedWatch Dec 9 50bp probability exceeds 50% (baseline >95% for 25bp per CFTime 2026-11-19T00:57:39Z https://news.futunn.com/post/1004960262) \u2014 global developed-equity beta risk invalidates ballast retention."
+    ],
+    "created_at": "2026-11-19T05:10:00Z",
+    "mode": "adopt_position",
+    "quantity": 142,
+    "entry_low": 99.96,
+    "entry_high": 100.87,
+    "stop": {
+      "price": 99.4,
+      "basis": "last"
+    },
+    "take_profit": {
+      "price": 101.9,
+      "basis": "last"
+    },
+    "entry_expires_at": "2026-11-19T16:00:00-05:00",
+    "exit_deadline": "2026-11-27T12:05:00-05:00",
+    "exit_on_invalidation": true,
+    "review_max_age_minutes": 60,
+    "quote_max_age_seconds": 300,
+    "max_slippage_bps": 20
+  },
+  "plan_hash": "237408a874860bebfe8731bbfec7742d18f42e2dc717646b24afa46600903395",
+  "risk": {
+    "planned_loss_at_stop_usd": 208.74,
+    "planned_gain_at_target_usd": 146.26,
+    "reward_risk_before_fees": 0.701,
+    "monitor_interval_minutes": 60,
+    "limitations": [
+      "Synthetic triggers, not broker-native stops.",
+      "Gaps, stale feeds, hourly latency and non-fills can exceed planned loss.",
+      "Daily-close triggers execute no earlier than the next permitted session.",
+      "Full-position exits only; no shorting, scaling or automatic re-entry.",
+      "Unknown/cancelled/rejected orders require reconciliation and operator review."
+    ]
+  },
+  "approved": false,
+  "submitted": false
+}

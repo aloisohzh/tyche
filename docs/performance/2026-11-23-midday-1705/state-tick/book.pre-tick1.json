@@ -1,0 +1,303 @@
+{
+ "schema_version": 1,
+ "plans": [
+  {
+   "plan_id": "LC-20261119-SPY-ADOPT-r2",
+   "revision": 2,
+   "symbol": "US.SPY",
+   "strategy_id": "PB-001",
+   "rules_hash": "4105d7a680a3",
+   "thesis": "Adopt existing PB-001 ballast holding of 28 SPY (reconciled avg cost 731.54) under explicit protection: retain diversified US beta as portfolio ballast while the daily-close stop at 727.50 defines thesis invalidation. Take-profit 775.64 is the 20-completed-session structural high (2026-11-04 bar, window 2026-10-22..2026-11-18) stated as a profit-taking guard, NOT a price forecast; PB-001 strategy exits occur by rebalance, not by prediction of reaching this level.",
+   "invalidation_rules": [
+    "(i) A completed daily close below 727.50 (stop basis daily_close) latches the stop_loss exit; intraday trades below the level alone do not trigger it.",
+    "(ii) Rotation momentum <= 0 or regime risk_off triggers a trim per PB-001, evaluated at rebalance only; this is NOT automatic liquidation.",
+    "(iii) A material thesis-breaking event acknowledged by a fresh timestamped review (verdict invalidated with cited condition-specific evidence) invalidates the plan.",
+    "(iv) No broker-native stop exists: protection is a synthetic hourly monitor; gaps, halts, delayed runs and limit non-fills can exceed the planned loss."
+   ],
+   "created_at": "2026-11-19T14:53:03Z",
+   "mode": "adopt_position",
+   "quantity": 28,
+   "entry_low": 734.18,
+   "entry_high": 741.55,
+   "stop": {
+    "price": 727.5,
+    "basis": "daily_close"
+   },
+   "take_profit": {
+    "price": 775.64,
+    "basis": "daily_close"
+   },
+   "entry_expires_at": "2026-11-19T20:00:00Z",
+   "exit_deadline": "2026-11-27T17:00:00Z",
+   "exit_on_invalidation": true,
+   "review_max_age_minutes": 60,
+   "quote_max_age_seconds": 300,
+   "max_slippage_bps": 30
+  },
+  {
+   "plan_id": "LC-20261119-EFA-ADOPT-r2",
+   "revision": 2,
+   "symbol": "US.EFA",
+   "strategy_id": "PB-001",
+   "rules_hash": "4105d7a680a3",
+   "thesis": "Adopt existing PB-001 ballast holding of 142 EFA (reconciled avg cost 100.495) under explicit protection: retain developed-ex-US equity diversification as ballast with daily-close invalidation at 100.00. This thesis is protective retention under a defined stop, NOT a claim EFA will rise; weakness (three consecutive down sessions into 100.26 close, intraday 99.96 low on Nov-18, yen at ~159.94/USD) is acknowledged in the review. Take-profit 105.80 is the 20-completed-session structural high (2026-11-04 bar) stated as a profit-taking guard, NOT a price forecast; PB-001 strategy exits occur by rebalance.",
+   "invalidation_rules": [
+    "(i) A completed daily close below 100.00 (stop basis daily_close) latches the stop_loss exit; intraday trades below the level alone do not trigger it.",
+    "(ii) Rotation momentum <= 0 or regime risk_off triggers a trim per PB-001, evaluated at rebalance only; this is NOT automatic liquidation.",
+    "(iii) A material thesis-breaking event acknowledged by a fresh timestamped review (verdict invalidated with cited condition-specific evidence) invalidates the plan.",
+    "(iv) No broker-native stop exists: protection is a synthetic hourly monitor; gaps, halts, delayed runs and limit non-fills can exceed the planned loss."
+   ],
+   "created_at": "2026-11-19T14:53:03Z",
+   "mode": "adopt_position",
+   "quantity": 142,
+   "entry_low": 100.02,
+   "entry_high": 101.02,
+   "stop": {
+    "price": 100.0,
+    "basis": "daily_close"
+   },
+   "take_profit": {
+    "price": 105.8,
+    "basis": "daily_close"
+   },
+   "entry_expires_at": "2026-11-19T20:00:00Z",
+   "exit_deadline": "2026-11-27T17:00:00Z",
+   "exit_on_invalidation": true,
+   "review_max_age_minutes": 60,
+   "quote_max_age_seconds": 300,
+   "max_slippage_bps": 30
+  },
+  {
+   "plan_id": "PB-007-20261120-AAPL",
+   "revision": 1,
+   "symbol": "US.AAPL",
+   "strategy_id": "PB-007",
+   "rules_hash": "e26f006da28a",
+   "thesis": "Rule-generated (PB fib pullback, no scout): US.AAPL rallied 325.33 (2026-11-03) to 360.83 (2026-11-13), 3.8 ATR, with close above SMA200 and a rising SMA50. Price has pulled back into the 38.2%-61.8% retracement zone and every close since the high held above 338.89. Buy between 338.89 and 343.08, stop 331.99 (under the 78.6% level), target 360.83 (swing high), 1.60R at the limit. Confluence: SMA50 341.81 sits inside the retracement zone; prior swing high 347.18 within 0.5 ATR of the 50% level.",
+   "invalidation_rules": [
+    "before fill: a daily close below 338.89 (the 61.8% level) cancels the entry",
+    "after fill: last price at or below the stop 331.99",
+    "after fill: a daily close below SMA200 (regime lost) exits at the next session",
+    "time: flat by the exit deadline, 10 sessions after entry",
+    "sourced material adverse event on the issuer or sector marks the review invalidated"
+   ],
+   "created_at": "2026-11-23T13:16:32.107362Z",
+   "mode": "new_entry",
+   "quantity": 28,
+   "entry_low": 338.89,
+   "entry_high": 343.08,
+   "stop": {
+    "price": 331.99,
+    "basis": "last"
+   },
+   "take_profit": {
+    "price": 360.83,
+    "basis": "last"
+   },
+   "entry_expires_at": "2026-11-23T15:50:00-05:00",
+   "exit_deadline": "2026-11-27T12:30:00-05:00",
+   "exit_on_invalidation": true,
+   "review_max_age_minutes": 60,
+   "quote_max_age_seconds": 120,
+   "max_slippage_bps": 30
+  }
+ ],
+ "reviews": [
+  {
+   "plan_hash": "e73ee77d4b6abca10545bd296537fcee34b9a2511440e49fcf1d3ad23f9c89df",
+   "reviewed_at": "2026-11-23T13:15:00Z",
+   "valid_until": "2026-11-23T14:15:00Z",
+   "verdict": "invalidated",
+   "reason": "RULE-(i) DAILY-CLOSE STOP BREACH NOW CONFIRMED ON TWO CONSECUTIVE COMPLETED BARS. LC-20261119-SPY-ADOPT-r2 stop 727.50 (daily_close): completed 2026-11-19 bar closed 715.87 and completed 2026-11-20 bar closed 689.81 (-3.64% on the day, -5.18% below the stop), both verified this run via MCP quote_cur_kline (bar 20261120, time_key 1795150800000) and the quote batch (data_time 1795208400396 = 2026-11-20T21:00:00.396Z, last 689.81, low 686.75, volume 151,413,318). No source contradicts either close. Nothing in the weekend/Monday news cures the latched breach: Monday premarket S&P futures +2.46% (DJ 1005349412 pub 2026-11-23T12:30:00Z) is a rebound attempt, not a completed-bar recovery; SPX remains >10% below its October record high with VIX at its highest since April 2025 and JPM's trading desk explicitly saying it does not see a bottom yet (Zhitong 1005351627 pub 12:55:51Z). Fed repricing is marginally less hawkish at the tail (Dec 50bp bets ~0%, hold ~12%, 25bp still ~88% priced; CoinDesk 1005309126 pub 04:45:47Z) but Wednesday core PCE (cons 3.2% vs prior 3.1%, MCP econ calendar 20261125 indicatorId 905) can revive it. Rule (i) of the immutable r2 contract remains met: stop_loss stays latched for execution at the next permitted session under the authorized lifecycle. Desk HALTED (Nov-19 writer-safety incident, unreleased) and the r2 entry window expired unapproved 2026-11-19T20:00:00Z; this verdict is condition-specific evidence, NOT a discretionary liquidation call - operator halt release plus an explicit decision (execute latched exit or approve a NEW r3 adoption with fresh stop/target/deadline) is required. No new entries under this lifecycle; no automatic re-entry. Synthetic hourly protection is not a broker-native stop; gaps/halts/nonfills can exceed the planned loss.",
+   "evidence": [
+    "MCP quote_cur_kline US.SPY ktype=2 autype=1 num=8: completed bar 20261119 close 715.87 (low 715.65, vol 76,702,574); completed bar 20261120 close 689.81, open 713.56, high 718.29, low 686.75, vol 151,413,318, change -3.64%. Both closes < 727.50 stop.",
+    "MCP quote_stock_quote US.SPY data_time 1795208400396 = 2026-11-20T21:00:00.396Z, data_date 2026-11-20: last 689.81, prev_close 715.87, sec_status NORMAL, suspension false. Corroborates the Nov-20 official close.",
+    "MCP quote_rt_ticker US.SPY freshest tick 690.87 BUY time 1795208404089 = 2026-11-20T21:00:04.089Z - Friday closing print; NO Monday premarket ticks available this run (quote-feed gap recorded, not fabricated).",
+    "MCP quote_capital_flow_history US.SPY DAY bar 1795150800000 (Nov-20): main -471,483,605.472, super -359,879,957.496, total -837,492,180.212 - heavy institutional net selling into the second breach bar.",
+    "MCP quote_unusual_technical US.SPY [1795150800]: MA bearish alignment; BR/PSY oversold (rebound possible, downtrend intact). quote_unusual_derivatives US.SPY: put/call 1.45 (>94th pct of past year), put volume/OI concentrated at 680 strike; large Nov-21 put buys at 672 strike exp 2026/11/30 (payload /tmp/tool-outputs/mcp_cc3ac66184969ba469938ab4.txt).",
+    "DJ/MarketWatch news.futunn.com/post/1005349412 pub 1795437000000 = 2026-11-23T12:30:00Z: Monday premarket S&P futures +2.46%, Dow futures +1.87%, 10Y yield 4.947%, gold futures +2.81%, Brent -1.44%; prior regular session SPX -3.70%; STOXX 600 +0.88%.",
+    "Zhitong news.futunn.com/post/1005351627 pub 1795438551000 = 2026-11-23T12:55:51Z: JPM trading desk shifted from tactical bullish to cautious, 'no bottom yet'; SPX >10% off October record high; NDX -5.6% Friday, worst week since Mar 2020, ~20% off high; Yardeni cut year-end SPX target to 7500 (second cut in two months); VIX highest since Apr 2025.",
+    "CoinDesk news.futunn.com/post/1005309126 pub 1795409147000 = 2026-11-23T04:45:47Z: fed funds futures now price Dec 50bp hike ~0% (was 10-15% ~10 days ago), hold ~12%, 25bp hike to 4.00-4.25% still baseline; Jan additional 25bp ~60%; RBC expects Oct PCE headline/core +0.3% m/m, 3.8%/3.3% y/y. HIKE cycle intact - no cut pricing.",
+    "MCP quote_economic_calendar_hot 20261125: Core PCE YoY cons 3.2% prev 3.1% (indicatorId 905), Initial Jobless Claims cons 201K prev 203K (294), GDP QoQ cons 3.4% prev 3.4% (375), all event_time 1795613400 = 2026-11-25T13:30:00Z. 20261123 and 20261124 calendars returned empty (gap).",
+    "Weekend Mideast: Cailianshe news.futunn.com/post/1005275552 pub 1795332600000 = 2026-11-22T07:30:00Z - Trump seeks 'permanent' Iran deal, Iran open to diplomacy ('two-day plan' to reopen Hormuz), BUT IRGC struck US radar sites in Bahrain Nov-21 and >=12 unauthorized tankers hit mines in 3 days; DJ news.futunn.com/post/1005309631 pub 1795410000000 = 2026-11-23T05:00:00Z - UAE shuttling oil past Iran with US military help; Brent settled 92.58 Friday (Benzinga 1005274468 pub 1795290307000 = 2026-11-22T19:45:07Z), week -2.85%.",
+    "COVERAGE GAPS: no Monday premarket executable quotes/ticks/books (feed at Nov-20 21:00Z); econ calendar hot empty for Nov-23/24; this week's US Fed speaker schedule not verified in feed (searches returned stale items); no fresh post-Nov-20 FedWatch tool print beyond the CoinDesk futures description. Fresh news check completed this run before the desk-head-verified 2026-11-23T13:18:40Z anchor via MCP news_search (en/zh, TIME sort)."
+   ],
+   "acknowledged_events": [
+    "EV-20261119-CLAIMS",
+    "EV-20261119-PHILLYFED",
+    "EV-20261119-BARR",
+    "EV-20261120-PBOC-LPR",
+    "EV-20261119-ANT-DEBUT",
+    "EV-20261119-MIDEAST-ESCALATION",
+    "EV-20261120-WALLER",
+    "EV-20261120-UMICH",
+    "EV-20261120-COOK",
+    "EV-20261120-EZCONF",
+    "EV-20261122-MIDEAST-DIPLOMACY",
+    "EV-20261123-FED-REPRICING",
+    "EV-20261125-CLAIMS",
+    "EV-20261125-GDP"
+   ]
+  },
+  {
+   "plan_hash": "add27d1a3e75fece0fe292c51050d9324ac33326a58ac4516cd93e3b39a9b33c",
+   "reviewed_at": "2026-11-23T13:15:00Z",
+   "valid_until": "2026-11-23T14:15:00Z",
+   "verdict": "invalidated",
+   "reason": "RULE-(i) DAILY-CLOSE STOP BREACH NOW CONFIRMED ON TWO CONSECUTIVE COMPLETED BARS. LC-20261119-EFA-ADOPT-r2 stop 100.00 (daily_close): completed 2026-11-19 bar closed 98.78 and completed 2026-11-20 bar closed 96.14 (-2.67% on the day, -3.86% below the stop), verified via MCP quote_cur_kline (bar 20261120, time_key 1795150800000) and the quote batch (data_time 1795208400238 = 2026-11-20T21:00:00.238Z, last 96.14, low 95.99). Five consecutive down sessions Nov-16..Nov-20 (102.64, 101.35, 100.26, 98.78, 96.14). No source contradicts either close. Retention evidence exists but does NOT cure the latched r2 stop: institutional net buying persisted on both breach bars (Nov-19 main +108.69M/super +105.99M; Nov-20 main +50.53M/super +83.66M) - this is an argument for a possible NEW r3 adoption proposal only, requiring operator approval with fresh levels. Counter-evidence: EFA options put/call ratio 8.36 (>98th percentile of the past year, MCP quote_unusual_derivatives [1795150800]) shows extreme hedging demand; MA bearish alignment with KDJ/PSY oversold. Developed-ex-US context: UK Nov composite PMI flash 52.3, two-month low (MT 1005337333 pub 2026-11-23T10:02:44Z); ECB Simkus says Dec 25bp hike may not suffice (flash 1005332163 pub 2026-11-23T07:03:53Z) - global hike cycle persists; Monday European equities rebounding (STOXX 600 +0.88%, DJ 12:30Z). Rule (i) remains met: stop_loss latched for execution at the next permitted session under the authorized lifecycle. Desk HALTED; r2 entry window expired unapproved 2026-11-19T20:00:00Z. Operator decision required (execute latched exit or approve a new r3); no new entries under this lifecycle; no automatic re-entry. Synthetic hourly protection is not a broker-native stop; gaps/halts/nonfills can exceed the planned loss.",
+   "evidence": [
+    "MCP quote_cur_kline US.EFA ktype=2 autype=1 num=8: completed bars 20261116 close 102.64, 20261117 101.35, 20261118 100.26, 20261119 98.78 (low 98.62, vol 26,623,202), 20261120 96.14 (open 97.84, high 98.37, low 95.99, vol 30,645,822, -2.67%). Nov-19 and Nov-20 closes both < 100.00 stop.",
+    "MCP quote_stock_quote US.EFA data_time 1795208400238 = 2026-11-20T21:00:00.238Z, data_date 2026-11-20: last 96.14, prev_close 98.78, sec_status NORMAL, suspension false.",
+    "MCP quote_rt_ticker US.EFA freshest tick 96.175 NEUTRAL time 1795208403488 = 2026-11-20T21:00:03.488Z - Friday closing print; NO Monday premarket ticks available (gap recorded).",
+    "MCP quote_capital_flow_history US.EFA DAY bars: 1795064400000 (Nov-19) main +108,685,212.059 / super +105,990,895.666; 1795150800000 (Nov-20) main +50,533,718.879 / super +83,659,456.31 / total +49,689,653.577 - institutional net buying on both breach bars (retention argument for r3 only).",
+    "MCP quote_unusual_capital US.EFA: super-large net inflow flags Nov-18 (+62.82M) and Nov-19 (+105.99M) with small-trade outflows - institution/retail divergence.",
+    "MCP quote_unusual_derivatives US.EFA [1795150800]: put/call ratio 8.36, higher than 98% of trading days over the past year; large Nov-21 put buys 4000 lots at 97 strike exp 2027/01/15 and 5000 lots at 95 strike exp 2027/03/19; call OI concentrated at 101 strike.",
+    "MCP quote_unusual_technical US.EFA [1795150800]: MA bearish alignment; KDJ strong oversold, PSY oversold; Nov-19 MA20 crossed below MA30.",
+    "MT Newswires news.futunn.com/post/1005337333 pub 1795428164000 = 2026-11-23T10:02:44Z: UK Nov flash composite PMI 52.3 (2-month low, prior 52.9; mfg 52.7, services 52.0) - developed-Europe momentum cooling but still expanding.",
+    "Flash news.futunn.com/flash/1005332163 pub 1795424633000 = 2026-11-23T07:03:53Z: ECB Simkus - Dec 25bp hike may not fully contain inflation, no urgency after December; global developed-market hike cycle persists (EFA rates backdrop).",
+    "DJ/MarketWatch news.futunn.com/post/1005349412 pub 2026-11-23T12:30:00Z: STOXX Europe 600 +0.88%, FTSE 100 +0.63% Monday afternoon Europe; S&P futures +2.46% - rebound attempt, not a completed-bar recovery.",
+    "Weekend Mideast diplomacy/incidents: Cailianshe 1005275552 pub 2026-11-22T07:30:00Z (Trump permanent-deal push; Iran 'two-day plan'; IRGC radar strikes in Bahrain Nov-21; >=12 tankers mined in 3 days); DJ 1005309631 pub 2026-11-23T05:00:00Z (UAE oil shuttle with US military help). Energy-shock stagflation drag on developed-ex-US equities persists; Brent 92.58 Friday settle, -21% from Oct high (Benzinga 1005274468 pub 1795290307000 = 2026-11-22T19:45:07Z).",
+    "COVERAGE GAPS: no Monday premarket EFA quotes/ticks; no fresh USDJPY print captured this run (last desk-verified 158.8771 at 2026-11-20T12:41:22Z per prior review - stale, not re-used as current); econ calendar Nov-23/24 empty; Fed speaker schedule unverified. Fresh news check completed this run before the desk-head-verified 2026-11-23T13:18:40Z anchor."
+   ],
+   "acknowledged_events": [
+    "EV-20261119-CLAIMS",
+    "EV-20261119-PHILLYFED",
+    "EV-20261119-BARR",
+    "EV-20261120-PBOC-LPR",
+    "EV-20261119-ANT-DEBUT",
+    "EV-20261119-MIDEAST-ESCALATION",
+    "EV-20261120-WALLER",
+    "EV-20261120-UMICH",
+    "EV-20261120-COOK",
+    "EV-20261120-EZCONF",
+    "EV-20261122-MIDEAST-DIPLOMACY",
+    "EV-20261123-FED-REPRICING",
+    "EV-20261125-CLAIMS",
+    "EV-20261125-GDP"
+   ]
+  },
+  {
+   "plan_hash": "3dd88f8660b24f5d242cc8e1b6d69d40364048fc9c416ded97ea6eb2879dd1ec",
+   "reviewed_at": "2026-11-23T13:25:00Z",
+   "valid_until": "2026-11-23T14:25:00Z",
+   "verdict": "uncertain",
+   "reason": "PB-007-20261120-AAPL (new_entry, 28 sh, zone 338.89-343.08, stop 331.99 last, target 360.83 last). TECHNICAL PRECONDITIONS INTACT: the completed 2026-11-20 daily bar closed 342.56 (-1.90%, low 340.56, high 354.34, vol 80,692,545 - roughly 2x the prior sessions), which sits INSIDE the entry zone, 0.15% below the 343.08 limit; every close since the 2026-11-13 swing-high bar (intraday high 360.83, the plan target) held above 338.89 (352.78 / 351.91 / 352.45 / 349.21 / 342.56), so the plan's before-fill cancellation (daily close < 338.89) has NOT triggered. Stop 331.99 is 3.09% below Friday's close and under Friday's low; reward/risk at the limit = (360.83-343.08)/(343.08-331.99) = 1.60, matching the plan. WHERE THE CLOSE SITS / MONDAY CONTEXT: Friday's close is at the TOP of the zone, and Monday's risk-on rebound (S&P futures +2.46%, DJ 1005349412 pub 12:30:00Z; the quote batch's overnight sub-object prints AAPL 347.70, +1.5% vs Friday close - indicative only, no independent timestamp, session attribution ambiguous) points to a gap-up open ABOVE the 343.08 zone top. A valid entry today therefore requires an intraday pullback of roughly 1.3-1.5% back into 338.89-343.08 before the 15:50 ET entry expiry; do NOT chase above the zone. That pullback may not come. CONFLICTING FRESH EVIDENCE: (a) fundamental headwind dated today - Google search-ad growth slowed to 12% (vs 17%/19% prior quarters), cutting Apple's Services growth from 12% to 10% with management guiding further cooling (Google pays Apple 36% of Safari search-ad revenue; WSCN 1005291078 pub 2026-11-23T00:50:00Z, citing The Information Nov-22); (b) versus bullish reiterations today - AllianceBernstein Buy $380 (Futu 1005349829 pub 12:33:00Z) and JPM Chatterjee Buy $355 (Futu 1005344939 pub 11:33:00Z; note $355 is BELOW the plan's 360.83 target); (c) relative strength supports the setup - AAPL fell only 3.8% last week vs SPX -8.6% / NDX -10.4%, the 'generals' safe-haven pattern (Zhitong/Burry 1005340048 pub 10:27:11Z), but the same piece warns the correction may not be over and reports VIX touched 40.03 Friday, closed 35.89 vs 19.30 a week earlier; JPM's desk says 'no bottom yet' (Zhitong 1005351627 pub 12:55:51Z). EXECUTION GATES (independent of this review; gate wording desk-corrected post-review per coordinator decision, verdict and timestamps unchanged): PB-007 is EFFECTIVELY ENABLED - config/strategies/pb-007.yaml has enabled: false but the operator switch file data/strategies.json sets PB-007: true (updated_at 2026-11-23T05:27:15Z, operator via Claude PR #31), and per src/tyche/config.py strategy_switch() the operator override wins over lane config; with options_enabled: false the switched-on allocation-cap sum is 0.25 ballast + 0.20 PB-007 + 0.45 tactical = 0.90 <= 0.95 (coordinator-verified). The real execution blockers are: the desk is HALTED; this UNCERTAIN verdict blocks new entries; and NO Monday premarket executable AAPL quote exists in the feed (data_time 2026-11-20T21:00:00Z) - the executor must capture fresh (<=120s) two-sided quotes with spread <=0.3% before any action. VERDICT: none of the plan's specific invalidation rules is confirmed triggered (no close below 338.89, no sourced thesis-breaking adverse event), so this is NOT invalidated; but the gap-up/no-chase risk, the fresh Services-growth headwind conflicting with bullish analyst notes, the risk-off broad regime, and the halt/no-live-quote gates make the entry thesis UNCERTAIN. Uncertain blocks new entries; it is not a liquidation call (no position exists). plan_hash is coordinator-supplied from the executor's pb007-book.json; the researcher has no shell to recompute the fingerprint - Desk Head must verify hash/contract binding and rules_hash e26f006da28a before any approval. This review is NOT an approval.",
+   "evidence": [
+    "MCP quote_cur_kline US.AAPL num=8 ktype=2 autype=1 (fetched this addendum scan; persisted research/mcp/aapl-kline-8bar-20261123.json): bars 20261111 close 355.63; 20261112 354.88; 20261113 356.27 (HIGH 360.83 = plan swing high/target); 20261116 352.78; 20261117 351.91; 20261118 352.45; 20261119 349.21; 20261120 close 342.56, open 352.865, high 354.34, low 340.56, vol 80,692,545, turnover 27,860,681,030, change -1.904%. Close 342.56 is inside [338.89, 343.08]; no close since the high < 338.89.",
+    "MCP quote_stock_quote US.AAPL data_time 1795208400000 = 2026-11-20T21:00:00Z (persisted research/mcp/aapl-quote-20261120.json): last 342.56, prev_close 349.21, sec_status NORMAL, suspension false; sub-objects: pre_market 347.50 (+1.442%), after_market 344.87 (+0.674%), overnight 347.70 (+1.5%, high 351.23, low 345.19, vol 131,875). Sub-objects carry NO independent timestamps; the overnight change is computed vs Friday's close so it likely reflects the post-Friday (Monday) overnight session, but attribution is unverified - treated as indicative context only, NOT an executable quote.",
+    "Executor bars file /data/drive/tyche-raw/2026-11-23-premarket-1305/mcp/bars-US.AAPL.json exists (370 bars through Nov-20 per delegation) but is a single 119.6KB line the researcher's reader could not tail; recent-bar evidence above was fetched live via MCP instead. Desk Head can cross-check Nov-13 high 360.83 / Nov-20 close 342.56 against that file.",
+    "Plan contract: /data/drive/tyche-raw/2026-11-23-premarket-1305/pb007-book.json - PB-007-20261120-AAPL r1, created 2026-11-23T13:16:32.107362Z, qty 28, entry 338.89-343.08, stop 331.99 (last), target 360.83 (last), entry_expires 2026-11-23T15:50-05:00, exit_deadline 2026-11-27T12:30-05:00 (before the Nov-27 13:00 ET early close, inside the challenge window), rules_hash e26f006da28a, max_slippage 30bps. Invalidation rules: pre-fill daily close < 338.89; post-fill last <= 331.99; daily close below SMA200; time exit; sourced material adverse event.",
+    "WSCN news.futunn.com/post/1005291078 pub 1795395000000 = 2026-11-23T00:50:00Z (wallstreetcn.com/articles/3786471, citing The Information Nov-22): Google search-ad revenue growth 12% vs 17%/19% prior quarters; Apple Services growth 12%->10% with executives expecting further cooling; Google pays Apple 36% of Safari search-ad revenue (~$20B in 2022 per court filings); GOOGL -18% since the slowdown disclosure. Fresh fundamental headwind for the AAPL long thesis -> EV-20261123-GOOG-ADS.",
+    "Futu news.futunn.com/post/1005349829 pub 1795437180000 = 2026-11-23T12:33:00Z: AllianceBernstein Mark Newman maintains AAPL Buy, PT $380.",
+    "Futu news.futunn.com/post/1005344939 pub 1795433580000 = 2026-11-23T11:33:00Z: JPMorgan Samik Chatterjee maintains AAPL Buy, PT $355 (below the plan's 360.83 target).",
+    "Zhitong news.futunn.com/post/1005340048 pub 1795429631000 = 2026-11-23T10:27:11Z (zhitongcaijing.com/content/detail/1527244.html): Burry 'generals' piece - last week AAPL -3.8% vs SPX -8.6% / NDX -10.4% (COST -0.4%, WMT -0.1%); VIX touched 40.03 Friday, closed 35.89 vs 19.30 a week prior; Burry expects violent bear-market rallies but says the correction may not be finished; WMT raised FY guidance, COST $30 special dividend payable Dec-4 (sector context).",
+    "Zhitong news.futunn.com/post/1005351627 pub 1795438551000 = 2026-11-23T12:55:51Z: JPM desk cautious, 'no bottom yet'; SPX >10% off Oct high; semis hit by tighter US export-control headlines (tech-sector risk).",
+    "DJ/MarketWatch news.futunn.com/post/1005349412 pub 1795437000000 = 2026-11-23T12:30:00Z: Monday premarket S&P futures +2.46%, Dow +1.87%, 10Y 4.947% - rebound context for the gap-up/no-chase assessment.",
+    "Gelonghui news.futunn.com/post/1005289769 pub 1795391668000 = 2026-11-22T23:54:28Z: Gurman - iPhone 18e/18, entry iPad, MacBook Neo/Air planned Feb-Mar 2027 (mild pipeline positive, outside the plan's Nov-27 horizon).",
+    "Config gates (read only; gate wording desk-corrected post-review per coordinator decision): PB-007 effectively ENABLED via operator override - data/strategies.json sets PB-007: true (updated_at 2026-11-23T05:27:15Z, operator via Claude PR #31), which wins over config/strategies/pb-007.yaml enabled: false per src/tyche/config.py strategy_switch(); switched-on allocation-cap sum 0.25 ballast + 0.20 PB-007 + 0.45 tactical = 0.90 <= 0.95 with options_enabled: false (coordinator-verified). pb-007.yaml risk_per_trade_pct 0.005, max_notional_pct 0.10, no_entry_event_kinds [FOMC, CPI, PCE] - Wed Nov-25 PCE is an event-day inside the holding window; desk HALTED per delegation.",
+    "COVERAGE GAPS: no Monday premarket executable AAPL quotes/ticks/books (feed at Nov-20 21:00Z); SMA50/SMA200 values cited in the plan thesis (341.81 / regime) are the deterministic scan's outputs - not recomputed by the researcher (no shell); Desk Head verifies. Fresh AAPL news check completed in this addendum scan before the coordinator-sanctioned 13:25:00Z stamp."
+   ],
+   "acknowledged_events": [
+    "EV-20261122-MIDEAST-DIPLOMACY",
+    "EV-20261123-FED-REPRICING",
+    "EV-20261123-GOOG-ADS",
+    "EV-20261125-CLAIMS",
+    "EV-20261125-GDP"
+   ]
+  }
+ ],
+ "news_checked_at": "2026-11-23T13:25:00Z",
+ "news_feed_ok": true,
+ "events": [
+  {
+   "event_id": "EV-20261122-MIDEAST-DIPLOMACY",
+   "at": "2026-11-22T07:30:00Z",
+   "symbols": [
+    "US.SPY",
+    "US.QQQ",
+    "US.IWM",
+    "US.EFA",
+    "US.EEM",
+    "US.GLD",
+    "US.DBC"
+   ],
+   "material": true,
+   "source": "Cailianshe news.futunn.com/post/1005275552 pub 1795332600000 = 2026-11-22T07:30:00Z (cls.cn/detail/2540868); DJ news.futunn.com/post/1005309631 pub 2026-11-23T05:00:00Z; Benzinga 1005274468 pub 2026-11-22T19:45:07Z",
+   "summary": "Weekend two-track Mideast: Trump seeks 'permanent' Iran deal and Iran floats a 'two-day plan' to reopen Hormuz (de-escalation hope behind Monday's rebound), while IRGC hit US radar sites in Bahrain Nov-21 and >=12 unauthorized tankers hit mines in 3 days; UAE shuttles oil with US military help. Brent 92.58 Friday settle, -2.85% on the week. Escalation OR deal headline can gap the tape either way."
+  },
+  {
+   "event_id": "EV-20261123-FED-REPRICING",
+   "at": "2026-11-23T04:45:47Z",
+   "symbols": [
+    "US.SPY",
+    "US.QQQ",
+    "US.IWM",
+    "US.TLT",
+    "US.IEF",
+    "US.GLD",
+    "US.VNQ",
+    "US.MSFT"
+   ],
+   "material": true,
+   "source": "CoinDesk news.futunn.com/post/1005309126 pub 1795409147000 = 2026-11-23T04:45:47Z (coindesk.com/markets/2026/11/23/market-rout-kills-50-basis-points-december-fed-rate-hike-bets); WSCN 1005344282 pub 2026-11-23T11:42:29Z (Ackman recession warning; Oct-minutes 'nearly all' saw further hikes possibly appropriate; Sep PCE 3.6%/core 3.1%)",
+   "summary": "Post-rout Fed repricing (HIKE cycle): Dec 50bp hike probability ~0% (was 10-15%), hold ~12%, 25bp to 4.00-4.25% still ~88% baseline; Jan additional 25bp ~60%. Wednesday Oct core PCE (cons 3.2% vs 3.1%) is the next repricing trigger; RBC forecasts reacceleration to 3.8%/3.3% y/y. FOMC Dec 8-9."
+  },
+  {
+   "event_id": "EV-20261123-EU-CCEP",
+   "at": "2026-11-23T10:56:00Z",
+   "symbols": [
+    "US.KO"
+   ],
+   "material": true,
+   "source": "WSJ news.futunn.com/post/1005341828 pub 1795431360000 = 2026-11-23T10:56:00Z",
+   "summary": "European Commission opened a formal antitrust investigation into Coca-Cola Europacific Partners (major KO-system bottler, NOT The Coca-Cola Company itself) over suspected abuse of dominance in EU soft-drink wholesale supply. Indirect headline/regulatory risk for US.KO; contributes to KO entry rejection this run."
+  },
+  {
+   "event_id": "EV-20261123-GOOG-ADS",
+   "at": "2026-11-23T00:50:00Z",
+   "symbols": [
+    "US.AAPL",
+    "US.GOOGL"
+   ],
+   "material": true,
+   "source": "WSCN news.futunn.com/post/1005291078 pub 1795395000000 = 2026-11-23T00:50:00Z (wallstreetcn.com/articles/3786471, citing The Information Nov-22)",
+   "summary": "Google search-ad growth slowed to 12% (vs 17%/19% prior quarters) as AI Overviews monetize below traditional search; Apple Services growth cut 12%->10% with further cooling guided (Google pays Apple 36% of Safari search-ad revenue, ~$20B in 2022). Fundamental headwind for the PB-007 AAPL long thesis and for GOOGL (both PB-007 scope); acknowledged in the AAPL review as conflicting evidence, not a confirmed plan-breaking event."
+  },
+  {
+   "event_id": "EV-20261124-JNJ-EXDIV",
+   "at": "2026-11-24T14:30:00Z",
+   "symbols": [
+    "US.JNJ"
+   ],
+   "material": true,
+   "source": "MCP quote_corporate_actions_dividends US.JNJ (ex_date 2026/11/24, $1.34/share, record 2026/11/24, payable 2026/12/08); Futu news.futunn.com/post/1005291326 pub 2026-11-23T01:00:01Z",
+   "summary": "JNJ ex-dividend Tue Nov 24, $1.34/share (~0.5% mechanical price drop at Tuesday's open). Any JNJ position held overnight must account for the adjustment; the proposed same-session JNJ setup exits Monday 15:50 ET and does not span the ex-date."
+  },
+  {
+   "event_id": "EV-20261125-CLAIMS",
+   "at": "2026-11-25T13:30:00Z",
+   "symbols": [
+    "US.SPY",
+    "US.QQQ",
+    "US.IWM",
+    "US.TLT",
+    "US.IEF"
+   ],
+   "material": true,
+   "source": "MCP quote_economic_calendar_hot 20261125 indicatorId 294 (prev 203K, cons 201K), event_time 1795613400",
+   "summary": "US Initial Jobless Claims Wed Nov 25 08:30 ET, same release window as PCE/GDP; labor-market signal in hike cycle; post-event review required before entries."
+  },
+  {
+   "event_id": "EV-20261125-GDP",
+   "at": "2026-11-25T13:30:00Z",
+   "symbols": [
+    "US.SPY",
+    "US.QQQ",
+    "US.IWM"
+   ],
+   "material": true,
+   "source": "MCP quote_economic_calendar_hot 20261125 indicatorId 375 (prev 3.4%, cons 3.4%), event_time 1795613400",
+   "summary": "US GDP QoQ Wed Nov 25 08:30 ET (cons 3.4%, prev 3.4%); growth-vs-hike narrative input alongside PCE; Ackman/JPM debate on whether Dec hike tips the economy."
+  }
+ ]
+}

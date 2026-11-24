@@ -1,0 +1,14 @@
+2026-11-24T16:07:23Z SCALP RUN start 2026-11-24-scalp-1607 (scheduled :07, deadline 16:17:23Z)
+2026-11-24T16:08:00Z lock acquired (no prior lock file)
+2026-11-24T16:08:33Z gates: 1 date OK; 2 calendar rc0 phase=midday (regular session); 3 PB-004 enabled; 4 journal-verify OK 82 events at 2026-11-24-ondemand-1604/journal/events.jsonl (verified descendant of premarket-1305 81-event f90ca1b3 lineage)
+2026-11-24T16:08:47Z NAV refs: prior_close 99380.951 HWM 100000.0 (Drive nav-refs.json); executor delegated capture+cycle+submits
+2026-11-24T16:09:30Z capture: orders.json (14 orders, has_more=false), bars x5, books x5, quotes x5, trio last; accounts target …2598 (type2/market100); cash 98831.144, no open positions
+2026-11-24T16:09:40Z fills-first: no-op — all 7 tyche-scl- ids already journaled; SMH 3118500 / VNQ 3116597 status5 CLOSED per operator ruling (never journal/block)
+2026-11-24T16:14:18Z cycle run #1 exit=0 as_of 16:14:18Z: all 5 wait "entry quote missing/stale" (trio >120s, quotes/books >60s at cycle time)
+2026-11-24T16:14:55Z fresh recapture (single batch): quotes+books num=5 (~16:14:29Z) + trio; bars not recaptured (1-min data, deadline) — noted in mcp-anomaly/README.txt
+2026-11-24T16:16:02Z cycle re-run exit=0 as_of 16:16:02Z: gates passed; NVDA/AMD/AVGO/MU/SMH all wait "no 5-bar breakout"; orders=[]; submitted=false
+2026-11-24T16:16:40Z post-run history re-read: orders-history-post.json — no new tyche-scl- ids; zero submits; zero fills to journal; journal steady at 85 events
+2026-11-24T16:16:45Z SCALP RUN end: all-wait cycle (no breakout), no orders submitted
+2026-11-24T16:16:02Z cycle as_of 16:16:02Z rc0: NVDA/AMD/AVGO/MU/SMH all wait (no 5-bar breakout); orders=[]; 0 submitted, 0 skipped/denied, 0 fills; fills-first no-op (7 Nov-19 scl ids journaled; SMH 3118500/VNQ 3116597 CLOSED per ruling)
+2026-11-24T16:16:30Z NAV 98,831.144 flat, no positions; Telegram silent per card (no submit/fill, no open lot at flatten)
+2026-11-24T16:17:00Z SCALP RUN end: all-wait, no orders; lock released

@@ -1,0 +1,249 @@
+{
+  "schema_version": 1,
+  "plans": [
+    {
+      "plan_id": "LC-20261119-SPY-ADOPT-r1",
+      "revision": 1,
+      "symbol": "US.SPY",
+      "strategy_id": "PB-001",
+      "rules_hash": "7799974f9fd0",
+      "thesis": "Adopt the existing PB-001 ballast holding of 28 SPY shares (cost 731.54) under hourly lifecycle protection through challenge end; no adds, no re-entry. The hawkish Oct 27-28 FOMC minutes released Nov 18 (CFTime 2026-11-19T00:57:39Z; Fisco 2026-11-18T22:23:15Z) confirm the hike cycle, but a Dec 9 25bp hike is already >95% priced (CME FedWatch via CFTime), so the incremental shock is limited to the 50bp tail. SPY closed Nov 18 at 730.20 (exchange ts 2026-11-18T21:00:00.268Z), holding just above the Nov 17/18 low cluster 727.00/726.795, and recovered to 735.57 after hours (+0.735%) as strong NVDA results lifted tech (Fisco 2026-11-18T21:51:07Z). Retain diversified US large-cap ballast with a structural stop below the observed low cluster while that cluster holds.",
+      "invalidation_rules": [
+        "December FOMC escalation beyond the priced-in 25bp becomes the base case: CME FedWatch probability of a 50bp hike at the Dec 9 meeting exceeds 50% (baseline: >95% for 25bp, 50bp only a tail, per CFTime 2026-11-19T00:57:39Z https://news.futunn.com/post/1004960262). Re-check via CME FedWatch or timestamped wire coverage at each hourly review.",
+        "SPY last price trades below 725.00, breaking the observed 2026-11-17/18 low cluster of 727.00/726.795 (moomoo K_DAY autype=1 fetched 2026-11-19T04:58Z, raw-kline-spy.json); the ~0.25-0.3% buffer under the observed lows is a risk-design choice, the lows themselves are market-derived.",
+        "The scheduled 2026-11-25 08:30 ET Core PCE (YoY) prints above the prior 3.1% (moomoo economic calendar indicatorId=905, event_time 1795613400, raw-calendar-hot.json) AND SPY trades below the Nov 18 low of 726.795 on the release — combined hawkish-surprise plus price-structure breakdown invalidates the 'hawkishness is priced in' ballast thesis."
+      ],
+      "created_at": "2026-11-19T05:10:00Z",
+      "mode": "adopt_position",
+      "quantity": 28,
+      "entry_low": 726.8,
+      "entry_high": 735.06,
+      "stop": {
+        "price": 725.0,
+        "basis": "last"
+      },
+      "take_profit": {
+        "price": 749.5,
+        "basis": "last"
+      },
+      "entry_expires_at": "2026-11-19T16:00:00-05:00",
+      "exit_deadline": "2026-11-27T12:05:00-05:00",
+      "exit_on_invalidation": true,
+      "review_max_age_minutes": 60,
+      "quote_max_age_seconds": 300,
+      "max_slippage_bps": 20
+    },
+    {
+      "plan_id": "LC-20261119-EFA-ADOPT-r1",
+      "revision": 1,
+      "symbol": "US.EFA",
+      "strategy_id": "PB-001",
+      "rules_hash": "7799974f9fd0",
+      "thesis": "Adopt the existing PB-001 ballast holding of 142 EFA shares (cost 100.495) under hourly lifecycle protection; no adds, no re-entry. Developed-international equities are under pressure: EFA fell three straight sessions (-1.47%, -1.26%, -1.08%) to 100.26 on Nov 18 (exchange ts 2026-11-18T21:00:00Z), closing below the early-November range floor (Nov 6 low 101.27), amid a firm dollar (USDJPY 159.35 NY close, dollar index +0.4% Nov 18; Fisco 2026-11-18T21:51:07Z, Zhitong 2026-11-19T00:37:07Z) and a hawkish Fed. Eurozone Oct final CPI was in line at 4.0% and UK inflation easing cooled BoE hike expectations (Fisco same wrap). Retain the diversification ballast only while the Nov 18 low of 99.96 holds, with a structural stop below it; research verdict is UNCERTAIN, so this adoption is protection of an existing holding, not a new bullish entry.",
+      "invalidation_rules": [
+        "EFA last price trades below 99.40, extending the break of the observed 2026-11-18 low of 99.96 (moomoo K_DAY autype=1 fetched 2026-11-19T04:58Z, raw-kline-efa.json); the ~0.56% buffer under the observed low is a risk-design choice, the low itself is market-derived.",
+        "FX-driven deterioration: USDJPY sustains above 160.00 (Nov 18 NY close 159.35 per Fisco 2026-11-18T21:51:07Z https://news.futunn.com/post/1004946744) while EFA trades below 99.96 — dollar strength overwhelming the developed-equity thesis; the 160.00 round-number threshold is a risk-design choice anchored to the sourced 159.35 close.",
+        "December FOMC escalation beyond the priced-in 25bp becomes the base case: CME FedWatch Dec 9 50bp probability exceeds 50% (baseline >95% for 25bp per CFTime 2026-11-19T00:57:39Z https://news.futunn.com/post/1004960262) — global developed-equity beta risk invalidates ballast retention."
+      ],
+      "created_at": "2026-11-19T05:10:00Z",
+      "mode": "adopt_position",
+      "quantity": 142,
+      "entry_low": 99.96,
+      "entry_high": 100.87,
+      "stop": {
+        "price": 99.4,
+        "basis": "last"
+      },
+      "take_profit": {
+        "price": 101.9,
+        "basis": "last"
+      },
+      "entry_expires_at": "2026-11-19T16:00:00-05:00",
+      "exit_deadline": "2026-11-27T12:05:00-05:00",
+      "exit_on_invalidation": true,
+      "review_max_age_minutes": 60,
+      "quote_max_age_seconds": 300,
+      "max_slippage_bps": 20
+    }
+  ],
+  "reviews": [
+    {
+      "plan_hash": "8ca9176daf7d09b4030cc15cf5460896fd871ef2c66b48db60fc6f886fbdd954",
+      "reviewed_at": "2026-11-19T05:10:00Z",
+      "valid_until": "2026-11-19T06:10:00Z",
+      "verdict": "valid",
+      "reason": "Review of LC-20261119-SPY-ADOPT-r1 (US.SPY). Thesis-level VALID, explicitly PENDING-REFRESH and NOT actionable now. Hawkish Oct FOMC minutes are confirmed by multiple timestamped sources and the Dec 9 25bp hike is >95% priced, so no invalidation condition is triggered; SPY holds above the Nov 17/18 low cluster (727.00/726.795) with a +0.735% after-hours recovery on strong NVDA results. All quotes are stamped at the Nov 18 16:00 ET close (exchange ts 1795035600268) and will be stale long before the next scheduled hourly RTH check (2026-11-19 13:05 UTC); this review itself expires 06:10 UTC. Fresh quotes (<=300s) and a fresh review (<=60min) are REQUIRED before any lifecycle action. Orders remain unarmed; this is an unapproved adoption draft.",
+      "evidence": [
+        "moomoo quote_stock_quote US.SPY, exchange data_time 2026-11-18T21:00:00.268Z (16:00 ET RTH close): last 730.20, open 733.37, high 735.06, low 726.795, prev_close 732.44, volume 51,804,809; after-hours last 735.57 (+0.735%); overnight 734.57 — raw-quotes-spy-efa.json, fetched 2026-11-19T04:58Z",
+        "moomoo quote_market_state US.SPY = AFTER_HOURS_END, time_date 20261118; after-hours section ended 1795050000 = 2026-11-19T01:00Z (20:00 ET) — raw-market-state.json, fetched 2026-11-19T04:58Z",
+        "moomoo quote_cur_kline US.SPY K_DAY autype=1, 15 completed bars 2026-10-29..2026-11-18: Nov 16 close 739.95 (-1.91%), Nov 17 close 732.44 (-1.01%, low 727.00), Nov 18 close 730.20 (-0.31%, low 726.795); Nov 16 high 749.82 — raw-kline-spy.json",
+        "CFTime 2026-11-19T00:57:39Z https://news.futunn.com/post/1004960262 — Oct 27-28 FOMC minutes released Nov 18: 'almost all' see further hikes appropriate; Waller floats 50bp; CME FedWatch >95% for Dec 9 25bp hike; Nov 18 Dow -1.15%, S&P 500 -0.3%, Nasdaq +0.35%",
+        "Fisco 2026-11-18T21:51:07Z https://news.futunn.com/post/1004946744 — NY Nov 18 wrap: NVDA earnings lift tech; UST 2y 4.803% / 10y 5.067% / 30y 5.410%; verbatim hawkish minutes quotes; Daly cautious-policy remarks",
+        "Jin10 2026-11-18T23:29:33Z https://news.futunn.com/post/1004952667 — minutes: 'a few' officials see >25bp December hike if inflation data disappoint; Waller 50bp-if-no-January-signal remark",
+        "moomoo economic calendar (raw-calendar-hot.json, fetched 2026-11-19T04:59-05:02Z): Initial Jobless Claims 2026-11-19T13:30Z (cons 198K, prev 200K); Core PCE YoY (prev 3.1%) + GDP QoQ (cons 3.4%) + claims 2026-11-25T13:30Z; hot lists for Nov 20/23/24/27 empty (coverage gap)"
+      ],
+      "acknowledged_events": [
+        "EVT-20261118-FOMC-MINUTES",
+        "EVT-20261118-WALLER-50BP",
+        "EVT-20261118-FEDWATCH-DEC-ODDS",
+        "EVT-20261118-NVDA-EARNINGS-TECH",
+        "EVT-20261118-USD-STRENGTH",
+        "EVT-20261119-JOBLESS-CLAIMS-0830",
+        "EVT-20261125-PCE-GDP-0830",
+        "EVT-20261126-THANKSGIVING-CLOSED",
+        "EVT-20261127-EARLY-CLOSE"
+      ]
+    },
+    {
+      "plan_hash": "237408a874860bebfe8731bbfec7742d18f42e2dc717646b24afa46600903395",
+      "reviewed_at": "2026-11-19T05:10:00Z",
+      "valid_until": "2026-11-19T06:10:00Z",
+      "verdict": "uncertain",
+      "reason": "Review of LC-20261119-EFA-ADOPT-r1 (US.EFA). UNCERTAIN, PENDING-REFRESH. Adverse market-derived structure: three consecutive down sessions (-1.47%/-1.26%/-1.08%), Nov 18 close 100.26 below the early-November range floor (Nov 6 low 101.27), and firm USD (USDJPY 159.35 NY close; dollar index +0.4% Nov 18) pressuring USD-denominated developed-international returns. Fresh EFA-specific equity news since the Nov 18 close could NOT be sourced — the Japan/Europe news search returned only stale articles; the only fresh regional datapoints are Eurozone Oct final CPI 4.0% (in line) and UK inflation easing cooling BoE hike expectations (Fisco 2026-11-18T21:51:07Z). No condition-specific evidence confirms invalidation of the ballast thesis, but evidence is insufficient for 'valid'. Uncertainty blocks NEW entries; it does not by itself justify liquidating the held position — the adoption draft exists to protect it with a structural stop. Quotes are Nov 18 16:00 ET (exchange ts 1795035600000) and stale before the next hourly check (2026-11-19 13:05 UTC); re-review with fresh quotes and Nov 19 Europe/Japan session news is required. Orders remain unarmed.",
+      "evidence": [
+        "moomoo quote_stock_quote US.EFA, exchange data_time 2026-11-18T21:00:00Z (16:00 ET RTH close): last 100.26, open 100.72, high 100.87, low 99.96, prev_close 101.35, volume 19,131,554; after-hours last 100.26 (flat, 0.00%); no overnight prints — raw-quotes-spy-efa.json, fetched 2026-11-19T04:58Z",
+        "moomoo quote_market_state US.EFA = AFTER_HOURS_END, time_date 20261118 — raw-market-state.json, fetched 2026-11-19T04:58Z",
+        "moomoo quote_cur_kline US.EFA K_DAY autype=1, 15 completed bars 2026-10-29..2026-11-18: Nov 16 close 102.64 (-1.47%), Nov 17 close 101.35 (-1.26%, low 101.00), Nov 18 close 100.26 (-1.08%, low 99.96); Nov 6 low 101.27; Nov 17 high 102.00 — raw-kline-efa.json",
+        "Fisco 2026-11-18T21:51:07Z https://news.futunn.com/post/1004946744 — Eurozone Oct final CPI +4.0% y/y in line; UK inflation easing cools BoE hike bets, GBPUSD 1.3147; USDJPY 159.35 NY close, EURUSD 1.0973; hawkish FOMC minutes and Waller remarks",
+        "Zhitong 2026-11-19T00:37:07Z https://news.futunn.com/post/1004961079 — dollar index gauge +0.4% Wednesday; market prices three 25bp Fed hikes by June 2027; gold at 14-month lows",
+        "CFTime 2026-11-19T00:57:39Z https://news.futunn.com/post/1004960262 — CME FedWatch >95% for Dec 9 25bp hike; minutes 'almost all' see further hikes",
+        "COVERAGE GAP: moomoo news_search 'Nikkei Japan stocks' (fetched 2026-11-19T05:02Z) returned only stale articles (newest 2026-10-13); no fresh Japan/Europe equity-session coverage since Nov 18 close was sourceable this run",
+        "moomoo economic calendar (raw-calendar-hot.json): claims 2026-11-19T13:30Z; Core PCE/GDP/claims 2026-11-25T13:30Z; Nov 20/23/24/27 hot lists empty (coverage gap, not proof of no events)"
+      ],
+      "acknowledged_events": [
+        "EVT-20261118-FOMC-MINUTES",
+        "EVT-20261118-WALLER-50BP",
+        "EVT-20261118-FEDWATCH-DEC-ODDS",
+        "EVT-20261118-EZ-UK-INFLATION",
+        "EVT-20261118-USD-STRENGTH",
+        "EVT-20261119-JOBLESS-CLAIMS-0830",
+        "EVT-20261125-PCE-GDP-0830",
+        "EVT-20261126-THANKSGIVING-CLOSED",
+        "EVT-20261127-EARLY-CLOSE"
+      ]
+    }
+  ],
+  "news_checked_at": "2026-11-19T04:59:00Z",
+  "news_feed_ok": true,
+  "events": [
+    {
+      "event_id": "EVT-20261118-FOMC-MINUTES",
+      "at": "2026-11-18T19:00:00Z",
+      "symbols": [
+        "US.SPY",
+        "US.EFA"
+      ],
+      "material": true,
+      "source": "CFTime 2026-11-19T00:57:39Z https://news.futunn.com/post/1004960262 ; Jin10 2026-11-18T23:29:33Z https://news.futunn.com/post/1004952667 ; Fisco 2026-11-18T22:23:15Z https://news.futunn.com/post/1004948915 . Release clock time 14:00 ET per desk directive; exact release minute not independently sourced this run.",
+      "summary": "Minutes of the Oct 27-28 FOMC (rates held 3.75%-4.00%, Hammack/Cook dissenting for a hike) released Nov 18: 'almost all' participants saw further rate increases as potentially appropriate; 'a few'/'two' officials argued a December hike of more than 25bp could be warranted if inflation stays hot; many flagged AI investment as an upside inflation risk; staff warned of disorderly inflation-expectations risk. Hawkish tone confirmed by multiple timestamped sources."
+    },
+    {
+      "event_id": "EVT-20261118-WALLER-50BP",
+      "at": "2026-11-18T00:00:00Z",
+      "symbols": [
+        "US.SPY",
+        "US.EFA"
+      ],
+      "material": true,
+      "source": "Fisco 2026-11-18T21:51:07Z and 22:23:15Z https://news.futunn.com/post/1004946744 , https://news.futunn.com/post/1004948915 ; Jin10 2026-11-18T23:29:33Z https://news.futunn.com/post/1004952667 . Date-only marker: intraday interview time not sourced.",
+      "summary": "Fed Governor Waller (CNBC, Nov 18): inflation moving in the wrong direction and broadening; Fed should consider a 50bp hike in December if not signaling a January hike; core CPI at 0.3% m/m for three months meets his large-hike threshold."
+    },
+    {
+      "event_id": "EVT-20261118-FEDWATCH-DEC-ODDS",
+      "at": "2026-11-19T00:57:39Z",
+      "symbols": [
+        "US.SPY",
+        "US.EFA"
+      ],
+      "material": true,
+      "source": "CFTime 2026-11-19T00:57:39Z https://news.futunn.com/post/1004960262 (attributing CME FedWatch via CryptoTicker); Zhitong 2026-11-19T00:37:07Z https://news.futunn.com/post/1004961079 . Observation time = source publication time; no direct CME access this run.",
+      "summary": "CME FedWatch pricing >95% for a 25bp HIKE at the Dec 9 FOMC (up from ~85% a week earlier); 50bp is a discussed tail, not the base case. Zhitong: market prices three 25bp hikes by June 2027. Desk context of ~96% is consistent with the sourced >95%."
+    },
+    {
+      "event_id": "EVT-20261118-NVDA-EARNINGS-TECH",
+      "at": "2026-11-18T00:00:00Z",
+      "symbols": [
+        "US.SPY"
+      ],
+      "material": true,
+      "source": "Fisco NY wrap 2026-11-18T21:51:07Z https://news.futunn.com/post/1004946744 ; CFTime 2026-11-19T00:57:39Z https://news.futunn.com/post/1004960262 . Date-only marker: exact earnings release timestamp not sourced this run.",
+      "summary": "NVDA earnings well received; tech rebounded Nov 18 (Nasdaq +0.35%, 24,429.89) while Dow fell 1.15% to 50,198.17 (third straight >1% drop, first since Oct 2008) and S&P 500 fell ~0.3%. Post-earnings rally later faded per Zhitong. Index-sentiment input for SPY."
+    },
+    {
+      "event_id": "EVT-20261118-EZ-UK-INFLATION",
+      "at": "2026-11-18T21:51:07Z",
+      "symbols": [
+        "US.EFA"
+      ],
+      "material": true,
+      "source": "Fisco London/NY wrap 2026-11-18T21:51:07Z https://news.futunn.com/post/1004946744 (report time; underlying EZ CPI release earlier Nov 18 London session).",
+      "summary": "Eurozone October final CPI +4.0% y/y, in line with expectations. UK inflation easing cooled BoE hike expectations; sterling sold off (GBPUSD 1.3147 NY close). BoE Bailey: growth improving but rates may need to stay high if the Middle East conflict persists. Regional macro inputs for EFA (Europe weight)."
+    },
+    {
+      "event_id": "EVT-20261118-USD-STRENGTH",
+      "at": "2026-11-18T21:51:07Z",
+      "symbols": [
+        "US.EFA",
+        "US.SPY"
+      ],
+      "material": true,
+      "source": "Fisco 2026-11-18T21:51:07Z https://news.futunn.com/post/1004946744 ; Zhitong 2026-11-19T00:37:07Z https://news.futunn.com/post/1004961079 .",
+      "summary": "Dollar firm on hawkish Fed: dollar index gauge +0.4% Wednesday; USDJPY NY close 159.35; EURUSD 1.0973. UST closes Nov 18: 2y 4.803%, 10y 5.067%, 30y 5.410%. USD strength is a direct headwind to USD-denominated EFA returns (Europe/Japan holdings)."
+    },
+    {
+      "event_id": "EVT-20261119-JOBLESS-CLAIMS-0830",
+      "at": "2026-11-19T13:30:00Z",
+      "symbols": [
+        "US.SPY",
+        "US.EFA"
+      ],
+      "material": true,
+      "source": "moomoo quote_economic_calendar_hot date=20261119, indicatorId=294, event_time=1795095000 (raw-calendar-hot.json), fetched 2026-11-19T04:59Z. SCHEDULED, not yet released.",
+      "summary": "US Initial Jobless Claims 08:30 ET: consensus 198K, previous 200K, importance 3/3. First macro print of the Nov 19 session; a hot labor print reinforces the hike path."
+    },
+    {
+      "event_id": "EVT-20261120-CHINA-LPR",
+      "at": "2026-11-20T01:15:00Z",
+      "symbols": [
+        "US.SPY",
+        "US.EFA"
+      ],
+      "material": false,
+      "source": "Jin10 2026-11-18T23:29:33Z https://news.futunn.com/post/1004952667 (Nov 20 09:15 Beijing time). SCHEDULED.",
+      "summary": "PBoC November Loan Prime Rate fixing. EAFE index excludes China A-shares; indirect global-sentiment relevance only — marked non-material for these holdings."
+    },
+    {
+      "event_id": "EVT-20261125-PCE-GDP-0830",
+      "at": "2026-11-25T13:30:00Z",
+      "symbols": [
+        "US.SPY",
+        "US.EFA"
+      ],
+      "material": true,
+      "source": "moomoo quote_economic_calendar_hot date=20261125, indicatorIds 905/294/375, event_time=1795613400 (raw-calendar-hot.json), fetched 2026-11-19T05:02Z. SCHEDULED.",
+      "summary": "US 08:30 ET triple release Wed Nov 25 (day before Thanksgiving): Core PCE Price Index YoY (previous 3.1%), Initial Jobless Claims, and GDP QoQ (consensus 3.4%, previous 2.2%); all importance 3/3. Largest scheduled macro risk inside the holding window; a hot Core PCE would strengthen the December 50bp tail."
+    },
+    {
+      "event_id": "EVT-20261126-THANKSGIVING-CLOSED",
+      "at": "2026-11-26T00:00:00Z",
+      "symbols": [
+        "US.SPY",
+        "US.EFA"
+      ],
+      "material": true,
+      "source": "Desk challenge calendar directive (delegation 2026-11-19T04:58Z). Session schedule, not news.",
+      "summary": "US market closed for Thanksgiving Thu Nov 26; no hourly RTH checks that day. Nov 25 PCE/GDP is the last major data before the holiday gap."
+    },
+    {
+      "event_id": "EVT-20261127-EARLY-CLOSE",
+      "at": "2026-11-27T18:00:00Z",
+      "symbols": [
+        "US.SPY",
+        "US.EFA"
+      ],
+      "material": true,
+      "source": "Desk challenge calendar directive (delegation 2026-11-19T04:58Z): challenge ends Fri 2026-11-27 with 13:00 ET early close; last scheduled hourly RTH check 12:05 ET.",
+      "summary": "Challenge final day: RTH closes 13:00 ET (18:00 UTC). Last scheduled hourly RTH check 12:05 ET — exit_deadline for both adoption plans is set to 2026-11-27T12:05:00-05:00 accordingly."
+    }
+  ]
+}

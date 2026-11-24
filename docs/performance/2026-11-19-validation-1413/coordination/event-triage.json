@@ -1,0 +1,21 @@
+{
+  "decided_at_utc": "2026-11-19T14:36Z",
+  "pinned": [
+    {
+      "event": "Fed Governor Barr speech 19:15Z",
+      "id_planned": "EV-20261119-BARR",
+      "source": "AASTOCKS NOW.1555643 12:32Z, desk-verified fetch; market-wide; material in Dec-hike-sensitive regime; inside tactical hold window"
+    }
+  ],
+  "rejected": [
+    {
+      "event": "US Leading Index 15:00Z",
+      "reason": "minor monthly indicator; no plausible outsized price/flow impact on universe; morning desk left unpinned; drill writes end 14:58Z before release"
+    },
+    {
+      "event": "KC Fed Mfg 16:00Z",
+      "reason": "secondary regional survey; Philly Fed (primary, already pinned) covers the sector signal; no independent materiality evidence"
+    }
+  ],
+  "corroboration": "same AASTOCKS fetch confirms claims 203K vs 197K cons / prev 202K, continuing 1.763M, USDJPY 159.9351, Philly miss - matches researcher revalidation"
+}

@@ -1,0 +1,77 @@
+{
+  "as_of": "2026-11-19",
+  "review_run": "2026-11-19-close-2005",
+  "reviewed_at": "2026-11-19T20:12:49Z",
+  "reviewed_at_note": "Bounded to freshest MCP exchange payload (batch data_time 1795119169711 = 2026-11-19T20:12:49.711Z); evidence fetch ran ~20:09Z-~20:13Z; desk stamps arrival time. Research evidence only; no execution by researcher.",
+  "news_feed_ok": true,
+  "execution_gate": {
+    "closed": true,
+    "reasons": [
+      "config/tactical.yaml execution_enabled: false (two-fire paper profile 2026-11-19: gate closed until controlled paper drill passes) - read this run, unchanged.",
+      "All three watchlist setups have exit_at 2026-11-19T20:05:00Z, at/before this check (reviewed_at 20:12:49Z): expired-for-entry under the two-fire rule (no entry when the exit deadline arrives before the next scheduled check).",
+      "Tactical plans are same-session; next scheduled check is 2026-11-20 08:05 ET (13:05Z) pre-market - a new session. No new tactical entries are possible at this fire.",
+      "Both lifecycle adoption plans' entry_expires_at 2026-11-19T20:00:00Z has also passed (moot for retained holdings; no new entries)."
+    ]
+  },
+  "setups": [
+    {
+      "setup_id": "TAC-20261119-AMD-L1",
+      "symbol": "US.AMD",
+      "verdict": "expired",
+      "terms_changed": false,
+      "entry_zone_sensible": false,
+      "executable_at_current_price": false,
+      "price_evidence": "MCP quote_stock_quote US.AMD data_time 1795119169711 = 2026-11-19T20:12:49.711Z: last 480.01 (-9.46% vs prev_close 530.14), open 542.98, high 555.01, low 470.56, sec_status NORMAL. Far below immutable zone 538.0-543.5 and below stop 535.0.",
+      "notes": "EXPIRED-FOR-ENTRY: exit_at 20:05:00Z passed before this check; execution gate closed. Thesis ALSO materially impaired post-hoc: Hunterbrook Media/Capital short report (flash 1005064494 publish 15:35:00Z; flash 1005068772 publish 16:26:33Z circular vendor-financing allegations; Benzinga 1005069189 publish 16:34:15Z China export-control/IEIT firmware allegations, Hunterbrook concedes findings alone insufficient to establish a violation). AMD -11% at lows. The ANT-halo momentum thesis is broken by both price and new adverse evidence - do NOT revive this setup tomorrow without a NEW setup_id, fresh evidence and operator review. Watchlist NOT modified by researcher.",
+      "sources": [
+        "MCP quote_stock_quote US.AMD data_time 1795119169711 (2026-11-19T20:12:49.711Z)",
+        "Flash news_id 1005064494 publish_time 1795102500000 = 2026-11-19T15:35:00Z (Hunterbrook says short AMD)",
+        "Flash news_id 1005068772 publish_time 1795105593000 = 2026-11-19T16:26:33Z (AMD -11% to 470.56; circular-financing allegations; Hunterbrook Capital short AMD / long comparables)",
+        "Benzinga news_id 1005069189 publish_time 1795106055000 = 2026-11-19T16:34:15Z (IEIT firmware/China export angle; new license rule effective Thursday for SG/MY/ID/TH/BR)",
+        "Benzinga news_id 1005063489 publish_time 1795102117000 = 2026-11-19T15:28:37Z (AMD volume spike on report)"
+      ]
+    },
+    {
+      "setup_id": "TAC-20261119-MU-L1",
+      "symbol": "US.MU",
+      "verdict": "expired",
+      "terms_changed": false,
+      "entry_zone_sensible": false,
+      "executable_at_current_price": false,
+      "price_evidence": "MCP quote_stock_quote US.MU data_time 1795119169284 = 2026-11-19T20:12:49.284Z: last 691.71 (-1.92% vs prev_close 705.27), open 740.00, high 760.00, low 691.11, sec_status NORMAL. Below immutable zone 728.5-740.0 and below stop 728.0; the +6.9% morning gain fully round-tripped to negative.",
+      "notes": "EXPIRED-FOR-ENTRY: exit_at 20:05:00Z passed; gate closed. The gap-fade risk flagged in prior reviews fully materialized (760 -> 691.71, through zone and stop). 5-day net-outflow caution was never resolved (no Nov-19 intraday flow bar available earlier). ANT-halo memory momentum thesis reversed by the market-wide risk-off + Hunterbrook AI-financing contagion. Do NOT revive without a NEW setup_id and operator review. Watchlist NOT modified.",
+      "sources": [
+        "MCP quote_stock_quote US.MU data_time 1795119169284 (2026-11-19T20:12:49.284Z)",
+        "Sina news_id 1005071089 publish_time 1795107992000 = 2026-11-19T17:06:32Z (NVDA/MU gave back all gains as ANT began trading)",
+        "Flash news_id 1005081517 publish_time 1795118638000 = 2026-11-19T20:03:58Z (all three indices down >2%)"
+      ]
+    },
+    {
+      "setup_id": "TAC-20261119-SMH-L1",
+      "symbol": "US.SMH",
+      "verdict": "expired",
+      "terms_changed": false,
+      "entry_zone_sensible": false,
+      "executable_at_current_price": false,
+      "price_evidence": "MCP quote_stock_quote US.SMH data_time 1795119169235 = 2026-11-19T20:12:49.235Z: last 448.03 (-2.50% vs prev_close 459.54), open 472.69, high 479.96, low 447.62, sec_status NORMAL. Below immutable zone 469.5-474.0 and below stop 466.0.",
+      "notes": "EXPIRED-FOR-ENTRY: exit_at 20:05:00Z passed; gate closed. Sector-wide reversal (AMD -9.5%, MU -1.9%) took SMH through zone and stop. Kernel sleeve-attribution overhang (tactical etf_symbols member vs PB-001 25% ETF ceiling) remains UNRESOLVED and would still block any future SMH proposal. Do NOT revive without a NEW setup_id and operator review. Watchlist NOT modified.",
+      "sources": [
+        "MCP quote_stock_quote US.SMH data_time 1795119169235 (2026-11-19T20:12:49.235Z)",
+        "Flash news_id 1005081517 publish_time 1795118638000 = 2026-11-19T20:03:58Z (all three indices down >2%)",
+        "config/tactical.yaml etf_symbols [US.SMH] (read this run)"
+      ]
+    }
+  ],
+  "ant_debut": {
+    "first_trade_confirmed": true,
+    "first_trade_evidence": "MCP quote_cur_kline US.ANT ktype=6: first non-zero 5-min bar time_key 1795107000000 = 2026-11-19T16:50:00Z (11:50 ET), open 111.50 (+34.3% vs $83 IPO), high 114.99, low 110.00, close 111.68, volume 144549739. All prior returned bars (15:15Z-16:45Z) volume 0 at 83 placeholder; 15:11-15:12Z quote/ticker checks (prior run) also showed TO_BE_OPEN / null ticks.",
+    "debut_outcome": "MCP quote_stock_quote US.ANT data_time 1795119169648 = 20:12:49.648Z: last 95.89 (+15.5% vs $83), high 115.10 (+38.7%), low 92.72 (+11.7%), volume 751422425, turnover ~$78.1B, sec_status NORMAL. Massive fade from open; quote_rt_ticker fresh ticks ~95.68-95.73 at 20:10:10Z.",
+    "spillover": "Sina 1005071089 publish 17:06:32Z: broad market fell to session lows at the exact moment ANT began trading (Nasdaq +2% earlier -> -0.7%); 'sell the news' profit-taking reversed the morning AI-halo rally. MT Newswires 1005079326 publish 19:24:33Z: indexes slumped after the debut alongside the Middle East escalation. Debut-day volatility risk flagged in prior reviews materialized.",
+    "pin_update_proposed": "Update EV-20261119-ANT-DEBUT pin time from 14:50Z (indication-open) to 16:50Z (confirmed first trade, 11:50 ET) and summary to post-event outcome - see event-proposals.json pin_updates. Desk Head owns the pin."
+  },
+  "youtube_inbox": {
+    "new_entries_since_last_run": 0,
+    "new_hypotheses": [],
+    "note": "research/youtube/index.json read this run: unchanged 8 entries fetched 2026-11-18T19:27-19:28Z. Existing hypotheses remain unvalidated, routed to operator local LEAN lane; no trading signal derived."
+  }
+}

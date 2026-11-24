@@ -1,0 +1,55 @@
+{
+  "as_of": "2026-11-19",
+  "computed_at_utc": "2026-11-19T14:24:00Z",
+  "computed_at_note": "Labeled estimate; no independent clock tool. Anchored to delegation clock ~14:10Z and MCP fetches this session (~14:12-14:20Z). Exchange timestamps below are from payloads.",
+  "method": "Highest high_price of the last 20 completed sessions (2026-10-22 .. 2026-11-18). Primary computation from a fresh MCP quote_history_kline capture (ktype=2, autype=1, start=2026-10-22, end=2026-11-18, num=25 -> exactly 20 bars returned, has_more=false) fetched this session ~14:13Z. Cross-verified against the premarket capture files mcp_kline_US.SPY.txt / mcp_kline_US.EFA.txt (2026-11-19-premarket-1305/mcp/klines, captured 13:13-13:14Z): exact-string matches confirmed for the Nov-04 high bars and the Nov-18 close bars in both files. Deviation disclosed: the capture files are single-line ~133KB JSON; this session has no shell and the Read tool truncates them, so the full 20-bar window could not be enumerated from the files directly; the fresh history_kline payload covers the identical window and adjustment mode and matched every spot-checked value.",
+  "window": {
+    "start_date": "2026-10-22",
+    "start_time_key": 1792641600000,
+    "start_time_key_utc": "2026-10-22T04:00:00Z",
+    "end_date": "2026-11-18",
+    "end_time_key": 1794978000000,
+    "end_time_key_utc": "2026-11-18T05:00:00Z",
+    "bar_count": 20,
+    "note": "time_key is exchange midnight-ET in ms (EDT -4 before Nov 1, EST -5 after). All 20 bars are completed RTH sessions; no 2026-11-19 bar exists in the inputs."
+  },
+  "levels": {
+    "US.SPY": {
+      "highest_high": 775.64,
+      "bar_date": "2026-11-04",
+      "bar_time_key": 1793768400000,
+      "bar_time_key_utc": "2026-11-04T05:00:00Z",
+      "source_file": "/data/drive/tyche-raw/2026-11-19-premarket-1305/mcp/klines/mcp_kline_US.SPY.txt",
+      "source_file_verification": "grep exact match '\"date\":20261104,\"high_price\":775.64,' present in capture file",
+      "competing_highs_in_window": [767.71, 763.47, 767.73, 771.14, 773.36, 770.76, 761.46, 763.86, 757.07, 765.97, 742.2104, 755.42, 752.139, 762.51, 763.04, 760.12, 749.82, 739.76, 735.06],
+      "competing_highs_note": "All other 19 session highs from the fresh quote_history_kline US.SPY payload (2026-10-22..2026-11-18); max of those = 773.36 (2026-10-28) < 775.64."
+    },
+    "US.EFA": {
+      "highest_high": 105.8,
+      "bar_date": "2026-11-04",
+      "bar_time_key": 1793768400000,
+      "bar_time_key_utc": "2026-11-04T05:00:00Z",
+      "source_file": "/data/drive/tyche-raw/2026-11-19-premarket-1305/mcp/klines/mcp_kline_US.EFA.txt",
+      "source_file_verification": "grep exact match '\"date\":20261104,\"high_price\":105.8,' present in capture file",
+      "competing_highs_in_window": [103.465, 102.815, 103.43, 103.71, 103.82, 104.41, 103.705, 104.34, 103.84, 105.09, 102.485, 105.22, 104.64, 104.72, 104.54, 104.2, 103.78, 102.0, 100.87],
+      "competing_highs_note": "All other 19 session highs from the fresh quote_history_kline US.EFA payload; max of those = 105.22 (2026-11-09) < 105.8."
+    }
+  },
+  "closes": {
+    "US.SPY": {
+      "close": 730.2,
+      "close_at": "2026-11-18T21:00:00Z",
+      "source_file_verification": "grep exact match '\"close_price\":730.2,\"code\":\"US.SPY\",\"date\":20261118' present in mcp_kline_US.SPY.txt; also quote_stock_quote US.SPY last_price 730.2 (data_time 1795035600268 = 2026-11-18T21:00:00Z)"
+    },
+    "US.EFA": {
+      "close": 100.26,
+      "close_at": "2026-11-18T21:00:00Z",
+      "source_file_verification": "grep exact match '\"close_price\":100.26,\"code\":\"US.EFA\",\"date\":20261118' present in mcp_kline_US.EFA.txt; also quote_stock_quote US.EFA last_price 100.26 (data_time 1795035600000 = 2026-11-18T21:00:00Z)"
+    }
+  },
+  "desk_head_sanity_reference_discrepancy": "FLAG: the delegation's sanity reference 'SPY ~775.6 / EFA ~105.8' matches the 20-session HIGHEST HIGHS (both 2026-11-04), NOT the last completed closes. Independently recomputed Nov-18 closes are SPY 730.20 and EFA 100.26, triple-confirmed (capture-file grep, fresh history_kline, live quote last_price). The closes block above uses the verified closes, not the reference values.",
+  "stop_proximity_flags": {
+    "US.SPY": "Nov-18 close 730.20 is only 0.37% above the 727.50 daily-close invalidation level; Nov-18 intraday low 726.795 already traded below 727.50. No completed daily close below stop yet.",
+    "US.EFA": "Nov-18 close 100.26 is only 0.26% above the 100.00 daily-close invalidation level; Nov-18 intraday low 99.96 already traded below 100.00. No completed daily close below stop yet. First completed close < 100.00 latches stop_loss."
+  }
+}

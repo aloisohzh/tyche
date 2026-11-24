@@ -1,0 +1,31 @@
+{
+  "phase": "CLOSE",
+  "timestamp": "2026-11-20 | 20:28 UTC / 15:28 ET / 04:28 SGT (21 Nov)",
+  "urgent": true,
+  "mode": "PAPER ARMED - observe-only; halt engaged; no exit approvals; 0 orders submitted",
+  "stance": "Risk-off tape (SPY -3.2% d/d, heavy semis selling) pushed the paper book through its soft drawdown limit while all three holdings sit without exit protection. Desk reconciled, revalidated and alerted; submitted nothing.",
+  "orders_summary": "No orders submitted by this run (0 submissions). All three holdings remain held; none is a new order. No live or pending broker orders; no new orders since 2026-11-19 18:15 UTC.",
+  "orders": [],
+  "account": {
+    "nav": "97,788.36 USD (20:16 UTC mark)",
+    "cash": "45,680.12 USD; frozen 0",
+    "positions": "SPY 28, EFA 142, MSFT 39 (unowned)",
+    "kill_switch": "ON - halt engaged since Nov-19 writer-safety incident"
+  },
+  "protection": [
+    "SPY 28 UNCOVERED: last 694.05 vs daily-close stop 727.50; Nov-19 official close 715.87 already breached. No live exit order, no approved exit path.",
+    "EFA 142 UNCOVERED: last 96.43 vs stop 100.00; Nov-19 close 98.78 breached. No live exit order, no approved exit path.",
+    "MSFT 39 UNCOVERED and unowned (incident buy @503.33, now 486.60, -652 USD). No plan, no grant, no exit order.",
+    "VNQ order ...6597 and SMH 3118500 still unresolved (status 5, 0 filled, frozen 0); not proven cancelled - manual review stays open.",
+    "Monitoring is not a broker stop: a gap or halt can exceed planned stop losses."
+  ],
+  "problems": [
+    "Soft drawdown BREACHED: NAV 97,788 vs working high-water pin 102,209 = -4.33% (soft line 98,121). Hard -6% floor 96,076 not breached. Daily loss -2.13%, inside 2.5% limit. Pin awaits operator confirmation.",
+    "Halt engaged: buys blocked and no approved de-risking sell exists, so nothing can be submitted. Reviews re-confirmed SPY/EFA plans INVALIDATED (valid to 21:13 UTC).",
+    "Operator action: approve exact exit plans for SPY/EFA (fresh audit + reserve), decide MSFT 39 ownership, resolve VNQ/SMH status-5 orders, re-provision account allowlist, then resume via kill-switch release.",
+    "No scheduled desk check over the weekend. Nov-20 official closes (21:00 UTC) land after this fire with no later check - second daily-close breach likely but unverified.",
+    "Git push failed (auth): engaged-halt flag still not on origin; bundle saved to Drive, retry next session. Cloud runs rely on the Drive journal flag meanwhile."
+  ],
+  "proposals": [],
+  "next_check": "Next scheduled card fire: Mon 2026-11-23 08:05 ET / 13:05 UTC. No weekend check; operator may review earlier."
+}

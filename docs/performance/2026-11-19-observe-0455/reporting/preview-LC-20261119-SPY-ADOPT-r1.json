@@ -1,0 +1,50 @@
+{
+  "plan": {
+    "plan_id": "LC-20261119-SPY-ADOPT-r1",
+    "revision": 1,
+    "symbol": "US.SPY",
+    "strategy_id": "PB-001",
+    "rules_hash": "7799974f9fd0",
+    "thesis": "Adopt the existing PB-001 ballast holding of 28 SPY shares (cost 731.54) under hourly lifecycle protection through challenge end; no adds, no re-entry. The hawkish Oct 27-28 FOMC minutes released Nov 18 (CFTime 2026-11-19T00:57:39Z; Fisco 2026-11-18T22:23:15Z) confirm the hike cycle, but a Dec 9 25bp hike is already >95% priced (CME FedWatch via CFTime), so the incremental shock is limited to the 50bp tail. SPY closed Nov 18 at 730.20 (exchange ts 2026-11-18T21:00:00.268Z), holding just above the Nov 17/18 low cluster 727.00/726.795, and recovered to 735.57 after hours (+0.735%) as strong NVDA results lifted tech (Fisco 2026-11-18T21:51:07Z). Retain diversified US large-cap ballast with a structural stop below the observed low cluster while that cluster holds.",
+    "invalidation_rules": [
+      "December FOMC escalation beyond the priced-in 25bp becomes the base case: CME FedWatch probability of a 50bp hike at the Dec 9 meeting exceeds 50% (baseline: >95% for 25bp, 50bp only a tail, per CFTime 2026-11-19T00:57:39Z https://news.futunn.com/post/1004960262). Re-check via CME FedWatch or timestamped wire coverage at each hourly review.",
+      "SPY last price trades below 725.00, breaking the observed 2026-11-17/18 low cluster of 727.00/726.795 (moomoo K_DAY autype=1 fetched 2026-11-19T04:58Z, raw-kline-spy.json); the ~0.25-0.3% buffer under the observed lows is a risk-design choice, the lows themselves are market-derived.",
+      "The scheduled 2026-11-25 08:30 ET Core PCE (YoY) prints above the prior 3.1% (moomoo economic calendar indicatorId=905, event_time 1795613400, raw-calendar-hot.json) AND SPY trades below the Nov 18 low of 726.795 on the release \u2014 combined hawkish-surprise plus price-structure breakdown invalidates the 'hawkishness is priced in' ballast thesis."
+    ],
+    "created_at": "2026-11-19T05:10:00Z",
+    "mode": "adopt_position",
+    "quantity": 28,
+    "entry_low": 726.8,
+    "entry_high": 735.06,
+    "stop": {
+      "price": 725.0,
+      "basis": "last"
+    },
+    "take_profit": {
+      "price": 749.5,
+      "basis": "last"
+    },
+    "entry_expires_at": "2026-11-19T16:00:00-05:00",
+    "exit_deadline": "2026-11-27T12:05:00-05:00",
+    "exit_on_invalidation": true,
+    "review_max_age_minutes": 60,
+    "quote_max_age_seconds": 300,
+    "max_slippage_bps": 20
+  },
+  "plan_hash": "8ca9176daf7d09b4030cc15cf5460896fd871ef2c66b48db60fc6f886fbdd954",
+  "risk": {
+    "planned_loss_at_stop_usd": 281.68,
+    "planned_gain_at_target_usd": 404.32,
+    "reward_risk_before_fees": 1.435,
+    "monitor_interval_minutes": 60,
+    "limitations": [
+      "Synthetic triggers, not broker-native stops.",
+      "Gaps, stale feeds, hourly latency and non-fills can exceed planned loss.",
+      "Daily-close triggers execute no earlier than the next permitted session.",
+      "Full-position exits only; no shorting, scaling or automatic re-entry.",
+      "Unknown/cancelled/rejected orders require reconciliation and operator review."
+    ]
+  },
+  "approved": false,
+  "submitted": false
+}

@@ -1,0 +1,27 @@
+{
+  "tool": "mcp__moomoo__sim_trade_history_order_list",
+  "account": "[REDACTED] (masked)",
+  "note": "Tool has no status filter. Page 1 was UNFILTERED (no time window, no next_key) and returned pagination.has_more=false explicitly: full account history exhausted in one page (3 orders, all created 2026-11-18). A second windowed call (time_begin=0, time_end=2026-11-18T00:00:00Z) was made to probe for earlier history; it returned the SAME 3 orders despite the window ending before their create_time — the time-window parameters appear not to be applied server-side (or use a different basis). This anomaly is recorded, not relied upon; completeness rests on the unfiltered has_more=false. No earlier history exists per the unfiltered exhaustion. Coverage 2026-11-17..2026-11-19: only 2026-11-18 orders exist.",
+  "calls": [
+    {
+      "seq": 1,
+      "capture": "orders-page-01.json",
+      "params": {"acc_id": "[REDACTED]", "market": 100, "page_size": 50, "time_begin": null, "time_end": null, "next_key": null},
+      "read_between_utc": ["2026-11-19T04:59:36.630Z", "2026-11-19T05:00:02.308Z"],
+      "pagination_returned": {"has_more": false, "next_key": "0"},
+      "orders_returned": 3
+    },
+    {
+      "seq": 2,
+      "capture": "orders-page-02-window-check.json",
+      "params": {"acc_id": "[REDACTED]", "market": 100, "page_size": 50, "time_begin": 0, "time_end": 1794960000000000, "next_key": null},
+      "window_utc": "epoch .. 2026-11-18T00:00:00Z",
+      "read_between_utc": ["2026-11-19T05:00:02.308Z", "2026-11-19T05:00:11.768Z"],
+      "pagination_returned": {"has_more": false, "next_key": "0"},
+      "orders_returned": 3,
+      "anomaly": "window not honored: returned orders created after time_end; treated as duplicate confirmation only"
+    }
+  ],
+  "failures": [],
+  "exhausted": true
+}

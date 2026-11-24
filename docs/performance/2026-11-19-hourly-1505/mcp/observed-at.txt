@@ -1,0 +1,7 @@
+accounts.json read: 2026-11-19T15:10:55Z (approx, sim_trade_account_list call preceding env check at 15:11:00Z)
+cash.json read: 2026-11-19T15:11:20Z (approx, batch with positions)
+positions.json read: 2026-11-19T15:11:20Z (approx, batch with cash)
+orders-1.json read: 2026-11-19T15:11:35Z (approx, single page, pagination.has_more=false)
+quotes.json read: 2026-11-19T15:11:45Z (approx); exchange data_time max 1795101100959 ms = 2026-11-19T15:11:40.959Z (MU), min 1795101097368 ms = 2026-11-19T15:11:37.368Z (EFA)
+OLDEST broker read this capture (cash/positions): 2026-11-19T15:11:20Z
+NOTE: quote_order_book / quote_market_snapshot / quote_market_state / quote_cur_kline tools NOT registered in this session; only quote_stock_quote available. No book-*.json could be captured.

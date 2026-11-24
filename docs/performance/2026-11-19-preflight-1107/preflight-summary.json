@@ -1,0 +1,67 @@
+{
+  "run": "2026-11-19-preflight-1107",
+  "kind": "bounded_read_only_hourly_readiness_check",
+  "clock_utc": "2026-11-19T11:11:56Z",
+  "calendar": {"trading_day": true, "phase": "pre_market", "new_entries": false, "max_orders": 0, "event_caution": false, "events": ["ANT Nasdaq IPO debut 2026-11-19"]},
+  "repo": {"path": "/data/workspace/tyche", "head": "28246a164fc58272fb45c5bdaadee68702a31c71", "tested_release_ancestor": "7288d68758ec2fedcee137622fee472be5d9a41d", "tree_clean": true, "modified": false},
+  "journal": {"authoritative": "/data/drive/tyche-raw/2026-11-18-eod/journal/events.jsonl", "events": 12, "chain": "intact", "last_event": "notify.delivery_failed 2026-11-18T22:08:19Z", "later_descendant_found": false, "mutated": false},
+  "reads": {"accounts": true, "cash": true, "positions": true, "order_history_all_pages": true, "stock_quote": true, "option_metadata": "skipped_no_held_options", "observed_at_utc": "2026-11-19T11:09:00Z", "pages": 1, "has_more_final": false},
+  "broker_writes": 0,
+  "submitted": false,
+  "account": {"masked_id": "...2598", "type": 2, "market_id": 100, "market": "US", "allowlisted": true,
+    "nav_total_asset": 100185.29, "cash": 65244.61, "frozen": 0.0, "market_value": 34940.68, "cash_pct_nav": 65.12,
+    "nav_reconciled_exact": true, "drift_vs_prior_close": 270.36, "prior_close_nav": 99914.93, "high_water_nav": 100000.0,
+    "new_high_water_candidate": 100185.29, "high_water_written": false},
+  "positions": [
+    {"symbol": "US.SPY", "qty": 28, "sellable": 28, "market_value": 20703.76},
+    {"symbol": "US.EFA", "qty": 142, "sellable": 142, "market_value": 14236.92}
+  ],
+  "options_held": false, "unsupported_exposure": false,
+  "gross_exposure_pct_nav": 34.88,
+  "pb001_sleeve_cap_pct": 25, "sleeve_over_cap_existing_holdings": true, "liquidation_permission": false,
+  "orders_unresolved": [
+    {"masked_id": "...6597", "symbol": "US.VNQ", "side": "buy", "qty": 83, "limit": 94.98, "status_code": 5, "cum_filled": 0, "frozen": 0.0, "terminal_proven": false, "flag": "UNRESOLVED_MANUAL_REVIEW_PRESERVED", "last_update_utc": "2026-11-19T01:01:00Z"}
+  ],
+  "orders_terminal_verified": [
+    {"masked_id": "...6594", "symbol": "US.EFA", "status_code": 4, "cum_filled": 142},
+    {"masked_id": "...6580", "symbol": "US.SPY", "status_code": 4, "cum_filled": 28}
+  ],
+  "quote_verification": {"symbol": "US.SPY", "sec_status": "NORMAL", "rth_last": 730.20, "rth_last_ts": "2026-11-18T21:00:00Z", "pre_market": 739.465, "fresh_for_60s_entry_gate": false},
+  "halt_sources": [
+    {"source": "config/tactical.yaml execution_enabled", "value": false, "binding": true},
+    {"source": "data/halt.json", "halted": false, "set_by": "operator resume 2026-11-18T09:45Z"},
+    {"source": "production lifecycle ledger", "exists": false},
+    {"source": "rehearsal owner.lock", "state": "empty dir, no owner metadata"}
+  ],
+  "grants_envelopes": {"lifecycle_grants": 0, "tactical_entry_exit_envelopes": 0, "approvals_file": "absent", "watchlist_file": "absent", "hourly_cadence_approval_is_grant": false},
+  "protection": {"broker_native_stops": false, "validated_grant_or_runtime": false, "status": "UNARMED", "coverage": "hourly lifecycle monitoring deployed; orders unarmed"},
+  "earliest_rth_hourly_check_utc": "2026-11-19T15:05:00Z",
+  "rth_open_utc": "2026-11-19T14:30:00Z",
+  "readiness": {
+    "hourly_connector": "READY (all reads verified; no 120s worker or Python token required)",
+    "stock_etf_one_controlled_validation_blockers": [
+      "no durable single-writer lifecycle state owner; cross-session visibility unproven; no production ledger",
+      "config reconciliation unreviewed: lifecycle release 1e902cf rules 7799974f9fd0 vs current root 4105d7a680a3 (allocation_cap/turnover/order-cap/option-cap divergence)",
+      "no complete exact lifecycle contract + independent audit + explicit operator grant (none exist; cadence approval is not a grant)",
+      "operator-reviewed deployment explicitly releasing execution_enabled=false (hold; never self-release)",
+      "RTH-only validation window: >=14:30Z today; fresh quote/book at order time (main last is prior close)"
+    ],
+    "options_lane_blockers": [
+      "option chain/static-info tool coverage absent at last rollout verification (quote_option_chain not in executor MCP); re-verify before any option work",
+      "paper-option round-trip validation incomplete",
+      "all stock/ETF blockers above also apply"
+    ],
+    "not_blockers": ["hourly MCP cadence (operator-accepted)", "absence of 120-second worker", "absence of Python token", "C3 NAV references (present, 2026-11-18)"],
+    "carried_flags": ["VNQ ...6597 status-5 manual review unresolved (provider evidence needed; no cancel attempted)", "PB-001 sleeve over-cap on existing holdings (not liquidation permission)", "new high-water candidate not persisted under hold"]
+  },
+  "artifacts_private": [
+    "/data/drive/tyche-raw/2026-11-19-preflight-1107/mcp/01-accounts.json",
+    "/data/drive/tyche-raw/2026-11-19-preflight-1107/mcp/02-cash.json",
+    "/data/drive/tyche-raw/2026-11-19-preflight-1107/mcp/03-positions.json",
+    "/data/drive/tyche-raw/2026-11-19-preflight-1107/mcp/04-orders-1.json",
+    "/data/drive/tyche-raw/2026-11-19-preflight-1107/mcp/05-quotes.json",
+    "/data/drive/tyche-raw/2026-11-19-preflight-1107/report.md",
+    "/data/drive/tyche-raw/2026-11-19-preflight-1107/preflight-summary.json"
+  ],
+  "telegram_sent": false, "git_push": false, "production_state_edits": 0, "reservations_preserved": true
+}

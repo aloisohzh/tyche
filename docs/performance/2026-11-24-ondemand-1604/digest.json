@@ -1,0 +1,31 @@
+{
+ "phase": "ON-DEMAND RUN",
+ "timestamp": "2026-11-24 | 16:29 UTC / 11:29 ET / 00:29 SGT (25 Nov)",
+ "urgent": false,
+ "mode": "PAPER ARMED - halt released, KO/PG/JNJ envelope armed, PB-003 on, PB-007 off",
+ "stance": "Risk-off rotation (SPY -1.2%, QQQ -2.8%); defensives ran above their pullback zones, so the desk stayed flat and submitted nothing.",
+ "orders_summary": "No orders submitted by this run. The operator-approved KO call never triggered: no pullback and the ask rose above the approved limit.",
+ "orders": [],
+ "account": {
+  "nav": "USD 98,831.14 (broker read 16:27Z)",
+  "cash": "USD 98,831.14, frozen 0",
+  "positions": "Flat - SPY 28 / EFA 142 / MSFT 39 exits filled at the open",
+  "kill_switch": "OFF (operator release 23 Nov)"
+ },
+ "protection": [
+  "Flat book: no held lots, no uncovered exposure, zero pending orders.",
+  "Today's 3 operator exits verified fully filled at the 14:30Z open (SPY 28 @715.19, EFA 142 @98.75, MSFT 39 @489.90) and journaled."
+ ],
+ "problems": [
+  "KO option quote timestamp frozen at 16:08Z while greeks update - PB-003 cannot pass the 120s freshness gate until a fresh print. Operator: re-check at the 15:05 fire.",
+  "JNJ setup invalidated (session low broke the stop, high passed the target); any re-entry needs a new setup and review.",
+  "Feed quirk: quote price sub-field (KO 96.02) disagrees with top-level last/book (98.22); desk trades the book view. No action needed."
+ ],
+ "proposals": [
+  "KO stock: valid, pullback-only (98.22 above zone 96.10-96.60); invalidation KO below 95.40.",
+  "PG stock: valid, pullback-only (173.21 above zone 170.20-170.80); invalidation PG below 169.00.",
+  "JNJ: invalidated today, no entry.",
+  "KO 97C 18-Dec (PB-003): APPROVED on Telegram 16:22Z, not triggered - ask 2.85 above limit 2.67, no pullback, stale option quote. Approval lapses with this run."
+ ],
+ "next_check": "12:05 ET midday fire (17:05Z), alert-only protection check - verified on the pinned calendar."
+}

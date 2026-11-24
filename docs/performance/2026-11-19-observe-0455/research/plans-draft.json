@@ -1,0 +1,54 @@
+[
+  {
+    "plan_id": "LC-20261119-SPY-ADOPT-r1",
+    "revision": 1,
+    "symbol": "US.SPY",
+    "strategy_id": "PB-001",
+    "rules_hash": "7799974f9fd0",
+    "mode": "adopt_position",
+    "quantity": 28,
+    "thesis": "Adopt the existing PB-001 ballast holding of 28 SPY shares (cost 731.54) under hourly lifecycle protection through challenge end; no adds, no re-entry. The hawkish Oct 27-28 FOMC minutes released Nov 18 (CFTime 2026-11-19T00:57:39Z; Fisco 2026-11-18T22:23:15Z) confirm the hike cycle, but a Dec 9 25bp hike is already >95% priced (CME FedWatch via CFTime), so the incremental shock is limited to the 50bp tail. SPY closed Nov 18 at 730.20 (exchange ts 2026-11-18T21:00:00.268Z), holding just above the Nov 17/18 low cluster 727.00/726.795, and recovered to 735.57 after hours (+0.735%) as strong NVDA results lifted tech (Fisco 2026-11-18T21:51:07Z). Retain diversified US large-cap ballast with a structural stop below the observed low cluster while that cluster holds.",
+    "invalidation_rules": [
+      "December FOMC escalation beyond the priced-in 25bp becomes the base case: CME FedWatch probability of a 50bp hike at the Dec 9 meeting exceeds 50% (baseline: >95% for 25bp, 50bp only a tail, per CFTime 2026-11-19T00:57:39Z https://news.futunn.com/post/1004960262). Re-check via CME FedWatch or timestamped wire coverage at each hourly review.",
+      "SPY last price trades below 725.00, breaking the observed 2026-11-17/18 low cluster of 727.00/726.795 (moomoo K_DAY autype=1 fetched 2026-11-19T04:58Z, raw-kline-spy.json); the ~0.25-0.3% buffer under the observed lows is a risk-design choice, the lows themselves are market-derived.",
+      "The scheduled 2026-11-25 08:30 ET Core PCE (YoY) prints above the prior 3.1% (moomoo economic calendar indicatorId=905, event_time 1795613400, raw-calendar-hot.json) AND SPY trades below the Nov 18 low of 726.795 on the release — combined hawkish-surprise plus price-structure breakdown invalidates the 'hawkishness is priced in' ballast thesis."
+    ],
+    "created_at": "2026-11-19T05:10:00+00:00",
+    "entry_low": 726.80,
+    "entry_high": 735.06,
+    "stop": {"price": 725.00, "basis": "last"},
+    "take_profit": {"price": 749.50, "basis": "last"},
+    "entry_expires_at": "2026-11-19T16:00:00-05:00",
+    "exit_deadline": "2026-11-27T12:05:00-05:00",
+    "exit_on_invalidation": true,
+    "review_max_age_minutes": 60,
+    "quote_max_age_seconds": 300,
+    "max_slippage_bps": 20
+  },
+  {
+    "plan_id": "LC-20261119-EFA-ADOPT-r1",
+    "revision": 1,
+    "symbol": "US.EFA",
+    "strategy_id": "PB-001",
+    "rules_hash": "7799974f9fd0",
+    "mode": "adopt_position",
+    "quantity": 142,
+    "thesis": "Adopt the existing PB-001 ballast holding of 142 EFA shares (cost 100.495) under hourly lifecycle protection; no adds, no re-entry. Developed-international equities are under pressure: EFA fell three straight sessions (-1.47%, -1.26%, -1.08%) to 100.26 on Nov 18 (exchange ts 2026-11-18T21:00:00Z), closing below the early-November range floor (Nov 6 low 101.27), amid a firm dollar (USDJPY 159.35 NY close, dollar index +0.4% Nov 18; Fisco 2026-11-18T21:51:07Z, Zhitong 2026-11-19T00:37:07Z) and a hawkish Fed. Eurozone Oct final CPI was in line at 4.0% and UK inflation easing cooled BoE hike expectations (Fisco same wrap). Retain the diversification ballast only while the Nov 18 low of 99.96 holds, with a structural stop below it; research verdict is UNCERTAIN, so this adoption is protection of an existing holding, not a new bullish entry.",
+    "invalidation_rules": [
+      "EFA last price trades below 99.40, extending the break of the observed 2026-11-18 low of 99.96 (moomoo K_DAY autype=1 fetched 2026-11-19T04:58Z, raw-kline-efa.json); the ~0.56% buffer under the observed low is a risk-design choice, the low itself is market-derived.",
+      "FX-driven deterioration: USDJPY sustains above 160.00 (Nov 18 NY close 159.35 per Fisco 2026-11-18T21:51:07Z https://news.futunn.com/post/1004946744) while EFA trades below 99.96 — dollar strength overwhelming the developed-equity thesis; the 160.00 round-number threshold is a risk-design choice anchored to the sourced 159.35 close.",
+      "December FOMC escalation beyond the priced-in 25bp becomes the base case: CME FedWatch Dec 9 50bp probability exceeds 50% (baseline >95% for 25bp per CFTime 2026-11-19T00:57:39Z https://news.futunn.com/post/1004960262) — global developed-equity beta risk invalidates ballast retention."
+    ],
+    "created_at": "2026-11-19T05:10:00+00:00",
+    "entry_low": 99.96,
+    "entry_high": 100.87,
+    "stop": {"price": 99.40, "basis": "last"},
+    "take_profit": {"price": 101.90, "basis": "last"},
+    "entry_expires_at": "2026-11-19T16:00:00-05:00",
+    "exit_deadline": "2026-11-27T12:05:00-05:00",
+    "exit_on_invalidation": true,
+    "review_max_age_minutes": 60,
+    "quote_max_age_seconds": 300,
+    "max_slippage_bps": 20
+  }
+]

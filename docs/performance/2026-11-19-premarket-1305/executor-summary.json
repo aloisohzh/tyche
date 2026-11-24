@@ -1,0 +1,132 @@
+{
+  "run": "2026-11-19-premarket-1305",
+  "mode": "VALIDATION_MODE_PRODUCTION_HOLD_READ_ONLY",
+  "generated_at_utc": "2026-11-19T13:14:11Z",
+  "delegation_clock_utc": "2026-11-19T13:08:55Z",
+  "broker_writes_performed": 0,
+  "orders_submitted": 0,
+  "reservations_created": 0,
+  "state_writes": 0,
+  "account": {
+    "alias": "challenge-us-paper",
+    "masked_id": "***598",
+    "account_type": 2,
+    "market_id": 100,
+    "allowlist_match": true,
+    "title": "Moomoo x Qoder AI Paper Trading Agent Challenge"
+  },
+  "capture_times_utc": {
+    "account_list_read_completed_by": "2026-11-19T13:10:16Z",
+    "cash_and_positions_read_completed_by": "2026-11-19T13:10:45.195Z",
+    "oldest_account_read_observed_at": "2026-11-19T13:10:16Z",
+    "history_orders_read_completed_by": "2026-11-19T13:10:45.195Z",
+    "quotes_market_state_read_window": "2026-11-19T13:10:45Z/2026-11-19T13:12:34Z",
+    "option_chain_read_completed_by": "2026-11-19T13:13:08Z",
+    "klines_read_window": "2026-11-19T13:13:08Z/2026-11-19T13:14:11Z",
+    "note": "Read times bounded by recorded live-clock checks and file persistence mtimes; account capture (list->cash/positions) spanned <=29s, within the 120s budget. Nothing captured here is executable at a future tick without refetch."
+  },
+  "nav_reconciliation": {
+    "total_asset": "100193.13",
+    "cash": "65244.61",
+    "frozen_cash": "0",
+    "market_val": "34948.52",
+    "arithmetic": "65244.61 + 0 + 34948.52 = 100193.13 (exact match, Decimal-checked)",
+    "positions_mv_sum": "20711.60 (SPY) + 14236.92 (EFA) = 34948.52 (exact match to cash_info mv)",
+    "preflight_total_asset": "100185.29",
+    "drift_vs_preflight": "+7.84",
+    "drift_explanation": "Entirely mark-to-market: MV 34940.68 -> 34948.52 (+7.84); cash and frozen unchanged. Pre-market revaluation, no trades."
+  },
+  "positions": [
+    {"symbol": "SPY", "qty": "28", "qty_avbl": "28", "cost_price": "731.54", "cur_price": "739.7", "mv": "20711.6", "profit": "228.48"},
+    {"symbol": "EFA", "qty": "142", "qty_avbl": "142", "cost_price": "100.495", "cur_price": "100.26", "mv": "14236.92", "profit": "-33.37"}
+  ],
+  "positions_match_preflight": true,
+  "option_holdings": "NONE (no contracts.json required for current holdings)",
+  "order_history": {
+    "pages_fetched": 1,
+    "file": "mcp/orders-1.json",
+    "pagination_has_more": false,
+    "next_key": "0",
+    "unfiltered": true,
+    "total_orders": 3,
+    "new_orders_since_preflight": 0,
+    "orders": [
+      {"order_id": "3116580", "symbol": "SPY", "side": "BUY", "qty": "28", "limit": "733.17", "cum_qty": "28", "avg_fill": "731.54", "status": 4, "classification": "VERIFIED_TERMINAL_FULL_FILL (status 4, cum_qty == qty)"},
+      {"order_id": "3116594", "symbol": "EFA", "side": "BUY", "qty": "142", "limit": "101.45", "cum_qty": "142", "avg_fill": "100.495", "status": 4, "classification": "VERIFIED_TERMINAL_FULL_FILL (status 4, cum_qty == qty)"},
+      {"order_id": "3116597", "symbol": "VNQ", "side": "BUY", "qty": "83", "limit": "94.98", "cum_qty": "0", "avg_fill": "0", "status": 5, "created_utc": "2026-11-18T17:53:07Z", "updated_utc": "2026-11-19T01:01:00Z", "classification": "UNRESOLVED_MANUAL_REVIEW", "flag": "STATUS_5_SEMANTICS_UNKNOWN", "reverified_this_run": true, "state_change_since_preflight": "none (status 5, cum 0, update_time unchanged 01:01:00Z)", "frozen_cash_now": "0 (consistent with released freeze; does NOT prove terminal cancel)", "action_taken": "none — no retry, no cancel, no modify"}
+    ],
+    "pending_working_orders": "NONE detected (no status indicating live/working order in history; VNQ status-5 remains unproven, kept flagged)"
+  },
+  "protection_coverage": {
+    "resting_broker_stops": "NONE",
+    "approved_lifecycle_contracts": "NONE",
+    "lifecycle_ledger": "ABSENT at /data/drive/tyche-raw/lifecycle — NOT initialized this run (per delegation)",
+    "holdings_status": "SPY 28 and EFA 142 are UNOWNED protection gaps: no approved stop/target/deadline contract exists; no adoption grants created",
+    "pending_order_obstruction": "none known; VNQ 3116597 unresolved but cum 0 / frozen 0 and no VNQ holdings"
+  },
+  "quotes": {
+    "file": "mcp/quotes.json",
+    "symbols": ["US.SPY","US.EFA","US.QQQ","US.IWM","US.EEM","US.TLT","US.IEF","US.GLD","US.DBC","US.VNQ","US.HYG"],
+    "freshness_caveat": "Main last_price fields carry data_time 1795035600xxx = 2026-11-18T21:00:00Z (16:00 ET prior RTH close), data_date 2026-11-18. Payload has NO bid/ask. Pre-market activity is only in pre_market/overnight sub-objects (no per-field timestamps). NOTHING here meets the <=60s quote-age gate; not executable.",
+    "pre_market_last": {"US.SPY": 739.59, "US.EFA": 100.26, "US.QQQ": 674.3, "US.IWM": 272.18, "US.EEM": 58.1, "US.TLT": 79.83, "US.IEF": 90.4872, "US.GLD": 340.7661, "US.DBC": 29.545, "US.VNQ": 94.68, "US.HYG": 76.65},
+    "prior_rth_close_last": {"US.SPY": 730.2, "US.EFA": 100.26, "US.QQQ": 659.51, "US.IWM": 270.12, "US.EEM": 57.88, "US.TLT": 80.22, "US.IEF": 90.67, "US.GLD": 341.19, "US.DBC": 29.51, "US.VNQ": 95.18, "US.HYG": 76.65},
+    "anomalies": "US.GLD prev_close_price 352.48 vs 11-18 last 341.19 (-3.2% day); US.HYG overnight high 79.71 vs 76.65 close on 52 shares (thin print); US.DBC pre-market volume 1 share. All sec_status NORMAL, suspension=false."
+  },
+  "market_state": {
+    "file": "mcp/market-state.json",
+    "state_all_11": "PRE_MARKET_BEGIN",
+    "note": "time_date field shows 20261118 (prior-session label); trade_section timestamps span the 2026-11-18 RTH session. Consistent with pre-market on 2026-11-19; no RTH submission permitted (calendar gate new_entries=false, max_orders=0)."
+  },
+  "option_chain_tool": {
+    "available": true,
+    "sample_file": "mcp/chain-US.SPY-20261119-20261121.json",
+    "query": {"symbol": "US.SPY", "start": "2026-11-19", "end": "2026-11-21", "filter_standard": "STANDARD"},
+    "contracts": 714,
+    "expiries": {"2026-11-19": 240, "2026-11-20": 474},
+    "expiration_cycle": {"2026-11-19": "WEEK", "2026-11-20": "MONTH"},
+    "metadata_check": "all option_standard_type=STANDARD, all lot_size=100, stock_owner=US.SPY, strike/expiry/right present. Chain metadata availability VERIFIED (read-only; not execution validation)."
+  },
+  "klines": {
+    "params": {"num": 370, "ktype": 2, "autype": 1},
+    "bar_count_all": 370,
+    "first_bar_all": "2025-06-02",
+    "last_bar_all": "2026-11-18",
+    "staleness": "Last bar 2026-11-18 is the latest COMPLETED regular session (2026-11-19 RTH not yet open) — not stale.",
+    "files": [
+      {"symbol": "US.SPY", "tmp": "/tmp/tool-outputs/mcp_kline_US.SPY.txt", "run": "/data/runs/2026-11-19-premarket-1305/mcp/klines/mcp_kline_US.SPY.txt", "bars": 370, "sha256": "f6850faeac1e9cfe893f7731542ae704447cbf5ccc803ff2f0ec37124c61e452"},
+      {"symbol": "US.QQQ", "tmp": "/tmp/tool-outputs/mcp_kline_US.QQQ.txt", "run": "/data/runs/2026-11-19-premarket-1305/mcp/klines/mcp_kline_US.QQQ.txt", "bars": 370, "sha256": "9df706e4cbd2ee7cf3b32830403557fbd1f895f79b703a8285c91a4630453120"},
+      {"symbol": "US.IWM", "tmp": "/tmp/tool-outputs/mcp_kline_US.IWM.txt", "run": "/data/runs/2026-11-19-premarket-1305/mcp/klines/mcp_kline_US.IWM.txt", "bars": 370, "sha256": "9bc6c9f9eddaf8fad77914bc44104a0bb6e671191a9dc49a50d6557b1bbf36ee"},
+      {"symbol": "US.EFA", "tmp": "/tmp/tool-outputs/mcp_kline_US.EFA.txt", "run": "/data/runs/2026-11-19-premarket-1305/mcp/klines/mcp_kline_US.EFA.txt", "bars": 370, "sha256": "d3c08c77d40927cfea606271fa4b75cb7fb8b3a0c5a4e40256efe1b070c92fe4"},
+      {"symbol": "US.EEM", "tmp": "/tmp/tool-outputs/mcp_kline_US.EEM.txt", "run": "/data/runs/2026-11-19-premarket-1305/mcp/klines/mcp_kline_US.EEM.txt", "bars": 370, "sha256": "34eb4412a871bd423d6fc07eb4d35bbb50021f7f5a59d347ca965c33ef0a31ea"},
+      {"symbol": "US.TLT", "tmp": "/tmp/tool-outputs/mcp_kline_US.TLT.txt", "run": "/data/runs/2026-11-19-premarket-1305/mcp/klines/mcp_kline_US.TLT.txt", "bars": 370, "sha256": "843ea079146fd0296ce506d1f43f6b552323da4a2d0d81c70154b4a10e8c5b1e"},
+      {"symbol": "US.IEF", "tmp": "/tmp/tool-outputs/mcp_kline_US.IEF.txt", "run": "/data/runs/2026-11-19-premarket-1305/mcp/klines/mcp_kline_US.IEF.txt", "bars": 370, "sha256": "e4927860c6c6120a3db2b887410c11cbe208bbab7cc0d27248f682904631e346"},
+      {"symbol": "US.GLD", "tmp": "/tmp/tool-outputs/mcp_kline_US.GLD.txt", "run": "/data/runs/2026-11-19-premarket-1305/mcp/klines/mcp_kline_US.GLD.txt", "bars": 370, "sha256": "8c60246405d533d2fcb52de6822c39a5f2f2354d0ad02d09071bc903f472397d"},
+      {"symbol": "US.DBC", "tmp": "/tmp/tool-outputs/mcp_kline_US.DBC.txt", "run": "/data/runs/2026-11-19-premarket-1305/mcp/klines/mcp_kline_US.DBC.txt", "bars": 370, "sha256": "a0aa42dbc901c6003491dc8a78fce8db19f1464ed5af41b62317d7381831e3a5"},
+      {"symbol": "US.VNQ", "tmp": "/tmp/tool-outputs/mcp_kline_US.VNQ.txt", "run": "/data/runs/2026-11-19-premarket-1305/mcp/klines/mcp_kline_US.VNQ.txt", "bars": 370, "sha256": "a108ef0e26f92b034cf3dfed87933300ce41f958050097a8e8906675c6f32db9"},
+      {"symbol": "US.HYG", "tmp": "/tmp/tool-outputs/mcp_kline_US.HYG.txt", "run": "/data/runs/2026-11-19-premarket-1305/mcp/klines/mcp_kline_US.HYG.txt", "bars": 370, "sha256": "685595eff5a51bfee4888f4cd5deac8ac793a79bc4141d4f8f8d8c42455b4967"}
+    ]
+  },
+  "artifact_hashes_sha256": {
+    "mcp/accounts.json": "4450619f512cc8f79958d5e58e5442738cfdd903b725045e633cb1b0986e0413",
+    "mcp/cash.json": "c9c54236f692a12bdcd9b3f1517664f8e4b0e3c77c4b6279bcb41e2192dcf5e0",
+    "mcp/positions.json": "5e8b91b9fe7c111a77679d8676578e3bf86697ffe6dc1b070d02a104b1a15ba3",
+    "mcp/orders-1.json": "c7c584657ebfcf809d8084a331cef6fe145a70e441938779c3a779e4c2df082c",
+    "mcp/quotes.json": "edb6b461bb06c27a1317b18d303244547ed35e1c6b40f5d4a598f8dde26f1475",
+    "mcp/market-state.json": "800bd31b2e54502c7c26b3e430acab5d80bb748d6292635069056affcf49f0f5",
+    "mcp/chain-US.SPY-20261119-20261121.json": "88755ae41024d9f18f7a0e0579cd410574aba03ab33eaa09face154fd13aa425",
+    "journal/events.jsonl (read-only verify)": "83bf020cc3b7053dbe453e0f8594ea54de8beb23e54b43db8b445a5af23b6df9"
+  },
+  "environment_verification": {
+    "repo": "/data/workspace/tyche",
+    "head": "2181c12be4b649c57402154ce2245dfc1f9c8374",
+    "working_tree": "clean",
+    "journal_sha256_matches_delegation": true,
+    "lifecycle_ledger_absent_confirmed": true
+  },
+  "unresolved_items": [
+    "VNQ order 3116597: status 5 semantics UNKNOWN; UNRESOLVED MANUAL-REVIEW flag retained; no action taken.",
+    "SPY 28 / EFA 142: UNOWNED holdings, no lifecycle protection contracts; protection gap remains open.",
+    "Pre-market quote main fields are prior-close; no executable fresh quotes/books captured this run (read-only recon scope)."
+  ],
+  "mcp_read_failures": []
+}

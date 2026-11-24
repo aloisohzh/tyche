@@ -1,0 +1,92 @@
+{
+  "audit_status": "DRAFT — NOT AN APPROVAL, NO EXECUTION AUTHORITY",
+  "executable": false,
+  "rollout_hold": true,
+  "execution_enabled": false,
+  "audit_json_issued": false,
+  "auditor": "tyche-risk-auditor",
+  "reviewed_at_utc": "2026-11-19T05:14:00Z",
+  "clock_source": "coordinator-supplied",
+  "account_masked": "[REDACTED]",
+  "account_type": 2,
+  "market_id": 100,
+  "env": "paper",
+  "next_hourly_run_utc": "2026-11-19T13:05:00Z",
+  "proposals": [
+    {
+      "plan_id": "LC-20261119-SPY-ADOPT-r1",
+      "plan_hash": "8ca9176daf7d09b4030cc15cf5460896fd871ef2c66b48db60fc6f886fbdd954",
+      "symbol": "US.SPY",
+      "mode": "adopt_position",
+      "quantity": 28,
+      "verdict": "APPROVE-WITH-CHANGES",
+      "verdict_scope": "draft-quality only; NOT executable approval; not executable: rollout hold",
+      "conditions": [
+        "fresh exact-hash review (<=60min) and fresh quotes (<=300s) at check time; current review expires 2026-11-19T06:10Z before next run 13:05Z",
+        "resolve all activation blockers (production ledger, durable cross-lane writer, config/rules-hash reconciliation, rollout release, broker drill)",
+        "explicit operator approval of full immutable contract; new revision/hash for any change",
+        "state entry_low rounding 726.795 -> 726.80 in the plan"
+      ]
+    },
+    {
+      "plan_id": "LC-20261119-EFA-ADOPT-r1",
+      "plan_hash": "237408a874860bebfe8731bbfec7742d18f42e2dc717646b24afa46600903395",
+      "symbol": "US.EFA",
+      "mode": "adopt_position",
+      "quantity": 142,
+      "verdict": "APPROVE-WITH-CHANGES",
+      "verdict_scope": "draft-quality only; NOT executable approval; not executable: rollout hold",
+      "conditions": [
+        "same conditions as SPY",
+        "operator decision on anchor R/R 0.701 (<1; cost-basis 1.283) and stop tightness vs initial_stop_pct 0.08 design",
+        "re-review with fresh EFA-specific equity news (currently MISSING; verdict uncertain blocks new entries, not retained protective exits)"
+      ]
+    }
+  ],
+  "checks": {
+    "C1_quantities_cash_nav_orders": "PASS (caveats: history time-window params unhonored — completeness rests on unfiltered has_more=false; status-5 semantics UNKNOWN, correctly labeled)",
+    "C2_geometry_anchors_deadlines_windows": "PASS (minor: SPY entry_low rounded up 0.005 above observed low; reviews exactly 60min, expire 06:10Z before 13:05Z run, labeled pending-refresh)",
+    "C3_sources_news_events": "PASS with documented gaps (EFA symbol news missing -> uncertain; calendar Nov20/23/24/27 empty = coverage gap; FedWatch second-hand; 50bp tail unsourced; hike cycle, no cut language)",
+    "C4_fee_risk_arithmetic": "PASS (all figures recomputed by hand; combined worst incl slip+fees 561.25 = 0.562% NAV < 1%; fees are models, not confirmed charged fees)",
+    "C5_allocation_cap_semantics_and_exit_reachability": "PASS (allocation_cap 0.25 whole-sleeve vs max_weight per-name verified in rotation.py:269/184; exits exempt from entry gates verified in lifecycle.py:420-451,472-473, pipeline.py:65-70, risk.py:85-123); hash values UNVERIFIABLE (desk-head attested, C5)",
+    "C6_ownership_storage_activation": "CONFIRMED BLOCKERS (lifecycle ledger absent; FUSE locking unproven; single durable cross-lane writer unresolved; config divergence; rollout hold; option round-trip/120s validation incomplete; reviews expire before next run; replay shows review/authorized=false, nothing latched or recorded)",
+    "C7_engine_pin_and_replay_integrity": "PASS at content level (HEAD ref = 1e902cf57c26599b69c49496e81b7a493ae5bc49; replay JSON matches code behavior; synthetic dir empty; invocation flags attested)"
+  },
+  "key_numbers": {
+    "nav": 99927.13,
+    "cash": 65244.61,
+    "frozen": 0.0,
+    "holdings_mv": 34682.52,
+    "holdings_pctNAV_mv": 34.71,
+    "holdings_pctNAV_cost": 34.78,
+    "pb001_sleeve_budget_current_root": 0.25,
+    "sleeve_breach": "existing holdings exceed 25% current-root sleeve budget; NOT liquidation permission; release config has no allocation_cap",
+    "spy": {"engine_loss_at_stop": 281.68, "cost_to_stop": -183.12, "mark_to_stop": -145.60, "cost_to_target": 502.88, "rr_anchor": 1.435, "exit_fee_model": 0.9946, "slip20bps_at_stop": 40.60, "worst_incl_slip_fees": 323.27},
+    "efa": {"engine_loss_at_stop": 208.74, "cost_to_stop": -155.49, "mark_to_stop": -122.12, "cost_to_target": 199.51, "rr_anchor": 0.701, "exit_fee_model": 1.0136, "slip20bps_at_stop": 28.23, "worst_incl_slip_fees": 237.98},
+    "combined_worst_incl_slip_fees": 561.25,
+    "combined_worst_pctNAV": 0.562
+  },
+  "trader_decisions": [
+    "EFA anchor R/R 0.701 < 1: accept protective adoption, de-risk, or revise via new revision (operator call)",
+    "structural stops far tighter than PB-001 initial_stop_pct 0.08 design: whipsaw trade-off under hourly synthetic monitoring",
+    "sleeve-budget breach handling for existing holdings (no liquidation permission)"
+  ],
+  "technical_blockers": [
+    "no production lifecycle ledger at /data/drive/tyche-raw/lifecycle",
+    "durable single cross-lane writer unproven (rclone FUSE mkdir/flock/fsync not distributed locks; owner.lock/ empty dir)",
+    "rules_hash divergence release 7799974f9fd0 vs current 4105d7a680a3 (release turnover 0.50/orders 6/no option caps/no allocation_cap vs current 1.50/40/option caps/0.25 sleeve)",
+    "rollout hold: execution_enabled=false; option round-trip + 120s tactical monitoring + broker drill unverified",
+    "reviews expire 2026-11-19T06:10Z before next run 13:05Z; fresh quotes/review required",
+    "status-5 broker semantics unknown; history time-window API anomaly",
+    "holdings currently have no broker-native stops and no approved lifecycle ownership"
+  ],
+  "hashes": {
+    "book_json": "c710ffe137b968479694c4f34da7420a6ea1ad7beae3061700f5da8de342d166",
+    "market_json": "13673d965b8de683b22603c8710f149517b47149b5a35d54f7c507fa41b89581",
+    "risk_numbers_json": "1676697ea35198170c0752f1ecb52c1bc19d2855ec48f6b124774a9621c79fff",
+    "journal_last_event": "5df92f3dcae0d59f4e5d50e64b148cd8138fce69f23c1d525a4628a9c75499c3",
+    "engine_head": "1e902cf57c26599b69c49496e81b7a493ae5bc49",
+    "hash_verification": "desk-head-attested sha256 (auditor has no shell); content-level consistency verified independently"
+  },
+  "report": "audit/draft-audit.md"
+}

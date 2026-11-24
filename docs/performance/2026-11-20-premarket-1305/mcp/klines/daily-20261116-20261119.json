@@ -1,0 +1,195 @@
+{
+ "_provenance": {
+  "tool": "quote_cur_kline ktype=2 day autype=1 forward-adjusted",
+  "requested_utc": "2026-11-20T13:13:2xZ",
+  "note": "field-subset transcription of the returned bars (date/open/high/low/close/prev/volume/time_key); full reply retained in run transcript"
+ },
+ "bars": {
+  "US.SPY": [
+   {
+    "date": 20261116,
+    "open": 749.66,
+    "high": 749.82,
+    "low": 738.07,
+    "close": 739.95,
+    "prev": 754.37,
+    "volume": 69207282,
+    "time_key": 1794805200000
+   },
+   {
+    "date": 20261117,
+    "open": 738.39,
+    "high": 739.76,
+    "low": 727,
+    "close": 732.44,
+    "prev": 739.95,
+    "volume": 71636294,
+    "time_key": 1794891600000
+   },
+   {
+    "date": 20261118,
+    "open": 733.37,
+    "high": 735.06,
+    "low": 726.795,
+    "close": 730.2,
+    "prev": 732.44,
+    "volume": 51804809,
+    "time_key": 1794978000000
+   },
+   {
+    "date": 20261119,
+    "open": 737.46,
+    "high": 739.8999,
+    "low": 715.65,
+    "close": 715.87,
+    "prev": 730.2,
+    "volume": 76702574,
+    "time_key": 1795064400000
+   }
+  ],
+  "US.EFA": [
+   {
+    "date": 20261116,
+    "open": 103.72,
+    "high": 103.78,
+    "low": 102.6,
+    "close": 102.64,
+    "prev": 104.17,
+    "volume": 13280055,
+    "time_key": 1794805200000
+   },
+   {
+    "date": 20261117,
+    "open": 101.86,
+    "high": 102,
+    "low": 101,
+    "close": 101.35,
+    "prev": 102.64,
+    "volume": 16036153,
+    "time_key": 1794891600000
+   },
+   {
+    "date": 20261118,
+    "open": 100.72,
+    "high": 100.87,
+    "low": 99.96,
+    "close": 100.26,
+    "prev": 101.35,
+    "volume": 19131554,
+    "time_key": 1794978000000
+   },
+   {
+    "date": 20261119,
+    "open": 100.545,
+    "high": 100.58,
+    "low": 98.62,
+    "close": 98.78,
+    "prev": 100.26,
+    "volume": 26623202,
+    "time_key": 1795064400000
+   }
+  ],
+  "US.MSFT": [
+   {
+    "date": 20261116,
+    "open": 525.09,
+    "high": 527.95,
+    "low": 516.82,
+    "close": 517.99,
+    "prev": 523.88,
+    "volume": 30218641,
+    "time_key": 1794805200000
+   },
+   {
+    "date": 20261117,
+    "open": 514.565,
+    "high": 515.64,
+    "low": 496.51,
+    "close": 506.24,
+    "prev": 517.99,
+    "volume": 27992837,
+    "time_key": 1794891600000
+   },
+   {
+    "date": 20261118,
+    "open": 505.5,
+    "high": 510.44,
+    "low": 501.08,
+    "close": 508.29,
+    "prev": 506.24,
+    "volume": 22050085,
+    "time_key": 1794978000000
+   },
+   {
+    "date": 20261119,
+    "open": 519.5,
+    "high": 526.49,
+    "low": 498.16,
+    "close": 498.3,
+    "prev": 508.29,
+    "volume": 29350637,
+    "time_key": 1795064400000
+   }
+  ],
+  "US.NVDA": [
+   {
+    "date": 20261119,
+    "close": 145.98,
+    "prev": 150.96,
+    "open": 152.915,
+    "high": 158.1301,
+    "low": 145.71,
+    "volume": 322940099,
+    "time_key": 1795064400000
+   }
+  ],
+  "US.AMD": [
+   {
+    "date": 20261119,
+    "close": 489.19,
+    "prev": 530.14,
+    "open": 542.17,
+    "high": 555.01,
+    "low": 470.56,
+    "volume": 71660692,
+    "time_key": 1795064400000
+   }
+  ],
+  "US.AVGO": [
+   {
+    "date": 20261119,
+    "close": 346.65,
+    "prev": 354.05,
+    "open": 362.94,
+    "high": 369.26,
+    "low": 345,
+    "volume": 26075610,
+    "time_key": 1795064400000
+   }
+  ],
+  "US.MU": [
+   {
+    "date": 20261119,
+    "close": 690.44,
+    "prev": 705.27,
+    "open": 740.33,
+    "high": 760.01,
+    "low": 689.279,
+    "volume": 35401476,
+    "time_key": 1795064400000
+   }
+  ],
+  "US.SMH": [
+   {
+    "date": 20261119,
+    "close": 447.48,
+    "prev": 459.54,
+    "open": 473.05,
+    "high": 479.96,
+    "low": 447.2,
+    "volume": 10590774,
+    "time_key": 1795064400000
+   }
+  ]
+ }
+}

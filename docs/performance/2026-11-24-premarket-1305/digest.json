@@ -1,0 +1,62 @@
+{
+  "phase": "PREMARKET",
+  "timestamp": "2026-11-24 | 13:24 UTC / 08:24 ET / 21:24 SGT",
+  "urgent": false,
+  "mode": "PAPER ARMED - exit envelope used 3/3; entries proposals-only today",
+  "stance": "Risk-off rotation: growth fades premarket, staples bid; the desk submitted all three operator-approved exits to rest for the open.",
+  "orders_summary": "3 orders submitted - operator-approved sells resting for the open, no shares filled yet; a receipt is not a fill. No buys: envelope is sell-only.",
+  "orders": [
+    {
+      "action": "SELL",
+      "symbol": "US.SPY",
+      "qty": "28",
+      "value": "19,882 at limit 710.08",
+      "status": "Pending (3124584), unfilled",
+      "reason": "Operator exit - stop breached on two completed daily closes. Floor 690."
+    },
+    {
+      "action": "SELL",
+      "symbol": "US.EFA",
+      "qty": "142",
+      "value": "13,899 at limit 97.88",
+      "status": "Pending (3124585), unfilled",
+      "reason": "Operator exit - stop breached; thin premarket book, partial-fill risk. Floor 94.50."
+    },
+    {
+      "action": "SELL",
+      "symbol": "US.MSFT",
+      "qty": "39",
+      "value": "18,925 at limit 485.26",
+      "status": "Pending (3124586), unfilled",
+      "reason": "Operator exit of the unowned Nov-19 incident lot. Floor 474."
+    }
+  ],
+  "account": {
+    "nav": "98,727.38 broker total incl frozen (13:08Z); -1.27% vs 100,000 baseline",
+    "cash": "45,680.12 available; frozen 0 at read",
+    "positions": "SPY 28, EFA 142, MSFT 39 - all committed to resting sells; no options",
+    "kill_switch": "OFF - halt released by operator Nov-23; soft 4% / hard 6% limits intact"
+  },
+  "protection": [
+    "All 3 lots have live sell requests resting for the open; none filled yet.",
+    "An open below the limits means no fill and the lots stay held; re-check 12:05 ET first. Cancel/modify needs separate operator approval.",
+    "EFA depth thin (19 shares printed, ~0.8% wide) - partial-fill risk on 142.",
+    "VNQ 3116597 and SMH 3118500 still unresolved: no shares filled, end state unproven (status 5)."
+  ],
+  "problems": [
+    "PB-003 switch ON but tactical config options_enabled false - operator: reconcile before any 15:05 ET option entry.",
+    "PB-003 exit-at-next-fire-start conflicts with the no-deadline-at-next-fire rule - operator: pin interpretation before Wed entry.",
+    "Three Nov-18 journal rows lack request ids, blocking normal lifecycle exits - operator remap owed; exit-now sidesteps, not fixes.",
+    "MSFT lot still has no lifecycle plan; sell submitted, ownership record owed.",
+    "JNJ ex-div 1.34 today: feed reference 268.71 adjusted; executor must re-verify at open or the JNJ proposal must not fire."
+  ],
+  "proposals": [
+    "All unapproved; no buy authority today (sell-only envelope).",
+    "KO max 82 at 96.10-96.60, stop 95.40, tgt 98.40, exit 15:50 ET - CFO succession + 3 Buy reiterations, staples rotation; invalid at/below 95.40.",
+    "PG max 46 at 170.20-170.80, stop 169.00, tgt 173.50 - PT-raise cluster + 1.43M call block, bullish MAs; invalid at/below 169.00.",
+    "JNJ max 29 at 269.80-271.20, stop 268.50, tgt 275.25, low conviction - ex-div strength, only positive Monday flow; invalid at/below 268.50 or unadjusted feed.",
+    "PB-003 draft: one PG or KO Dec-18 long call, contract Not verified (chain at 15:05); 1 contract max, premium limit 7.45/share.",
+    "PB-007 stays OFF (failed backtest) - no scan. Calendar drift check: IN SYNC."
+  ],
+  "next_check": "12:05 ET midday protection fire (17:05 UTC), alert-only - re-checks the three resting sells and every order page."
+}

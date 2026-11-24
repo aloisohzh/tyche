@@ -1,0 +1,54 @@
+{
+  "run": "2026-11-19-close-2005",
+  "bootstrap_at_utc": "2026-11-19T20:07:49Z",
+  "fire": "15:05 ET close fire (two-fire ARMED profile)",
+  "repo": "/data/workspace/tyche",
+  "head": "2f3e0432c60e560d4aa5364a7d404d4b90fadaec",
+  "release_in_head": "3312287ce282cedacdafab552b40678e386ea90d verified ancestor (LC_ROOT = repo)",
+  "calendar": {
+    "phase": "closing_drive",
+    "trading_day": true,
+    "half_day": false,
+    "new_entries": true,
+    "max_orders": 1,
+    "event_caution": true,
+    "events": ["ANT Nasdaq IPO debut", "Philly Fed 08:30 ET (done)", "Jobless claims 08:30 ET (done)"]
+  },
+  "execution_enabled": false,
+  "halted": false,
+  "journal_lineage": {
+    "authoritative_latest_descendant": "/data/drive/tyche-raw/2026-11-19-hourly-1505/journal/events.jsonl",
+    "events": 16,
+    "sha256": "9daffecd96440f2e273308606cde14074eff87e83f59b393b3ba9c6136d8f66a",
+    "descendant_of": "ef8321c4845a458c8782c874f48c4ac24a18e044116c12b3c6bea1e9e76a27f6 (premarket-1305/validation-1413, first 15 lines byte-identical)",
+    "restored_to": "R/journal/events.jsonl"
+  },
+  "config_hashes": {
+    "tactical.yaml": "11c2206d57714d07659d13e76ec02ed53a2ae21a2cb7bda3e3ebe1b95ff998d9",
+    "risk.yaml": "69983dec7f9b83d5e0e02b36b8f4cf28661984e58962b97a858b94469f523df1",
+    "rules_hash": "4105d7a680a3",
+    "tactical_delta_vs_hourly_1505": "monitor_interval_seconds 3600->25200 + comment only (commit 1430300 two-fire switch); execution_enabled still false"
+  },
+  "lifecycle_production": {
+    "book": "/data/drive/tyche-raw/lifecycle/book.json sha256 bcaec558d46307ba63337c23e76a315a32052cf36ab790333000ea257f09631c",
+    "state": "/data/drive/tyche-raw/lifecycle/state.json approvals=[] reservations=[] latched_exits={} last_tick_at=null",
+    "plan_hashes": {
+      "LC-20261119-SPY-ADOPT-r2": "e73ee77d4b6abca10545bd296537fcee34b9a2511440e49fcf1d3ad23f9c89df",
+      "LC-20261119-EFA-ADOPT-r2": "add27d1a3e75fece0fe292c51050d9324ac33326a58ac4516cd93e3b39a9b33c"
+    },
+    "prior_reviews": "valid_until 16:11:03Z — STALE at this fire; researcher refresh required",
+    "operator_approval": "PENDING (adoption r2 audited ACCEPT in validation-1413 findings + adoption-review.md s8; no operator grant exists)",
+    "entry_expires_at": "2026-11-19T20:00:00Z — PASSED 5 min before this fire; adoption entry window expired, preview expected to block; no invented extension"
+  },
+  "tactical": {
+    "watchlist": "/data/drive/tyche-raw/watchlist.json as_of 2026-11-19",
+    "entries": ["TAC-20261119-AMD-L1", "TAC-20261119-MU-L1", "TAC-20261119-SMH-L1"],
+    "all_exit_at": "2026-11-19T20:05:00Z — at/before this 15:05 ET check; structurally expired for entry; execution gate closed regardless"
+  },
+  "ownership": "This session is the scheduled two-fire automation close fire. Prior scheduled writer (hourly-1505, sess_00vz7hpt2g16op8z64e6) completed 15:22Z; schedule switched to two-fire profile at commit 1430300. No other active writer observed. THIS RUN IS READ-ONLY for production state regardless: operator approval pending, execution gate closed. Rehearsal owner.lock remains an empty mkdir-style dir (not a distributed lock).",
+  "unresolved_flags": [
+    "VNQ order 3116597 status 5 cum 0 — terminal semantics unproven; MANUAL-REVIEW flag persists",
+    "SPY+EFA ~34.8% NAV exceeds PB-001 25% sleeve cap — existing holdings, not liquidation permission",
+    "No durable cross-lane writer proven; production state writes remain blocked"
+  ]
+}

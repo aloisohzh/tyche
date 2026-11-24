@@ -1,0 +1,105 @@
+{
+  "observed_at": "2026-11-19T15:17:41Z",
+  "snapshot": {
+    "account_id": "[REDACTED]",
+    "cash": 65244.61,
+    "frozen_cash": 0.0,
+    "broker_nav": 100007.36,
+    "prior_close_nav": null,
+    "high_water_nav": null,
+    "captured_at": "2026-11-19T15:17:41Z",
+    "positions": [
+      {
+        "symbol": "US.EFA",
+        "option": null,
+        "quantity": 142,
+        "available_quantity": 142,
+        "avg_cost": 100.495,
+        "last_price": 100.11,
+        "market_value": 14215.62
+      },
+      {
+        "symbol": "US.SPY",
+        "option": null,
+        "quantity": 28,
+        "available_quantity": 28,
+        "avg_cost": 731.54,
+        "last_price": 733.69,
+        "market_value": 20543.32
+      }
+    ],
+    "env": "paper",
+    "account_type": 2,
+    "market_id": 100,
+    "source": "sim_list",
+    "gross_exposure": 34758.94,
+    "nav": 100003.55
+  },
+  "regime": "risk_off",
+  "conviction": "low",
+  "broker_nav": 100007.36,
+  "prior_close_nav": 99914.93,
+  "high_water_nav": 100193.13,
+  "available": {
+    "US.EFA": 142,
+    "US.SPY": 28
+  },
+  "quotes": [
+    {
+      "symbol": "US.SPY",
+      "last": 733.65,
+      "at": "2026-11-19T15:17:55.031000Z",
+      "tradable": true,
+      "close": 730.2,
+      "close_at": "2026-11-18T21:00:00Z"
+    },
+    {
+      "symbol": "US.EFA",
+      "last": 100.11,
+      "at": "2026-11-19T15:17:53.488000Z",
+      "tradable": true,
+      "close": 100.26,
+      "close_at": "2026-11-18T21:00:00Z"
+    }
+  ],
+  "orders": [
+    {
+      "symbol": "US.VNQ",
+      "option": null,
+      "order_id": "3116597",
+      "side": "buy",
+      "quantity": 83,
+      "filled_quantity": 0,
+      "status": 5,
+      "created_at": "2026-11-18T17:53:07Z",
+      "limit_price": 94.98,
+      "remark": "tyche 2026-11-18 rebalance 11% VNQ, plan f11456df"
+    },
+    {
+      "symbol": "US.EFA",
+      "option": null,
+      "order_id": "3116594",
+      "side": "buy",
+      "quantity": 142,
+      "filled_quantity": 142,
+      "status": 4,
+      "created_at": "2026-11-18T17:49:36Z",
+      "limit_price": 101.45,
+      "remark": "tyche 2026-11-18 rebalance 20% EFA, plan f11456df"
+    },
+    {
+      "symbol": "US.SPY",
+      "option": null,
+      "order_id": "3116580",
+      "side": "buy",
+      "quantity": 28,
+      "filled_quantity": 28,
+      "status": 4,
+      "created_at": "2026-11-18T17:44:56Z",
+      "limit_price": 733.17,
+      "remark": "tyche 2026-11-18 rebalance 30% SPY, plan f11456df"
+    }
+  ],
+  "orders_complete": true,
+  "halted": false
+}

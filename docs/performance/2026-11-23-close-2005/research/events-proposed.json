@@ -1,0 +1,28 @@
+{
+  "_status": "PROPOSED MarketEvent objects for Desk Head validation and pinning. Researcher does NOT edit config/events.yaml or the production book. Schema: src/tyche/lifecycle.py MarketEvent. EV-20261123-WILLIAMS is single-source schedule evidence - verify against a primary Fed calendar before pinning.",
+  "events": [
+    {
+      "event_id": "EV-20261123-NVDA-CEO",
+      "at": "2026-11-23T16:00:00Z",
+      "symbols": [],
+      "material": true,
+      "source": "DJ news.futunn.com/post/1005368220 and 1005368224 pub 1795449600000 = 2026-11-23T16:00:00Z; MT Newswires 1005374024 pub 1795456709000 = 17:58:29Z (NVDA 164.28 +30.87%); flash 1005378857 pub 1795464159000 = 20:02:39Z; pre-announcement context Cailianshe 1005354279 pub 13:30:46Z",
+      "summary": "Nvidia board reinstated Jensen Huang as President & CEO Monday Nov-23, 11 days after his resignation; board cited 'input from senior levels of the United States government'. NVDA +30.87% at 164.28 (17:58Z), market cap back above MSFT/Alphabet; the reinstatement is the catalyst for Monday's broad rebound (SPY +4.6% intraday). 'at' is the first timestamped confirmation captured in this scan - the exact board-announcement time (Monday morning, pre-16:00Z) was NOT captured and must not be assumed. Market-wide event (empty symbols). Huang testifies before the US Senate Banking Committee Dec 3 (outside the challenge window). Rebound durability contested: MS Wilson buy vs Goldman/JPM cautious."
+    },
+    {
+      "event_id": "EV-20261123-US-PMI-FLASH",
+      "at": "2026-11-23T14:45:00Z",
+      "symbols": ["US.SPY", "US.QQQ", "US.IWM", "US.TLT", "US.IEF"],
+      "material": true,
+      "source": "Benzinga news.futunn.com/post/1005360949 pub 1795445144000 = 2026-11-23T14:45:44Z (composite 54.6 vs 55.9 prior), 1005360950 pub 14:45:18Z (mfg 54.5 vs cons 54.5), 1005360951 pub 14:45:07Z (services 54.7 vs cons 55.6); corroborating fx678 1005374523 pub 16:25:29Z (services cons 55.8/prior 56.1, mfg cons 54.6/prior 54.9 - minor consensus/prior discrepancy between sources, direction identical)",
+      "summary": "US Nov S&P Global flash PMIs released 09:45 ET: composite 54.6 (prior 55.9), services 54.7 (below consensus), manufacturing 54.5 (roughly in line). Business activity still expanding but cooling - growth-vs-hike narrative input ahead of Wednesday's Oct PCE/claims/GDP window. Occurred AFTER the book's 13:25Z news check; not previously pinned."
+    },
+    {
+      "event_id": "EV-20261123-WILLIAMS",
+      "at": "2026-11-23T21:00:00Z",
+      "symbols": ["US.SPY", "US.QQQ", "US.IWM", "US.TLT", "US.IEF"],
+      "material": true,
+      "source": "Cailianshe news.futunn.com/post/1005354279 pub 1795440646000 = 2026-11-23T13:30:46Z (schedule item: '11月24日 05:00 纽约联储主席威廉姆斯发表讲话' Beijing time = 2026-11-23T21:00:00Z / 16:00 ET). SINGLE-SOURCE schedule, NOT verified against a primary Fed calendar - Desk Head must verify before pinning; if confirmed, this is a Fed-speaker headline risk at today's regular close in an intact hike cycle (Dec 25bp ~99% priced)."
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "account_id": "[REDACTED]",
+  "cash": 100000.0,
+  "positions": [],
+  "env": "paper",
+  "account_type": 2,
+  "market_id": 100,
+  "source": "sim_list",
+  "gross_exposure": 0.0,
+  "nav": 100000.0
+}

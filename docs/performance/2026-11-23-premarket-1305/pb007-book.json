@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "plans": [
+    {
+      "plan_id": "PB-007-20261120-AAPL",
+      "revision": 1,
+      "symbol": "US.AAPL",
+      "strategy_id": "PB-007",
+      "rules_hash": "e26f006da28a",
+      "thesis": "Rule-generated (PB fib pullback, no scout): US.AAPL rallied 325.33 (2026-11-03) to 360.83 (2026-11-13), 3.8 ATR, with close above SMA200 and a rising SMA50. Price has pulled back into the 38.2%-61.8% retracement zone and every close since the high held above 338.89. Buy between 338.89 and 343.08, stop 331.99 (under the 78.6% level), target 360.83 (swing high), 1.60R at the limit. Confluence: SMA50 341.81 sits inside the retracement zone; prior swing high 347.18 within 0.5 ATR of the 50% level.",
+      "invalidation_rules": [
+        "before fill: a daily close below 338.89 (the 61.8% level) cancels the entry",
+        "after fill: last price at or below the stop 331.99",
+        "after fill: a daily close below SMA200 (regime lost) exits at the next session",
+        "time: flat by the exit deadline, 10 sessions after entry",
+        "sourced material adverse event on the issuer or sector marks the review invalidated"
+      ],
+      "created_at": "2026-11-23T13:16:32.107362Z",
+      "mode": "new_entry",
+      "quantity": 28,
+      "entry_low": 338.89,
+      "entry_high": 343.08,
+      "stop": {
+        "price": 331.99,
+        "basis": "last"
+      },
+      "take_profit": {
+        "price": 360.83,
+        "basis": "last"
+      },
+      "entry_expires_at": "2026-11-23T15:50:00-05:00",
+      "exit_deadline": "2026-11-27T12:30:00-05:00",
+      "exit_on_invalidation": true,
+      "review_max_age_minutes": 60,
+      "quote_max_age_seconds": 120,
+      "max_slippage_bps": 30
+    }
+  ],
+  "reviews": [],
+  "news_checked_at": "2026-11-23T13:16:32.107362Z",
+  "news_feed_ok": false,
+  "events": []
+}

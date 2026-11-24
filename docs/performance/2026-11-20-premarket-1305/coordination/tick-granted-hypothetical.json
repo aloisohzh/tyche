@@ -1,0 +1,38 @@
+DIAGNOSTIC ONLY: synthetic approvals with placeholder refs; this is NOT an operator approval or audit.
+{
+ "checked_at": "2026-11-20T13:19:48+00:00",
+ "cadence_minutes": 60,
+ "gaps": [
+  "US.MSFT: held position missing a complete lifecycle plan"
+ ],
+ "decisions": [
+  {
+   "plan_id": "LC-20261119-SPY-ADOPT-r2",
+   "plan_hash": "e73ee77d4b6abca10545bd296537fcee34b9a2511440e49fcf1d3ad23f9c89df",
+   "symbol": "US.SPY",
+   "action": "blocked",
+   "reason": "quote missing, stale, future-dated or suspended",
+   "quantity": 0,
+   "limit_price": null,
+   "authorized": false,
+   "warnings": [
+    "research review expired or future-dated"
+   ]
+  },
+  {
+   "plan_id": "LC-20261119-EFA-ADOPT-r2",
+   "plan_hash": "add27d1a3e75fece0fe292c51050d9324ac33326a58ac4516cd93e3b39a9b33c",
+   "symbol": "US.EFA",
+   "action": "blocked",
+   "reason": "quote missing, stale, future-dated or suspended",
+   "quantity": 0,
+   "limit_price": null,
+   "authorized": false,
+   "warnings": [
+    "research review expired or future-dated"
+   ]
+  }
+ ]
+}
+
+latched_exits after hypothetical tick (not persisted): {'e73ee77d4b6abca1': 'stop_loss', 'add27d1a3e75fece': 'stop_loss'}

@@ -1,0 +1,355 @@
+{
+  "as_of": "2026-11-24",
+  "entries": [
+    {
+      "symbol": "US.KO",
+      "sleeve": "equity",
+      "strategy": "PB-002",
+      "setup_id": "TL-20261124-KO-DEF1",
+      "direction": "bullish",
+      "entry_low": 96.1,
+      "entry_high": 96.6,
+      "stop": 95.4,
+      "target": 98.4,
+      "expiry": "2026-11-24",
+      "status": "watch",
+      "exit_at": "2026-11-24T20:50:00Z",
+      "reviewed_at": "2026-11-24T13:19:30Z",
+      "confirmation_ticks": 2,
+      "market_cap_usd": 412500000000,
+      "max_quantity": 82,
+      "thesis": "Risk-off rotation long into staples on a fresh, dated governance catalyst absorbed constructively: KO announced CFO succession Monday post-close (John Murphy retires 2027; BMY CFO David Elkins effective 2027-04-02; DJ 1005383343 pub 2026-11-23T21:33:00Z) and MS/BofA/RBC all reiterated Buy/OW Tuesday morning (PTs 103/100/96; 1005437317 07:03Z, 1005449136 08:32Z, 1005466933 10:31Z, 1005473561 11:33Z). Tuesday premarket fades Monday's growth rebound (QQQ -2.09%, SPY -1.15%) while KO is +0.70% at 96.55 and TLT +0.31% - the defensive bid is back. Fed HIKE cycle verified (Dec 25bp hike 95.9%, 50bp 4.1%, CME FedWatch via Futu flash 1005385138 pub 2026-11-23T22:05:01Z). Same-session long only; exit 15:50 ET; no overnight hold into Wednesday's 08:30 ET PCE+GDP+claims triple macro slot.",
+      "synthesis": "Macro (hike-cycle risk-off, growth faded premarket), catalyst (CFO clarity + three same-day analyst reiterations), fundamentals (Q3-26 gross 62.3%/operating 32.1%/net 28.65%/ROE 42.6%) and oversold-reversal technicals align for a rotation bounce. Counter-evidence is real and kept as fail factors: MA5<MA10 death cross with close below MA20/BOLL-mid, Nov-23 main outflow -$81.05M and accelerating block-trade outflows. The trade is a same-session rotation bet with a tight momentum stop below the prior close, not a trend trade.",
+      "edge": "Entry 96.10-96.60 brackets premarket 96.55 (range 96.16-96.976) without chasing; stop 95.40 is a thesis stop below Nov-23 close 95.88 (rotation bid failed) and above the 94.60/94.73 double bottom; target 98.40 sits just under the 98.09-98.53 supply zone (Nov-18 close / Nov-17 low). R/R 1.50 at zone top, 3.29 at zone bottom (>=1.5 lane minimum). Catalyst is same-day and dated, not a seasonal guess.",
+      "bear_case": "KO fell -1.14% Monday on a +4.71% SPY day - it was a funding source for the growth rebound and will be again if growth re-strengthens; PE 31.5 (Nov-23 kline) is rich for staples; Nov-23 main flow -$81.05M with block outflows +197% vs prior 3-day average; options flow mixed (6,303-lot SELL of Dec-18 103C, OI 0, and 4,999-lot Jan-27 92.5P buys); today's executable bid/ask spread and quote freshness were NOT verified at research time (premarket indications only).",
+      "invalidation": "Underlying trades at or below 95.40; or rotation reversal (QQQ/SPY reclaim Monday highs while staples turn red); or a fresh researcher review marks the setup invalidated; or the 15:50 ET (20:50Z) exit deadline; or expiry date passes. One entry attempt only, no re-entry, no scaling. Between fires the stop is synthetic - not a resting broker stop or guaranteed fill; gaps, halts, delayed runs and limit non-fills can exceed the planned stop loss.",
+      "horizon": "Same session 2026-11-24; hard exit 15:50 ET (20:50Z), 10 minutes before the regular close, anticipating the 15:05 ET close fire with processing margin.",
+      "catalyst": "KO CFO succession announced 2026-11-23 post-close (DJ 1005383343, 21:33:00Z); MS OW $103 transition note (Zhitong 1005437317, 2026-11-24T07:03:00Z); RBC Buy $96 (1005449136, 08:32Z); BofA Buy $100 (1005466933, 10:31Z); MS Buy $103 (1005473561, 11:33Z); risk-off rotation premarket 2026-11-24.",
+      "sources": [
+        "MCP quote_stock_quote US.KO data_time 1795467600482 = 2026-11-23T21:00:00.482Z: last 95.88, prev_close 96.99 (-1.14%), high 96.525, low 94.60, vol 30,114,390, turnover $2.89B; pre_market (Nov-24, fetched ~13:10Z) price 96.55 (+0.698% vs Nov-23 close), high 96.976, low 96.16",
+        "MCP quote_cur_kline US.KO DAY 12 bars: Nov-19 low 94.73, Nov-23 low 94.60 (double bottom); Nov-18 close 98.09, Nov-17 low 98.53 (target supply zone); Nov-16 high 100.56; PE 31.539 on Nov-23 bar",
+        "Dow Jones news.futunn.com/post/1005383343 pub 1795469580000 = 2026-11-23T21:33:00Z: Coca-Cola John Murphy plans to retire in 2027",
+        "Zhitong news.futunn.com/post/1005437317 pub 1795503780000 = 2026-11-24T07:03:00Z: Elkins (BMY CFO) effective 2027-04-02; MS OW $103, sees smooth transition, mid-single-digit organic growth",
+        "Futu news.futunn.com/post/1005449136 pub 1795509120000 = 2026-11-24T08:32:00Z: RBC Nik Modi Buy $96; post/1005466933 pub 1795516260000 = 10:31:00Z: BofA Peter Galbo Buy $100; post/1005473561 pub 1795519980000 = 11:33:00Z: MS Dara Mohsenian Buy $103",
+        "MCP quote_unusual_technical US.KO [1795410000 = Nov-23 bar]: close below BOLL mid and crossed below MA20; MA5 crossed below MA10 (death cross); RSI6 and CCI moved from neutral to oversold (reversal/rebound flag)",
+        "MCP quote_capital_flow_history US.KO DAY bar 1795410000000 (Nov-23): main -81,049,762.311, total -92,961,005.579; 5-day acc main -192.0M",
+        "MCP quote_unusual_capital US.KO [1795439545 = 2026-11-23T13:12:25Z]: block trades net outflow 6 straight days; day outflow +197% vs prior 3-day average",
+        "MCP quote_unusual_derivatives US.KO: 11.24 02:27 SELL 6,303 Dec-18 103C (OI 0, $119,757); 11.23 23:43 BUY 4,999 Jan-27 92.5P ($784,843); 11.24 04:29 BUY 1,000 Nov-27 95C ($167,000, V/OI 4.7; Nov-27 expiry INELIGIBLE for PB-003); print times as stated by payload, timezone unverified",
+        "MCP quote_financials_statements US.KO key indicators 2026/Q3: gross 62.32%, operating 32.09%, net 28.65%, ROE 42.64%, FCF/NI 97.63%",
+        "MCP quote_short_interest US.KO settlement 2026-10-30: shares_short 47,240,965, short_percent 1.098, ADV 17,527,739 -> implied shares ~4.302B; market_cap_usd DERIVED ESTIMATE = implied shares x Nov-23 close 95.88 ~= $412.5B (no direct MCP market-cap field)",
+        "Futu flash news.futunn.com/flash/1005385138 pub 1795471501000 = 2026-11-23T22:05:01Z: CME FedWatch Dec 25bp HIKE 95.9% / 50bp 4.1%; Jan cumulative 50bp 64.2%",
+        "MCP quote_stock_quote batch (same fetch): SPY pre_market 713.95 (-1.15%), QQQ 637.43 (-2.09%), TLT 81.94 (+0.31%) - risk-off rotation context",
+        "Community sentiment https://ai-news-search.moomoo.com/stock_feed?keyword=KO&size=30 fetched ~2026-11-24T13:30Z, code 0: 6 posts used, 4 bullish/2 neutral, bullish-lean (untrusted signal only)"
+      ],
+      "factors": [
+        {
+          "name": "ma_structure",
+          "axis": "technical",
+          "state": "fail",
+          "why": "MA5<MA10 death cross; Nov-23 close below MA20 and BOLL mid",
+          "detail": "MCP quote_unusual_technical US.KO [1795410000]. Trend is down; this is a counter-trend rotation bounce, sized and stopped accordingly."
+        },
+        {
+          "name": "oversold_reversal",
+          "axis": "technical",
+          "state": "pass",
+          "why": "RSI6 and CCI moved from neutral to oversold - reversal/rebound flag; 94.60/94.73 double bottom held",
+          "detail": "MCP quote_unusual_technical [1795410000]; kline Nov-19 low 94.73 / Nov-23 low 94.60; premarket +0.70%."
+        },
+        {
+          "name": "staples_quality",
+          "axis": "fundamental",
+          "state": "pass",
+          "why": "Q3-26 gross 62.3%, operating 32.1%, net 28.65%, ROE 42.6%, FCF/NI 97.6%",
+          "detail": "MCP key indicators 2026/Q3. Valuation caveat: PE 31.5 (Nov-23 kline) is rich; carried in bear case."
+        },
+        {
+          "name": "hike_cycle_risk_off",
+          "axis": "macro",
+          "state": "pass",
+          "why": "Fed HIKE cycle verified (Dec 25bp 95.9%/50bp 4.1%); Tuesday premarket growth selloff with staples/long-bonds bid",
+          "detail": "Futu flash 1005385138 (Nov-23 22:05:01Z); WSJ 1005404427 (Nov-24 01:57Z) 2Y 4.6809%/10Y 4.9307%; MCP quote batch QQQ -2.09%/TLT +0.31% premarket."
+        },
+        {
+          "name": "daily_and_block_flow",
+          "axis": "flow",
+          "state": "fail",
+          "why": "Nov-23 main -$81.05M, total -$92.96M; block-trade outflows accelerating (+197% vs 3d avg)",
+          "detail": "MCP quote_capital_flow_history bar 1795410000000; quote_unusual_capital [1795439545]. Monday rotation OUT of KO; today's premarket bid is the counter-signal, not yet confirmed by flow."
+        },
+        {
+          "name": "retail_sentiment",
+          "axis": "sentiment",
+          "state": "pass",
+          "why": "Bullish-lean retail read: 6 posts, 4 bullish/2 neutral",
+          "detail": "stock_feed KO fetched ~13:30Z: long-term holders unbothered by 99->96 pullback; PCE-preview commentary frames KO as defensive haven. Untrusted chatter, signal only, never sets direction/size."
+        },
+        {
+          "name": "seasonality",
+          "axis": "seasonality",
+          "state": "unknown",
+          "why": "No seasonal study collected this run",
+          "detail": "Thanksgiving-week thin-liquidity context noted but not a tested edge."
+        },
+        {
+          "name": "cfo_succession_and_reiterations",
+          "axis": "catalyst",
+          "state": "pass",
+          "why": "CFO succession announced Nov-23 post-close; MS/BofA/RBC reiterations Nov-24 morning",
+          "detail": "DJ 1005383343 (21:33Z); Zhitong 1005437317 (07:03Z); Futu 1005449136/1005466933/1005473561 (08:32/10:31/11:33Z). All dated and sourced."
+        },
+        {
+          "name": "liquidity",
+          "axis": "liquidity",
+          "state": "pass",
+          "why": "ADV 17.53M shares; Nov-23 volume 30.11M shares / $2.89B turnover",
+          "detail": "MCP quote_short_interest + quote batch. TODAY'S executable spread/quote age UNVERIFIED (premarket indications only); executor must confirm <=0.3% spread and <=120s quotes at entry or the tick rejects."
+        }
+      ],
+      "outlook": {
+        "regime": "Fed-hike risk-off; Monday growth rebound fading Tuesday premarket; staples rotation bid; Wed 08:30 ET PCE+GDP+claims is the horizon risk (not held through)",
+        "conviction": "medium",
+        "alignment": {
+          "technical": "neutral",
+          "fundamental": "bull",
+          "macro": "bull",
+          "flow": "bear",
+          "sentiment": "bull",
+          "seasonality": "neutral",
+          "catalyst": "bull",
+          "liquidity": "bull"
+        }
+      }
+    },
+    {
+      "symbol": "US.PG",
+      "sleeve": "equity",
+      "strategy": "PB-002",
+      "setup_id": "TL-20261124-PG-DEF1",
+      "direction": "bullish",
+      "entry_low": 170.2,
+      "entry_high": 170.8,
+      "stop": 169.0,
+      "target": 173.5,
+      "expiry": "2026-11-24",
+      "status": "watch",
+      "exit_at": "2026-11-24T20:50:00Z",
+      "reviewed_at": "2026-11-24T13:19:30Z",
+      "confirmation_ticks": 2,
+      "market_cap_usd": 393100000000,
+      "max_quantity": 46,
+      "thesis": "Staples rotation long with a same-day analyst PT-raise cluster and bullish MA structure: MS OW 185->192 and BofA Buy 185->190 (both 2026-11-23T11:31Z), Citi Buy 187->190 (Gelonghui 07:44:28Z / Futu 12:31Z Nov-23). PG is the only tactical name flagged in bullish MA alignment (MCP quote_unusual_technical Nov-23 bar), and a 2,000-lot BUY of the Dec-18 165C ($1.43M premium, OI 17,202) printed 11.24 01:28 (payload-stated time). Tuesday premarket +0.71% at 170.80 while QQQ -2.09% - rotation continuation. Fed HIKE cycle verified (Dec 25bp 95.9%, Futu flash 1005385138 Nov-23 22:05:01Z). Same-session long; exit 15:50 ET; no overnight hold into Wednesday's triple macro slot.",
+      "synthesis": "Macro rotation, technical trend (bullish MA alignment), fundamentals (FY27Q1 gross 49.78%/operating 22.55%/ROE 29.45%/FCF-NI 95.7%), the Nov-23 PT-raise cluster and the overnight ITM call block align. Daily main flow was negative Monday (-$27.03M) - kept as a fail factor - so this is a rotation-continuation trade near the prior close, not a flow-confirmed trend entry. Target is the Nov-16/17 double top; stop loses both the Nov-20 low and the Nov-23 close.",
+      "edge": "Entry 170.20-170.80 sits at/just below premarket 170.80 (high 171.31) and above the Nov-23 high 170.64 breakout area - no chase. Stop 169.00 is below Nov-20 low 169.05 and Nov-23 close 169.60. Target 173.50 is just under the Nov-16/17 double top 173.57/173.59. R/R 1.50 at zone top, 2.75 at zone bottom (>=1.5). Catalyst cluster is dated within one session.",
+      "bear_case": "PG managed only +0.14% Monday on a +4.71% SPY day (relative laggard; funding-source risk if growth re-strengthens); Nov-23 main flow -$27.03M; the 165C block is deep-ITM and could be one leg of an unknown structure; no direct issuer PR today - the catalyst is analyst opinion, which can be fully priced after premarket +0.71%; target needs +1.6% intraday from zone top; executable spread/freshness unverified at research time.",
+      "invalidation": "Underlying trades at or below 169.00; or rotation reversal (growth reclaims Monday highs with staples red); or a fresh researcher review marks the setup invalidated; or the 15:50 ET (20:50Z) deadline; or expiry passes. One entry attempt only, no re-entry, no scaling. Between fires the stop is synthetic - not a resting broker stop or guaranteed fill; gaps, halts, delayed runs and limit non-fills can exceed the planned stop loss.",
+      "horizon": "Same session 2026-11-24; hard exit 15:50 ET (20:50Z), 10 minutes before the regular close.",
+      "catalyst": "Analyst PT-raise cluster 2026-11-23: MS 185->192 (1005344842, 11:31Z), BofA 185->190 (1005344841, 11:31Z), Citi 187->190 (1005320583 07:44:28Z / 1005349545 12:31Z); overnight 2,000-lot Dec-18 165C buy block (MCP derivatives, 11.24 01:28 payload-stated); risk-off rotation premarket 2026-11-24.",
+      "sources": [
+        "MCP quote_stock_quote US.PG data_time 1795467600309 = 2026-11-23T21:00:00.309Z: last 169.60, prev_close 169.37 (+0.14%), high 170.64, low 167.49, vol 10,210,191, turnover $1.73B; pre_market (Nov-24, fetched ~13:10Z) price 170.80 (+0.707%), high 171.3097, low 169.49",
+        "MCP quote_cur_kline US.PG DAY 12 bars: Nov-16 high 173.57 / Nov-17 high 173.59 (double top, target basis); Nov-20 low 169.05 (stop basis); Nov-19 low 166.888; Nov-16 range 1.9%",
+        "Futu news.futunn.com/post/1005344842 pub 1795433460000 = 2026-11-23T11:31:00Z: MS Mohsenian OW 185->192; post/1005344841 same timestamp: BofA Galbo Buy 185->190",
+        "Gelonghui news.futunn.com/post/1005320583 pub 1795419868000 = 2026-11-23T07:44:28Z: Citi 187->190 Buy; Futu post/1005349545 pub 1795437060000 = 12:31:00Z: Citi Falorni Buy $190",
+        "MT Newswires news.futunn.com/post/1005340126 pub 1795429949000 = 2026-11-23T10:32:29Z: FactSet avg rating overweight, avg PT 176.90",
+        "MCP quote_unusual_technical US.PG [1795410000 = Nov-23 bar]: MA indicator in bullish alignment",
+        "MCP quote_unusual_derivatives US.PG: 11.24 01:28 BUY 2,000 Dec-18 165C, premium $1,430,000 (~$7.15/share), OI 17,202, V/OI 0.1; put volume/OI concentrated at 165 strike; print times as stated by payload, timezone unverified",
+        "MCP quote_capital_flow_history US.PG DAY bar 1795410000000 (Nov-23): main -27,032,160.342, total -32,814,625.809",
+        "MCP quote_unusual_capital US.PG: code 1, no capital-flow anomaly in the 3-day window",
+        "MCP quote_financials_statements US.PG key indicators 2027/Q1: gross 49.78%, operating 22.55%, net 17.90%, ROE 29.45%, FCF/NI 95.71%",
+        "MCP quote_short_interest US.PG settlement 2026-10-30: shares_short 22,369,376, short_percent 0.965, ADV 10,651,744 -> implied shares ~2.318B; market_cap_usd DERIVED ESTIMATE = implied shares x Nov-23 close 169.60 ~= $393.1B (no direct MCP market-cap field)",
+        "Futu flash news.futunn.com/flash/1005385138 pub 2026-11-23T22:05:01Z: CME FedWatch Dec 25bp HIKE 95.9% / 50bp 4.1%",
+        "Community sentiment https://ai-news-search.moomoo.com/stock_feed?keyword=PG&size=30 fetched ~2026-11-24T13:30Z, code 0: 4 posts used, 3 bullish/1 neutral, bullish-lean but mostly October posts (untrusted signal only)"
+      ],
+      "factors": [
+        {
+          "name": "ma_bullish_alignment",
+          "axis": "technical",
+          "state": "pass",
+          "why": "MA indicator in bullish alignment on the Nov-23 bar; premarket +0.71% above Nov-23 high",
+          "detail": "MCP quote_unusual_technical US.PG [1795410000]; quote batch pre_market 170.80 vs Nov-23 high 170.64."
+        },
+        {
+          "name": "staples_quality",
+          "axis": "fundamental",
+          "state": "pass",
+          "why": "FY27Q1 gross 49.78%, operating 22.55%, ROE 29.45%, FCF/NI 95.7%",
+          "detail": "MCP key indicators 2027/Q1 (Sep-26 quarter). Margins down y/y (gross -2.4%, net -7.7% relative) - modest, carried as texture not a fail."
+        },
+        {
+          "name": "hike_cycle_risk_off",
+          "axis": "macro",
+          "state": "pass",
+          "why": "Verified hike cycle; Tuesday premarket growth selloff with staples bid",
+          "detail": "Futu flash 1005385138; WSJ 1005404427 (Nov-24 01:57Z); MCP quote batch QQQ -2.09% premarket."
+        },
+        {
+          "name": "daily_main_flow",
+          "axis": "flow",
+          "state": "fail",
+          "why": "Nov-23 main -$27.03M, total -$32.81M (Monday rotation out of staples)",
+          "detail": "MCP quote_capital_flow_history bar 1795410000000. Today's rotation bid not yet flow-confirmed."
+        },
+        {
+          "name": "overnight_call_block",
+          "axis": "flow",
+          "state": "pass",
+          "why": "2,000-lot BUY of Dec-18 165C, $1.43M premium, OI 17,202 (11.24 01:28 payload-stated)",
+          "detail": "MCP quote_unusual_derivatives US.PG. Deep-ITM block; could be a hedge leg of an unknown structure - direction read is bullish-lean, not certain."
+        },
+        {
+          "name": "retail_sentiment",
+          "axis": "sentiment",
+          "state": "pass",
+          "why": "Bullish-lean retail read: 4 posts, 3 bullish/1 neutral",
+          "detail": "stock_feed PG fetched ~13:30Z; themes: staples as fear-shock hedge, staples inflows during the selloff. Mostly October posts - stale; untrusted signal only."
+        },
+        {
+          "name": "seasonality",
+          "axis": "seasonality",
+          "state": "unknown",
+          "why": "No seasonal study collected this run",
+          "detail": "Thanksgiving-week context only."
+        },
+        {
+          "name": "pt_raise_cluster",
+          "axis": "catalyst",
+          "state": "pass",
+          "why": "MS/BofA/Citi PT raises all dated 2026-11-23, sourced",
+          "detail": "1005344842/1005344841 (11:31Z), 1005320583 (07:44:28Z), 1005349545 (12:31Z). No direct issuer PR today - analyst-opinion catalyst, honestly labeled."
+        },
+        {
+          "name": "liquidity",
+          "axis": "liquidity",
+          "state": "pass",
+          "why": "ADV 10.65M shares; Nov-23 volume 10.21M shares / $1.73B turnover",
+          "detail": "MCP quote_short_interest + quote batch. TODAY'S executable spread/quote age UNVERIFIED; executor must confirm <=0.3% spread and <=120s quotes at entry or the tick rejects."
+        }
+      ],
+      "outlook": {
+        "regime": "Fed-hike risk-off; growth rebound fading premarket; staples rotation bid; Wed triple macro slot is the horizon risk (not held through)",
+        "conviction": "medium",
+        "alignment": {
+          "technical": "bull",
+          "fundamental": "bull",
+          "macro": "bull",
+          "flow": "neutral",
+          "sentiment": "bull",
+          "seasonality": "neutral",
+          "catalyst": "bull",
+          "liquidity": "bull"
+        }
+      }
+    },
+    {
+      "symbol": "US.JNJ",
+      "sleeve": "equity",
+      "strategy": "PB-002",
+      "setup_id": "TL-20261124-JNJ-DEF1",
+      "direction": "bullish",
+      "entry_low": 269.8,
+      "entry_high": 271.2,
+      "stop": 268.5,
+      "target": 275.25,
+      "expiry": "2026-11-24",
+      "status": "watch",
+      "exit_at": "2026-11-24T20:50:00Z",
+      "reviewed_at": "2026-11-24T13:19:30Z",
+      "confirmation_ticks": 2,
+      "market_cap_usd": 650000000000,
+      "max_quantity": 29,
+      "thesis": "Healthcare rotation long on the only tactical name with positive Monday flow: Nov-23 total inflow +$90.40M (main +$35.39M) while KO/PG/PEP saw outflows. Dated idiosyncratic catalysts inside four sessions: TREMFYA phase-4 STAR met primary and key secondary endpoints (Benzinga/PR 1005194419, 2026-11-20T13:02:51Z), JPM PT 285->300 (1005185458/1005197395, Nov-20 13:31Z), Ollin acquisition $3.325B (AASTOCKS 1005169424, Nov-20 09:17:49Z). TODAY is the $1.34 ex-dividend date; the quote feed already adjusts (pre_market change_val 2.505 = 271.215 - (270.05 - 1.34), ex-div reference 268.71), so premarket +0.93% is genuine ex-div strength vs SPY -1.15%. NEW setup on new evidence (Monday flow + ex-div-adjusted premarket strength); the Nov-23 JNJ proposal expired unfilled and is not carried over. Same-session long; exit 15:50 ET; buying today earns NO dividend.",
+      "synthesis": "Macro rotation into healthcare, positive Monday flow, dated pipeline/M&A catalysts and ex-div-adjusted premarket relative strength align. Conviction is LOW: the target basis (round-275 resistance below the Nov-6 close 276.22) is softer than KO/PG levels, ex-div days can carry mechanical selling beyond the adjustment, and Q3 net margin fell 40.6% y/y (composition unverified, likely charges). Small research bound, tight stop below today's premarket low and the ex-div reference.",
+      "edge": "Entry 269.80-271.20 brackets premarket 271.215 without chasing; stop 268.50 is below today's premarket low 268.884 and the ex-div reference 268.71; target 275.25 is under round-275/Nov-6-close 276.22 supply. R/R 1.50 at zone top, 4.19 at zone bottom (>=1.5). Flow is the differentiator: +$90.4M Monday total inflow, unique in the tactical set.",
+      "bear_case": "Ex-div mechanical drop $1.34 (~0.5%) plus possible dividend-capture unwind selling; Q3-26 net margin 16.20% is -40.6% y/y (charges presumed, NOT verified); target needs +1.5% intraday vs JNJ's recent ~1.1-1.3% daily ranges; JPM rates Hold (not Buy) even at PT 300; retail sentiment posts mostly October (stale); executable spread/freshness unverified at research time; if the executor's feed shows an UNADJUSTED reference the levels are wrong and the entry must not fire.",
+      "invalidation": "Underlying trades at or below 268.50; or executor finds the feed reference unadjusted for the $1.34 ex-div (levels invalid); or rotation reversal; or a fresh researcher review marks the setup invalidated; or the 15:50 ET (20:50Z) deadline; or expiry passes. One entry attempt only, no re-entry, no scaling. Between fires the stop is synthetic - not a resting broker stop or guaranteed fill; gaps, halts, delayed runs and limit non-fills can exceed the planned stop loss.",
+      "horizon": "Same session 2026-11-24; hard exit 15:50 ET (20:50Z), 10 minutes before the regular close.",
+      "catalyst": "TREMFYA phase-4 STAR endpoints met (2026-11-20T13:02:51Z pub); JPM PT 285->300 (2026-11-20T13:31Z pub); Ollin acquisition $3.325B (2026-11-20T09:17:49Z pub); ex-dividend $1.34 TODAY 2026-11-24 (Futu 1005291326 pub 2026-11-23T01:00:01Z) - mechanical, feed-adjusted, not a long thesis; healthcare rotation premarket 2026-11-24.",
+      "sources": [
+        "MCP quote_stock_quote US.JNJ data_time 1795467600704 = 2026-11-23T21:00:00.704Z: last 270.05, prev_close 270.47 (-0.16%), high 272.40, low 267.3601, vol 9,916,290, turnover $2.68B, turnover_rate 0.00412; pre_market (Nov-24, fetched ~13:10Z) price 271.215, change_val 2.505, change_rate 0.932% => feed reference 268.71 = 270.05 - 1.34 (ex-div adjusted); pre_market low 268.884, high 272.46",
+        "MCP quote_cur_kline US.JNJ DAY 12 bars: Nov-6 close 276.22 (target supply basis); Nov-18 close 272.70; Nov-19 low 264.68; Nov-20 low 269.47; Nov-23 low 267.3601 (cum-div)",
+        "Futu news.futunn.com/post/1005291326 pub 1795395601000 = 2026-11-23T01:00:01Z: JNJ ex-div 2026-11-24 $1.34/share, record 2026-11-24, payable 2026-12-08",
+        "Benzinga/PR news.futunn.com/post/1005194419 pub 1795179771000 = 2026-11-20T13:02:51Z: TREMFYA phase-4 STAR met primary + key secondary endpoints in axial PsA; MRI inflammation reduction >2x placebo at week 24",
+        "MT Newswires news.futunn.com/post/1005185458 pub 1795174333000 = 2026-11-20T10:52:13Z + Futu post/1005197395 pub 1795181460000 = 13:31:00Z: JPM Chris Schott Hold, PT 285->300; FactSet avg overweight 285.19",
+        "AASTOCKS news.futunn.com/post/1005169424 pub 1795166269000 = 2026-11-20T09:17:49Z: JNJ acquires Ollin for $3.325B ($2.2B upfront + $1.125B milestones); HSBC notes Innovent partnership",
+        "MCP quote_capital_flow_history US.JNJ DAY bar 1795410000000 (Nov-23): total +90,396,196.355, main +35,394,087.564, super +13,227,403.9 - only tactical name with positive Monday flow",
+        "MCP quote_unusual_technical US.JNJ: code 1, no technical anomaly in the 3-day window (absence of signal, not a bullish flag)",
+        "MCP quote_financials_statements US.JNJ key indicators 2026/Q3: gross 67.56%, operating 25.70%, net 16.20% (yoy -40.56% relative), ROE 20.02%, FCF/NI 121.7% - net-margin composition unverified",
+        "market_cap_usd DERIVED ESTIMATE: Nov-23 volume 9,916,290 / turnover_rate 0.00412 ~= 2.407B shares x close 270.05 ~= $650B (no direct MCP market-cap field; consistent with prior-run short-interest derivation ~$651B)",
+        "Futu flash news.futunn.com/flash/1005385138 pub 2026-11-23T22:05:01Z: CME FedWatch Dec 25bp HIKE 95.9% / 50bp 4.1%",
+        "Community sentiment https://ai-news-search.moomoo.com/stock_feed?keyword=JNJ&size=30 fetched ~2026-11-24T13:35Z, code 0: 5 posts used, 4 bullish/1 neutral, bullish-lean but mostly October (untrusted signal only)"
+      ],
+      "factors": [
+        {
+          "name": "ex_div_relative_strength",
+          "axis": "technical",
+          "state": "pass",
+          "why": "Premarket +0.93% on the ex-div-adjusted reference 268.71 while SPY -1.15%; no adverse MA anomaly flagged",
+          "detail": "MCP quote batch change_val 2.505 arithmetic; quote_unusual_technical code 1 (no anomaly = absence of signal, not a bullish flag)."
+        },
+        {
+          "name": "pipeline_and_margins",
+          "axis": "fundamental",
+          "state": "pass",
+          "why": "Q3-26 gross 67.56% / operating 25.70% healthy; TREMFYA phase-4 success; Ollin adds ophthalmology pipeline",
+          "detail": "MCP key indicators 2026/Q3; Benzinga 1005194419; AASTOCKS 1005169424. CAVEAT: net margin 16.20% is -40.6% y/y, composition unverified (likely charges) - carried in bear case, not upgraded away."
+        },
+        {
+          "name": "hike_cycle_risk_off",
+          "axis": "macro",
+          "state": "pass",
+          "why": "Verified hike cycle; healthcare bid in the Tuesday premarket rotation",
+          "detail": "Futu flash 1005385138; WSJ 1005404427; MCP quote batch."
+        },
+        {
+          "name": "monday_inflow",
+          "axis": "flow",
+          "state": "pass",
+          "why": "Nov-23 total +$90.40M, main +$35.39M - unique positive Monday flow in the tactical set",
+          "detail": "MCP quote_capital_flow_history bar 1795410000000; KO -92.96M / PG -32.81M / PEP -15.90M / MCD -12.12M same bar."
+        },
+        {
+          "name": "retail_sentiment",
+          "axis": "sentiment",
+          "state": "pass",
+          "why": "Bullish-lean retail read: 5 posts, 4 bullish/1 neutral",
+          "detail": "stock_feed JNJ fetched ~13:35Z; themes: healthcare defensive haven, pipeline/product newsflow. Mostly October posts - STALE; untrusted signal only."
+        },
+        {
+          "name": "seasonality",
+          "axis": "seasonality",
+          "state": "unknown",
+          "why": "No seasonal study collected this run",
+          "detail": "Thanksgiving-week context only."
+        },
+        {
+          "name": "dated_catalysts",
+          "axis": "catalyst",
+          "state": "pass",
+          "why": "TREMFYA data + JPM PT raise + Ollin deal, all Nov-20 and sourced; ex-div today is mechanical",
+          "detail": "1005194419 / 1005185458 / 1005169424; ex-div 1005291326. Ex-div is a price-level event, not a long thesis."
+        },
+        {
+          "name": "dividend_reference",
+          "axis": "liquidity",
+          "state": "pass",
+          "why": "Feed premarket change is computed against the ex-div reference 268.71 (change_val 2.505 arithmetic)",
+          "detail": "MCP quote batch. Executor MUST re-verify the adjusted reference at the open; an unadjusted feed invalidates the levels. Nov-23 volume 9.92M sh / $2.68B turnover; executable spread UNVERIFIED (<=0.3% / <=120s gates at entry)."
+        }
+      ],
+      "outlook": {
+        "regime": "Fed-hike risk-off; healthcare rotation bid; ex-div day; Wed triple macro slot is the horizon risk (not held through)",
+        "conviction": "low",
+        "alignment": {
+          "technical": "bull",
+          "fundamental": "bull",
+          "macro": "bull",
+          "flow": "bull",
+          "sentiment": "bull",
+          "seasonality": "neutral",
+          "catalyst": "bull",
+          "liquidity": "neutral"
+        }
+      }
+    }
+  ]
+}

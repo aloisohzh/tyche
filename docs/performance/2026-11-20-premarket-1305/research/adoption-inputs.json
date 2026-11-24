@@ -1,0 +1,76 @@
+{
+  "as_of": "2026-11-20",
+  "as_of_note": "Research inputs ONLY for desk-head r3 adoption assembly. No operator approvals, no executable sizing, no orders. Halt ENGAGED. All levels cited to MCP payloads fetched 2026-11-20 ~13:05-13:16Z; anchor 13:15:49Z (SPY tick 1795180549970).",
+  "holdings": [
+    {
+      "symbol": "US.SPY",
+      "quantity": 28,
+      "reconciled_avg_cost": 731.54,
+      "prior_plan": "LC-20261119-SPY-ADOPT-r2 (plan_hash e73ee77d4b6abca10545bd296537fcee34b9a2511440e49fcf1d3ad23f9c89df) - review verdict INVALIDATED 2026-11-20T13:15:49Z, daily-close stop 727.50 breached by completed Nov-19 close 715.87",
+      "last_close": {"price": 715.87, "date": "2026-11-19", "source": "quote_stock_quote data_time 1795122000255 = 2026-11-19T21:00:00.255Z + kline bar 20261119 (/tmp/tool-outputs/mcp_f8161d2ca411dad0deb9c63b.txt)"},
+      "premarket": {"aggregate": 709.27, "freshest_tick": 709.15, "tick_time": "2026-11-20T13:15:49.955Z", "overnight_low": 711.17, "flag": "pre_market aggregate low field 692.15 UNVERIFIED single print - do not use as level without executor verification"},
+      "unrealized_pct_vs_cost": -2.14,
+      "sourced_levels": {
+        "overhead_resistance": [727.0, 726.795, 727.5],
+        "resistance_note": "Nov-17 low 727.00 / Nov-18 low 726.795 cluster + broken r2 stop 727.50 (kline bars 20261117/20261118)",
+        "downside_references": [715.65, 711.17],
+        "downside_note": "Nov-19 session low 715.65 (kline); overnight low 711.17 (quote batch)",
+        "structural_high_20session": 775.64,
+        "structural_high_note": "Nov-4 bar high, unchanged profit-taking guard reference from r2 (not a forecast)"
+      },
+      "thesis_material": "Retention case weakened: completed daily-close stop breach, main capital outflow -345.0M Nov-19 (super -178.8M), MA bearish alignment, pre-market -0.9%, Waller 13:25Z hawkish risk, NVDA probe + Hunterbrook AI-credit contagion. Oversold bounce signals exist (KDJ strong oversold, close below lower BOLL - unusual_technical ts 1795064400) but are NOT invalidation cures. Duration bid (TLT pre +0.81%) and calm HYG argue against systemic-credit panic.",
+      "invalidation_material": "r3 stop must be re-based BELOW the current range by explicit operator decision (candidates: below 715.65 Nov-19 low, or below 711.17 overnight low); any such stop is a NEW contract requiring new hash/preview/audit/approval. Risk budget: 28 x (entry - stop) <= 1% NAV (~$1,000 at $100k NAV) allows only ~$35.7/share risk - a stop below ~674 would breach at full quantity; desk reconciles against current NAV.",
+      "deadline_reference": "2026-11-27T17:00:00Z (12:00 ET) as used by r2 - falls before Nov-27 13:00 ET early close; desk verifies against scheduled hourly RTH checks (:05) with processing margin. Nov-26 Thanksgiving holiday. Challenge ends Nov-30.",
+      "caps_flag": "SPY+EFA combined ~34% NAV exceeds PB-001 sleeve cap 0.25 (pre-existing; not liquidation permission). Sleeve gate rejects over-cap aggregates."
+    },
+    {
+      "symbol": "US.EFA",
+      "quantity": 142,
+      "reconciled_avg_cost": 100.495,
+      "prior_plan": "LC-20261119-EFA-ADOPT-r2 (plan_hash add27d1a3e75fece0fe292c51050d9324ac33326a58ac4516cd93e3b39a9b33c) - review verdict INVALIDATED 2026-11-20T13:15:49Z, daily-close stop 100.00 breached by completed Nov-19 close 98.78",
+      "last_close": {"price": 98.78, "date": "2026-11-19", "source": "quote_stock_quote data_time 1795121999937 = 2026-11-19T20:59:59.937Z + kline bar 20261119 (/tmp/tool-outputs/mcp_6fa4ecd7dec49ced4b8c3ed2.txt)"},
+      "premarket": {"aggregate": 97.76, "aggregate_volume_shares": 850, "freshest_tick": 98.9025, "tick_time": "2026-11-20T13:05:19.012Z", "flag": "thin pre-market; executor must capture fresh two-sided quotes; aggregate vs tick divergence 97.76 vs 98.90"},
+      "unrealized_pct_vs_cost": -1.71,
+      "sourced_levels": {
+        "overhead_resistance": [100.0, 100.26, 100.58],
+        "resistance_note": "broken r2 stop 100.00 / Nov-18 close 100.26 / Nov-19 high 100.58 (kline)",
+        "downside_references": [98.62, 97.76],
+        "downside_note": "Nov-19 low 98.62 (kline); pre-market thin low 97.76 (quote/ticks)",
+        "structural_high_20session": 105.8,
+        "structural_high_note": "Nov-4 bar high, unchanged profit-taking guard reference from r2 (not a forecast)"
+      },
+      "thesis_material": "Retention arguments: Nov-19 main capital INFLOW +108.69M (super +105.99M) into the down session; yen bid USDJPY 158.8771 vs 159.6792 (AASTOCKS 1005192469 12:41:22Z) = translation tailwind; BoJ Dec 17-18 hike path (jin10 1005132207 04:09:36Z); Japan Oct CPI accelerated. Headwinds: 4th straight down session, LPR unchanged (no China easing, flash 1005103307 01:00:00Z), global risk-off, EEM pre -2.34%, Nikkei led Asia lower. Eurozone confidence flash 15:00Z today (proposed event).",
+      "invalidation_material": "r3 stop must be re-based below current range by operator decision (candidates: below 98.62 or below 97.76); NEW contract/hash/approval required. Risk budget: 142 x (entry - stop) <= 1% NAV allows only ~$7.04/share risk at $100k NAV - stops below ~91.7 breach at full quantity; desk reconciles.",
+      "deadline_reference": "2026-11-27T17:00:00Z (12:00 ET) as used by r2; same verification requirements as SPY.",
+      "caps_flag": "SPY+EFA combined ~34% NAV vs 0.25 sleeve cap (pre-existing)."
+    },
+    {
+      "symbol": "US.MSFT",
+      "quantity": 39,
+      "fill_reference": "Unowned residual fill 2026-11-19T18:15Z @503.33, broker status 4 fully filled (Nov-19 close-2005 run findings; writer-safety incident, halt ENGAGED). Operator disposition REQUIRED before any adoption; no adoption grant from holdings alone.",
+      "last_close": {"price": 498.3, "date": "2026-11-19", "source": "quote_stock_quote data_time 1795122000777 = 2026-11-19T21:00:00.777Z + 60-bar kline bar 20261119 (inline payload this run)"},
+      "premarket": {"aggregate": 486.93, "freshest_tick": 485.9, "tick_time": "2026-11-20T13:15:49.630Z", "premarket_low": 486.7527},
+      "unrealized_pct_vs_cost": -1.0,
+      "unrealized_note": "498.30 close vs 503.33 cost = -1.00% at close; at 485.90 tick = -3.46%. Ex-dividend $0.98/share Nov-19 (MCP corporate_actions_dividends): receivable 39 x 0.98 = $38.22, payable 2026-12-10 (AFTER challenge window). Quote prev_close 507.31 is dividend-adjusted vs raw Nov-18 close 508.29.",
+      "sourced_levels": {
+        "support_shelf": [486.0, 487.23],
+        "support_note": "Sep-10 low 486.00 / Sep-16 low 487.23 from 60-bar kline (2026-08-27..2026-11-19); pre-market is testing/breaking this shelf (tick 485.90). No verified support below 486.00 within the 60-bar window.",
+        "overhead_resistance": [498.16, 500.44, 507.31, 508.29],
+        "resistance_note": "Nov-19 low 498.16; 500.44 print with 2,600-lot 500-strike put block expiring Nov-20 (Futu options summary 1005087805 pub 2026-11-19T21:30:00Z); adj prev close 507.31 / raw 508.29",
+        "recent_swing_high": 559.15,
+        "swing_high_note": "Nov-4 high (60-bar kline); lower highs since"
+      },
+      "thesis_material": "Fundamental support: 36-analyst consensus 94.4% strong-buy avg target 641.87 (MCP, update 2026-11-19T22:30:39Z); today's MS/Jefferies/Stifel $650 + RBC $640 reiterations (Futu 1005193786 13:00:01Z); Citi $680 Databricks note (1005188945 12:06:12Z); Danaher (1005191428 12:32:07Z) / Nestle (WSJ 1005147238 07:00:00Z) / Intel EMIB+Xeon (Nov-18) partnership stack; PE 27.76. Bear case: death crosses Nov-18, oversold-but-falling, main flow -109.0M Nov-19 vs retail +148.2M, AI-credit contagion, Waller 13:25Z / UMich 15:00Z / Cook 17:15Z event risk. NO same-session tactical long proposed today (see report section 5).",
+      "invalidation_material": "For an adoption contract the desk must set explicit stop/target/deadline; research candidates: stop below the 486.00 60-session low (operator chooses buffer), target references 507.31-508.29 gap zone then 517-520; RR and 1% NAV risk budget must be checked: 39 x (entry - stop) <= ~$1,000 allows ~$25.6/share risk. Missing operator disposition of the unowned fill BLOCKS adoption.",
+      "deadline_reference": "If adopted as a stock lifecycle holding: deadline by a scheduled RTH check with margin, no later than 2026-11-27T17:00:00Z reference; tactical-lane same-session rules do not apply to a multi-day adoption contract. Desk decides lane assignment.",
+      "caps_flag": "39 x 498.30 = 19,433.70 ~= 19.4% of ~100,185 NAV (Nov-19 preflight reference; current NAV needs executor capture) vs max_name_weight 0.20 - any additional MSFT buy would breach; adoption at exact reconciled quantity only."
+    }
+  ],
+  "missing_fields_not_invented": [
+    "Operator disposition / ownership attribution of the MSFT 39 unowned fill (incident unresolved).",
+    "r3 stop/target/entry bounds and quantities: operator/desk decisions, not research defaults.",
+    "Current NAV/cash (no account capture this run).",
+    "Official Nov-19 daily-bar confirmation by executor (research cites two concordant MCP payloads).",
+    "Fresh two-sided books for any executable action (researcher captured ticks only)."
+  ]
+}

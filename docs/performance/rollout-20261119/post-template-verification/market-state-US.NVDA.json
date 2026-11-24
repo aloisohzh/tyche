@@ -1,0 +1,1 @@
+{"ret_code":0,"ret_msg":"success","data":{"market_state_list":[{"code":"US.NVDA","market_state":"AFTER_HOURS_END","sc_name":"英伟达","stock_name":"NVIDIA","tc_name":"英偉達","time_date":20261118,"total_seconds":23400,"trade_section":[{"begin_timestamp":1795012200,"end_timestamp":1795035600,"trade_section_type":12}],"traded_seconds":23400}]}}

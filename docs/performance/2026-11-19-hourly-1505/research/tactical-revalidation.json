@@ -1,0 +1,71 @@
+{
+  "as_of": "2026-11-19",
+  "review_run": "2026-11-19-hourly-1505",
+  "reviewed_at": "2026-11-19T15:11:03Z",
+  "reviewed_at_note": "Bounded to freshest MCP exchange payload timestamps (data_time 1795101063xxx = 15:11:03Z); final news/flow batch completed a few minutes later; desk stamps arrival time. Research evidence only - executor must capture executable quotes/books <=60s before any entry.",
+  "news_feed_ok": true,
+  "setups": [
+    {
+      "setup_id": "TAC-20261119-AMD-L1",
+      "symbol": "US.AMD",
+      "verdict": "intact",
+      "terms_changed": false,
+      "entry_zone_sensible": true,
+      "executable_at_current_price": true,
+      "price_evidence": "MCP quote_stock_quote US.AMD data_time 1795101063731 = 2026-11-19T15:11:03.731Z: last 539.88 (+1.84% vs prev_close 530.14), open 542.98, RTH high 555.01, low 537.09, sec_status NORMAL. Last is INSIDE immutable zone 538.0-543.5; stop 535.0 not traded (low 537.09).",
+      "notes": "HIGH whipsaw: high 555.01 tagged within 0.27% of target 556.50 then round-tripped to 537.09 (briefly below entry_low, above stop). Open-drive move already happened and faded; entry is a consolidation bet. confirmation_ticks=2 + fresh executable book + spread<=0.3% mandatory. ANT first trade still pending (see ant_debut) - apply imminent-event caution at executor entry time. Intraday flow bar unavailable (quote_capital_flow_history 2026-11-19 empty flow_list) - gap.",
+      "sources": [
+        "MCP quote_stock_quote US.AMD data_time 1795101063731 (2026-11-19T15:11:03.731Z)",
+        "Gelonghui news_id 1005058820 publish_time 1795099667000 = 2026-11-19T14:47:47Z (AI/storage/optical complex rally: AMD/AVGO +3%, MU +5%, NVDA +4%)",
+        "Option Mover news_id 1005035629 publish_time 1795086658000 = 2026-11-19T11:10:58Z (Lisa Su 2027 server revenue doubling, total growth >80%; AMD IV 76.83% 85th pct)",
+        "Sina news_id 1004998534 publish_time 1795070227000 = 2026-11-19T07:57:07Z (OpenAI-assisted AMD chip development, PPA up to 14%)",
+        "WSJ correction 13:51:00Z ($26B placement group incl AMD) - baseline watchlist source, unchanged",
+        "MCP quote_capital_flow_history US.AMD start/end 2026-11-19: flow_list=[] (no intraday bar yet)"
+      ]
+    },
+    {
+      "setup_id": "TAC-20261119-MU-L1",
+      "symbol": "US.MU",
+      "verdict": "intact",
+      "terms_changed": false,
+      "entry_zone_sensible": false,
+      "executable_at_current_price": false,
+      "price_evidence": "MCP quote_stock_quote US.MU data_time 1795101063769 = 2026-11-19T15:11:03.769Z: last 753.72 (+6.87% vs prev_close 705.27), open 740.00, RTH high 760.00 (ABOVE target 758.50), low 731.25, sec_status NORMAL.",
+      "notes": "NO-CHASE: price above entry_high 740.0; target already exceeded intraday. Setup executable only on a pullback into immutable zone 728.5-740.0; no re-zoning proposed (a new zone would need a NEW setup_id + operator review; chasing after a target tag breaks the R:R>=1.5 premise). 5-day net-outflow caution UNRESOLVED - no Nov-19 flow bar (quote_capital_flow_history empty); 760->753.72 fade already demonstrates gap-fade risk. Thesis (ANT halo memory momentum) confirmed stronger by sector news.",
+      "sources": [
+        "MCP quote_stock_quote US.MU data_time 1795101063769 (2026-11-19T15:11:03.769Z)",
+        "Gelonghui news_id 1005058820 publish 14:47:47Z (MU/SK Hynix +5%, STX/WDC/SNDK +6%)",
+        "Gelonghui news_id 1005025572 publish_time 1795099140000 = 2026-11-19T14:39:00Z (MU +6% early RTH; ANT quotation indications 22:50 Beijing = 14:50Z)",
+        "MCP quote_capital_flow_history US.MU start/end 2026-11-19: flow_list=[] (5-day outflow caution unresolved)"
+      ]
+    },
+    {
+      "setup_id": "TAC-20261119-SMH-L1",
+      "symbol": "US.SMH",
+      "verdict": "intact",
+      "terms_changed": false,
+      "entry_zone_sensible": false,
+      "executable_at_current_price": false,
+      "price_evidence": "MCP quote_stock_quote US.SMH data_time 1795101063181 = 2026-11-19T15:11:03.181Z: last 476.2028 (+3.63% vs prev_close 459.54), open 472.69, RTH high 479.96, low 471.3201, sec_status NORMAL. Traded inside zone 469.5-474.0 earlier; now above entry_high 474.0.",
+      "notes": "Entry only on pullback into immutable zone; no re-zoning. Sector breadth confirmed (NVDA last 155.65 +3.11% at data_time 1795101063767; optical names +4-11% Zhitong 14:56:23Z). Kernel sleeve-attribution overhang UNRESOLVED and still BLOCKING (SMH tactical etf_symbols member vs PB-001 25% ETF ceiling already ~34.9% via SPY+EFA). Wedbush NVDA PT 275->293 (Zhitong 1005058429 publish 14:39:14Z) is analyst opinion, context only.",
+      "sources": [
+        "MCP quote_stock_quote US.SMH data_time 1795101063181 (2026-11-19T15:11:03.181Z); US.NVDA data_time 1795101063767 last 155.65",
+        "Gelonghui news_id 1005058820 publish 14:47:47Z (broad semi/AI rally)",
+        "Zhitong news_id 1005060395 publish_time 1795100183000 = 2026-11-19T14:56:23Z (optical complex +4-11%)",
+        "Zhitong news_id 1005058429 publish_time 1795099154000 = 2026-11-19T14:39:14Z (Wedbush NVDA PT raise; NVDA +4%)"
+      ]
+    }
+  ],
+  "ant_debut": {
+    "first_trade_confirmed": false,
+    "desk_assumption_corrected": "Delegation said first trade ~14:50Z; MCP shows US.ANT sec_status TO_BE_OPEN, volume 0, last=83 IPO-price placeholder (quote_stock_quote, fetched ~15:11Z) and quote_rt_ticker US.ANT ticker_list=null (~15:12Z). 14:50Z (22:50 Beijing) is the QUOTATION-INDICATION open time per Gelonghui 1005025572 publish 14:39:00Z, not a confirmed trade.",
+    "indicated_open": "Flash 1005061142 publish_time 1795100773000 = 2026-11-19T15:06:13Z: preliminary buy interest indicates ~$100 open, +20% vs $83 IPO price.",
+    "implication": "Treat actual first trade as pending/imminent; apply imminent-material-event entry block around the confirmed debut; executor must re-verify ANT status/ticks at entry time. Debut spillover into AMD/MU/SMH is two-way; Benzinga 1005058417 publish 14:43:05Z (big-IPO day-1 avg +49.3% but median first-year max drawdown 52.6%) is sentiment risk, not invalidation.",
+    "invalidation_from_ant": "none - no source-backed invalidation of any tactical thesis"
+  },
+  "youtube_inbox": {
+    "new_entries_since_last_run": 0,
+    "new_hypotheses": [],
+    "note": "index.json unchanged (8 entries fetched 2026-11-18T19:27-19:28Z); existing hypotheses remain unvalidated, routed to operator local LEAN lane; no trading signal derived."
+  }
+}

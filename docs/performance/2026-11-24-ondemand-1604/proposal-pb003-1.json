@@ -1,0 +1,36 @@
+{
+ "proposals": [
+  {
+   "n": 1,
+   "lane": "PB-003 long options (test through 27 Nov)",
+   "action": "BUY",
+   "symbol": "US.KO261218C97000",
+   "qty": "1",
+   "entry": "limit 2.67 at ask, RTH paper, request expires in 30s; ONLY if KO pulls back into 96.10-96.60 (last 98.145 at 16:13Z)",
+   "value": "USD 267 premium (0.27% of NAV 98,831) plus fees",
+   "stop": "KO 95.40 underlying; 40% premium loss (bid at/below 1.60)",
+   "target": "KO 98.40 underlying",
+   "exit_by": "17:05Z (12:05 ET) per card; that fire is alert-only - first executable exit check 15:05 ET",
+   "risk": "max loss USD 267 (full premium) plus fees; gaps/halts/nonfills can defeat synthetic exits",
+   "direction": "bullish",
+   "horizon": "same-session deadline; contract expires 2026-12-18, after the test window",
+   "thesis": "KO defensive rotation under Fed hike regime: +2.19% vs SPY -1.22% today, fresh MS/BofA/RBC Buy notes; delta 0.61 call, OI 122, vol 94, spread 2.66%",
+   "invalidation": "KO below 95.40 after entry; no pullback into zone before 16:55Z = no trade; ask above 2.67 or spread over 5% blocks",
+   "order": {
+    "symbol": "US.KO261218C97000",
+    "side": "buy",
+    "qty": 1,
+    "limit": 2.67,
+    "multiplier": 100,
+    "exit_floor": 1.6,
+    "setup_hash": "0a670fa374c6e241da29f362410d20737b0082c6afbd6336e9357eaad18d99f8"
+   },
+   "notes": [
+    "Ask me: /approve 1 authorizes exactly the order block above; fresh exact-order audit and reserve still run before one paper order.",
+    "Pullback-only: KO 98.145 is ABOVE the 96.10-96.60 zone; no pullback, no trade.",
+    "Timing flag: exit_at 17:05Z is the alert-only 12:05 fire; first executable exit check 15:05 ET. Your approve accepts this.",
+    "Long call can lose 100% of premium plus fees; no resting broker stop, no ladder, no re-entry."
+   ]
+  }
+ ]
+}

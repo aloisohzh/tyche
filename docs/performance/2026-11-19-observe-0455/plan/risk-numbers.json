@@ -1,0 +1,45 @@
+{
+ "nav": 99927.13,
+ "per_symbol": {
+  "SPY": {
+   "invested_cost": 20483.12,
+   "invested_pctNAV": 20.498,
+   "engine_loss_at_stop_from_entry_high": 281.68,
+   "engine_loss_pctNAV": 0.282,
+   "pnl_cost_to_stop": -183.12,
+   "pnl_cost_to_stop_pctNAV": -0.183,
+   "forward_downside_mark_to_stop": 145.6,
+   "forward_pctNAV": 0.146,
+   "pnl_cost_to_target": 502.88,
+   "pnl_mark_to_target": 540.4,
+   "exit_fees_model": 0.9946,
+   "slippage_20bps_at_stop": 40.6,
+   "worst_planned_loss_incl_slip_fees": 323.27,
+   "worst_planned_pctNAV": 0.324,
+   "unrealized_now": -37.52
+  },
+  "EFA": {
+   "invested_cost": 14270.29,
+   "invested_pctNAV": 14.281,
+   "engine_loss_at_stop_from_entry_high": 208.74,
+   "engine_loss_pctNAV": 0.209,
+   "pnl_cost_to_stop": -155.49,
+   "pnl_cost_to_stop_pctNAV": -0.156,
+   "forward_downside_mark_to_stop": 122.12,
+   "forward_pctNAV": 0.122,
+   "pnl_cost_to_target": 199.51,
+   "pnl_mark_to_target": 232.88,
+   "exit_fees_model": 1.0136,
+   "slippage_20bps_at_stop": 28.23,
+   "worst_planned_loss_incl_slip_fees": 237.98,
+   "worst_planned_pctNAV": 0.238,
+   "unrealized_now": -33.37
+  }
+ },
+ "totals": {
+  "engine_anchor": 490.42,
+  "cost_basis": 338.61,
+  "forward_from_mark": 267.72,
+  "worst_incl_slippage_fees": 561.25
+ }
+}

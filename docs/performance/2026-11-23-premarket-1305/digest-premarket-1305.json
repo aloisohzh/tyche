@@ -1,0 +1,37 @@
+{
+  "phase": "PREMARKET",
+  "timestamp": "2026-11-23 | 13:24 UTC / 08:24 ET / 21:24 SGT",
+  "urgent": true,
+  "mode": "KILL-SWITCH ENGAGED since Nov-19 writer incident - buys blocked; no same-day envelope (ASK ME)",
+  "stance": "Futures bounce +2.46% but SPY and EFA closed below their stops for a second straight session; desk reconciled, found no new writer, and all three lots have no live exit.",
+  "orders_summary": "No orders submitted by this run. Reconcile only: 11 orders ever, one page, none live or pending, none newer than the Nov-19 incident boundary.",
+  "orders": [],
+  "account": {
+    "nav": "98,617.33 (premarket marks; +0.85% vs Fri close NAV 97,788.36)",
+    "cash": "45,680.12, frozen 0; gross 53.7%",
+    "positions": "SPY 28, EFA 142, MSFT 39 - all sellable",
+    "kill_switch": "ON - journal flag Nov-19 20:28Z, never released; repo flag stale"
+  },
+  "protection": [
+    "SPY 28 UNCOVERED: Nov-20 close 689.81 below stop 727.50 (2nd completed-bar breach); premarket 708.14. No approved exit, no live order.",
+    "EFA 142 UNCOVERED: Nov-20 close 96.14 below stop 100.00 (2nd breach); premarket 97.42. No approved exit, no live order.",
+    "MSFT 39 UNOWNED: no plan, no stop, no exit path. Premarket 499.18 vs cost 503.33.",
+    "VNQ order 3116597 and SMH 3118500: status5, no shares filled, not proven canceled - still unresolved.",
+    "No approved exit requests exist (approvals empty), so no protection.gap to journal; coverage gap is the missing approvals themselves."
+  ],
+  "problems": [
+    "Halt never released. Operator: review incident, then tyche resume; re-provision account allowlist (env points at ***4748, challenge is [REDACTED]).",
+    "SPY/EFA invalidation confirmed on two completed bars. Operator: approve an adoption-for-exit plan or direct the exit; de-risking sells are allowed under halt.",
+    "MSFT 39 unowned. Operator: adopt with protection or direct exit; research leans exit (bearish trend, institutional selling).",
+    "High-water pin 102,208.99 unconfirmed: drawdown -3.51% vs pin (soft 4% level 98,120.63; NAV above it now, was -4.33% Fri close). Operator: confirm or replace.",
+    "Premarket lifecycle tick structurally blocked (120s snapshot freshness); breach evidence above is from verified Nov-20 bars, not a tick latch.",
+    "Executor diagnostic used stale prior_close_nav 99,914.93 (Nov-19); correct Nov-20 close NAV is 97,788.36."
+  ],
+  "proposals": [
+    "JNJ long 269.80-270.60, stop 268.60, target 273.80, exit 15:50 ET - healthcare rotation + TREMFYA data + JPM PT raise; invalidation: 268.60 or deadline. BLOCKED by halt.",
+    "PEP long 140.10-140.70, stop 139.40, target 142.70, exit 15:50 ET - staples rotation + Hyatt deal + dividend raise; invalidation: 139.40 or shelf headline. BLOCKED by halt.",
+    "AAPL PB-007 swing 28 sh, zone 338.89-343.08, stop 331.99, target 360.83, flat-by Nov 27 12:30 ET - fib pullback in uptrend; independent review in progress. BLOCKED by halt.",
+    "No approval asks sent: the halt mechanically blocks buys, so /approve would be misleading. Release halt first."
+  ],
+  "next_check": "Today 12:05 ET midday protection fire (17:05 UTC), alert-only; then 15:05 ET close fire."
+}

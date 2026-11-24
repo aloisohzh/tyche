@@ -1,0 +1,32 @@
+{
+  "phase": "CLOSE",
+  "timestamp": "2026-11-23 | 20:38 UTC / 15:38 ET / 04:38 SGT (24 Nov)",
+  "urgent": true,
+  "mode": "PAPER ARMED - observe-only; operator exits blocked, nothing submitted",
+  "stance": "Stocks rebounded sharply but the desk submitted nothing: the operator-authorized exits cannot pass the pinned gates this fire.",
+  "orders_summary": "No orders submitted by this run. 0 of envelope budget 5 used.",
+  "orders": [],
+  "account": {
+    "nav": "99,380.95 (last good read 20:21Z; account feed down since ~20:26Z)",
+    "cash": "45,680.12 (frozen 0)",
+    "positions": "SPY 28, EFA 142, MSFT 39",
+    "kill_switch": "OFF (operator released 15:11Z)"
+  },
+  "protection": [
+    "SPY 28: stop 727.50 breached on 2 completed bars; last 724.12. No live exit order. Envelope floor 690 is desk-side, not a broker stop.",
+    "EFA 142: stop 100.00 breached on 2 bars; last 98.76. No live exit. Floor 94.50 desk-side only.",
+    "MSFT 39 (~19.5% NAV): no plan, no stop, unowned Nov-19 incident lot; last 497.36. Floor 474 desk-side only.",
+    "All 3 lots UNCOVERED. Operator envelope sells are authorized but mechanically blocked (see Problems); nothing is working at the broker."
+  ],
+  "problems": [
+    "Moomoo account service down since ~20:26Z: cash error -5, positions/history return empty while quotes stay healthy. Not a liquidation. Operator: restore feed, re-run capture/tick.",
+    "Journal defect: 3 Nov-18 order rows (SPY/EFA/VNQ) lack request_id, so every lifecycle reserve fails integrity before grants. Operator: sanctioned remap of those legacy rows.",
+    "Envelope exits blocked: no grants, reviews invalidated, lines lack setup_hash, SPY/EFA outside tactical universe. Operator: lifecycle approve per hash, re-arm envelope with setup_hash, or manual exit. Desk cannot self-approve.",
+    "2 unresolved status-5 orders: VNQ 3116597, SMH 3118500 (not proven canceled).",
+    "Event pinning deferred: NVDA-CEO/PMI/WILLIAMS proposals unvalidated (feed outage; WILLIAMS single-source)."
+  ],
+  "proposals": [
+    "AAPL PB-007 swing: uncertain thesis, never in zone 338.89-343.08 (low 345.44), entry expired 15:50 ET. No entry. Invalidation: close below 338.89 / stop 331.99."
+  ],
+  "next_check": "Next scheduled fire 08:05 ET Tue 24 Nov (13:05Z) per the active three-fire card."
+}

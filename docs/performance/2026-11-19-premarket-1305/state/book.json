@@ -1,0 +1,46 @@
+{
+ "schema_version": 1,
+ "plans": [],
+ "reviews": [],
+ "news_checked_at": "2026-11-19T13:17:00Z",
+ "news_feed_ok": true,
+ "events": [
+  {
+   "event_id": "EV-20261119-CLAIMS",
+   "at": "2026-11-19T13:30:00Z",
+   "symbols": [
+    "US.SPY",
+    "US.QQQ",
+    "US.IWM",
+    "US.TLT",
+    "US.IEF"
+   ],
+   "material": true,
+   "source": "MCP quote_economic_calendar_hot 20261119 indicatorId 294; config/events.yaml pin 2026-11-19T13:30:33Z",
+   "summary": "US Initial Jobless Claims 08:30 ET (prev 198K, cons 200K); hawkish-hike regime sensitivity; post-event revalidation required before entries."
+  },
+  {
+   "event_id": "EV-20261119-PHILLYFED",
+   "at": "2026-11-19T13:30:00Z",
+   "symbols": [
+    "US.SPY",
+    "US.IWM",
+    "US.SMH"
+   ],
+   "material": true,
+   "source": "https://www.philadelphiafed.org/surveys-and-data/regional-economic-analysis/manufacturing-business-outlook-survey; config/events.yaml pin 2026-11-19T13:30:33Z",
+   "summary": "Philadelphia Fed Mfg Index (Nov) 08:30 ET (prev 20.6, cons 20.9); prices-paid feeds hike narrative."
+  },
+  {
+   "event_id": "EV-20261120-PBOC-LPR",
+   "at": "2026-11-20T01:15:00Z",
+   "symbols": [
+    "US.EFA",
+    "US.EEM"
+   ],
+   "material": true,
+   "source": "jin10 calendar item 235457 via MCP news_search; config/events.yaml pin 2026-11-19T13:30:34Z",
+   "summary": "PBoC LPR fixing 09:15 Beijing Nov 20 (01:15Z / Nov19 20:15 ET); China easing signal for held EFA and EEM ballast; review at next pre-market check."
+  }
+ ]
+}

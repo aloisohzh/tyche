@@ -1,0 +1,44 @@
+[
+  {
+    "symbol": "US.SPY",
+    "at": "2026-11-20T17:14:17.663000Z",
+    "book_at": "2026-11-20T17:08:42.647000Z",
+    "last": 701.74,
+    "bid": 703.12,
+    "ask": 703.16,
+    "tradable": true,
+    "option": null,
+    "open_interest": 0,
+    "volume": 49224159,
+    "delta": null,
+    "implied_volatility": null
+  },
+  {
+    "symbol": "US.EFA",
+    "at": "2026-11-20T17:14:15.649000Z",
+    "book_at": "2026-11-20T17:08:42.647000Z",
+    "last": 96.975,
+    "bid": 97.09,
+    "ask": 97.1,
+    "tradable": true,
+    "option": null,
+    "open_interest": 0,
+    "volume": 8492528,
+    "delta": null,
+    "implied_volatility": null
+  },
+  {
+    "symbol": "US.MSFT",
+    "at": "2026-11-20T17:14:17.685000Z",
+    "book_at": "2026-11-20T17:13:26.714000Z",
+    "last": 488.82,
+    "bid": 488.27,
+    "ask": 488.38,
+    "tradable": true,
+    "option": null,
+    "open_interest": 0,
+    "volume": 15698824,
+    "delta": null,
+    "implied_volatility": null
+  }
+]

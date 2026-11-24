@@ -1,0 +1,19 @@
+{
+ "ref": "a51a8a33",
+ "approved": [
+  {
+   "n": 1,
+   "decided_at": "2026-11-24T16:22:04Z",
+   "symbol": "US.KO261218C97000",
+   "order": {
+    "symbol": "US.KO261218C97000",
+    "side": "buy",
+    "qty": 1,
+    "limit": 2.67,
+    "multiplier": 100,
+    "setup_hash": "0a670fa374c6e241da29f362410d20737b0082c6afbd6336e9357eaad18d99f8",
+    "exit_floor": 1.6
+   }
+  }
+ ]
+}

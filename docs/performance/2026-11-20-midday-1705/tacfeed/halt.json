@@ -1,0 +1,6 @@
+{
+  "halted": true,
+  "reason": "writer-safety violation: unattributed tyche-style broker fills 17:23-18:15Z (MSFT 39 unowned + NVDA/AMD/MU round-trips + SMH status5), no journal receipts in any lineage; single-writer ownership unverifiable; operator must identify writer, re-provision TYCHE_ALLOWED_ACCOUNT_IDS (***4748 vs ***598), and disposition MSFT + SPY/EFA daily-close stop breaches before next session",
+  "ts": "2026-11-19T20:28:29.377217+00:00",
+  "set_by": "operator (CLI)"
+}

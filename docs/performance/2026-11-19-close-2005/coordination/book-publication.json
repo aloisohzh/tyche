@@ -1,0 +1,15 @@
+{
+ "published_at_utc": "2026-11-19T20:22:00Z",
+ "desk": "tyche-desk close-2005 (two-fire 15:05 ET close fire)",
+ "target": "/data/drive/tyche-raw/lifecycle/book.json",
+ "prior_sha256": "bcaec558d46307ba63337c23e76a315a32052cf36ab790333000ea257f09631c",
+ "new_sha256": "111fcbe29b3c0888a51bd8971ba98fba256c907f395bc91b68de53ac1ff65660",
+ "prior_preserved": "/data/drive/tyche-raw/2026-11-19-close-2005/state/book-at-start.json",
+ "changes": "reviews replaced with close-2005 researcher refresh (both UNCERTAIN, reviewed_at 20:12:49Z bounded to MCP data_time, valid_until 21:12:49Z); desk adjustments: removed review-level news_feed_ok (book-level field, schema), appended EV-20261119-MIDEAST-ESCALATION to acknowledged_events (event explicitly analyzed in review reason/evidence); MarketEvent EV-20261119-MIDEAST-ESCALATION added (pinned events.yaml 20:20:47Z); EV-20261119-ANT-DEBUT at corrected 14:50Z->16:50Z with confirmed-first-trade post-event summary; news_checked_at 20:12:49Z, news_feed_ok=true (gaps disclosed in report: no fresh FedWatch/USDJPY, closes unobservable). Plans BYTE-UNCHANGED.",
+ "plan_hashes": {
+  "LC-20261119-SPY-ADOPT-r2": "e73ee77d4b6abca10545bd296537fcee34b9a2511440e49fcf1d3ad23f9c89df",
+  "LC-20261119-EFA-ADOPT-r2": "add27d1a3e75fece0fe292c51050d9324ac33326a58ac4516cd93e3b39a9b33c"
+ },
+ "schema_validation": "LifecycleBook.model_validate PASS (release 3312287 code, HEAD 2f3e043)",
+ "rejected_event_proposals": "EV-20261119-EXPORT-LICENSE-RULE (primary BIS source unverified); EV-20261119-BANK-VENDOR-LEAK (single-source, non-universe symbols); LEI kept rejected per prior triage"
+}

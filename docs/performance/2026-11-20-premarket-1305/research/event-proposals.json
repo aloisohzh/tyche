@@ -1,0 +1,53 @@
+{
+  "as_of": "2026-11-20",
+  "proposed_by": "tyche-researcher",
+  "proposed_at_anchor": "2026-11-20T13:15:49Z",
+  "note": "Proposals ONLY. Desk Head validates sources and pins via 'tyche events add'; researcher never writes config/events.yaml. quote_economic_calendar_hot for 20261120 returned empty (data:[]); schedule sourced from timestamped news payloads. PBoC LPR 2026-11-20 already pinned (EV-20261120-PBOC-LPR) and post-event reviewed (unchanged 3.00%/3.50%). KC Fed Nov services index 11:00 ET and St Louis Fed Q4 GDP nowcast ~noon ET judged low-materiality (report-only, not proposed). Canada Sep retail sales 08:30 ET rejected (non-US, no universe impact).",
+  "proposals": [
+    {
+      "date": "2026-11-20",
+      "name": "Fed Governor Waller speech 08:25 ET (13:25Z)",
+      "kind": "fomc",
+      "time_et": "08:25",
+      "symbols": ["US.SPY", "US.QQQ", "US.IWM", "US.TLT", "US.IEF", "US.GLD", "US.VNQ", "US.MSFT"],
+      "source": "AASTOCKS NOW.1555875 news_id 1005192469 + MT Newswires news_id 1005192254, publish_time 1795178482000 = 2026-11-20T12:41:22Z (news.futunn.com/post/1005192469); Waller 50bp stance: fx678 news_id 1004949845 publish 2026-11-18T17:45:36Z",
+      "materiality": "Waller publicly advocated a 50bp Dec hike or faster-2027 signal ('shock' language); he speaks 65 min before the open - direct hawkish-surprise risk to the 50bp tail, rates and all equity ballast; imminent-event entry block around 13:25Z."
+    },
+    {
+      "date": "2026-11-20",
+      "name": "UMich Nov consumer sentiment final + Oct state-level unemployment 10:00 ET (15:00Z)",
+      "kind": "macro",
+      "time_et": "10:00",
+      "symbols": ["US.SPY", "US.QQQ", "US.IWM", "US.TLT", "US.IEF"],
+      "source": "AASTOCKS 1005192469 / MT Newswires 1005192254 publish 2026-11-20T12:41:22Z; MT Newswires 1005193361 publish 12:52:11Z (cons 51.6); Fisco 1005145122 publish 06:37:00Z (cons 53.3)",
+      "materiality": "Sentiment/inflation-expectations print in a hike cycle with a growth scare (Oct LEI -0.3%); CONSENSUS CONFLICT 51.6 vs 53.3 (prior 51.0) - desk should pin with both figures flagged; lands 30 min after open."
+    },
+    {
+      "date": "2026-11-20",
+      "name": "Fed Governor Lisa Cook speech 12:15 ET (17:15Z)",
+      "kind": "fomc",
+      "time_et": "12:15",
+      "symbols": ["US.SPY", "US.QQQ", "US.IWM", "US.TLT", "US.IEF", "US.VNQ", "US.MSFT"],
+      "source": "AASTOCKS 1005192469 / MT Newswires 1005192254 publish 2026-11-20T12:41:22Z; Cook Oct dissent FOR a 25bp hike: CFTime 1002697776 publish 2026-10-29 (FOMC 10-2 vote recap)",
+      "materiality": "Cook dissented in October in favor of an immediate hike; midday remarks can extend or fade the Waller-driven repricing; lands 10 min after the 17:05Z hourly check - post-event review needed before any afternoon entry."
+    },
+    {
+      "date": "2026-11-20",
+      "name": "Eurozone Nov consumer confidence flash 10:00 ET (15:00Z)",
+      "kind": "macro",
+      "time_et": "10:00",
+      "symbols": ["US.EFA"],
+      "source": "AASTOCKS 1005192469 publish 2026-11-20T12:41:22Z; Fisco 1005145122 publish 06:37:00Z (cons -18.2, prior -17.9)",
+      "materiality": "Direct developed-Europe demand signal for held EFA ballast during a global risk-off session; ECB next meeting Dec 17."
+    },
+    {
+      "date": "2026-12-02",
+      "name": "NVDA / Commerce Dept briefing deadline - House E&C probe (Guthrie letter Nov 18)",
+      "kind": "macro",
+      "time_et": null,
+      "symbols": ["US.NVDA", "US.SMH", "US.AMD", "US.AVGO", "US.MU", "US.QQQ"],
+      "source": "MT Newswires 1005193361 publish 2026-11-20T12:52:11Z (Reuters: House Democrats to investigate NVDA Commerce influence / China export-control evasion); Gelonghui macro wrap Nov-18 (persisted /tmp/tool-outputs/mcp_24ccb42626ee4a50f1d17cf5.txt): Guthrie letter demands briefing by Dec 2; DOJ/Commerce Megaspeed criminal probe confirmed Nov 16",
+      "materiality": "Regulatory/export-control overhang on the whole scalp-lane semi complex; headline risk recurs into the Dec-2 deadline (within the 14-day discovery window and the challenge window); NVDA already -3.35% pre-market on the news."
+    }
+  ]
+}

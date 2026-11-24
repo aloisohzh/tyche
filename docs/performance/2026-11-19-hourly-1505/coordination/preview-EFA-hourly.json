@@ -1,0 +1,51 @@
+{
+  "plan": {
+    "plan_id": "LC-20261119-EFA-ADOPT-r2",
+    "revision": 2,
+    "symbol": "US.EFA",
+    "strategy_id": "PB-001",
+    "rules_hash": "4105d7a680a3",
+    "thesis": "Adopt existing PB-001 ballast holding of 142 EFA (reconciled avg cost 100.495) under explicit protection: retain developed-ex-US equity diversification as ballast with daily-close invalidation at 100.00. This thesis is protective retention under a defined stop, NOT a claim EFA will rise; weakness (three consecutive down sessions into 100.26 close, intraday 99.96 low on Nov-18, yen at ~159.94/USD) is acknowledged in the review. Take-profit 105.80 is the 20-completed-session structural high (2026-11-04 bar) stated as a profit-taking guard, NOT a price forecast; PB-001 strategy exits occur by rebalance.",
+    "invalidation_rules": [
+      "(i) A completed daily close below 100.00 (stop basis daily_close) latches the stop_loss exit; intraday trades below the level alone do not trigger it.",
+      "(ii) Rotation momentum <= 0 or regime risk_off triggers a trim per PB-001, evaluated at rebalance only; this is NOT automatic liquidation.",
+      "(iii) A material thesis-breaking event acknowledged by a fresh timestamped review (verdict invalidated with cited condition-specific evidence) invalidates the plan.",
+      "(iv) No broker-native stop exists: protection is a synthetic hourly monitor; gaps, halts, delayed runs and limit non-fills can exceed the planned loss."
+    ],
+    "created_at": "2026-11-19T14:53:03Z",
+    "mode": "adopt_position",
+    "quantity": 142,
+    "entry_low": 100.02,
+    "entry_high": 101.02,
+    "stop": {
+      "price": 100.0,
+      "basis": "daily_close"
+    },
+    "take_profit": {
+      "price": 105.8,
+      "basis": "daily_close"
+    },
+    "entry_expires_at": "2026-11-19T20:00:00Z",
+    "exit_deadline": "2026-11-27T17:00:00Z",
+    "exit_on_invalidation": true,
+    "review_max_age_minutes": 60,
+    "quote_max_age_seconds": 300,
+    "max_slippage_bps": 30
+  },
+  "plan_hash": "add27d1a3e75fece0fe292c51050d9324ac33326a58ac4516cd93e3b39a9b33c",
+  "risk": {
+    "planned_loss_at_stop_usd": 144.84,
+    "planned_gain_at_target_usd": 678.76,
+    "reward_risk_before_fees": 4.686,
+    "monitor_interval_minutes": 60,
+    "limitations": [
+      "Synthetic triggers, not broker-native stops.",
+      "Gaps, stale feeds, hourly latency and non-fills can exceed planned loss.",
+      "Daily-close triggers execute no earlier than the next permitted session.",
+      "Full-position exits only; no shorting, scaling or automatic re-entry.",
+      "Unknown/cancelled/rejected orders require reconciliation and operator review."
+    ]
+  },
+  "approved": false,
+  "submitted": false
+}

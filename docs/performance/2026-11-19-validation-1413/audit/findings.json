@@ -1,0 +1,82 @@
+{
+  "artifact": "adoption-exact-hash-findings",
+  "auditor": "tyche-risk-auditor",
+  "reviewed_at_utc_estimate": "2026-11-19T15:00:00Z",
+  "clock_note": "Coordinator-supplied clock ~14:56Z at r2 request; r1 pass ~14:55Z on clock ~14:53Z; no independent auditor clock; labeled estimates. Operative record: adoption-review.md section 8 (r2). pre-review.md/pre-findings.json remain the point-in-time pre-review record.",
+  "run_dir": "/data/drive/tyche-raw/2026-11-19-validation-1413",
+  "book_reviewed": "/data/drive/tyche-raw/lifecycle/book.json",
+  "book_copy_verified_identical": "/data/drive/tyche-raw/2026-11-19-validation-1413/state/book.json",
+  "r1_preserved_unapproved": "/data/drive/tyche-raw/2026-11-19-validation-1413/state/book-r1-superseded.json",
+  "basis_ruling": {
+    "verdict": "ACCEPT",
+    "detail": "daily_close stops 727.50/100.00 and 20-session structural targets 775.64/105.80 (2026-11-04 highs) independently verified against premarket-1305 kline captures; no higher high in Oct-22..Nov-18 window; closes 730.20/100.26 verified. Targets are profit-taking guards, not forecasts."
+  },
+  "plans": [
+    {
+      "plan_id": "LC-20261119-SPY-ADOPT-r2",
+      "revision": 2,
+      "plan_hash": "e73ee77d4b6abca10545bd296537fcee34b9a2511440e49fcf1d3ad23f9c89df",
+      "created_at": "2026-11-19T14:53:03Z",
+      "exit_deadline": "2026-11-27T17:00:00Z",
+      "verdict": "APPROVE_CONTENT",
+      "executable_approval": false,
+      "auditor_reference_issued": false,
+      "reference_policy": "Withheld until coordinator follow-up carries operator verbatim explicit confirmation of the FULL exact r2 preview/hash (F-22) plus F-01 acceptance and F-02 acknowledgment; then issued with actual coordinator clock after freshness re-check. Format: auditor:tyche-risk-auditor <actual UTC> review R/audit/adoption-review.md hash e73ee77d4b6abca10545bd296537fcee34b9a2511440e49fcf1d3ad23f9c89df",
+      "passed_checks": ["diff vs r1 EXACTLY plan_id/revision/created_at/exit_deadline (full-text comparison, matches researcher independent diff)", "deadline 17:00Z=12:00 ET <= last Nov-27 RTH check 12:05 ET, 55min margin before 13:00 ET close", "review valid bound to r2 hash, reviewed_at 14:55:34Z >= created_at 14:53:03Z, valid_until 15:55:34Z = +60min", "reason/evidence verbatim carry-over of fact-verified r1 texts + corroborating addenda (chips higher RTH, ANT first-quote volatility not thesis-breaking, no new pins)", "event semantics: claims/Philly predate creation, Barr/PBoC future, no imminent window at ~15:0xZ approve", "preview payload/hash match book; risk math recomputed 393.40/954.52/2.426", "qty 28 matches capture1 28/28 status4 avg 731.54; rules_hash matches journal; state.json empty, no duplicate ownership", "created_at 14:53:02 vs 03 discrepancy resolved: file authoritative, desk recomputation + preview-CLI confirmation over 03 payloads (r2-publication.json:7)"],
+      "risk_math": {"preview_planned_loss_usd": 393.40, "preview_planned_gain_usd": 954.52, "preview_rr": 2.426, "cost_basis_stop_estimate_usd": 113.12, "note": "estimates, NOT maximum loss; full position value ~20660 USD at capture1 last; gaps/halts/nonfills can exceed"}
+    },
+    {
+      "plan_id": "LC-20261119-EFA-ADOPT-r2",
+      "revision": 2,
+      "plan_hash": "add27d1a3e75fece0fe292c51050d9324ac33326a58ac4516cd93e3b39a9b33c",
+      "created_at": "2026-11-19T14:53:03Z",
+      "exit_deadline": "2026-11-27T17:00:00Z",
+      "verdict": "APPROVE_CONTENT",
+      "executable_approval": false,
+      "auditor_reference_issued": false,
+      "reference_policy": "Withheld until coordinator follow-up carries operator verbatim explicit confirmation of the FULL exact r2 preview/hash (F-22) plus F-01 acceptance and F-02 acknowledgment; then issued with actual coordinator clock after freshness re-check. Format: auditor:tyche-risk-auditor <actual UTC> review R/audit/adoption-review.md hash add27d1a3e75fece0fe292c51050d9324ac33326a58ac4516cd93e3b39a9b33c",
+      "passed_checks": ["diff vs r1 EXACTLY plan_id/revision/created_at/exit_deadline", "deadline feasible (12:00 ET <= 12:05 ET check)", "review valid bound to r2 hash, real stamps, +60min validity; protective-retention framing with weakness fully disclosed (3 down sessions, close 0.26% above stop, Nov-18 low 99.96, USDJPY ~159.94)", "event semantics pass", "preview payload/hash match book; risk math recomputed 144.84/678.76/4.686", "qty 142 matches capture1 142/142 status4 avg 100.495; rules_hash matches journal; no duplicate ownership"],
+      "risk_math": {"preview_planned_loss_usd": 144.84, "preview_planned_gain_usd": 678.76, "preview_rr": 4.686, "cost_basis_stop_estimate_usd": 70.29, "note": "estimates, NOT maximum loss; full position value ~14274 USD; entry_low 100.02 only 0.02 above stop (reference band only, adoption cannot buy); a close below 100.00 latches exit for next RTH session"}
+    }
+  ],
+  "superseded_r1": {
+    "verdicts": "APPROVE-WITH-CHANGES (both); never approved; no references issued; preserved at state/book-r1-superseded.json",
+    "hashes": ["7c1001dc1620681ffdfc883761f1e803e3d568750bbcef50a60516e16387203f", "1294eb0365d99a9e3adc8c4106027678f7a36c2fbcb5b822ddf9b596f163b8e9"],
+    "blocking_defect": "F-04 exit_deadline 2026-11-27T17:30:00Z schedule-infeasible on Nov-27 half day"
+  },
+  "findings_status": [
+    {"id": "F-01", "severity": "HIGH", "status": "OPEN_OPERATOR_DECISION", "detail": "Zero intraday protection today: created_at 14:53:03Z -> Nov-18 close ineligible (lifecycle.py:361); first evaluable close Nov-19 21:00Z; latched stop executes next RTH check Nov-20 15:05Z. Explicit operator acceptance requested, not yet received."},
+    {"id": "F-02", "severity": "CRITICAL", "status": "OPEN_OPERATOR_DECISION", "detail": "Legacy journal order.requested indices 3/5/7 lack request_id -> check_execution_journal fails closed at lifecycle reserve (lifecycle_cli.py:264) and execute-exit (:371). Approve does NOT call it (:142-195): adoption can be approved, exits detect/latch, but NO exit can submit until operator-reviewed remediation. Operator acknowledgment/remediation path pending."},
+    {"id": "F-03", "severity": "HIGH", "status": "RESOLVED", "detail": "Final book verdicts valid both plans; EFA honestly re-assessed under protective-retention framing with weakness disclosed; underlying facts independently verified."},
+    {"id": "F-04", "severity": "HIGH_BLOCKING", "status": "RESOLVED_IN_R2_CONTENT", "detail": "r1 17:30Z deadline provably infeasible (last Nov-27 RTH check 12:05 ET; holding_deadline triggers only at a check with now>=deadline, lifecycle.py:416-417; 13:05 ET check post-close, RTH gate :496-498; next RTH Nov-30 > competition end). r2 published with 17:00Z: triggers at 12:05 ET check, 55min margin. Operator approval of r2 still pending."},
+    {"id": "F-06", "severity": "MEDIUM", "status": "OPEN_CAVEAT", "detail": "Preview planned_loss uses entry_high proxy (lifecycle_cli.py:125-126): SPY 393.40 / EFA 144.84 vs cost-basis estimates 113.12 / 70.29. Neither is a maximum loss; previews carry limitations lists; operator preview must state gap/halt/nonfill risk and full position value."},
+    {"id": "F-08", "severity": "HIGH", "status": "RESOLVED", "detail": "Real desk stamps r2: created_at 14:53:03Z, reviewed_at 14:55:34Z >= created_at, valid_until 15:55:34Z = +60min. created_at 02-vs-03 notification discrepancy resolved: file authoritative, hashes desk-recomputed AND preview-CLI-confirmed over 03 payloads."},
+    {"id": "F-09", "severity": "MEDIUM", "status": "OPEN_DISCLOSED", "detail": "Kernel risk_off trim has no lifecycle execution path; lane full-position-exit-only (lifecycle_cli.py:135). Invalidation rule (ii) is strategy intent, not an executable control."},
+    {"id": "F-11", "severity": "CRITICAL", "status": "OPEN", "detail": "TYCHE_ALLOWED_ACCOUNT_IDS missing -> validate_market allowlist check (lifecycle.py:293-297) fails closed at APPROVE itself (lifecycle_cli.py:158). Approve also needs fresh <=120s broker snapshot (lifecycle.py:298-301); capture1 14:30Z stale. r2 approval operationally blocked until env restoration + fresh capture."},
+    {"id": "F-12", "severity": "HIGH", "status": "RESOLVED", "detail": "config/tactical.yaml:5 execution_enabled: false verified; flip never committed, reverted 14:45Z; drill ABANDONED; zero orders/reservations/ticks; journal head unchanged cf2ab069 (15 events)."},
+    {"id": "F-14", "severity": "MEDIUM", "status": "MOOT_THIS_PHASE", "detail": "Tactical lane lacks event-caution halving/imminence gate (tactical.py:344-346); drill abandoned. Remains a code gap for any future tactical rollout."},
+    {"id": "F-16", "severity": "HIGH", "status": "RESOLVED", "detail": "Desk triage recorded: Leading Index/KC Fed rejected as noise with reasons; Barr pinned EV-20261119-BARR (events.yaml added_at 14:35:19Z, market-wide); ANT debut in calendar anchors, first-quote ~14:50Z volatility noted in r2 addenda as context, not thesis-breaking. Minor disclosed source discrepancy: triage claims cons 197K vs researcher 198K."},
+    {"id": "F-18", "severity": "MEDIUM", "status": "DESK_VERIFIED_ASSERTED", "detail": "Engine ancestry 2181c12 ancestor of HEAD d640952, 119d4e57 in log: desk-verified with shell; auditor cannot independently verify (no shell). CLI hash gates remain enforcement."},
+    {"id": "F-21", "severity": "LOW", "status": "OPEN_MINOR", "detail": "Stamp-vs-estimate gaps disclosed: r1 news_checked_at assembly ~4min after researcher check; r2 researcher labeled estimates (~14:57Z pass, ~14:58Z assembly) LATER than desk real-clock arrival stamp 14:55:34Z — desk stamp authoritative and earlier, so freshness not inflated. Keep disclosing; stamps should reflect actual completion/arrival."},
+    {"id": "F-22", "severity": "HIGH", "status": "OPEN_OPERATOR_DECISION", "detail": "Operator must explicitly approve the FULL exact r2 previews/hashes (lifecycle_cli.py:151-161); 'Do the 3 items' predates contracts. Auditor references withheld until coordinator relays operator verbatim confirmation + F-01 acceptance + F-02 acknowledgment."}
+  ],
+  "approve_time_gates": [
+    "Operator verbatim full r2 preview/hash confirmation + F-01 acceptance + F-02 acknowledgment (F-22/F-01/F-02)",
+    "TYCHE_ALLOWED_ACCOUNT_IDS restoration (F-11) — approve fails closed without it",
+    "Fresh <=120s broker capture at approve; holdings still exactly 28/142 (lifecycle.py:298-301, lifecycle_cli.py:174-175)",
+    "Reviews/news fresh at approve moment — EXPIRE 15:55:34Z; if slipped, re-stamp reviews (hashes unchanged) and re-check news; content verdict carries, approve gate needs freshness",
+    "rules_hash unchanged at approve (lifecycle_cli.py:165-167)"
+  ],
+  "post_event_obligations": [
+    "Barr 19:15Z: after the event, ack requires a review with reviewed_at >= 19:15Z (lifecycle.py:350-352); r2 reviews (14:55:34Z) can never satisfy it. Due at next hourly check (20:05Z).",
+    "PBoC LPR Nov-20 01:15Z: post-event review due at first Nov-20 hourly check.",
+    "Missing/stale reviews block NEW entries only, never latched protective exits (lifecycle.py:442-446)."
+  ],
+  "hash_verification_limitation": "Auditor has no shell; sha256 fingerprints (lifecycle.py:71-73) not recomputable. r2 hashes desk-recomputed AND preview-CLI-confirmed (r2-publication.json:7; preview files match book payloads/hashes); plan CONTENT verified field-by-field. CLI enforces fingerprint equality at approve (lifecycle_cli.py:160-161), fail-closed.",
+  "execution_approved_audit_json_written": false,
+  "auditor_references_issued": [],
+  "reservations_created": 0,
+  "operator_grants_made": 0,
+  "production_hold": "REMAINS",
+  "next": "Await coordinator follow-up with operator verbatim full-preview confirmation + F-01/F-02 decisions + env restoration evidence; re-check freshness; issue genuine per-hash references with actual coordinator clock. If reviews expire first (15:55:34Z), require re-stamped reviews before approve."
+}

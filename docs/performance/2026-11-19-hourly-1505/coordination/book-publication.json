@@ -1,0 +1,14 @@
+{
+  "published_at_utc": "2026-11-19T15:22:42Z",
+  "desk": "tyche-desk hourly-1505 (sess_00vz7hpt2g16op8z64e6)",
+  "target": "/data/drive/tyche-raw/lifecycle/book.json",
+  "new_sha256": "bcaec558d46307ba63337c23e76a315a32052cf36ab790333000ea257f09631c",
+  "prior_sha256": "e2409538466e1e8c8a4840e7a75f5a9d5bfa803e3e2aab26a2ec4a870a52c745",
+  "prior_preserved": "R/state/book-at-start.json (byte-identical to pre-publication production book)",
+  "changes": "reviews replaced with hourly-1505 researcher refresh (valid_until 16:11:03Z, EV-20261119-ANT-DEBUT acknowledged, timestamp bounding disclosed as evidence line); MarketEvent EV-20261119-ANT-DEBUT added; news_checked_at 15:11:03Z. Plans BYTE-UNCHANGED, hashes desk-recomputed: SPY e73ee77d4b6abca10545bd296537fcee34b9a2511440e49fcf1d3ad23f9c89df, EFA add27d1a3e75fece0fe292c51050d9324ac33326a58ac4516cd93e3b39a9b33c.",
+  "schema_validation": "LifecycleBook.model_validate PASS (release 3312287 code, HEAD 601c731)",
+  "arrival_disclosure": "researcher evidence fetch ran ~15:09:30Z->15:14Z; reviewed_at anchored to freshest payload stamp 15:11:03Z (honest bound, researcher has no wall clock); ANT-DEBUT acknowledgment was a 15:23Z bookkeeping update, not a fresh fetch; desk assembly/publication 15:22:42Z",
+  "state_untouched": "lifecycle/state.json sha256 a7a9e99496ffc4f9b6c1c2819e2ace95a3b8de421fe5f34b4238d7bd293f0d58 (approvals/reservations empty, unchanged)",
+  "journal": "R/journal/events.jsonl 16 events (executor plan.created appended via CLI), sha256 9daffecd96440f2e273308606cde14074eff87e83f59b393b3ba9c6136d8f66a; latest verified descendant of validation-1413/premarket-1305 lineage",
+  "note": "executor read-only tick 15:18:55Z used pre-refresh book (identical plans); both symbols action=review authorized=false, no would-exit triggers; refreshed reviews only extend validity and add event acknowledgment"
+}

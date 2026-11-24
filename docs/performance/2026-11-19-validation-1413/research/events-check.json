@@ -1,0 +1,71 @@
+{
+  "as_of": "2026-11-19",
+  "checked_at_utc": "2026-11-19T14:24:00Z",
+  "checked_at_note": "Labeled estimate; config/events.yaml read this session (~14:11Z).",
+  "book_events_coverage": [
+    {
+      "event_id": "EV-20261119-CLAIMS",
+      "pinned": true,
+      "pin_match": "config/events.yaml: date 2026-11-19, 'US Initial Jobless Claims 08:30 ET', kind macro, symbols US.SPY/US.QQQ/US.IWM/US.TLT/US.IEF, source MCP econ calendar indicatorId 294, added_at 2026-11-19T13:30:33.508254Z",
+      "occurred": true,
+      "occurred_at_utc": "2026-11-19T13:30:00Z",
+      "actual": "203K vs 198K cons; prev revised 200K->202K; continuing claims 1.763M vs 1.710M cons",
+      "post_event_sources": "MCP quote_economic_calendar_hot 20261119 id294; Benzinga post/1005050120 (13:30:16Z); Zhitong 1525956 (13:43:26Z)"
+    },
+    {
+      "event_id": "EV-20261119-PHILLYFED",
+      "pinned": true,
+      "pin_match": "config/events.yaml: date 2026-11-19, 'Philadelphia Fed Mfg Index (Nov) 08:30 ET', kind macro, symbols US.SPY/US.IWM/US.SMH, source philadelphiafed.org + MCP econ calendar indicatorId 236, added_at 2026-11-19T13:30:33.942396Z",
+      "occurred": true,
+      "occurred_at_utc": "2026-11-19T13:30:00Z",
+      "actual": "6.3 vs consensus 20.6 per Benzinga flash (delegation cited prev 20.6 / cons 20.9 - consensus discrepancy noted; large miss under either)",
+      "post_event_sources": "Benzinga post/1005050118 (publish_time 1795095017000 = 2026-11-19T13:30:17Z)",
+      "coverage_note": "Philly Fed did NOT appear in quote_economic_calendar_hot 20261119 response (only claims id294 returned, has_more=false); verified via news flash instead. Calendar-tool coverage gap recorded, not inferred."
+    },
+    {
+      "event_id": "EV-20261120-PBOC-LPR",
+      "pinned": true,
+      "pin_match": "config/events.yaml: date 2026-11-20, 'PBoC LPR fixing 01:15Z (Nov19 20:15 ET)', kind macro, symbols US.EFA/US.EEM, source jin10 calendar item 235457, added_at 2026-11-19T13:30:34.375722Z",
+      "occurred": false,
+      "scheduled_at_utc": "2026-11-20T01:15:00Z",
+      "note": "PENDING. Material for EFA (held 142 sh, close 100.26 only 0.26% above 100.00 daily-close invalidation). Post-event review required after it occurs."
+    }
+  ],
+  "new_event_proposals": [
+    {
+      "date": "2026-11-19",
+      "name": "Fed Governor Michael Barr speech 14:15 ET (19:15Z)",
+      "kind": "macro",
+      "time_utc": "2026-11-19T19:15:00Z",
+      "affected_symbols": ["US.SPY", "US.QQQ", "US.SMH"],
+      "source": "AASTOCKS NOW.1555643 via https://news.futunn.com/post/1005044874 (publish_time 1795091550000 = 2026-11-19T12:32:30Z)",
+      "materiality": "Falls INSIDE the tactical same-session hold window (before 20:05Z exit); a hawkish Barr remark in a hike-cycle regime could reverse the post-claims risk-on bounce and move rates-sensitive equity/semi flow.",
+      "status": "PROPOSAL ONLY - Desk Head validates and pins; researcher does not write config/events.yaml"
+    },
+    {
+      "date": "2026-11-19",
+      "name": "US October Leading Index 10:00 ET (15:00Z)",
+      "kind": "macro",
+      "time_utc": "2026-11-19T15:00:00Z",
+      "affected_symbols": ["US.SPY", "US.IWM"],
+      "source": "MCP quote_economic_calendar_hot 20261119 indicatorId 1968 (prev 0.0% / cons 0.0%, per premarket-1305 research report); CLS 2539359 (13:39:20Z) lists 23:00 Beijing",
+      "materiality": "Low-to-moderate: lands 30 min after the open and could shape the first hourly check; already proposed in premarket-1305 event-proposals but NOT pinned - re-flagging, not a new discovery.",
+      "status": "PROPOSAL ONLY (previously proposed, unpinned)"
+    },
+    {
+      "date": "2026-11-19",
+      "name": "Kansas City Fed Mfg Index Nov 11:00 ET (16:00Z)",
+      "kind": "macro",
+      "time_utc": "2026-11-19T16:00:00Z",
+      "affected_symbols": ["US.SPY", "US.IWM"],
+      "source": "AASTOCKS NOW.1555643 via https://news.futunn.com/post/1005044874 (publish 2026-11-19T12:32:30Z)",
+      "materiality": "Low: secondary regional survey after the Philly miss; pin only if Desk Head wants full macro-day coverage. Optional.",
+      "status": "PROPOSAL ONLY - optional"
+    }
+  ],
+  "no_other_material_events": "Beyond the three proposals above (one previously proposed), no additional NEW source-backed material events found for universe/tactical symbols in the next 14 days this run. ANT IPO debut (today) and ANT index inclusion Dec 4, PCE/Beige Book Nov 25, Thanksgiving Nov 26, Nov 27 early close, FOMC Dec 9 are already covered by static anchors per premarket-1305 report; SNDK 8:1 split Nov 20 is not a universe symbol. No IPO-list tool call was needed beyond existing coverage; quote_ipo_list_us not re-fetched this narrow refresh (gap recorded).",
+  "discrepancies": [
+    "Claims prev/cons in delegation (prev 198K / cons 200K) differ from verified feed (prev revised 202K / cons 198K); actual 203K. Feed values used.",
+    "Philly Fed consensus: delegation 20.9 vs Benzinga flash 20.6; actual 6.3 is a large miss under either."
+  ]
+}

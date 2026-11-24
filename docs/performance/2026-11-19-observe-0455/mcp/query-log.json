@@ -1,0 +1,49 @@
+{
+  "run": "2026-11-19-observe-0455",
+  "mode": "READ-ONLY observe; no broker writes performed",
+  "account": "[REDACTED] (masked; full id only in raw broker payloads on private Drive)",
+  "note": "Timestamps are actual UTC clock reads bracketing each MCP call (sandbox has no per-call broker receipt time). read_between = [clock immediately before call dispatch, clock immediately after result received].",
+  "calls": [
+    {
+      "seq": 1,
+      "tool": "mcp__moomoo__sim_trade_account_list",
+      "params": {},
+      "capture": "accounts.json",
+      "read_between_utc": ["2026-11-19T04:59:07Z", "2026-11-19T04:59:19.317Z"],
+      "result": "ret_code=0; 8 sim accounts; challenge account [REDACTED] account_type=2 market_id=100 matches TYCHE_ALLOWED_ACCOUNT_IDS (single-entry allowlist, exact match verified programmatically without printing)"
+    },
+    {
+      "seq": 2,
+      "tool": "mcp__moomoo__sim_trade_cash_info",
+      "params": {"acc_id": "[REDACTED]"},
+      "capture": "cash.json",
+      "read_between_utc": ["2026-11-19T04:59:19.317Z", "2026-11-19T04:59:27.380Z"],
+      "result": "ret_code=0"
+    },
+    {
+      "seq": 3,
+      "tool": "mcp__moomoo__sim_trade_position_list",
+      "params": {"acc_id": "[REDACTED]", "market": 100},
+      "capture": "positions.json",
+      "read_between_utc": ["2026-11-19T04:59:19.317Z", "2026-11-19T04:59:27.380Z"],
+      "result": "ret_code=0; 2 positions (SPY, EFA); parallel with seq 2"
+    },
+    {
+      "seq": 4,
+      "tool": "mcp__moomoo__quote_market_state",
+      "params": {"code_list": ["US.SPY", "US.EFA"]},
+      "capture": "market-state.json",
+      "read_between_utc": ["2026-11-19T04:59:27.380Z", "2026-11-19T04:59:33.732Z"],
+      "result": "ret_code=0; both AFTER_HOURS_END, time_date=20261118"
+    },
+    {
+      "seq": 5,
+      "tool": "mcp__moomoo__quote_stock_quote",
+      "params": {"code_list": ["US.SPY", "US.EFA"]},
+      "capture": "quotes.json",
+      "read_between_utc": ["2026-11-19T04:59:33.732Z", "2026-11-19T04:59:36.630Z"],
+      "result": "ret_code=0; sec_status NORMAL, no suspension; data_time 1795035600268 / 1795035600000 (2026-11-18T21:00:00Z regular close)"
+    }
+  ],
+  "failures": []
+}

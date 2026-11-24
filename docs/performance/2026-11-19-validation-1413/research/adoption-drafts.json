@@ -1,0 +1,106 @@
+{
+  "as_of": "2026-11-19",
+  "status": "UNAPPROVED_RESEARCH_DRAFT",
+  "generated_at_utc": "2026-11-19T14:24:00Z",
+  "generated_at_note": "Labeled estimate (no independent clock); anchored to delegation clock ~14:10Z and this session's MCP fetches ~14:12-14:20Z.",
+  "desk_head_owned_fields": "created_at, entry reference band (from post-open last), plan hashes, holding_deadline clock time and any final contract fields are computed/set by the Desk Head. Nothing here is an approval, an audit, or an order.",
+  "drafts": [
+    {
+      "symbol": "US.SPY",
+      "quantity": 28,
+      "mode": "adopt_position",
+      "strategy": "PB-001",
+      "rules_hash": "4105d7a680a3",
+      "reconciled_cost_basis_per_share": 731.54,
+      "thesis": "PB-001 ballast retention: hold the existing 28 SPY shares under hourly lifecycle protection through challenge end (2026-11-28). No adds, no scaling, no automatic re-entry. Post-13:30Z macro (claims 203K vs 198K cons, Philly Fed 6.3 vs ~20.6 cons) cooled the Dec 50bp hike tail to ~8% and the tape bounced risk-on pre-market (SPY +1.14% at 738.50); the diversification/ballast role is intact despite the kernel's risk_off regime, which per PB-001 governs rebalance trims, not automatic liquidation.",
+      "stop": {
+        "price": 727.5,
+        "basis": "daily_close",
+        "note": "Desk research 2026-11-18/19 invalidation level, not a sizing stop. Trigger = first COMPLETED daily close below 727.50. Nov-18 close 730.20 is 0.37% above; Nov-18 intraday low 726.795 already traded below it intraday without a close breach."
+      },
+      "take_profit": {
+        "price": 775.64,
+        "basis": "daily_close",
+        "source": "structural-levels.json: highest high of last 20 completed sessions, bar 2026-11-04, time_key 1793768400000, mcp_kline_US.SPY.txt (grep-verified) + fresh quote_history_kline 2026-10-22..2026-11-18",
+        "note": "PLAIN STATEMENT: PB-001 exits by rebalance. This target is a profit-taking guard, not a forecast that price will reach 775.64."
+      },
+      "invalidation_rules": [
+        "(i) A completed daily close below 727.50 (stop basis daily_close) latches the stop_loss exit; intraday trades below the level alone do not trigger it.",
+        "(ii) Rotation momentum <= 0 or regime risk_off triggers a trim per PB-001, evaluated at rebalance only; this is NOT automatic liquidation.",
+        "(iii) A material thesis-breaking event acknowledged by a fresh timestamped review (verdict invalidated with cited condition-specific evidence) invalidates the plan.",
+        "(iv) No broker-native stop exists: protection is a synthetic hourly monitor; gaps, halts, delayed runs and limit non-fills can exceed the planned loss."
+      ],
+      "holding_deadline": null,
+      "holding_deadline_note": "MISSING FIELD, not invented: thesis says retain through challenge end (2026-11-28). Desk Head must set the exact deadline at/by a scheduled RTH hourly check within the challenge window (note Nov 26 Thanksgiving closure, Nov 27 early close 13:00 ET).",
+      "entry_expiry": null,
+      "entry_expiry_note": "Adoption of an existing reconciled holding; no new entry. Desk Head to finalize contract fields.",
+      "review_draft": {
+        "reviewed_at": "2026-11-19T14:24:00Z",
+        "valid_until": "2026-11-19T15:24:00Z",
+        "news_checked_at": "2026-11-19T14:20:00Z",
+        "timestamp_note": "reviewed_at/valid_until/news_checked_at are labeled estimates anchored to actual completed MCP news/quote checks this session (~14:12-14:20Z); news_checked_at reflects a real completed news check, not file-write time.",
+        "verdict_suggestion": "valid",
+        "reason": "Ballast retention thesis intact after post-event revalidation: no completed daily close below 727.50 (Nov-18 close 730.20), pre-market rebound +1.14% to 738.50, and the weak claims/Philly prints reduced the aggressive-hike tail (Dec 50bp ~8% vs ~12.7% fear level) rather than breaking the diversification thesis. STOP PROXIMITY FLAG: close is only 0.37% above the invalidation level and Nov-18 low 726.795 already breached it intraday; kernel regime is risk_off, so PB-001 rebalance trim rule (ii) may apply at rebalance - that is not liquidation permission. No adds.",
+        "evidence": [
+          "MCP quote_economic_calendar_hot 20261119 (fetched ~14:13Z): Initial Jobless Claims announce 203K, predictive 198K, previous 202K (revised), event_time 1795095000 = 2026-11-19T13:30:00Z, indicatorId 294",
+          "Benzinga via news.futunn.com/post/1005050118 (publish_time 1795095017000 = 2026-11-19T13:30:17Z): Philadelphia Fed Nov manufacturing index 6.3 vs consensus 20.6 (delegation cited cons 20.9; discrepancy noted, both imply a large miss)",
+          "Benzinga via news.futunn.com/post/1005050120 (publish 1795095016000 = 2026-11-19T13:30:16Z): continuing claims 1.763M vs 1.710M cons, prev revised 1.693M",
+          "Zhitong http://www.zhitongcaijing.com/content/detail/1525956.html via news.futunn.com/post/1005053824 (publish 1795095806000 = 2026-11-19T13:43:26Z): claims week Nov-14 203K vs Econoday 198K, prev revised 200K->202K; 4wk avg 197,750; pre-print Dec 25bp hike odds ~90.7%, 50bp ~8%",
+          "CLS https://www.cls.cn/detail/2539359 via news.futunn.com/post/1005051087 (publish 1795095560000 = 2026-11-19T13:39:20Z): post-print futures risk-on, S&P futures ~+1.2%, Nasdaq 100 futures >+2% on ANT IPO halo",
+          "MCP quote_stock_quote US.SPY (fetched ~14:15Z): pre_market price 738.5047 (+1.137%), pre_high 740.58, pre_low 736.8752, overnight 738.55; last_price 730.2 with exchange data_time 1795035600268 = 2026-11-18T21:00:00Z; Nov-18 low 726.795",
+          "Kline capture mcp_kline_US.SPY.txt (2026-11-19-premarket-1305, captured 13:13-13:14Z) + fresh quote_history_kline 2026-10-22..2026-11-18: Nov-18 close 730.20; 20-session highest high 775.64 (2026-11-04)"
+        ],
+        "acknowledged_events": ["EV-20261119-CLAIMS", "EV-20261119-PHILLYFED", "EV-20261120-PBOC-LPR"],
+        "post_event_review_note": "This review is the post-13:30Z revalidation for EV-20261119-CLAIMS and EV-20261119-PHILLYFED (both occurred 13:30Z, sources above). EV-20261120-PBOC-LPR (2026-11-20T01:15Z) is PENDING and acknowledged as upcoming; it is not yet occurred and cannot be post-event reviewed."
+      }
+    },
+    {
+      "symbol": "US.EFA",
+      "quantity": 142,
+      "mode": "adopt_position",
+      "strategy": "PB-001",
+      "rules_hash": "4105d7a680a3",
+      "reconciled_cost_basis_per_share": 100.495,
+      "thesis": "PB-001 ballast retention: hold the existing 142 EFA shares as the developed-ex-US diversifier under hourly lifecycle protection through challenge end (2026-11-28). No adds, no scaling, no automatic re-entry. EXPLICIT WEAKNESS FLAG: three consecutive daily declines (102.64 -> 101.35 -> 100.26) on USD strength, Nov-18 intraday low 99.96 already below the 100.00 invalidation level, and PBoC LPR fixing pending 2026-11-20T01:15Z; retention is justified only because no completed daily close below 100.00 has occurred.",
+      "stop": {
+        "price": 100.0,
+        "basis": "daily_close",
+        "note": "Desk research 2026-11-18/19 invalidation level, not a sizing stop. Trigger = first COMPLETED daily close below 100.00, which latches stop_loss. Nov-18 close 100.26 is only 0.26% above; Nov-18 low 99.96 breached intraday without a close breach. Latest pre-market 100.97 (+0.71%) on only 117 shares - thin price discovery, not an executable market."
+      },
+      "take_profit": {
+        "price": 105.8,
+        "basis": "daily_close",
+        "source": "structural-levels.json: highest high of last 20 completed sessions, bar 2026-11-04, time_key 1793768400000, mcp_kline_US.EFA.txt (grep-verified) + fresh quote_history_kline 2026-10-22..2026-11-18",
+        "note": "PLAIN STATEMENT: PB-001 exits by rebalance. This target is a profit-taking guard, not a forecast that price will reach 105.80."
+      },
+      "invalidation_rules": [
+        "(i) A completed daily close below 100.00 (stop basis daily_close) latches the stop_loss exit; intraday trades below the level alone do not trigger it.",
+        "(ii) Rotation momentum <= 0 or regime risk_off triggers a trim per PB-001, evaluated at rebalance only; this is NOT automatic liquidation.",
+        "(iii) A material thesis-breaking event acknowledged by a fresh timestamped review (verdict invalidated with cited condition-specific evidence) invalidates the plan.",
+        "(iv) No broker-native stop exists: protection is a synthetic hourly monitor; gaps, halts, delayed runs and limit non-fills can exceed the planned loss."
+      ],
+      "holding_deadline": null,
+      "holding_deadline_note": "MISSING FIELD, not invented: thesis says retain through challenge end (2026-11-28). Desk Head must set the exact deadline at/by a scheduled RTH hourly check within the challenge window (note Nov 26 Thanksgiving closure, Nov 27 early close 13:00 ET).",
+      "entry_expiry": null,
+      "entry_expiry_note": "Adoption of an existing reconciled holding; no new entry. Desk Head to finalize contract fields.",
+      "review_draft": {
+        "reviewed_at": "2026-11-19T14:24:00Z",
+        "valid_until": "2026-11-19T15:24:00Z",
+        "news_checked_at": "2026-11-19T14:20:00Z",
+        "timestamp_note": "Labeled estimates anchored to actual completed MCP news/quote checks this session (~14:12-14:20Z).",
+        "verdict_suggestion": "uncertain",
+        "reason": "EFA WEAKNESS CONFIRMED BY REVALIDATION: three straight down days into Nov-18 close 100.26, only 0.26% above the 100.00 daily-close invalidation level; Nov-18 low 99.96 already traded below it. USD strength persists (USD/JPY 159.97 post-claims per Fisco 13:33:03Z) and PBoC LPR (2026-11-20T01:15Z) is an unresolved two-way event for EFA. Pre-market +0.71% to 100.97 exists but on 117 shares - thin, not reliable price discovery. No completed close below 100.00, so NO confirmed invalidation: retain protection, do not liquidate on uncertainty; uncertain verdict blocks any NEW EFA exposure. The first completed daily close below 100.00 would latch stop_loss.",
+        "evidence": [
+          "MCP quote_economic_calendar_hot 20261119 (fetched ~14:13Z): claims announce 203K vs 198K cons, event_time 1795095000 = 2026-11-19T13:30:00Z (post-event revalidation input)",
+          "Benzinga via news.futunn.com/post/1005050118 (publish 1795095017000 = 2026-11-19T13:30:17Z): Philly Fed Nov 6.3 vs 20.6 cons - US growth softening; mixed for ex-US via USD channel",
+          "Fisco via news.futunn.com/post/1005050659 (publish 1795095183000 = 2026-11-19T13:33:03Z): USD/JPY rose to 159.97 after claims - USD strength headwind for EFA persists",
+          "MCP quote_stock_quote US.EFA (fetched ~14:15Z): last_price 100.26 (exchange data_time 1795035600000 = 2026-11-18T21:00:00Z), Nov-18 low 99.96, after_market 100.26, pre_market price 100.97 (+0.708%) volume 117 shares, pre_low 100.1562",
+          "Kline capture mcp_kline_US.EFA.txt + fresh quote_history_kline 2026-10-22..2026-11-18: closes Nov-16 102.64, Nov-17 101.35, Nov-18 100.26 (three consecutive declines); 20-session highest high 105.80 (2026-11-04)",
+          "config/events.yaml pin: PBoC LPR fixing 2026-11-20T01:15Z (Nov-19 20:15 ET), symbols US.EFA/US.EEM, source jin10 calendar item 235457 - PENDING, not yet occurred"
+        ],
+        "acknowledged_events": ["EV-20261119-CLAIMS", "EV-20261119-PHILLYFED", "EV-20261120-PBOC-LPR"],
+        "post_event_review_note": "Post-13:30Z revalidation completed for CLAIMS and PHILLYFED with the timestamped sources above. PBOC-LPR is pending tomorrow 01:15Z; a fresh post-event review will be required after it occurs. Delegation's 'pre-market last 100.26' corresponds to the after-hours/last price; the latest pre-market print is 100.97 on 117 shares (thin)."
+      }
+    }
+  ]
+}

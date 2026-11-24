@@ -1,0 +1,12 @@
+{
+  "session": "phase-a2-reconcile",
+  "account_masked": "***598",
+  "reads": {
+    "accounts.json": {"tool": "sim_trade_account_list", "read_window_utc": ["2026-11-19T14:11:34.434Z", "2026-11-19T14:11:34.434Z"], "note": "clock stamped in same parallel block as the call; treat 14:11:34.434Z as the read time"},
+    "cash.json": {"tool": "sim_trade_cash_info", "read_window_utc": ["2026-11-19T14:11:34.434Z", "2026-11-19T14:12:11.964Z"], "note": "parallel batch; individual call time not separately stamped; bounded by pre-call and post-call clocks"},
+    "positions.json": {"tool": "sim_trade_position_list", "read_window_utc": ["2026-11-19T14:11:34.434Z", "2026-11-19T14:12:11.964Z"], "note": "same parallel batch window"},
+    "orders-1.json": {"tool": "sim_trade_history_order_list", "read_window_utc": ["2026-11-19T14:11:34.434Z", "2026-11-19T14:12:11.964Z"], "note": "unfiltered first page, pagination.has_more=false, single page; same parallel batch window"}
+  },
+  "batch_window_utc": {"start": "2026-11-19T14:11:34.434Z", "end": "2026-11-19T14:12:11.964Z"},
+  "oldest_read_utc": "2026-11-19T14:11:34.434Z"
+}

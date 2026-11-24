@@ -1,0 +1,305 @@
+{
+  "as_of": "2026-11-19",
+  "account_id": "[REDACTED]",
+  "nav": 99927.13,
+  "cash": 65244.61,
+  "regime": "risk_off",
+  "targets": {
+    "US.DBC": 0.075,
+    "US.SPY": 0.049918,
+    "US.VNQ": 0.075,
+    "US.EFA": 0.050082,
+    "CASH": 0.75
+  },
+  "signals": {
+    "US.SPY": {
+      "momentum": 0.018458906214512294,
+      "volatility": 0.15074370839668624,
+      "score": 0.12245224965500498,
+      "selected": true
+    },
+    "US.QQQ": {
+      "momentum": -0.017137559938643285,
+      "volatility": 0.23946585498072376,
+      "score": -0.07156577684122357,
+      "selected": false
+    },
+    "US.IWM": {
+      "momentum": -0.0011661752623412722,
+      "volatility": 0.17995205681809343,
+      "score": -0.006480477539193195,
+      "selected": false
+    },
+    "US.EFA": {
+      "momentum": 0.0035254686737094323,
+      "volatility": 0.15025225367921485,
+      "score": 0.023463665851137433,
+      "selected": true
+    },
+    "US.EEM": {
+      "momentum": -0.03434267208889338,
+      "volatility": 0.24809940328266553,
+      "score": -0.1384230338102263,
+      "selected": false
+    },
+    "US.TLT": {
+      "momentum": -0.04311074644557046,
+      "volatility": 0.10756721180951137,
+      "score": -0.4007796215998833,
+      "selected": false
+    },
+    "US.IEF": {
+      "momentum": -0.03503844101469597,
+      "volatility": 0.061843882505008475,
+      "score": -0.5665627640997208,
+      "selected": false
+    },
+    "US.GLD": {
+      "momentum": -0.09485613482084557,
+      "volatility": 0.24425114414867846,
+      "score": -0.38835492522035253,
+      "selected": false
+    },
+    "US.DBC": {
+      "momentum": 0.0791649275935522,
+      "volatility": 0.19003606210344487,
+      "score": 0.4165784468342609,
+      "selected": true
+    },
+    "US.VNQ": {
+      "momentum": 0.010792606096865354,
+      "volatility": 0.15391317551275566,
+      "score": 0.07012139188805776,
+      "selected": true
+    },
+    "US.HYG": {
+      "momentum": -0.03296546490131402,
+      "volatility": 0.045729330975670265,
+      "score": -0.6593092980262805,
+      "selected": false
+    }
+  },
+  "regime_checks": {
+    "equity_trend": false,
+    "golden_cross": true,
+    "vol_calm": false,
+    "credit_trend": false
+  },
+  "portfolio_vol": 0.08759958238910143,
+  "vol_scale": 1.0,
+  "orders": [
+    {
+      "intent": {
+        "symbol": "US.SPY",
+        "option": null,
+        "strategy_id": "PB-001",
+        "setup_id": null,
+        "side": "sell",
+        "quantity": 21,
+        "order_type": "limit",
+        "limit_price": 729.47,
+        "stop_price": null,
+        "reason": "rebalance 20.5% -> 5.0% under risk_off regime",
+        "notional": 15318.87
+      },
+      "verdict": {
+        "allowed": false,
+        "breaches": [
+          {
+            "rule": "account.reconcile",
+            "detail": "computed NAV differs from broker NAV; reconcile cash/frozen/positions"
+          }
+        ],
+        "adjusted_quantity": 21,
+        "notes": []
+      },
+      "pipeline": {
+        "vehicle": "etf",
+        "vehicle_rationale": "equity sleeve ETF; rebalance 20.5% -> 5.0% under risk_off regime",
+        "expected_edge": {
+          "r": null,
+          "pct": null,
+          "label": "provisional \u2014 ballast beta, no validated expectancy"
+        },
+        "invalidation": "rotation target drops to 0 if US.SPY momentum <= 0 or regime flips to risk_off (<2 of 4 checks); exit at next rebalance \u2014 no broker-native stop on sim",
+        "protection_type": "rebalance",
+        "roll_plan": null,
+        "sizing": {
+          "quantity": 21,
+          "effective_quantity": 0,
+          "limit_price": 729.47,
+          "notional": 0.0,
+          "nav_pct": 0.0,
+          "single_asset_cap_pct": 0.4,
+          "sleeve_cap_pct": 0.2
+        },
+        "action": "act"
+      },
+      "effective_quantity": 0
+    },
+    {
+      "intent": {
+        "symbol": "US.EFA",
+        "option": null,
+        "strategy_id": "PB-001",
+        "setup_id": null,
+        "side": "sell",
+        "quantity": 92,
+        "order_type": "limit",
+        "limit_price": 100.16,
+        "stop_price": null,
+        "reason": "rebalance 14.2% -> 5.0% under risk_off regime",
+        "notional": 9214.72
+      },
+      "verdict": {
+        "allowed": false,
+        "breaches": [
+          {
+            "rule": "account.reconcile",
+            "detail": "computed NAV differs from broker NAV; reconcile cash/frozen/positions"
+          }
+        ],
+        "adjusted_quantity": 92,
+        "notes": []
+      },
+      "pipeline": {
+        "vehicle": "etf",
+        "vehicle_rationale": "equity sleeve ETF; rebalance 14.2% -> 5.0% under risk_off regime",
+        "expected_edge": {
+          "r": null,
+          "pct": null,
+          "label": "provisional \u2014 ballast beta, no validated expectancy"
+        },
+        "invalidation": "rotation target drops to 0 if US.EFA momentum <= 0 or regime flips to risk_off (<2 of 4 checks); exit at next rebalance \u2014 no broker-native stop on sim",
+        "protection_type": "rebalance",
+        "roll_plan": null,
+        "sizing": {
+          "quantity": 92,
+          "effective_quantity": 0,
+          "limit_price": 100.16,
+          "notional": 0.0,
+          "nav_pct": 0.0,
+          "single_asset_cap_pct": 0.4,
+          "sleeve_cap_pct": 0.2
+        },
+        "action": "act"
+      },
+      "effective_quantity": 0
+    },
+    {
+      "intent": {
+        "symbol": "US.DBC",
+        "option": null,
+        "strategy_id": "PB-001",
+        "setup_id": null,
+        "side": "buy",
+        "quantity": 253,
+        "order_type": "limit",
+        "limit_price": 29.54,
+        "stop_price": 27.18,
+        "reason": "rebalance 0.0% -> 7.5% under risk_off regime",
+        "notional": 7473.62
+      },
+      "verdict": {
+        "allowed": false,
+        "breaches": [
+          {
+            "rule": "account.reconcile",
+            "detail": "computed NAV differs from broker NAV; reconcile cash/frozen/positions"
+          }
+        ],
+        "adjusted_quantity": 253,
+        "notes": []
+      },
+      "pipeline": {
+        "vehicle": "etf",
+        "vehicle_rationale": "real_asset sleeve ETF; rebalance 0.0% -> 7.5% under risk_off regime",
+        "expected_edge": {
+          "r": null,
+          "pct": null,
+          "label": "provisional \u2014 ballast beta, no validated expectancy"
+        },
+        "invalidation": "rotation target drops to 0 if US.DBC momentum <= 0 or regime flips to risk_off (<2 of 4 checks); exit at next rebalance \u2014 no broker-native stop on sim",
+        "protection_type": "rebalance",
+        "roll_plan": null,
+        "sizing": {
+          "quantity": 253,
+          "effective_quantity": 0,
+          "limit_price": 29.54,
+          "notional": 0.0,
+          "nav_pct": 0.0,
+          "single_asset_cap_pct": 0.4,
+          "sleeve_cap_pct": 0.3
+        },
+        "action": "wait"
+      },
+      "effective_quantity": 0
+    },
+    {
+      "intent": {
+        "symbol": "US.VNQ",
+        "option": null,
+        "strategy_id": "PB-001",
+        "setup_id": null,
+        "side": "buy",
+        "quantity": 78,
+        "order_type": "limit",
+        "limit_price": 95.28,
+        "stop_price": 87.66,
+        "reason": "rebalance 0.0% -> 7.5% under risk_off regime",
+        "notional": 7431.84
+      },
+      "verdict": {
+        "allowed": false,
+        "breaches": [
+          {
+            "rule": "account.reconcile",
+            "detail": "computed NAV differs from broker NAV; reconcile cash/frozen/positions"
+          }
+        ],
+        "adjusted_quantity": 78,
+        "notes": []
+      },
+      "pipeline": {
+        "vehicle": "etf",
+        "vehicle_rationale": "real_asset sleeve ETF; rebalance 0.0% -> 7.5% under risk_off regime",
+        "expected_edge": {
+          "r": null,
+          "pct": null,
+          "label": "provisional \u2014 ballast beta, no validated expectancy"
+        },
+        "invalidation": "rotation target drops to 0 if US.VNQ momentum <= 0 or regime flips to risk_off (<2 of 4 checks); exit at next rebalance \u2014 no broker-native stop on sim",
+        "protection_type": "rebalance",
+        "roll_plan": null,
+        "sizing": {
+          "quantity": 78,
+          "effective_quantity": 0,
+          "limit_price": 95.28,
+          "notional": 0.0,
+          "nav_pct": 0.0,
+          "single_asset_cap_pct": 0.4,
+          "sleeve_cap_pct": 0.3
+        },
+        "action": "wait"
+      },
+      "effective_quantity": 0
+    }
+  ],
+  "pipeline": {
+    "thesis_ref": "PB-001 \u00b7 rules 4105d7a680a3",
+    "rules_hash": "4105d7a680a3",
+    "inputs_ref": {
+      "prices_path": "data/prices.csv",
+      "prices_sha256": "9ace62129556f14c5700a5b344d745ae07ef62eea8ce087a0e19681e2f7b92a1",
+      "brief": null
+    },
+    "outlook": "bearish",
+    "conviction": "low",
+    "checks_score": 1,
+    "checks_total": 4,
+    "act_wait_rule": "new non-defensive entries wait at low conviction (<=1 of 4 regime checks); sells and defensive entries always act \u2014 the gate never blocks de-risking"
+  },
+  "notes": [
+    "regime=risk_off checks=1/4 portfolio_vol=8.8% vol_scale=1.00"
+  ]
+}

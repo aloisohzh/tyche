@@ -1,0 +1,19 @@
+{
+  "session": "phase-a2-capture-batch-1",
+  "account_masked": "***598",
+  "batch_window_utc": {"pre_call_clock": "2026-11-19T14:30:41.640Z", "post_call_clock": "2026-11-19T14:31:20.545Z"},
+  "note": "All 9 MCP reads issued in one parallel batch immediately after the 14:30:41.640Z clock. Individual call times not separately stamped; exchange data timestamps (14:30:51.5-14:30:54.8Z) confirm reads landed ~14:30:54Z. Oldest-read bound used conservatively as observed_at.",
+  "reads": {
+    "accounts.json": {"tool": "sim_trade_account_list", "read_window_utc": ["2026-11-19T14:30:41.640Z", "2026-11-19T14:31:20.545Z"], "note": "payload verified byte-identical to 14:11:34Z reconcile read; file copied from reconcile/accounts.json after byte-level comparison of the fresh response"},
+    "cash.json": {"tool": "sim_trade_cash_info", "read_window_utc": ["2026-11-19T14:30:41.640Z", "2026-11-19T14:31:20.545Z"]},
+    "positions.json": {"tool": "sim_trade_position_list", "read_window_utc": ["2026-11-19T14:30:41.640Z", "2026-11-19T14:31:20.545Z"]},
+    "orders-1.json": {"tool": "sim_trade_history_order_list", "read_window_utc": ["2026-11-19T14:30:41.640Z", "2026-11-19T14:31:20.545Z"], "note": "unfiltered first page; pagination.has_more=false; single page, no further pages exist"},
+    "quotes.json": {"tool": "quote_stock_quote", "read_window_utc": ["2026-11-19T14:30:41.640Z", "2026-11-19T14:31:20.545Z"], "exchange_data_time_utc_range": ["2026-11-19T14:30:51.526Z", "2026-11-19T14:30:54.250Z"]},
+    "book-US.AMD.json": {"tool": "quote_order_book", "read_window_utc": ["2026-11-19T14:30:41.640Z", "2026-11-19T14:31:20.545Z"], "exchange_data_time_utc": {"NASDAQ": "2026-11-19T14:30:54.512Z", "ARCA": "2026-11-19T14:30:54.510Z"}},
+    "book-US.MU.json": {"tool": "quote_order_book", "read_window_utc": ["2026-11-19T14:30:41.640Z", "2026-11-19T14:31:20.545Z"], "exchange_data_time_utc": {"NASDAQ": "2026-11-19T14:30:54.622Z", "ARCA": "2026-11-19T14:30:54.598Z"}},
+    "book-US.SMH.json": {"tool": "quote_order_book", "read_window_utc": ["2026-11-19T14:30:41.640Z", "2026-11-19T14:31:20.545Z"], "exchange_data_time_utc": {"NASDAQ": "2026-11-19T14:30:54.793Z", "ARCA": "2026-11-19T14:30:54.832Z"}},
+    "market-state.json": {"tool": "quote_market_state", "read_window_utc": ["2026-11-19T14:30:41.640Z", "2026-11-19T14:31:20.545Z"], "note": "RTH confirmed: trade_section 1795098600-1795122000 (14:30:00Z-21:00:00Z), traded_seconds=54"}
+  },
+  "observed_at_utc": "2026-11-19T14:30:41.640Z",
+  "observed_at_note": "conservative lower bound = pre-call clock of the batch; actual reads occurred within the following ~13s (exchange stamps ~14:30:54Z)"
+}

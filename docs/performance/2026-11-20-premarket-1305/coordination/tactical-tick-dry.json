@@ -1,0 +1,11 @@
+{
+  "as_of": "2026-11-20T13:20:29.269842+00:00",
+  "phase": "pre_market",
+  "config_hash": "160b7d96f5c2f7cc83a2452830ed5abc0565cc04039a03cad5a7385ce334e2de",
+  "orders": [],
+  "decisions": [],
+  "alerts": [
+    "tactical lane disabled or outside regular session"
+  ],
+  "submitted": false
+}

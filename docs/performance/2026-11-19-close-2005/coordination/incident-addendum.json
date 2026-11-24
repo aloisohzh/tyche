@@ -1,0 +1,34 @@
+{
+ "run": "2026-11-19-close-2005",
+ "recorded_at_utc": "2026-11-19T20:30:00Z",
+ "incident": "single-writer violation / unattributed broker flow",
+ "journal_incident_event_hash": "7c50d6833b7c46f61bc5a57d7794e6382cdcc6e92a9a7a18f3ee31a1acf691d0",
+ "journal_after": "18 events, sha256 0c2ee2967b365fb448c007ba1fffa93a56135c06d6e2e67ed0bd4441f0706055, chain verified",
+ "executor_summary_sha256": "3223f48311ca782fe89591c36cf1c345f9713cc73bf2e7a9dbf39b63acd102d7",
+ "book_publication_sha256": "111fcbe29b3c0888a51bd8971ba98fba256c907f395bc91b68de53ac1ff65660",
+ "book_publication_note": "research publication (20:21Z) preceded executor incident findings; book NOT rewritten for incident; this addendum is the risk record",
+ "bootstrap_correction": "coordination/bootstrap.json statement \"No other active writer observed\" is FALSIFIED by 8 unattributed orders 17:23-18:15Z; preserved as point-in-time record",
+ "halt": {
+  "engaged": true,
+  "mechanism": "tyche halt CLI, data/halt.json + journal halt event",
+  "scope": "blocks buys in lanes reading this repo; does NOT stop a rogue lane on another repo/session",
+  "operator_resume": "tyche resume after writer identified and allowlist fixed"
+ },
+ "operator_actions_required": [
+  "1. Identify and pause the submitting lane (tyche-scl-/tyche-tac- request texts, 17:23-18:15Z window; check paused Forward schedule and ad-hoc Qoder sessions)",
+  "2. Re-provision TYCHE_ALLOWED_ACCOUNT_IDS to ***598 for scheduled executor sessions (current ***4748)",
+  "3. Disposition MSFT 39 @503.33 (unowned ~19.7% NAV): explicit operator-directed adoption proposal or de-risk; desk will not adopt from holding alone",
+  "4. SPY/EFA: verify official Nov-19 closes vs 727.50/100.00 daily-close stops; r2 entry window expired 20:00Z unapproved - decide r3 adoption revision or exit; no approved exit path exists tonight",
+  "5. Resolve status5 orders VNQ 3116597 and SMH 3118500 (terminal semantics unproven)",
+  "6. Restore single durable writer before any production state writes"
+ ],
+ "protection_gaps": {
+  "SPY": "28 sh, intraday 717.56 < 727.50 stop, unapproved, no broker stop",
+  "EFA": "142 sh, intraday 98.89 < 100.00 stop, unapproved, no broker stop",
+  "MSFT": "39 sh unowned, no plan/stop/target",
+  "pending_protective_orders": 0
+ },
+ "close_verification_gap": "no scheduled check 21:00Z close -> 2026-11-20T13:05Z; next fire must verify completed Nov-19 daily bars (kline) for stop-breach evidence before any action",
+ "loss_limits": "daily -0.562% (limit 2.5%), DD from HWM 100193.13 -0.838% (soft 4%) - NOT breached",
+ "orders_submitted_by_this_run": 0
+}

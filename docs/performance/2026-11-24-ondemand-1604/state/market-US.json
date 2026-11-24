@@ -1,0 +1,227 @@
+{
+  "observed_at": "2026-11-24T16:12:40Z",
+  "snapshot": {
+    "account_id": "[REDACTED]",
+    "cash": 98831.144,
+    "frozen_cash": 0.0,
+    "broker_nav": 98831.144,
+    "prior_close_nav": null,
+    "high_water_nav": null,
+    "captured_at": "2026-11-24T16:12:40Z",
+    "positions": [],
+    "env": "paper",
+    "account_type": 2,
+    "market_id": 100,
+    "source": "sim_list",
+    "gross_exposure": 0.0,
+    "nav": 98831.144
+  },
+  "regime": "risk_off",
+  "conviction": "low",
+  "broker_nav": 98831.144,
+  "prior_close_nav": 99380.951,
+  "high_water_nav": 100000.0,
+  "available": {
+    "US.MSFT": 0,
+    "US.EFA": 0,
+    "US.SPY": 0
+  },
+  "quotes": [
+    {
+      "symbol": "US.KO",
+      "last": 98.135,
+      "at": "2026-11-24T16:12:40.305000Z",
+      "tradable": true,
+      "close": null,
+      "close_at": null
+    },
+    {
+      "symbol": "US.PG",
+      "last": 173.075,
+      "at": "2026-11-24T16:12:40.312000Z",
+      "tradable": true,
+      "close": null,
+      "close_at": null
+    },
+    {
+      "symbol": "US.JNJ",
+      "last": 275.5506,
+      "at": "2026-11-24T16:12:34.923000Z",
+      "tradable": true,
+      "close": null,
+      "close_at": null
+    }
+  ],
+  "orders": [
+    {
+      "symbol": "US.MSFT",
+      "option": null,
+      "order_id": "3124586",
+      "side": "sell",
+      "quantity": 39,
+      "filled_quantity": 39,
+      "status": 4,
+      "created_at": "2026-11-24T13:12:46Z",
+      "limit_price": 485.26,
+      "remark": "tyche-exit-c82a32a9d62237ea809adeeb"
+    },
+    {
+      "symbol": "US.EFA",
+      "option": null,
+      "order_id": "3124585",
+      "side": "sell",
+      "quantity": 142,
+      "filled_quantity": 142,
+      "status": 4,
+      "created_at": "2026-11-24T13:12:35Z",
+      "limit_price": 97.88,
+      "remark": "tyche-exit-da8d43da202b3f81dcb15de4"
+    },
+    {
+      "symbol": "US.SPY",
+      "option": null,
+      "order_id": "3124584",
+      "side": "sell",
+      "quantity": 28,
+      "filled_quantity": 28,
+      "status": 4,
+      "created_at": "2026-11-24T13:11:33Z",
+      "limit_price": 710.08,
+      "remark": "tyche-exit-732827c19f2debdb73f62f14"
+    },
+    {
+      "symbol": "US.MSFT",
+      "option": null,
+      "order_id": "3118578",
+      "side": "buy",
+      "quantity": 39,
+      "filled_quantity": 39,
+      "status": 4,
+      "created_at": "2026-11-19T18:15:16Z",
+      "limit_price": 503.35,
+      "remark": "tyche-tac-be465d06d3474a2a8cf83dc661a8c964"
+    },
+    {
+      "symbol": "US.MU",
+      "option": null,
+      "order_id": "3118536",
+      "side": "sell",
+      "quantity": 7,
+      "filled_quantity": 7,
+      "status": 4,
+      "created_at": "2026-11-19T17:48:49Z",
+      "limit_price": 699.27,
+      "remark": "tyche-scl-e0956d362cad4855a04c7d9431342854"
+    },
+    {
+      "symbol": "US.AMD",
+      "option": null,
+      "order_id": "3118534",
+      "side": "sell",
+      "quantity": 10,
+      "filled_quantity": 10,
+      "status": 4,
+      "created_at": "2026-11-19T17:48:42Z",
+      "limit_price": 485.26,
+      "remark": "tyche-scl-ad9d81156879446ea3fdfff4b9699a89"
+    },
+    {
+      "symbol": "US.NVDA",
+      "option": null,
+      "order_id": "3118508",
+      "side": "sell",
+      "quantity": 33,
+      "filled_quantity": 33,
+      "status": 4,
+      "created_at": "2026-11-19T17:29:56Z",
+      "limit_price": 150.03,
+      "remark": "tyche-scl-a0ff23cd435a48258e4bcd9bee6e78a5"
+    },
+    {
+      "symbol": "US.SMH",
+      "option": null,
+      "order_id": "3118500",
+      "side": "buy",
+      "quantity": 10,
+      "filled_quantity": 0,
+      "status": 5,
+      "created_at": "2026-11-19T17:25:10Z",
+      "limit_price": 454.48,
+      "remark": "tyche-scl-bb75c14b80864bff862b70aa94713500"
+    },
+    {
+      "symbol": "US.MU",
+      "option": null,
+      "order_id": "3118498",
+      "side": "buy",
+      "quantity": 7,
+      "filled_quantity": 7,
+      "status": 4,
+      "created_at": "2026-11-19T17:24:30Z",
+      "limit_price": 701.68,
+      "remark": "tyche-scl-a4619198d7184039bfdc20dbab894b79"
+    },
+    {
+      "symbol": "US.AMD",
+      "option": null,
+      "order_id": "3118497",
+      "side": "buy",
+      "quantity": 10,
+      "filled_quantity": 10,
+      "status": 4,
+      "created_at": "2026-11-19T17:24:13Z",
+      "limit_price": 486.98,
+      "remark": "tyche-scl-79bbee164ae44deeaf8f50864390ea8f"
+    },
+    {
+      "symbol": "US.NVDA",
+      "option": null,
+      "order_id": "3118496",
+      "side": "buy",
+      "quantity": 33,
+      "filled_quantity": 33,
+      "status": 4,
+      "created_at": "2026-11-19T17:23:59Z",
+      "limit_price": 149.51,
+      "remark": "tyche-scl-5388f21ac8dc4732abec1351e7225415"
+    },
+    {
+      "symbol": "US.VNQ",
+      "option": null,
+      "order_id": "3116597",
+      "side": "buy",
+      "quantity": 83,
+      "filled_quantity": 0,
+      "status": 5,
+      "created_at": "2026-11-18T17:53:07Z",
+      "limit_price": 94.98,
+      "remark": "tyche 2026-11-18 rebalance 11% VNQ, plan f11456df"
+    },
+    {
+      "symbol": "US.EFA",
+      "option": null,
+      "order_id": "3116594",
+      "side": "buy",
+      "quantity": 142,
+      "filled_quantity": 142,
+      "status": 4,
+      "created_at": "2026-11-18T17:49:36Z",
+      "limit_price": 101.45,
+      "remark": "tyche 2026-11-18 rebalance 20% EFA, plan f11456df"
+    },
+    {
+      "symbol": "US.SPY",
+      "option": null,
+      "order_id": "3116580",
+      "side": "buy",
+      "quantity": 28,
+      "filled_quantity": 28,
+      "status": 4,
+      "created_at": "2026-11-18T17:44:56Z",
+      "limit_price": 733.17,
+      "remark": "tyche 2026-11-18 rebalance 30% SPY, plan f11456df"
+    }
+  ],
+  "orders_complete": true,
+  "halted": false
+}

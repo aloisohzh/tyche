@@ -1,0 +1,29 @@
+{
+  "tool": "mcp__moomoo__sim_trade_history_order_list",
+  "account": "...598 (masked; full id in raw captures only)",
+  "note": "Tool supports only acc_id, market, time_begin/time_end (microseconds), page_size, next_key. No status-filter parameter exists; coverage varied via date windows and unbounded query.",
+  "calls": [
+    {
+      "seq": 1,
+      "capture": "orders-page-01.json",
+      "params": {"acc_id": "[REDACTED]", "market": 100, "time_begin": 1793491200000000, "time_end": 1795132800000000, "page_size": 50, "next_key": null},
+      "window_utc": "2026-11-01T00:00:00Z .. 2026-11-20T00:00:00Z",
+      "returned": {"ret_code": 0, "order_count": 3, "order_ids": ["3116597", "3116594", "3116580"], "pagination": {"has_more": false, "next_key": "0"}}
+    },
+    {
+      "seq": 2,
+      "capture": "orders-page-02.json",
+      "params": {"acc_id": "[REDACTED]", "market": 100, "time_begin": null, "time_end": null, "page_size": 50, "next_key": null},
+      "window_utc": "unbounded (no time filter)",
+      "returned": {"ret_code": 0, "order_count": 3, "order_ids": ["3116597", "3116594", "3116580"], "pagination": {"has_more": false, "next_key": "0"}}
+    },
+    {
+      "seq": 3,
+      "capture": "orders-page-03.json",
+      "params": {"acc_id": "[REDACTED]", "market": 100, "time_begin": 1767225600000000, "time_end": 1793491200000000, "page_size": 50, "next_key": null},
+      "window_utc": "2026-01-01T00:00:00Z .. 2026-11-01T00:00:00Z (pre-challenge backstop)",
+      "returned": {"ret_code": 0, "order_count": 0, "order_ids": [], "pagination": {"has_more": false, "next_key": "0"}}
+    }
+  ],
+  "exhaustion_evidence": "All three calls returned pagination.has_more=false and next_key=\"0\"; no cursor continuation was offered. Unbounded query (seq 2) returned the identical 3-order set as the challenge-window query (seq 1); pre-November backstop window (seq 3) returned zero orders. Union of all pages = {3116580, 3116594, 3116597}. No status filter is exposed by the tool, so no status-sliced sweep was possible; the unbounded sweep is the strongest available completeness check."
+}

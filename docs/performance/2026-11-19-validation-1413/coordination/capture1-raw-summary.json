@@ -1,0 +1,45 @@
+{
+  "phase": "A2 raw capture batch 1 (read-only; no CLI, no reserve, no broker writes)",
+  "generated_at_utc": "2026-11-19T14:33:30Z",
+  "account_masked": "***598",
+  "observed_at": "2026-11-19T14:30:41.640Z",
+  "observed_at_note": "conservative pre-call clock of parallel batch; exchange data stamps 14:30:51.526Z-14:30:54.832Z; per-read windows in mcp/times.json",
+  "market_state": {"session": "RTH", "trade_section_utc": ["2026-11-19T14:30:00Z", "2026-11-19T21:00:00Z"], "traded_seconds_at_read": 54},
+  "account": {"nav_total_asset": 100184.41, "cash_balance": 65244.61, "frozen_hold": 0, "long_mv": 34939.8, "short_mv": 0},
+  "quotes": {
+    "US.SPY": {"last": 737.865, "data_time_utc": "2026-11-19T14:30:54.250Z", "sec_status": "NORMAL", "suspension": false},
+    "US.EFA": {"last": 100.52, "data_time_utc": "2026-11-19T14:30:51.526Z", "sec_status": "NORMAL", "suspension": false},
+    "US.AMD": {"last": 540.64, "data_time_utc": "2026-11-19T14:30:53.844Z", "sec_status": "NORMAL", "suspension": false},
+    "US.MU": {"last": 735.025, "data_time_utc": "2026-11-19T14:30:54.224Z", "sec_status": "NORMAL", "suspension": false},
+    "US.SMH": {"last": 471.8007, "data_time_utc": "2026-11-19T14:30:54.139Z", "sec_status": "NORMAL", "suspension": false}
+  },
+  "books_top_of_book": {
+    "US.AMD": {"NASDAQ": {"bid": 540.71, "ask": 541.36, "time_utc": "2026-11-19T14:30:54.512Z"}, "ARCA": {"bid": 540.65, "ask": 541.0, "time_utc": "2026-11-19T14:30:54.510Z"}, "best_bid": 540.71, "best_ask": 541.0, "two_sided": true},
+    "US.MU": {"NASDAQ": {"bid": 734.8, "ask": 735.68, "time_utc": "2026-11-19T14:30:54.622Z"}, "ARCA": {"bid": 734.74, "ask": 735.68, "time_utc": "2026-11-19T14:30:54.598Z"}, "best_bid": 734.8, "best_ask": 735.68, "two_sided": true},
+    "US.SMH": {"NASDAQ": {"bid": 471.35, "ask": 471.96, "time_utc": "2026-11-19T14:30:54.793Z"}, "ARCA": {"bid": 471.37, "ask": 471.98, "time_utc": "2026-11-19T14:30:54.832Z"}, "best_bid": 471.37, "best_ask": 471.96, "two_sided": true}
+  },
+  "entry_zone_check": {
+    "US.AMD": {"zone": [538.0, 543.5], "last": 540.64, "in_zone": true},
+    "US.MU": {"zone": [728.5, 740.0], "last": 735.025, "in_zone": true},
+    "US.SMH": {"zone": [469.5, 474.0], "last": 471.8007, "in_zone": true, "viable": false, "reason": "1 share ~471.80 < min_order_notional 500"}
+  },
+  "reconciliation": {
+    "account": "MATCH: account_type 2, market_id 100, challenge title",
+    "positions": "MATCH: SPY 28/28 avbl, EFA 142/142 avbl, no options",
+    "orders": "MATCH: 3 orders, single page has_more=false; SPY 3116580 status4 28/28 avg 731.54; EFA 3116594 status4 142/142 avg 100.495; VNQ 3116597 status5 cum 0 UNRESOLVED (no action taken)",
+    "drift": "none vs delegation expectations"
+  },
+  "closes": {"source": "verified 2026-11-18 completed daily bars from 2026-11-19-premarket-1305 klines (research/structural-levels.json absent)", "US.SPY": 730.2, "US.EFA": 100.26, "file": "mcp/closes.json"},
+  "anomalies": [
+    "Book shape drift vs expectation: each symbol returned TWO per-exchange books (NASDAQ + ARCA, LV3-style), not one consolidated book. Both books two-sided and fresh. Downstream CLI expecting a single consolidated book must handle this shape; raw payloads preserved unmodified.",
+    "Broker NAV 100184.41 exceeds delegated high_water_nav 100000.0; HWM reference needs desk reconciliation from journal evidence before CLI phase (not acted on).",
+    "VNQ order 3116597 status5 cum 0 remains UNRESOLVED; flagged, no cancel/modify/retry.",
+    "Env allowlist injection still missing in this session (Phase A blocker); CLI steps deferred to fresh executor session per desk instruction.",
+    "Local sandbox clock ran ~3s behind exchange data timestamps at batch time; exchange stamps used for feed-age facts, local clocks for read windows."
+  ],
+  "artifacts": {
+    "raw_dir": "/data/drive/tyche-raw/2026-11-19-validation-1413/mcp/",
+    "files": ["accounts.json", "cash.json", "positions.json", "orders-1.json", "quotes.json", "book-US.AMD.json", "book-US.MU.json", "book-US.SMH.json", "market-state.json", "closes.json", "times.json", "observed-at.txt"],
+    "reconcile_dir": "/data/drive/tyche-raw/2026-11-19-validation-1413/mcp/reconcile/"
+  }
+}

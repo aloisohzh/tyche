@@ -1,0 +1,121 @@
+{
+  "report": "pre-review",
+  "audit_dir": "/data/drive/tyche-raw/2026-11-19-validation-1413/audit",
+  "companion_report": "pre-review.md",
+  "auditor": "tyche-risk-auditor",
+  "mode": "HOURLY_VALIDATION_PRE_REVIEW_ONLY",
+  "utc_date": "2026-11-19",
+  "delegation_clock_utc": "2026-11-19T14:15:00Z",
+  "clock_note": "Coordinator-supplied delegation clock ~14:15Z; artifacts reviewed through 14:34:08Z publication stamp. Auditor has no independent clock; no reviewed_at/valid_until is asserted here.",
+  "production_hold": "NOT_RELEASED",
+  "execution_approved_audit_json_written": false,
+  "operator_grants_written": false,
+  "reservations_created": 0,
+  "orders_submitted": 0,
+  "account_masked": "***598",
+  "repo_head_verified": "d640952dfccec02af5297712734c9061d40eb08e",
+  "basis_ruling": {
+    "item": "daily_close stop at research invalidation levels + mechanical 20-session-high structural take_profit, both daily_close basis, PB-001 adoption",
+    "verdict": "ACCEPT",
+    "conditions": [
+      "Preview/thesis must state: PB-001 exits by rebalance; target is a profit-taking guard, not a forecast",
+      "Disclose zero intraday protection today (F-01), next-RTH execution lag, synthetic non-guaranteed exits, stop proximity (F-07)",
+      "Mandatory contract changes F-04 (deadline) and F-05 (rounding) still apply; basis acceptance is not contract approval"
+    ],
+    "verification": "Structural levels independently verified against raw kline captures: SPY 775.64 and EFA 105.80 both 2026-11-04 bars; no higher high in 2026-10-22..2026-11-18 window (regex scan incl. Oct 26 and sub-cent decimals); Nov-18 closes 730.20/100.26 exact-matched; matches research/structural-levels.json"
+  },
+  "proposals": [
+    {
+      "id": "P1",
+      "proposal": "US.SPY adopt_position qty 28, PB-001, stop 727.50 daily_close, target 775.64 daily_close",
+      "verdict": "APPROVE-WITH-CHANGES",
+      "executable_approval": false,
+      "mandatory_changes": ["F-04 exit_deadline <= 2026-11-27T17:00:00Z", "F-05 round entry_high to 2 decimals; band from post-open capture #1", "F-08 re-stamp review with actual clock after created_at; news_feed_ok true + fresh news_checked_at", "F-07 invalidation wording 'at or below'", "F-10 thesis final-session wording Nov-27 (Nov-28 is Saturday)"],
+      "blockers_until_final_pass": ["F-11 allowlist injection", "F-02 exit-path remediation plan (operator-reviewed)", "dedicated fresh approval capture + exact-hash review + operator approval"]
+    },
+    {
+      "id": "P2",
+      "proposal": "US.EFA adopt_position qty 142, PB-001, stop 100.00 daily_close, target 105.80 daily_close",
+      "verdict": "APPROVE-WITH-CHANGES",
+      "executable_approval": false,
+      "as_drafted_outcome": "REJECT at approval gate: research review_draft verdict_suggestion is 'uncertain' (adoption-drafts.json:91); review_problem returns 'thesis uncertain' (lifecycle.py:341-342) and approve raises (lifecycle_cli.py:162-164)",
+      "mandatory_changes": ["Same as P1", "Genuine evidence-backed verdict 'valid' from the researcher's own judgment; no pressure, no fabricated valid; if uncertainty persists, EFA remains an unowned protection gap and operator decides"],
+      "notes": "Close 100.26 only 0.26% above stop; Nov-18 low 99.96 already intraday-below; pre-market 100.97 on 117 shares is thin; PBoC LPR 2026-11-20T01:15Z pending and material for EFA"
+    },
+    {
+      "id": "P3",
+      "proposal": "US.AMD tactical drill TAC-20261119-AMD-L1, 1 share, zone 538.00-543.50, stop 535.00, target 556.50, exit 2026-11-19T20:05:00Z",
+      "verdict": "APPROVE-WITH-CHANGES",
+      "executable_approval": false,
+      "conditions": ["F-11 allowlist unblock with redacted proof", "F-12 operator-owned gate flip + sole-writer re-verification + engine ancestry proof (F-18)", "Operator-approved envelope data/approvals.json bound to exact executor-env setup_hash (buy max_qty 1 limit_max 543.50; sell max_qty 1 limit_min 1.0 multiplier 1 same hash; max_orders 1; max_notional 1000; as_of 2026-11-19)", "Two --record ticks >=10min apart with fresh captures and distinct exchange timestamps under same setup_hash", "F-16 desk event decisions: ANT first-trade status pre-entry; Leading Index 15:00Z pin decision; Barr 19:15Z decision", "Final exact-order_hash audit within 120s window; reserve on identical files; submit_before +30s; ALL drill writes before 14:58Z else abandon with zero reservations"],
+      "risk_math": {
+        "max_quantity": 1,
+        "worst_case_capital_loss_usd": 544.49,
+        "worst_case_pct_nav": 0.543,
+        "planned_stop_risk_usd_at_entry_high": 9.49,
+        "planned_stop_risk_pct_nav": 0.0095,
+        "modeled_entry_fee_usd": 0.99,
+        "reward_risk_at_entry_high": 1.529,
+        "nav_reference": 100161.21,
+        "prior_close_nav": 99914.93,
+        "high_water_nav": 100193.13,
+        "note": "Worst case = full notional + fees; stock stop is an estimate, not a maximum; synthetic hourly exit, not broker-native; gaps/halts/nonfills can exceed planned loss; modeled fees unconfirmed"
+      },
+      "watchlist_state": "AMD max_quantity=1 already set before any counted tick (published 14:34:08Z); reviewed_at excluded from setup_hash; must be <=30min old at reserve tick"
+    },
+    {
+      "id": "P4",
+      "proposal": "US.MU fallback drill TAC-20261119-MU-L1, 1 share, zone 728.50-740.00, stop 728.00, target 758.50, exit 20:05Z",
+      "verdict": "APPROVE-WITH-CHANGES",
+      "executable_approval": false,
+      "conditions": ["max_quantity still 27 in working watchlist: must set 1 BEFORE MU's first counted tick (changes setup_hash, resets confirmations)", "New envelope lines bound to MU setup_hash", "Research condition: intraday main-flow confirmation at open (5-day ~$760M outflow unresolved)", "Same timing/event/hash gates as P3"],
+      "risk_math": {"worst_case_capital_loss_usd": 740.99, "planned_stop_risk_usd_at_entry_high": 12.99, "reward_risk_at_entry_high": 1.542}
+    },
+    {
+      "id": "P5",
+      "proposal": "US.SMH 1-share drill TAC-20261119-SMH-L1",
+      "verdict": "REJECT",
+      "executable_approval": false,
+      "reasons": ["1 share ~473 < min_order_notional 500 (config/risk.yaml:19; risk.py:85-86)", "Unresolved PB-001-vs-tactical sleeve attribution (research tactical-refresh.json:93)"]
+    }
+  ],
+  "findings": [
+    {"id": "F-01", "severity": "HIGH", "status": "verified", "lane": "lifecycle", "title": "Zero intraday gap protection today for adopted holdings", "detail": "trigger_price returns None when close_at < plan.created_at; closes.json carries 11-18 close; both stop/target unevaluable at every tick today; first evaluable bar is 11-19 close fed after 21:00Z; latch durable after hours but submission next RTH (earliest scheduled Nov-20 10:05 ET / 15:05Z); overnight gap exposure; no broker-native stop", "evidence": ["src/tyche/lifecycle.py:361", "src/tyche/lifecycle.py:424-426", "src/tyche/lifecycle.py:431-433", "src/tyche/lifecycle.py:496-499", "R/mcp/closes.json"]},
+    {"id": "F-02", "severity": "CRITICAL", "status": "verified", "lane": "lifecycle", "title": "Legacy journal order.requested events lack request_id; lifecycle reserve AND execute-exit fail closed", "detail": "check_execution_journal raises 'unclassified or duplicate journal request' for the three legacy events (SPY 3116580 / EFA 3116594 / VNQ 3116597); protective exits cannot be authorized through the pinned CLI until operator-reviewed remediation; adoption approve and tactical lane unaffected; hash chain must not be edited; must be fixed before protection is called operational and before Nov-27 flatten", "evidence": ["src/tyche/lifecycle_cli.py:335-339", "src/tyche/lifecycle_cli.py:264", "src/tyche/lifecycle_cli.py:371", "R/journal/events.jsonl events 4,6,8"]},
+    {"id": "F-03", "severity": "HIGH", "status": "verified", "lane": "lifecycle", "title": "EFA review draft verdict 'uncertain' blocks adoption approval", "detail": "approve requires review_problem None => verdict valid; researcher suggested uncertain on genuine weakness evidence; no pressure to flip; if unresolved, EFA stays an unowned visible protection gap; uncertainty is not liquidation authority", "evidence": ["research/adoption-drafts.json:91", "src/tyche/lifecycle.py:341-342", "src/tyche/lifecycle_cli.py:162-164"]},
+    {"id": "F-04", "severity": "HIGH", "status": "verified", "lane": "lifecycle", "title": "exit_deadline 2026-11-27T17:30:00Z not schedule-feasible; mandatory change to <=17:00:00Z", "detail": "12:30 ET falls between last RTH hourly check 12:05 ET (17:05Z) and after-hours 13:05 ET on the half day; time exit would latch after hours and execute Nov-30, after competition trading ends Nov-27 regular close; require exit_deadline <= 2026-11-27T17:00:00Z so 12:05 ET closing-drive check latches and submits with ~55min margin; new revision/hash/preview/audit/operator approval", "evidence": ["src/tyche/market_calendar.py:82-94", "src/tyche/market_calendar.py:434-466", "src/tyche/lifecycle.py:62-66", "src/tyche/lifecycle.py:416-417", "src/tyche/lifecycle.py:496-499", "docs/competition/rules.md:10-11"]},
+    {"id": "F-05", "severity": "MEDIUM", "status": "verified", "lane": "lifecycle", "title": "Reference-band formula: round entry_high to 2 decimals; edge cases", "detail": "entry_high=max(last*1.005, entry_low+0.01) unrounded produces float noise in immutable contract; round and re-validate stop<entry_low<=entry_high<target; EFA entry_low forced to stop+0.01=100.01 can sit above market if last<100.01 (disclose, do not move stop); if last*1.005>=target validator fails => re-plan; band from post-open capture #1 only; adoption cannot buy", "evidence": ["src/tyche/lifecycle.py:58", "src/tyche/lifecycle.py:458-459", "src/tyche/lifecycle_cli.py:174-175"]},
+    {"id": "F-06", "severity": "MEDIUM", "status": "verified", "lane": "lifecycle", "title": "preview planned_loss_at_stop_usd is an artifact for adoption reference bands", "detail": "qty*(entry_high-stop): SPY $445.20 / EFA $107.92 at example bands; not risk estimates; mark-to-stop SPY $341.60 / EFA $36.92; cost-to-stop SPY $113.12 / EFA $70.29; none is a maximum given daily_close basis, hourly synthetic exits, gaps and nonfills", "evidence": ["src/tyche/lifecycle_cli.py:125-126", "src/tyche/lifecycle_cli.py:132-136"]},
+    {"id": "F-07", "severity": "MEDIUM", "status": "verified", "lane": "lifecycle", "title": "Stop proximity and at-or-below trigger semantics", "detail": "EFA close 100.26 is 0.26% above 100.00 (Nov-18 low 99.96 intraday-below); SPY close 730.20 is 0.37% above 727.50 (Nov-18 low 726.795 intraday-below); code latches at close<=stop and close>=target; align invalidation wording to 'at or below'; intraday breaches alone do not trigger; EFA pre-market 100.97 on 117 shares is thin", "evidence": ["src/tyche/lifecycle.py:427-430", "research/structural-levels.json:51-53", "research/adoption-drafts.json:68", "kline captures verified"]},
+    {"id": "F-08", "severity": "MEDIUM", "status": "verified", "lane": "lifecycle", "title": "Review/event/news mechanics for final contracts", "detail": "reviewed_at must be actual clock >= created_at (drafts' 14:24Z estimates predate post-open creation and would fail); valid_until<=+60min; verdict valid; news_feed_ok true + news_checked_at<=1h (bootstrap book currently false); acknowledge EV-20261119-CLAIMS/EV-20261119-PHILLYFED/EV-20261120-PBOC-LPR; PBOC pending 01:15Z Nov-20 requires post-event review afterward; verified actuals claims 203K vs 198K cons, Philly 6.3 vs 20.6 cons differ from morning pins; expired reviews never suppress approved exits", "evidence": ["src/tyche/lifecycle.py:76-91", "src/tyche/lifecycle.py:333-354", "src/tyche/lifecycle.py:442-446", "/data/drive/tyche-raw/lifecycle/book.json", "research/events-check.json:67-70"]},
+    {"id": "F-09", "severity": "MEDIUM", "status": "verified", "lane": "lifecycle", "title": "Kernel risk_off trim (SPY 20.5%->5%, EFA 14.2%->5%) has no lifecycle lane", "detail": "decide implements only stop/target/deadline/invalidation; rebalance trim is a desk/operator action; adoption does not execute it; low conviction blocks new lifecycle entries via act_wait; keep gap visible; no fabricated exit triggers", "evidence": ["src/tyche/lifecycle.py:386-594", "src/tyche/lifecycle.py:483-487", "src/tyche/pipeline.py:66-71", "R/journal/events.jsonl plan.created 2026-11-19T13:32:54Z"]},
+    {"id": "F-10", "severity": "LOW", "status": "verified", "lane": "lifecycle", "title": "Contract wording/fields", "detail": "thesis 'challenge end 2026-11-28' is a Saturday; final session Nov-27 half day; entry_expires_at 20:00Z valid; slippage 30bps/quote 300s/review 60min within schema; rules_hash 4105d7a680a3 corroborated by journal pipeline output, re-checked live at approve; operator_ref must be verbatim instruction with actual UTC; auditor_ref must cite real final audit", "evidence": ["docs/competition/rules.md:10-11", "src/tyche/lifecycle.py:52-54", "src/tyche/lifecycle_cli.py:165-167", "src/tyche/pipeline.py:39-53", "R/journal/events.jsonl event 13"]},
+    {"id": "F-11", "severity": "HIGH", "status": "verified", "lane": "both", "title": "TYCHE_ALLOWED_ACCOUNT_IDS injection missing blocks all CLI validation/approval/reserve", "detail": "risk.yaml allowlist holds demo IDs only; validate_market/plan_tick/evaluate_intent fail closed without injection; config_hash includes loaded allowlist so setup_hash/order_hash computable only in executor env after injection; operator escalation in progress; no executable approval until redacted membership proof ***598", "evidence": ["config/risk.yaml:3", "src/tyche/lifecycle.py:293-297", "src/tyche/tactical.py:132-134", "src/tyche/risk.py:55-56", "src/tyche/tactical.py:67-75"]},
+    {"id": "F-12", "severity": "HIGH", "status": "verified", "lane": "tactical", "title": "execution_enabled true uncommitted, comment-contradictory; single-writer discipline critical", "detail": "gate flip changes config_hash vs committed release; operator must own the flip; inventory all uncommitted diffs; production remains NOT RELEASED post-drill; sole validation owner sess_00vz13yvcgmwwfskc72x and schedule pause 13:53Z asserted in bootstrap, not independently verifiable by auditor; re-verify before drill; relinquish ownership before scheduled owner resumes; local locks are not distributed locks", "evidence": ["config/tactical.yaml:4-5", "src/tyche/tactical_cli.py:161-162", "src/tyche/tactical_cli.py:217-231", "R/coordination/bootstrap.json"]},
+    {"id": "F-13", "severity": "MEDIUM", "status": "verified", "lane": "tactical", "title": "Drill risk math bounded and compliant; NAV refs reconciled", "detail": "AMD 1sh worst $544.49 (0.543% NAV), stop risk $9.49; MU worst $740.99, stop risk $12.99; SMH <500 min notional REJECT; R/R 1.529/1.542 >=1.5; gross ~43.3% incl VNQ pending <95%; cash >>5%; orders 0/40 today, 3 lifetime vs 200/day; turnover <<150%; HWM reconciled up to 100193.13 (lower bound, intraday peaks unobserved), prior close 99914.93; daily +0.25%, DD 0.03%; modeled fees unconfirmed", "evidence": ["config/risk.yaml:19", "src/tyche/risk.py:85-86", "src/tyche/tactical.py:264-266", "src/tyche/fees.py:17", "R/coordination/nav-refs.json", "R/mcp/reconcile/times.json"]},
+    {"id": "F-14", "severity": "MEDIUM", "status": "verified", "lane": "tactical", "title": "Event-caution halving not implemented in tactical lane", "detail": "calendar halves drive orders and sets event_caution; lifecycle halves risk/notional; tactical plan_tick passes config.risk unchanged and has no event-imminence gate; drill bounded instead by max_quantity=1 + envelope max_orders 1/max_notional 1000; 1-share risk far below halved budget; record code gap, desk applies event policy manually", "evidence": ["src/tyche/market_calendar.py:306-314", "src/tyche/lifecycle.py:567-571", "src/tyche/tactical.py:344-346"]},
+    {"id": "F-15", "severity": "MEDIUM", "status": "verified", "lane": "both", "title": "VNQ order 3116597 status 5 cum 0 unresolved overhang", "detail": "frozen 0 does not prove terminal cancel; only status 4 + full cum fill terminal; carried as pending buy $7883.34 in risk accounting; does not symbol-block AMD; no cancel/modify/retry without per-action operator confirmation; reconcile at EOD", "evidence": ["premarket executor-summary.json order_history", "src/tyche/lifecycle.py:150-158", "src/tyche/execution_state.py:86-108", "src/tyche/execution_state.py:111-134", "src/tyche/risk.py:77-78"]},
+    {"id": "F-16", "severity": "HIGH", "status": "desk_decision_required", "lane": "tactical", "title": "Event-imminence conflicts around drill window", "detail": "ANT IPO debut time unknown: verify first-trade status immediately pre-entry, imminent/just-debut => abandon; Leading Index 15:00Z proposal unpinned: explicit pin/no-pin decision required, pinned-material => drill misses 14:58Z cutoff => abandon; Barr speech 19:15Z proposal inside hold window: decision + disclosure required; tactical code enforces none of these", "evidence": ["research/events-check.json:34-65", "research/tactical-refresh.json:14", "src/tyche/tactical.py:110-364"]},
+    {"id": "F-17", "severity": "MEDIUM", "status": "verified", "lane": "tactical", "title": "Drill mechanics, confirmations, hash binding and timing windows", "detail": "AMD max_quantity=1 set before first counted tick; MU still 27 (reset before any MU tick); reviewed_at 14:34:08Z desk-stamped, excluded from setup_hash, <=30min at reserve tick; 2 record ticks >=10min apart, distinct exchange timestamps, same setup_hash; order_hash binds limit=ask and thesis text; reserve on identical files; audit window <=120s, quote <=60s, account <=120s, submit_before +30s; hard cutoff 14:58Z for ANY drill write; abandon with measured latency and zero reservations if windows unmet; no retry on unknown outcome; one order total, no scaling/re-entry; envelope does not exist yet and is operator-approved, not auditor-created", "evidence": ["src/tyche/tactical.py:72-80", "src/tyche/tactical.py:168-170", "src/tyche/tactical.py:243-274", "src/tyche/tactical_cli.py:173-208", "src/tyche/approvals.py:24-128", "/data/drive/tyche-raw/watchlist.json", "R/coordination/watchlist-publication.json"]},
+    {"id": "F-18", "severity": "MEDIUM", "status": "verification_gap", "lane": "both", "title": "Pinned engine ancestry not independently verifiable by auditor", "detail": "HEAD ref d640952 verified; ancestry of standing pin 119d4e57 and 2181c12 asserted by delegation, needs executor git proof; inventory uncommitted diffs; same absolute LC_ROOT/config-root for both lanes; do not use old 1e902cf; block if unproven", "evidence": [".git/refs/heads/main", "premarket executor-summary environment_verification"]},
+    {"id": "F-19", "severity": "LOW", "status": "verified", "lane": "both", "title": "Current run captures are pre-open, not executable", "detail": "reconcile reads 14:11:34-14:12:11Z; no RTH two-sided quotes before 14:30Z; adoption band needs post-open capture #1; drill needs fresh complete captures with reconciled NAV refs and current kernel regime/conviction", "evidence": ["R/mcp/reconcile/times.json", "premarket executor-summary quotes.freshness_caveat"]},
+    {"id": "F-20", "severity": "LOW", "status": "verified", "lane": "both", "title": "Data handling and bootstrap hygiene", "detail": "legacy journal contains full account ID: mask ***598, never edit hash chain; research 'estimate' timestamps disclosed but not genuine review clocks: bind actual coordinator UTC; bootstrap ledger empty at /data/drive/tyche-raw/lifecycle after reconciliation and prior-ledger search; journal lineage verified descendant of 2026-11-18 EOD; no adoption grants exist; unowned holdings remain visible gaps", "evidence": ["R/journal/events.jsonl", "R/coordination/bootstrap.json", "/data/drive/tyche-raw/lifecycle/book.json", "/data/drive/tyche-raw/lifecycle/state.json", "research/structural-levels.json:4"]}
+  ],
+  "portfolio_findings": [
+    "SPY 28 / EFA 142 are unowned protection gaps until adoption approved; even then F-01 (no intraday protection today) and F-02 (exit submission path blocked) mean protection is not operational end-to-end; keep gaps visible",
+    "Allocation ceilings are ceilings, not targets or liquidation authority; gross ~34.9% held + ~7.9% VNQ pending compliant; drill adds ~0.54%",
+    "Kernel risk_off trim is a separate operator decision; adoption does not perform it",
+    "Single execution writer only; scheduled tyche-hourly resumes after ownership handoff; other schedules paused; local locks are not distributed locks",
+    "Modeled fees unconfirmed vs broker cash deltas; EOD reconciliation required",
+    "Options remain unvalidated; options_enabled true authorizes nothing; live trading forbidden; production hold remains"
+  ],
+  "final_pass_checklists": {"lifecycle": "pre-review.md section 4A (10 items)", "tactical": "pre-review.md section 4B (9 items)"},
+  "evidence_gaps_asserted_not_verified": [
+    "HEAD ancestry of 119d4e57/2181c12 (no shell)",
+    "Qoder schedule pause and sole-writer session state (no scheduler tools)",
+    "Allowlist injection escalation status (no env access)",
+    "MCP fetch timestamps inside research artifacts (labeled estimates)",
+    "Broker status-5 semantics for VNQ 3116597",
+    "Operator approval of execution_enabled flip and of the future envelope"
+  ]
+}

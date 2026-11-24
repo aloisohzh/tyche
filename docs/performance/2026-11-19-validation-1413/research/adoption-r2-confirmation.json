@@ -1,0 +1,51 @@
+{
+  "artifact": "adoption-r2-confirmation",
+  "author": "tyche-researcher (scout, read-only; confirmation of research verdicts, NOT approval)",
+  "delegation": "R2 re-review, clock ~14:54Z, auditor-mandated exit_deadline change",
+  "generated_at_utc_estimate": "2026-11-19T14:58:00Z",
+  "generated_at_note": "Labeled estimate anchored to latest observed feed publish_time 1795099667000 = 2026-11-19T14:47:47Z (Gelonghui 1005058820) plus this assembly. Desk stamps reviewed_at at confirmation arrival (real clock, must be > created_at 14:53:03Z), valid_until +60min.",
+  "diff_verification": {
+    "source": "coordination/r2-plans.json vs research/adoption-final.json plans",
+    "changed_fields_exactly": ["plan_id (r1->r2)", "revision (1->2)", "exit_deadline (2026-11-27T17:30:00Z -> 2026-11-27T17:00:00Z)", "created_at (null placeholder -> 2026-11-19T14:53:03Z)"],
+    "no_other_semantic_differences": true,
+    "cosmetic_numeric_formatting": "stop 727.50->727.5, 100.00->100.0; take_profit 105.80->105.8 — identical JSON numeric values, no semantic change.",
+    "discrepancy_flag": "Notification said created_at 2026-11-19T14:53:02Z; the staged file has 14:53:03Z (both plans). File is authoritative; desk must confirm the published hashes were computed over the 14:53:03Z payloads.",
+    "verified_identical": ["symbol", "strategy_id PB-001", "rules_hash 4105d7a680a3", "thesis strings verbatim", "4 invalidation_rules verbatim", "mode adopt_position", "quantity 28/142", "entry bands 734.18-741.55 / 100.02-101.02", "stop/take_profit basis daily_close", "entry_expires_at 2026-11-19T20:00:00Z", "exit_on_invalidation true", "review_max_age_minutes 60", "quote_max_age_seconds 300", "max_slippage_bps 30"],
+    "validator_checks": "SPY 727.5 < 734.18 <= 741.55 < 775.64 PASS; EFA 100.0 < 100.02 <= 101.02 < 105.8 PASS; created_at 14:53:03Z < entry_expires_at 20:00Z <= exit_deadline 2026-11-27T17:00Z PASS; deadline 17:00Z = 12:00 ET precedes the last Nov-27 hourly check 12:05 ET (17:05Z), leaving 55 min before the 13:00 ET early close for the time-exit — auditor's rationale confirmed."
+  },
+  "confirmations": [
+    {
+      "plan_id": "LC-20261119-SPY-ADOPT-r2",
+      "plan_hash": "e73ee77d4b6abca10545bd296537fcee34b9a2511440e49fcf1d3ad23f9c89df",
+      "reviewed_at": null,
+      "valid_until": null,
+      "verdict": "valid",
+      "reason_carries_over": "UNCHANGED from adoption-final.json review_drafts[0].reason (protective retention; post-open 737.865 +1.05% vs prior close, 1.42% above 727.50 stop; no completed close below stop).",
+      "evidence_carries_over": "UNCHANGED from adoption-final.json review_drafts[0].evidence, PLUS the addenda below.",
+      "acknowledged_events": ["EV-20261119-CLAIMS", "EV-20261119-PHILLYFED", "EV-20261119-BARR", "EV-20261120-PBOC-LPR"]
+    },
+    {
+      "plan_id": "LC-20261119-EFA-ADOPT-r2",
+      "plan_hash": "add27d1a3e75fece0fe292c51050d9324ac33326a58ac4516cd93e3b39a9b33c",
+      "reviewed_at": null,
+      "valid_until": null,
+      "verdict": "valid",
+      "reason_carries_over": "UNCHANGED from adoption-final.json review_drafts[1].reason (protective retention with explicit weakness: 3 down days, close 100.26 only 0.26% above 100.00 stop, Nov-18 intraday 99.96, USD/JPY ~159.94-159.97 unhedged yen headwind, Barr/LPR pending, band low 100.02 near stop). Not a bullish forecast; first completed close <100.00 latches stop_loss next permitted RTH.",
+      "evidence_carries_over": "UNCHANGED from adoption-final.json review_drafts[1].evidence, PLUS the addenda below.",
+      "acknowledged_events": ["EV-20261119-CLAIMS", "EV-20261119-PHILLYFED", "EV-20261119-BARR", "EV-20261120-PBOC-LPR"]
+    }
+  ],
+  "evidence_addenda_both_plans": [
+    "R2 targeted news pass completed (~14:55-14:57Z est): news_search '美联储' (TIME) returned nothing newer than 12:30:57Z; news_search '美股' (TIME) latest Gelonghui 1005058820 publish_time 1795099667000 = 2026-11-19T14:47:47Z — AI/memory/chips broadly higher in RTH (MU +5-6%, NVDA +4%, AMD/AVGO +3%, INTC +7%) on the Anthropic IPO halo. Risk-on open persists; supports ballast retention; no new SPY/EFA-material adverse event.",
+    "Zhitong 1005058429 publish 1795099154000 = 14:39:14Z: NVDA +4% at 157.08, Wedbush PT 275->293 — sector context only, no index-thesis change.",
+    "Gelonghui 1005025572 publish 1795099140000 = 14:39:00Z: ANT begins quoting ~22:50 Beijing = 14:50Z today; IPO ~7x oversubscribed vs 70-78 guidance. First-quote volatility is a known market-wide consideration inside the holding window; not a thesis-breaking event for SPY/EFA and not a new pin proposal (already covered by the IPO-halo context in evidence).",
+    "Barr 19:15Z and PBoC LPR 2026-11-20T01:15Z remain PENDING FUTURE events; per auditor-confirmed semantics they need no acknowledgment until they occur, and post-event reviews at later hourly checks are REQUIRED — the current r2 reviews cannot satisfy those."
+  ],
+  "news_checked_at_suggestion": "2026-11-19T14:57:00Z — labeled estimate of this R2 news-pass completion (latest observed feed item 14:47:47Z; two news_search calls immediately before writing). Desk stamps its own actual value.",
+  "news_feed_ok_suggestion": true,
+  "notes": [
+    "Verdicts confirmed unchanged: SPY valid; EFA valid (protective-retention, weakness explicit). No new material information since the ~14:40Z check alters either thesis.",
+    "This confirmation is research input only. F-22 stands: operator must explicitly approve the FULL exact r2 previews/hashes before any approval; operator confirmation pending. No orders, no state writes, no approvals claimed by researcher.",
+    "created_at 14:53:03Z (file) vs 14:53:02Z (notification) discrepancy flagged above; hashes must match the file payloads."
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "checked_at": "2026-11-19T04:59:30+00:00",
+  "cadence_minutes": 60,
+  "gaps": [],
+  "decisions": [
+    {
+      "plan_id": "LC-20261119-SPY-ADOPT-r1",
+      "plan_hash": "8ca9176daf7d09b4030cc15cf5460896fd871ef2c66b48db60fc6f886fbdd954",
+      "symbol": "US.SPY",
+      "action": "review",
+      "reason": "held position has no approved lifecycle ownership",
+      "quantity": 0,
+      "limit_price": null,
+      "authorized": false,
+      "warnings": [
+        "research review expired or future-dated"
+      ]
+    },
+    {
+      "plan_id": "LC-20261119-EFA-ADOPT-r1",
+      "plan_hash": "237408a874860bebfe8731bbfec7742d18f42e2dc717646b24afa46600903395",
+      "symbol": "US.EFA",
+      "action": "review",
+      "reason": "held position has no approved lifecycle ownership",
+      "quantity": 0,
+      "limit_price": null,
+      "authorized": false,
+      "warnings": [
+        "research review expired or future-dated"
+      ]
+    }
+  ]
+}

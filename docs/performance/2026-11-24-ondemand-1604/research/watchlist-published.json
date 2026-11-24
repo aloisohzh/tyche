@@ -1,0 +1,425 @@
+{
+ "as_of": "2026-11-24",
+ "entries": [
+  {
+   "symbol": "US.KO",
+   "sleeve": "equity",
+   "strategy": "PB-002",
+   "setup_id": "TL-20261124-KO-DEF1",
+   "direction": "bullish",
+   "entry_low": 96.1,
+   "entry_high": 96.6,
+   "stop": 95.4,
+   "target": 98.4,
+   "expiry": "2026-11-24",
+   "status": "watch",
+   "exit_at": "2026-11-24T20:50:00Z",
+   "reviewed_at": "2026-11-24T16:10:05Z",
+   "confirmation_ticks": 2,
+   "market_cap_usd": 412500000000,
+   "max_quantity": 82,
+   "thesis": "Risk-off rotation into low-beta staples under a Fed hike regime lifts KO; defensive bid confirmed by today's tape (KO +2.19% vs SPY -1.22%, QQQ -2.83%).",
+   "synthesis": "Thesis confirmed intraday. KO opened 96.205 inside the entry zone, dipped to 95.66 (above stop 95.40), then rallied to 98.00; last 97.975 is ABOVE the 96.10-96.60 entry zone and 0.43 below target 98.40. Entry remains valid ONLY on a pullback into the zone; do not chase. Fresh catalyst stack today: Morgan Stanley Buy/103 (11:33Z), BofA Buy/100 (10:31Z), RBC Buy/96 (08:32Z); CFO succession clarified (David Elkins from BMY effective 2027-04-02, John Murphy retiring 2027, stays President) - MS called it no surprise and constructive.",
+   "edge": "Defined-zone pullback entry with ~2.2-2.9% reward to 98.40 vs ~0.7-1.2% risk to 95.40 (RR ~2.2 from zone midpoint) while sector rotation persists; analyst target cluster 96-103 frames upside.",
+   "bear_case": "Rotation unwinds if tech stabilizes or Nov-25 PCE/GDP/claims surprise hawkish-dovish either way; KO 3-day cumulative main flow is -117.4M USD (Nov-24 bar -0.65M main, near flat) so the rally is not confirmed by sustained main inflow; price already 2.2% up means most of the day's edge may be spent; RBC target 96 sits below current price.",
+   "invalidation": "Trade invalid on a print below 95.40 (stop) after entry; setup stale if no pullback into 96.10-96.60 before exit_at 20:50Z; thesis invalid if defensives broadly reverse with SPY recovering the day's loss (not observed).",
+   "horizon": "Same-session; exit_at 2026-11-24T20:50:00Z per setup.",
+   "catalyst": "KO CFO succession announced 2026-11-23 post-close (DJ 1005383343, 21:33:00Z); MS OW $103 transition note (Zhitong 1005437317, 2026-11-24T07:03:00Z); RBC Buy $96 (1005449136, 08:32Z); BofA Buy $100 (1005466933, 10:31Z); MS Buy $103 (1005473561, 11:33Z); risk-off rotation premarket 2026-11-24.",
+   "sources": [
+    "MCP quote_stock_quote US.KO data_time 1795467600482 = 2026-11-23T21:00:00.482Z: last 95.88, prev_close 96.99 (-1.14%), high 96.525, low 94.60, vol 30,114,390, turnover $2.89B; pre_market (Nov-24, fetched ~13:10Z) price 96.55 (+0.698% vs Nov-23 close), high 96.976, low 96.16",
+    "MCP quote_cur_kline US.KO DAY 12 bars: Nov-19 low 94.73, Nov-23 low 94.60 (double bottom); Nov-18 close 98.09, Nov-17 low 98.53 (target supply zone); Nov-16 high 100.56; PE 31.539 on Nov-23 bar",
+    "Dow Jones news.futunn.com/post/1005383343 pub 1795469580000 = 2026-11-23T21:33:00Z: Coca-Cola John Murphy plans to retire in 2027",
+    "Zhitong news.futunn.com/post/1005437317 pub 1795503780000 = 2026-11-24T07:03:00Z: Elkins (BMY CFO) effective 2027-04-02; MS OW $103, sees smooth transition, mid-single-digit organic growth",
+    "Futu news.futunn.com/post/1005449136 pub 1795509120000 = 2026-11-24T08:32:00Z: RBC Nik Modi Buy $96; post/1005466933 pub 1795516260000 = 10:31:00Z: BofA Peter Galbo Buy $100; post/1005473561 pub 1795519980000 = 11:33:00Z: MS Dara Mohsenian Buy $103",
+    "MCP quote_unusual_technical US.KO [1795410000 = Nov-23 bar]: close below BOLL mid and crossed below MA20; MA5 crossed below MA10 (death cross); RSI6 and CCI moved from neutral to oversold (reversal/rebound flag)",
+    "MCP quote_capital_flow_history US.KO DAY bar 1795410000000 (Nov-23): main -81,049,762.311, total -92,961,005.579; 5-day acc main -192.0M",
+    "MCP quote_unusual_capital US.KO [1795439545 = 2026-11-23T13:12:25Z]: block trades net outflow 6 straight days; day outflow +197% vs prior 3-day average",
+    "MCP quote_unusual_derivatives US.KO: 11.24 02:27 SELL 6,303 Dec-18 103C (OI 0, $119,757); 11.23 23:43 BUY 4,999 Jan-27 92.5P ($784,843); 11.24 04:29 BUY 1,000 Nov-27 95C ($167,000, V/OI 4.7; Nov-27 expiry INELIGIBLE for PB-003); print times as stated by payload, timezone unverified",
+    "MCP quote_financials_statements US.KO key indicators 2026/Q3: gross 62.32%, operating 32.09%, net 28.65%, ROE 42.64%, FCF/NI 97.63%",
+    "MCP quote_short_interest US.KO settlement 2026-10-30: shares_short 47,240,965, short_percent 1.098, ADV 17,527,739 -> implied shares ~4.302B; market_cap_usd DERIVED ESTIMATE = implied shares x Nov-23 close 95.88 ~= $412.5B (no direct MCP market-cap field)",
+    "Futu flash news.futunn.com/flash/1005385138 pub 1795471501000 = 2026-11-23T22:05:01Z: CME FedWatch Dec 25bp HIKE 95.9% / 50bp 4.1%; Jan cumulative 50bp 64.2%",
+    "MCP quote_stock_quote batch (same fetch): SPY pre_market 713.95 (-1.15%), QQQ 637.43 (-2.09%), TLT 81.94 (+0.31%) - risk-off rotation context",
+    "Community sentiment https://ai-news-search.moomoo.com/stock_feed?keyword=KO&size=30 fetched ~2026-11-24T13:30Z, code 0: 6 posts used, 4 bullish/2 neutral, bullish-lean (untrusted signal only)"
+   ],
+   "factors": [
+    {
+     "name": "defensive_rotation_tape",
+     "axis": "macro",
+     "state": "pass",
+     "why": "SPY -1.22%, QQQ -2.83%, TLT +0.33% at 16:08Z; KO +2.19% at 16:07:32Z",
+     "detail": "quote_stock_quote payloads cited above"
+    },
+    {
+     "name": "intraday_structure",
+     "axis": "technical",
+     "state": "pass",
+     "why": "Open 96.205 in zone, low 95.66 held above stop 95.40, high 98.00 near target; uptrend intact",
+     "detail": "KO quote 16:07:32Z"
+    },
+    {
+     "name": "analyst_catalyst_stack",
+     "axis": "catalyst",
+     "state": "pass",
+     "why": "MS Buy/103 11:33Z, BofA Buy/100 10:31Z, RBC Buy/96 08:32Z Nov-24; CFO succession clarified, MS constructive",
+     "detail": "news.futunn.com/post/1005473561, /1005466933, /1005449136, /1005437317"
+    },
+    {
+     "name": "main_capital_flow",
+     "axis": "flow",
+     "state": "fail",
+     "why": "3-day cumulative main -117.42M USD; Nov-24 main -0.65M (near flat) despite +2.2% price",
+     "detail": "quote_capital_flow_history US.KO bars 1795496400000/1795410000000/1795150800000"
+    },
+    {
+     "name": "organic_growth_fundamentals",
+     "axis": "fundamental",
+     "state": "pass",
+     "why": "MS note: mid-single-digit organic growth above peers, Fairlife ~100bp contribution, pricing power",
+     "detail": "zhitongcaijing.com/content/detail/1527727.html via news 1005437317, 07:03Z"
+    },
+    {
+     "name": "executable_liquidity",
+     "axis": "liquidity",
+     "state": "pass",
+     "why": "Book 97.99x98.01, spread 0.0204% <= 0.3% gate, fresh 16:08:55Z",
+     "detail": "quote_order_book NASDAQ"
+    },
+    {
+     "name": "community_sentiment",
+     "axis": "sentiment",
+     "state": "unknown",
+     "why": "Community feed not fetched this narrow on-demand run; no input",
+     "detail": ""
+    },
+    {
+     "name": "seasonality",
+     "axis": "seasonality",
+     "state": "unknown",
+     "why": "No seasonality input gathered; not upgraded",
+     "detail": ""
+    }
+   ],
+   "outlook": {
+    "regime": "Fed hike, risk-off rotation",
+    "conviction": "medium",
+    "alignment": {
+     "macro": "bull",
+     "technical": "bull",
+     "flow": "bear",
+     "catalyst": "bull"
+    }
+   }
+  },
+  {
+   "symbol": "US.PG",
+   "sleeve": "equity",
+   "strategy": "PB-002",
+   "setup_id": "TL-20261124-PG-DEF1",
+   "direction": "bullish",
+   "entry_low": 170.2,
+   "entry_high": 170.8,
+   "stop": 169.0,
+   "target": 173.5,
+   "expiry": "2026-11-24",
+   "status": "watch",
+   "exit_at": "2026-11-24T20:50:00Z",
+   "reviewed_at": "2026-11-24T16:10:05Z",
+   "confirmation_ticks": 2,
+   "market_cap_usd": 393100000000,
+   "max_quantity": 46,
+   "thesis": "Same PB-002 defensive staples rotation; PG pricing-power staples bid on a risk-off tape.",
+   "synthesis": "Thesis confirmed intraday: PG +1.99% vs SPY -1.22%. Opened 170.64 inside zone, low 169.83 held above stop 169.00, high 173.00; last 172.97 is ABOVE entry zone 170.20-170.80 and only 0.53 below target 173.50. Entry valid only on pullback into zone. No new material news since the 13:05Z premarket review: latest items are Citi Buy/190 (Nov-23 12:31Z), MS Buy/192 and BofA Buy/190 (Nov-23 11:31Z) - all pre-review.",
+   "edge": "Zone pullback entry gives ~1.6-1.9% reward to 173.50 vs ~0.7-1.1% risk to 169.00 (RR ~2.0 from zone midpoint); analyst target cluster 180-192 frames medium-term upside.",
+   "bear_case": "From current 172.97 only 0.31% reward remains to target - chase entry has negative edge after costs; 3-day cumulative main flow -46.65M USD (today +1.66M main, mildly positive) is mixed; rotation unwind or Nov-25 macro surprise reverses defensives.",
+   "invalidation": "Print below 169.00 after entry; setup stale if no pullback into 170.20-170.80 before 20:50Z exit_at; thesis invalid on broad defensive reversal (not observed).",
+   "horizon": "Same-session; exit_at 2026-11-24T20:50:00Z.",
+   "catalyst": "Analyst PT-raise cluster 2026-11-23: MS 185->192 (1005344842, 11:31Z), BofA 185->190 (1005344841, 11:31Z), Citi 187->190 (1005320583 07:44:28Z / 1005349545 12:31Z); overnight 2,000-lot Dec-18 165C buy block (MCP derivatives, 11.24 01:28 payload-stated); risk-off rotation premarket 2026-11-24.",
+   "sources": [
+    "MCP quote_stock_quote US.PG data_time 1795467600309 = 2026-11-23T21:00:00.309Z: last 169.60, prev_close 169.37 (+0.14%), high 170.64, low 167.49, vol 10,210,191, turnover $1.73B; pre_market (Nov-24, fetched ~13:10Z) price 170.80 (+0.707%), high 171.3097, low 169.49",
+    "MCP quote_cur_kline US.PG DAY 12 bars: Nov-16 high 173.57 / Nov-17 high 173.59 (double top, target basis); Nov-20 low 169.05 (stop basis); Nov-19 low 166.888; Nov-16 range 1.9%",
+    "Futu news.futunn.com/post/1005344842 pub 1795433460000 = 2026-11-23T11:31:00Z: MS Mohsenian OW 185->192; post/1005344841 same timestamp: BofA Galbo Buy 185->190",
+    "Gelonghui news.futunn.com/post/1005320583 pub 1795419868000 = 2026-11-23T07:44:28Z: Citi 187->190 Buy; Futu post/1005349545 pub 1795437060000 = 12:31:00Z: Citi Falorni Buy $190",
+    "MT Newswires news.futunn.com/post/1005340126 pub 1795429949000 = 2026-11-23T10:32:29Z: FactSet avg rating overweight, avg PT 176.90",
+    "MCP quote_unusual_technical US.PG [1795410000 = Nov-23 bar]: MA indicator in bullish alignment",
+    "MCP quote_unusual_derivatives US.PG: 11.24 01:28 BUY 2,000 Dec-18 165C, premium $1,430,000 (~$7.15/share), OI 17,202, V/OI 0.1; put volume/OI concentrated at 165 strike; print times as stated by payload, timezone unverified",
+    "MCP quote_capital_flow_history US.PG DAY bar 1795410000000 (Nov-23): main -27,032,160.342, total -32,814,625.809",
+    "MCP quote_unusual_capital US.PG: code 1, no capital-flow anomaly in the 3-day window",
+    "MCP quote_financials_statements US.PG key indicators 2027/Q1: gross 49.78%, operating 22.55%, net 17.90%, ROE 29.45%, FCF/NI 95.71%",
+    "MCP quote_short_interest US.PG settlement 2026-10-30: shares_short 22,369,376, short_percent 0.965, ADV 10,651,744 -> implied shares ~2.318B; market_cap_usd DERIVED ESTIMATE = implied shares x Nov-23 close 169.60 ~= $393.1B (no direct MCP market-cap field)",
+    "Futu flash news.futunn.com/flash/1005385138 pub 2026-11-23T22:05:01Z: CME FedWatch Dec 25bp HIKE 95.9% / 50bp 4.1%",
+    "Community sentiment https://ai-news-search.moomoo.com/stock_feed?keyword=PG&size=30 fetched ~2026-11-24T13:30Z, code 0: 4 posts used, 3 bullish/1 neutral, bullish-lean but mostly October posts (untrusted signal only)"
+   ],
+   "factors": [
+    {
+     "name": "defensive_rotation_tape",
+     "axis": "macro",
+     "state": "pass",
+     "why": "PG +1.99% vs SPY -1.22%/QQQ -2.83% at 16:07-16:08Z",
+     "detail": "quote_stock_quote payloads"
+    },
+    {
+     "name": "intraday_structure",
+     "axis": "technical",
+     "state": "pass",
+     "why": "Low 169.83 > stop 169.00; high 173.00 < target; uptrend intact",
+     "detail": "PG quote 16:07:24Z"
+    },
+    {
+     "name": "analyst_support",
+     "axis": "catalyst",
+     "state": "pass",
+     "why": "Citi 190 / MS 192 / BofA 190 Buy reiterations Nov-23 (pre-review, still latest)",
+     "detail": "news.futunn.com/post/1005349545, /1005344842, /1005344841"
+    },
+    {
+     "name": "main_capital_flow",
+     "axis": "flow",
+     "state": "unknown",
+     "why": "Mixed: Nov-24 main +1.66M vs 3-day cumulative -46.65M; no clear directional read",
+     "detail": "quote_capital_flow_history US.PG"
+    },
+    {
+     "name": "executable_liquidity",
+     "axis": "liquidity",
+     "state": "unknown",
+     "why": "PG order book not pulled this run; quote fresh (16:07:24Z) but spread gate unverified - executor must verify",
+     "detail": ""
+    },
+    {
+     "name": "community_sentiment",
+     "axis": "sentiment",
+     "state": "unknown",
+     "why": "Not fetched this narrow run",
+     "detail": ""
+    },
+    {
+     "name": "seasonality",
+     "axis": "seasonality",
+     "state": "unknown",
+     "why": "No input",
+     "detail": ""
+    }
+   ],
+   "outlook": {
+    "regime": "Fed hike, risk-off rotation",
+    "conviction": "medium",
+    "alignment": {
+     "macro": "bull",
+     "technical": "bull",
+     "flow": "neutral",
+     "catalyst": "bull"
+    }
+   }
+  },
+  {
+   "symbol": "US.JNJ",
+   "sleeve": "equity",
+   "strategy": "PB-002",
+   "setup_id": "TL-20261124-JNJ-DEF1",
+   "direction": "bullish",
+   "entry_low": 269.8,
+   "entry_high": 271.2,
+   "stop": 268.5,
+   "target": 275.25,
+   "expiry": "2026-11-24",
+   "status": "watch",
+   "exit_at": "2026-11-24T20:50:00Z",
+   "reviewed_at": "2026-11-24T16:10:05Z",
+   "confirmation_ticks": 2,
+   "market_cap_usd": 650000000000,
+   "max_quantity": 29,
+   "thesis": "Healthcare leg of the PB-002 defensive rotation; JNJ ex-dividend 1.34 today with adjusted reference 268.71.",
+   "synthesis": "Rotation thesis itself CONFIRMED (JNJ +2.60% on adjusted basis, strongest of the three; 3-day cumulative main inflow +66.97M USD, today +4.29M main). But the setup's price window is exhausted: session low 268.08 traded BELOW stop 268.50 and high 275.70 traded ABOVE target 275.25; last 275.69 is above target. No valid entry remains at the defined levels.",
+   "edge": "None remaining at defined levels - both stop and target were traversed this session; entering above target has negative expected edge.",
+   "bear_case": "n/a - setup invalidated for NEW entry; this is a watch setup, not a held position, so no liquidation is implied.",
+   "invalidation": "CONFIRMED: quote 2026-11-24T16:07:23.473Z shows low 268.08 < stop 268.50 AND high 275.70 > target 275.25 AND last 275.69 > target. Setup window exhausted.",
+   "horizon": "Same-session window spent.",
+   "catalyst": "TREMFYA phase-4 STAR endpoints met (2026-11-20T13:02:51Z pub); JPM PT 285->300 (2026-11-20T13:31Z pub); Ollin acquisition $3.325B (2026-11-20T09:17:49Z pub); ex-dividend $1.34 TODAY 2026-11-24 (Futu 1005291326 pub 2026-11-23T01:00:01Z) - mechanical, feed-adjusted, not a long thesis; healthcare rotation premarket 2026-11-24.",
+   "sources": [
+    "MCP quote_stock_quote US.JNJ data_time 1795467600704 = 2026-11-23T21:00:00.704Z: last 270.05, prev_close 270.47 (-0.16%), high 272.40, low 267.3601, vol 9,916,290, turnover $2.68B, turnover_rate 0.00412; pre_market (Nov-24, fetched ~13:10Z) price 271.215, change_val 2.505, change_rate 0.932% => feed reference 268.71 = 270.05 - 1.34 (ex-div adjusted); pre_market low 268.884, high 272.46",
+    "MCP quote_cur_kline US.JNJ DAY 12 bars: Nov-6 close 276.22 (target supply basis); Nov-18 close 272.70; Nov-19 low 264.68; Nov-20 low 269.47; Nov-23 low 267.3601 (cum-div)",
+    "Futu news.futunn.com/post/1005291326 pub 1795395601000 = 2026-11-23T01:00:01Z: JNJ ex-div 2026-11-24 $1.34/share, record 2026-11-24, payable 2026-12-08",
+    "Benzinga/PR news.futunn.com/post/1005194419 pub 1795179771000 = 2026-11-20T13:02:51Z: TREMFYA phase-4 STAR met primary + key secondary endpoints in axial PsA; MRI inflammation reduction >2x placebo at week 24",
+    "MT Newswires news.futunn.com/post/1005185458 pub 1795174333000 = 2026-11-20T10:52:13Z + Futu post/1005197395 pub 1795181460000 = 13:31:00Z: JPM Chris Schott Hold, PT 285->300; FactSet avg overweight 285.19",
+    "AASTOCKS news.futunn.com/post/1005169424 pub 1795166269000 = 2026-11-20T09:17:49Z: JNJ acquires Ollin for $3.325B ($2.2B upfront + $1.125B milestones); HSBC notes Innovent partnership",
+    "MCP quote_capital_flow_history US.JNJ DAY bar 1795410000000 (Nov-23): total +90,396,196.355, main +35,394,087.564, super +13,227,403.9 - only tactical name with positive Monday flow",
+    "MCP quote_unusual_technical US.JNJ: code 1, no technical anomaly in the 3-day window (absence of signal, not a bullish flag)",
+    "MCP quote_financials_statements US.JNJ key indicators 2026/Q3: gross 67.56%, operating 25.70%, net 16.20% (yoy -40.56% relative), ROE 20.02%, FCF/NI 121.7% - net-margin composition unverified",
+    "market_cap_usd DERIVED ESTIMATE: Nov-23 volume 9,916,290 / turnover_rate 0.00412 ~= 2.407B shares x close 270.05 ~= $650B (no direct MCP market-cap field; consistent with prior-run short-interest derivation ~$651B)",
+    "Futu flash news.futunn.com/flash/1005385138 pub 2026-11-23T22:05:01Z: CME FedWatch Dec 25bp HIKE 95.9% / 50bp 4.1%",
+    "Community sentiment https://ai-news-search.moomoo.com/stock_feed?keyword=JNJ&size=30 fetched ~2026-11-24T13:35Z, code 0: 5 posts used, 4 bullish/1 neutral, bullish-lean but mostly October (untrusted signal only)"
+   ],
+   "factors": [
+    {
+     "name": "defensive_rotation_tape",
+     "axis": "macro",
+     "state": "pass",
+     "why": "JNJ +2.60% adjusted vs SPY -1.22%",
+     "detail": "quote_stock_quote 16:07:23Z"
+    },
+    {
+     "name": "main_capital_flow",
+     "axis": "flow",
+     "state": "pass",
+     "why": "3-day cumulative main +66.97M; Nov-23 +35.39M main, Nov-24 +4.29M main",
+     "detail": "quote_capital_flow_history US.JNJ"
+    },
+    {
+     "name": "setup_window",
+     "axis": "technical",
+     "state": "fail",
+     "why": "Low 268.08 below stop 268.50; high 275.70 above target 275.25; last above target",
+     "detail": "JNJ quote 16:07:23Z"
+    },
+    {
+     "name": "ex_div_reference",
+     "axis": "fundamental",
+     "state": "pass",
+     "why": "268.71 = 270.05 - 1.34 verified against feed",
+     "detail": "quote_stock_quote prev_close_price; operator-supplied dividend 1.34"
+    },
+    {
+     "name": "community_sentiment",
+     "axis": "sentiment",
+     "state": "unknown",
+     "why": "Not fetched this narrow run",
+     "detail": ""
+    },
+    {
+     "name": "seasonality",
+     "axis": "seasonality",
+     "state": "unknown",
+     "why": "No input",
+     "detail": ""
+    }
+   ],
+   "outlook": {
+    "regime": "Fed hike, risk-off rotation",
+    "conviction": "medium",
+    "alignment": {
+     "macro": "bull",
+     "flow": "bull",
+     "technical": "neutral"
+    }
+   },
+   "invalidated": true
+  },
+  {
+   "symbol": "US.KO261218C97000",
+   "sleeve": "defensive",
+   "strategy": "PB-003",
+   "setup_id": "TL-20261124-KO-OPT1",
+   "status": "watch",
+   "direction": "bullish",
+   "entry_low": 96.1,
+   "entry_high": 96.6,
+   "stop": 95.4,
+   "target": 98.4,
+   "expiry": "2026-11-24",
+   "exit_at": "2026-11-24T17:05:00Z",
+   "reviewed_at": "2026-11-24T16:10:05Z",
+   "option": {
+    "underlying": "US.KO",
+    "expiry": "2026-12-18",
+    "right": "call",
+    "strike": 97.0,
+    "multiplier": 100
+   },
+   "premium_limit": 2.67,
+   "max_quantity": 1,
+   "confirmation_ticks": 2,
+   "market_cap_usd": 378500000000,
+   "thesis": "PB-003 long-call expression of the strongest still-enterable PB-002 bullish pick (KO): risk-off rotation into staples under a Fed hike regime, confirmed by today's tape (KO +2.19% vs SPY -1.22%, QQQ -2.83%) and a fresh analyst catalyst stack (MS Buy/103, BofA Buy/100, RBC Buy/96 on Nov-24).",
+   "synthesis": "All entry/stop/target levels refer to the UNDERLYING US.KO and are copied unchanged from TL-20261124-KO-DEF1. KO last 97.975 (16:07:32Z) is ABOVE the 96.10-96.60 entry zone: this is a pullback-only watch proposal, no chase. JNJ was the strongest flow name but its stock setup window is exhausted (invalidated this run); PG has less remaining reward from zone. Contract US.KO261218C97000 is the ONLY candidate meeting every gate: DTE 24 (expiry 2026-12-18 strictly after 2026-11-27, within 2026-12-24), OI 122 >= 100, volume 94 >= 50, delta 0.6149 (nearest 0.55 among full passes, within 0.45-0.80), option spread 0.07/2.635 = 2.66% <= 5%, underlying spread 0.0204% <= 0.3%. TIMING FLAG: exit_at 2026-11-24T17:05:00Z is the 12:05 ET fire which is ALERT-ONLY; the first executable exit check after it is the 15:05 ET fire (20:05Z). This tension is operator-owned; the operator's Telegram approve decides.",
+   "edge": "Leveraged exposure (delta ~0.61, effective leverage ~22x at 2.67 premium vs 97.975 underlying) to a confirmed defensive rotation at defined underlying levels; max debit 267 USD = 0.27% NAV, well inside the 0.75% per-trade cap (741 USD) and the 5% aggregate premium cap.",
+   "bear_case": "KO 3-day cumulative main flow -117.4M USD does not confirm the rally; rotation can unwind if tech stabilizes; Nov-25 08:30 ET PCE/GDP/claims triple slot is a gap risk; theta -0.0448/day and IV 18.9% can bleed premium even if KO stalls; if KO never pulls back into the zone there is no trade.",
+   "invalidation": "Underlying print below 95.40 after entry; no pullback into 96.10-96.60 before exit_at; executable option market stale (>60s), spread >5%, or ask above premium_limit 2.67 at trigger time blocks entry. Long call can lose 100% of premium (267 USD) plus fees; gaps, halts, expiry and limit non-fills can defeat synthetic exits; exits between fires are NOT resting broker stops or guaranteed fills; daily-close triggers execute no earlier than the next permitted session. No ladder, no scaling, no automatic re-entry.",
+   "horizon": "Same-session per card: exit_at 2026-11-24T17:05:00Z (alert-only fire; first executable exit check 15:05 ET / 20:05Z - operator-owned timing tension).",
+   "catalyst": "Risk-off rotation (SPY -1.22%, QQQ -2.83%, TLT +0.33% at 16:08Z) + Nov-24 analyst reiterations: Morgan Stanley Buy/103 11:33Z, BofA Buy/100 10:31Z, RBC Buy/96 08:32Z; KO CFO succession clarified (David Elkins effective 2027-04-02).",
+   "sources": [
+    "MCP quote_stock_quote US.KO data_time 1795536452797 = 2026-11-24T16:07:32.797Z (last 97.975, prev_close 95.88, open 96.205, high 98.00, low 95.66, volume 4056478, turnover_rate 0.105%)",
+    "MCP quote_order_book US.KO exchange_data_time_ms 1795536535969 = 2026-11-24T16:08:55.969Z (bid 97.99 x20, ask 98.01 x225, NASDAQ)",
+    "MCP quote_option_chain US.KO filter_standard=STANDARD start 2026-11-28 end 2026-12-24, raw payload persisted at /tmp/tool-outputs/mcp_a942d03b6989ab4f9ea6348f.txt (119908 bytes); contract US.KO261218C97000 membership verified by exact-match grep (1 occurrence), option_standard_type STANDARD, lot_size 100",
+    "MCP quote_stock_quote US.KO261218C97000 data_time 1795536516518 = 2026-11-24T16:08:36.518Z (last 2.63, delta 0.614916091, gamma 0.080059504, theta -0.044750047, vega 0.096459872, IV 18.921%, open_interest 122, volume 94, contract_multiplier 100, AMERICAN, CALL, strike 97, expiry_date_distance 24)",
+    "MCP quote_order_book US.KO261218C97000 exchange_data_time_ms 1795536579612 = 2026-11-24T16:09:39.612Z (bid 2.60 x10, ask 2.67 x30)",
+    "MCP quote_stock_quote US.SPY/US.QQQ/US.TLT data_time 1795536501891/1795536502397/1795536499968 = 16:08:21.891Z/16:08:22.397Z/16:08:19.968Z",
+    "news.futunn.com/post/1005473561 (MS Buy/103, publish 1795519980000 = 2026-11-24T11:33:00Z)",
+    "news.futunn.com/post/1005466933 (BofA Buy/100, publish 1795516260000 = 2026-11-24T10:31:00Z)",
+    "news.futunn.com/post/1005449136 (RBC Buy/96, publish 1795509120000 = 2026-11-24T08:32:00Z)",
+    "news.futunn.com/post/1005437317 (CFO succession + MS commentary, publish 1795503780000 = 2026-11-24T07:03:00Z)",
+    "MCP quote_capital_flow_history US.KO bars 1795496400000/1795410000000/1795150800000 (Nov-24 main -646863.26; 3-day acc main -117416592.10)",
+    "market_cap_usd DERIVED estimate: volume 4056478 / turnover_rate 0.00105 = ~3.863B shares x 97.975 = ~378.5B USD (no MCP tool returns market cap directly)"
+   ],
+   "factors": [
+    {
+     "name": "defensive_rotation_tape",
+     "axis": "macro",
+     "state": "pass",
+     "why": "SPY -1.22%, QQQ -2.83%, TLT +0.33% at 16:08Z; KO +2.19%",
+     "detail": "quote_stock_quote payloads"
+    },
+    {
+     "name": "underlying_structure",
+     "axis": "technical",
+     "state": "pass",
+     "why": "KO low 95.66 held above stop 95.40; high 98.00 near target 98.40; uptrend intact",
+     "detail": "KO quote 16:07:32Z"
+    },
+    {
+     "name": "analyst_catalyst_stack",
+     "axis": "catalyst",
+     "state": "pass",
+     "why": "MS/BofA/RBC Buy reiterations Nov-24; CFO succession clarified",
+     "detail": "news IDs 1005473561/1005466933/1005449136/1005437317"
+    },
+    {
+     "name": "main_capital_flow",
+     "axis": "flow",
+     "state": "fail",
+     "why": "3-day cumulative main -117.42M USD; today near flat (-0.65M)",
+     "detail": "quote_capital_flow_history US.KO"
+    },
+    {
+     "name": "option_executable_liquidity",
+     "axis": "liquidity",
+     "state": "pass",
+     "why": "Bid 2.60 x10 / ask 2.67 x30 at 16:09:39Z, spread 2.66% <= 5%; OI 122, volume 94; underlying spread 0.0204%",
+     "detail": "quote_order_book + quote_stock_quote option payload"
+    },
+    {
+     "name": "community_sentiment",
+     "axis": "sentiment",
+     "state": "unknown",
+     "why": "Not fetched this narrow on-demand run",
+     "detail": ""
+    },
+    {
+     "name": "seasonality",
+     "axis": "seasonality",
+     "state": "unknown",
+     "why": "No input gathered",
+     "detail": ""
+    }
+   ],
+   "outlook": {
+    "regime": "Fed hike, risk-off rotation",
+    "conviction": "medium",
+    "alignment": {
+     "macro": "bull",
+     "technical": "bull",
+     "catalyst": "bull",
+     "flow": "bear"
+    }
+   },
+   "notes": [
+    "UNAPPROVED research proposal - not an order authorization. Operator Telegram approve decides.",
+    "TIMING TENSION (operator-owned): exit_at 2026-11-24T17:05:00Z = 12:05 ET fire is ALERT-ONLY; first executable exit check after it is the 15:05 ET fire (20:05Z). Between fires, synthetic exits are not resting broker stops or guaranteed fills; gaps/halts/non-fills can exceed planned loss.",
+    "Entry triggers ONLY if underlying US.KO trades back into 96.10-96.60; at review time KO was 97.975/98.01 - above the zone. No chase. If no pullback, no trade.",
+    "premium_limit 2.67/share is ask-based at 16:09:39Z; full debit at ask = 267 USD for 1 contract (<= 741 USD = 0.75% of ~98831 NAV). Max 1 contract; 5% aggregate premium cap per run brief. Executor must re-verify executable market freshness <=60s and all gates at trigger time.",
+    "CONFIG DISCREPANCY: repo config/tactical.yaml has options_enabled: false; run brief states PB-003 enabled via operator switch (test through Fri Nov-27). Brief wins for research; Desk Head must confirm the lane is actually mounted before any execution.",
+    "Rejected candidates (all chain-verified STANDARD): KO261204C98000 delta 0.5211 nearest 0.55 but spread 0.20/1.25=16% FAIL; KO261211C98000 delta 0.5274 but volume 45<50 FAIL and spread 10.1% FAIL; KO261204C97000 spread 7.8% FAIL; KO261204C96000 spread 8.5% FAIL; KO261218C98000 OI 37<100 FAIL; KO261218C100000 delta 0.372 out of band.",
+    "Long call can lose 100% of premium plus fees. No ladder, no scaling, no automatic re-entry. Chain membership is not proof of paper-option support; executor verifies."
+   ]
+  }
+ ]
+}

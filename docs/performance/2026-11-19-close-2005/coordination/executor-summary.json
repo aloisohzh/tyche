@@ -1,0 +1,118 @@
+{
+  "run": "2026-11-19-close-2005",
+  "role": "tyche-executor; STRICTLY READ-ONLY close-fire reconciliation",
+  "generated_at_utc": "2026-11-19T20:21:50Z (approximate write clock; final verification stamp below)",
+  "orders_submitted": 0,
+  "clocks": {
+    "delegation_clock": "2026-11-19T20:09:00Z",
+    "batch1_pre_call": "2026-11-19T20:09:49Z (bash); post-call 20:10:33Z",
+    "batch1_quote_stamps": "SPY data_time 1795119033486=20:10:33.486Z; EFA 1795119028149=20:10:28.149Z",
+    "batch1_books": "exchange_data_time_ms 1795119064197-1795119064245 = 20:11:04Z",
+    "batch1_extra_quotes": "20:13:41.951Z-20:13:42.589Z (data_time 1795119221951-1795119222589)",
+    "batch2_evidence": "cash/positions/orders identical to batch3; quote stamps 20:16:50.415-20:16:50.559Z",
+    "batch3_execution_capture_pre_call": "2026-11-19T20:17:45.862Z (bash); post-call 20:17:03Z bracket confirmed by quotes",
+    "batch3_quote_stamps": "SPY 1795119473675=20:17:53.675Z; EFA 1795119462067=20:17:42.067Z",
+    "tick_attempted": "2026-11-19T20:19:00Z (snapshot age ~75s, within 120s gate)"
+  },
+  "account": {
+    "masked": "***598",
+    "title": "Moomoo x Qoder AI Paper Trading Agent Challenge",
+    "account_type": 2,
+    "market_id": 100,
+    "env": "paper",
+    "allowlist_verification": "engine gate FAILED this session - see blockers; account identity itself reconciles with delegation expectations"
+  },
+  "reconciliation": {
+    "nav_equation_batch3": "total_asset 99353.011 = cash balance 45680.121 + frozen hold 0.00 + broker MV 53672.890",
+    "nav_equation_batch1": "total_asset 99301.991 = 45680.121 + 0 + 53621.87",
+    "cash": "45680.121 (was 65244.61 at delegation expectation; delta -19564.49 fully explained by unaccounted MSFT buy 39@avg503.33 = -19629.87, round-trip net +72.34, approx -7 fees residual; see anomalies)",
+    "frozen": "0 (cash payload has no explicit frozen field beyond hold=0)",
+    "holdings_batch3": {
+      "US.SPY": {"qty": 28, "qty_avbl": 28, "avg_cost": 731.54, "cur_price": 717.56, "mv": 20091.68, "status": "matches expectation"},
+      "US.EFA": {"qty": 142, "qty_avbl": 142, "avg_cost": 100.495, "cur_price": 98.89, "mv": 14042.38, "status": "matches expectation"},
+      "US.MSFT": {"qty": 39, "qty_avbl": 39, "avg_cost": 503.33, "cur_price": 501.01, "mv": 19539.39, "status": "DRIFT - UNEXPECTED NEW HOLDING, no plan, no approval, no journal receipt"},
+      "US.NVDA": {"qty": 0, "note": "round-trip 33 shares today, flat, today P&L +34.947"},
+      "US.AMD": {"qty": 0, "note": "round-trip 10 shares today, flat, today P&L +21.84"},
+      "US.MU": {"qty": 0, "note": "round-trip 7 shares today, flat, today P&L +15.554"}
+    },
+    "options": "none anywhere (no option positions, no option orders in full unfiltered history)"
+  },
+  "orders_history": {
+    "pages": 1,
+    "completeness": "single unfiltered page, pagination.has_more=false explicit and identical across all three re-reads (20:10, 20:16, 20:17Z); time-window params unused per known unhonored behavior",
+    "total_orders": 11,
+    "table": [
+      {"order_id": "3118578", "symbol": "US.MSFT", "side": "buy", "qty": 39, "limit": 503.35, "avg_fill": 503.33, "status": 4, "cum": 39, "created": "2026-11-19T18:15:16Z", "text_prefix": "tyche-tac-be465d06...", "flag": "UNACCOUNTED - no journal receipt in any lineage"},
+      {"order_id": "3118536", "symbol": "US.MU", "side": "sell", "qty": 7, "limit": 699.27, "avg_fill": 702.74, "status": 4, "cum": 7, "created": "2026-11-19T17:48:49Z", "text_prefix": "tyche-scl-e0956d36...", "flag": "UNACCOUNTED"},
+      {"order_id": "3118534", "symbol": "US.AMD", "side": "sell", "qty": 10, "limit": 485.26, "avg_fill": 487.615, "status": 4, "cum": 10, "created": "2026-11-19T17:48:42Z", "text_prefix": "tyche-scl-ad9d8115...", "flag": "UNACCOUNTED; also executed outside watchlist entry envelope (buy fills below entry_low 538)"},
+      {"order_id": "3118508", "symbol": "US.NVDA", "side": "sell", "qty": 33, "limit": 150.03, "avg_fill": 150.112, "status": 4, "cum": 33, "created": "2026-11-19T17:29:56Z", "text_prefix": "tyche-scl-a0ff23cd...", "flag": "UNACCOUNTED; NVDA not in delegation watchlist (AMD/MU/SMH)"},
+      {"order_id": "3118500", "symbol": "US.SMH", "side": "buy", "qty": 10, "limit": 454.48, "status": 5, "cum": 0, "created": "2026-11-19T17:25:10Z", "updated": "2026-11-19T17:27:07Z", "text_prefix": "tyche-scl-bb75c14b...", "flag": "UNACCOUNTED; status 5 semantics unproven; no funds frozen"},
+      {"order_id": "3118498", "symbol": "US.MU", "side": "buy", "qty": 7, "limit": 701.68, "avg_fill": 700.518, "status": 4, "cum": 7, "created": "2026-11-19T17:24:30Z", "text_prefix": "tyche-scl-a4619198...", "flag": "UNACCOUNTED"},
+      {"order_id": "3118497", "symbol": "US.AMD", "side": "buy", "qty": 10, "limit": 486.98, "avg_fill": 485.431, "status": 4, "cum": 10, "created": "2026-11-19T17:24:13Z", "text_prefix": "tyche-scl-79bbee16...", "flag": "UNACCOUNTED; fill 485.43 BELOW watchlist entry_low 538.0"},
+      {"order_id": "3118496", "symbol": "US.NVDA", "side": "buy", "qty": 33, "limit": 149.51, "avg_fill": 149.053, "status": 4, "cum": 33, "created": "2026-11-19T17:23:59Z", "text_prefix": "tyche-scl-5388f21a...", "flag": "UNACCOUNTED"},
+      {"order_id": "3116597", "symbol": "US.VNQ", "side": "buy", "qty": 83, "limit": 94.98, "status": 5, "cum": 0, "created": "2026-11-18T17:53:07Z", "updated": "2026-11-19T01:01:00Z", "flag": "UNCHANGED since last read; UNRESOLVED MANUAL-REVIEW flag preserved; status 5 terminal semantics still unproven; frozen 0"},
+      {"order_id": "3116594", "symbol": "US.EFA", "side": "buy", "qty": 142, "limit": 101.45, "avg_fill": 100.495, "status": 4, "cum": 142, "created": "2026-11-18T17:49:36Z", "flag": "expected; journaled"},
+      {"order_id": "3116580", "symbol": "US.SPY", "side": "buy", "qty": 28, "limit": 733.17, "avg_fill": 731.54, "status": 4, "cum": 28, "created": "2026-11-18T17:44:56Z", "flag": "expected; journaled"}
+    ],
+    "pending_resting_orders": "NONE - no order in any state indicating a live reservation; no protective resting orders exist for SPY/EFA/MSFT"
+  },
+  "anomalies": [
+    "CRITICAL SINGLE-WRITER/LEDGER INTEGRITY: 8 orders executed 17:23:59Z-18:15:21Z 2026-11-19 with tyche-scl-/tyche-tac- request-id-style order texts and NO order.requested/order.submitted events in ANY journal lineage on /data/drive/tyche-raw (12 lineages searched; grep for all 8 order_ids and request hashes returned only coincidental unrelated substrings). bootstrap.json ownership claim ('no other active writer observed') is contradicted by broker-side evidence.",
+    "US.MSFT 39 @503.33 is an unadopted, unprotected holding with no lifecycle plan/approval; entry at 18:15:16Z also has 'tyche-tac' (tactical) prefix while tactical execution_enabled=false per bootstrap.",
+    "AMD/MU/SMH/NVDA entries and exits occurred despite this run profile's watchlist entries being expired (exit_at 20:05Z) and event_caution=true, max_orders=1, execution gate closed; AMD fills (485-487) far below the 538.00-543.50 entry envelope - fills imply prices collapsed ~10% from premarket, or orders placed outside envelope.",
+    "Extreme single-symbol intraday ranges observed: AMD amplitude 15.93%, MU 9.768%, NVDA 7.589%, SMH 7.037%, MSFT 5.442%; SPY/EFA amplitudes 3.321%/1.955% with both ETFs DOWN hard vs prior close (SPY last 717.56 vs prev 730.20; EFA 98.885 vs 100.26)."
+  ],
+  "protection": {
+    "spy": "stop 727.50 (daily_close basis) - INTRADAY BREACH (last 717.56 at 20:17:53Z). No approved lifecycle (grant pending), no broker-native stop, no resting protective order. If the COMPLETED daily close (21:00Z) is below 727.50, stop condition is met with no approved exit path - operator decision required before close.",
+    "efa": "stop 100.00 (daily_close basis) - INTRADAY BREACH (last 98.885). Same protection-gap status as SPY.",
+    "msft": "NO plan, NO stop, NO approval - fully unowned position, largest single position at 19.7% NAV by cost.",
+    "adoption_plans": "LC-20261119-SPY-ADOPT-r2 / LC-20261119-EFA-ADOPT-r2 operator approval PENDING; entry_expires_at 2026-11-19T20:00:00Z already passed at this fire; not extended, not worked around.",
+    "book_liquidity": "SPI two-sided books fresh and tight at 20:11:04Z: SPY NASDAQ bid 716.53/ask 716.58 (~0.007%); EFA NASDAQ bid 98.76/ask 98.77 (~0.010%); ARCA similar - no one-sided books."
+  },
+  "previews_isolated": {
+    "state_isolation": "book-copy.json + state-copy.json in R/state/, sha256 verified byte-identical to production (bcaec558..., a7a9e994...) before and after; production untouched.",
+    "LC-20261119-SPY-ADOPT-r2": {"plan_hash": "e73ee77d4b6abca10545bd296537fcee34b9a2511440e49fcf1d3ad23f9c89df", "hash_match": true, "approved": false, "submitted": false, "planned_loss_at_stop_usd": 393.4, "planned_gain_at_target_usd": 954.52, "reward_risk_before_fees": 2.426, "monitor_interval_minutes": 60, "limitations_note": "Synthetic triggers, not broker-native stops; gaps, stale feeds, nonfills can exceed planned loss", "engine_rc": 0},
+    "LC-20261119-EFA-ADOPT-r2": {"plan_hash": "add27d1a3e75fece0fe292c51050d9324ac33326a58ac4516cd93e3b39a9b33c", "hash_match": true, "approved": false, "submitted": false, "planned_loss_at_stop_usd": 144.84, "planned_gain_at_target_usd": 678.76, "reward_risk_before_fees": 4.686, "monitor_interval_minutes": 60, "engine_rc": 0},
+    "block_reason": "approved=false (no operator approval record in state approvals=[]); preview itself does not evaluate entry window - window expiry (20:00:00Z) reported by delegation and would fail tick"
+  },
+  "tick": {
+    "command": "lifecycle tick --book R/state/book-copy.json --market R/mcp/capture2/market.json --state R/state/state-copy.json --config-root /data/workspace/tyche (NO --record)",
+    "rc": 1,
+    "output_verbatim": {"ok": false, "reason": "unverified or non-allowlisted US paper account", "submitted": false},
+    "root_cause": "Engine gate (lifecycle.py validate_market / lifecycle_cli.py:375) requires account_id in config.risk.account_allowlist plus env TYCHE_ALLOWED_ACCOUNT_IDS. risk.yaml allowlist=['[REDACTED]','[REDACTED]']; session env TYCHE_ALLOWED_ACCOUNT_IDS=***4748 ('US Margin Account [Paper Trading]', account_type 1, market_id 100) - NOT ***598. hourly-1505 tick passed the same gate, so the session allowlist changed or was mis-provisioned for this fire.",
+    "not_attempted": "no env override, no --at replay substitution, no account switch - all would route around a security control; operator must re-provision TYCHE_ALLOWED_ACCOUNT_IDS=***598 or confirm ***4748 intent",
+    "per_symbol_coverage_expected_if_gate_fixed": "SPY/EFA: no approved lifecycle ownership (approvals=[]), reviews expired 2026-11-19T16:11:03Z (4h+ stale), entry window expired 20:00Z; would-exit: daily-close stop levels breached INTRADAY only - engine daily_close basis requires completed close, not available for 2026-11-19 until 21:00Z; MSFT: no plan at all (coverage gap)."
+  },
+  "tactical": {
+    "previews": "NONE REQUIRED - all three watchlist entries (AMD/MU/SMH L1) have exit_at 2026-11-19T20:05:00Z <= this check; structurally expired; execution_enabled=false (tactical.yaml hash 11c2206d...); gate closed regardless.",
+    "note": "broker-side unaccounted AMD/MU/SMH-adjacent flow contradicts expired status - see anomalies"
+  },
+  "risk_state": {
+    "daily_loss": "NAV 99353.011 vs prior_close_nav 99914.93 = -0.562% (limit 2.5% OK)",
+    "drawdown_from_hwm": "99353.011 vs 100193.13 = -0.838% (soft 4% not reached)",
+    "cash_pct": "46.0%",
+    "gross_pct": "54.0% (SPY 20.2 + EFA 14.1 + MSFT 19.7)",
+    "pb001_sleeve": "SPY+EFA 34.3% vs 25% cap - pre-existing over-cap flagged in bootstrap; MSFT adds new unowned sleeve exposure"
+  },
+  "config_hashes_observed": {"tactical.yaml": "11c2206d57714d07659d13e76ec02ed53a2ae21a2cb7bda3e3ebe1b95ff998d9", "risk.yaml": "69983dec7f9b83d5e0e02b36b8f4cf28661984e58962b97a858b94469f523df1", "rules_hash": "4105d7a680a3", "repo_head": "2f3e0432c60e560d4aa5364a7d404d4b90fadaec (contains pinned release 3312287 as ancestor per bootstrap verification)"},
+  "artifacts": {
+    "mcp_batch1": ["mcp/accounts.json", "mcp/cash.json", "mcp/positions.json", "mcp/orders-1.json", "mcp/quotes-SPY-EFA.json", "mcp/quotes-MSFT-NVDA-AMD-MU-SMH-VNQ.json", "mcp/market-state.json", "mcp/book-US.SPY.json", "mcp/book-US.EFA.json"],
+    "mcp_batch3_capture": ["mcp/capture2/accounts.json", "mcp/capture2/cash.json", "mcp/capture2/positions.json", "mcp/capture2/orders-1.json", "mcp/capture2/quotes.json", "mcp/capture2/closes.json", "mcp/capture2/observed-at.txt", "mcp/capture2/market.json"],
+    "coordination": ["coordination/preview-SPY-r2.json", "coordination/preview-EFA-r2.json", "coordination/tick-lifecycle.json", "coordination/tick-lifecycle.err", "coordination/capture.err", "coordination/executor-summary.json"],
+    "state_isolated": ["state/book-copy.json", "state/state-copy.json"],
+    "note": "batch2 payloads identical to batch1/3 where re-read; retained as clock evidence in observed-at.txt. quote_market_snapshot tool not exposed in this session; quote_order_book used for two-sided bid/ask evidence instead.",
+    "transcription_note": "raw payloads re-serialized compact; JSON-semantically identical to MCP responses (e.g. \\u0026 rendered as &)"
+  },
+  "journal": {"events": 16, "sha256": "9daffecd96440f2e273308606cde14074eff87e83f59b393b3ba9c6136d8f66a", "verified_unchanged": true, "wrote_to_journal": false},
+  "late_run_observations": {
+    "final_hashes_20:22:32Z": {
+      "production_book": "111fcbe29b3c0888a51bd8971ba98fba256c907f395bc91b68de53ac1ff65660 (CHANGED from delegation pin bcaec558d46307ba63337c23e76a315a32052cf36ab790333000ea257f09631c; file mtime 2026-11-19T20:21:12Z)",
+      "production_state": "a7a9e99496ffc4f9b6c1c2819e2ace95a3b8de421fe5f34b4238d7bd293f0d58 unchanged",
+      "journal": "9daffecd... unchanged; isolated copies in R/state still match delegation-pinned originals byte-for-byte (tick used the pinned snapshot, unaffected)",
+      "executor_writes": "NONE to any production path; all executor writes confined to R/mcp, R/coordination (executor-*/preview-*/tick-*/capture), R/state copies"
+    },
+    "book_delta_vs_pinned": "plans unchanged (same 2 r2 plans, expiries still 20:00:00Z); reviews replaced: both r2 plan_hashes re-reviewed 2026-11-19T20:12:49Z, valid_until 21:12:49Z, verdict UNCERTAIN; events 5->6+ added EV-20261119-ANT-DEBUT (16:50Z) and EV-20261119-MIDEAST-ESCALATION (19:24:33Z MT Newswires)",
+    "interpretation": "A concurrent desk/research lane publishes book reviews+events (matches hourly-1505 book-publication pattern); this is NOT an execution-state write, but it proves an active parallel writer session exists during this fire. Combined with 8 unjournalled broker orders (17:23-18:15Z) and pending-approval state, operator should verify which lanes hold write access to lifecycle book and broker.",
+    "revalidation_consequence": "Fresh-but-uncertain reviews block NEW entries under REVALIDATION rules (unchanged outcome: no entries; approvals empty, entry window expired); stop-level daily_close determination now lands on today's 21:00Z close with SPY last 717.56 < 727.50 and EFA last 98.885 < 100.00 - a completed-close breach with NO approved exit path is imminent; next scheduled check is 2026-11-20 13:05Z, after close. Operator decision required."
+  }
+}

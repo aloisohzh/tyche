@@ -1,0 +1,32 @@
+{
+  "phase": "MIDDAY",
+  "timestamp": "2026-11-20 | 17:21 UTC / 12:21 ET / 01:21 SGT (21 Nov)",
+  "urgent": true,
+  "mode": "HALT ENGAGED - observe-only, kill-switch on, paper account ***598",
+  "stance": "Midday protection check only, no trading. SPY and EFA are below breached daily-close stops with no approved exit, and MSFT is an unowned fill. Operator decision needed before the 15:05 ET close fire.",
+  "orders_summary": "No orders submitted by this run. Zero live exit orders at the broker; no sell order exists anywhere in full history. Holdings are not new orders.",
+  "orders": [],
+  "account": {
+    "nav": "98,194.73 USD (17:16Z batch; cash + frozen 0 + market value reconciles)",
+    "cash": "45,680.12 USD (46.5% of NAV), frozen 0.00",
+    "positions": "SPY 28 (20.0%), EFA 142 (14.0%), MSFT 39 (19.4%) - 53.5% of NAV",
+    "kill_switch": "ON - halt engaged since Nov-19 writer-safety incident"
+  },
+  "protection": [
+    "SPY 28: last 701.90 vs daily-close stop 727.50; Nov-19 close 715.87 breached. No approved exit, no live sell order. Operator: approve exit or a new hold plan.",
+    "EFA 142: last 97.01 vs stop 100.00; Nov-19 close 98.78 breached. No approved exit, no live sell order. Same operator decision.",
+    "MSFT 39: last 489.48 vs cost 503.33 (-2.75%). Unowned incident fill: no plan, no stop, no review. Operator must disposition it.",
+    "53.5% of NAV has no live exit path. Monitoring is not a broker stop; gaps can push losses past planned stops.",
+    "VNQ buy 83 and SMH buy 10: status 5, zero shares filled, terminal state unproven - manual-review flags stay open.",
+    "No new orders since the Nov-19 incident; no evidence of an active second writer this fire."
+  ],
+  "problems": [
+    "Halt engaged: another process placed unmatched orders Nov-19. Operator: identify the writer, disposition MSFT, decide SPY/EFA exit-vs-hold.",
+    "Drawdown -3.93% vs high-water 102,208.99; 4% soft limit near, 6% hard at about 96,076 NAV.",
+    "SPY/EFA research reviews expired 14:15Z; close fire needs fresh reviews before any approval can be considered.",
+    "Shared repo halt flag not pushed (auth failures); engaged halt lives in the journal and Drive bundle. Close fire must push it.",
+    "Account allowlist env mis-provisioned (***4748); read-only ticks used a disclosed session-scoped override, no config writes."
+  ],
+  "proposals": [],
+  "next_check": "Close fire 15:05 ET / 20:05 UTC today (calendar-verified). It revalidates and reconciles; the operator decides exits."
+}

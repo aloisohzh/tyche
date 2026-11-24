@@ -1,0 +1,36 @@
+{
+  "run": "2026-11-19-hourly-1505",
+  "bootstrap_at_utc": "2026-11-19T15:08:47Z",
+  "session": "sess_00vz7hpt2g16op8z64e6 (scheduled tyche-hourly ARMED run)",
+  "repo": "/data/workspace/tyche",
+  "head": "601c7319cbb7bc773782ba04b3025db1725ceb3f",
+  "release_in_head": "3312287ce282cedacdafab552b40678e386ea90d verified ancestor",
+  "execution_enabled": false,
+  "tactical_rollout_gate": "execution_gate_enabled=false; blockers open (durable writer, option drill, cadence validation, operator envelopes)",
+  "halted": false,
+  "calendar": {"phase": "opening_drive", "run": true, "new_entries": true, "max_orders": 1, "event_caution": true, "next_run_utc": "2026-11-19T17:05:00Z"},
+  "journal_lineage": {
+    "authoritative_latest_descendant": "/data/drive/tyche-raw/2026-11-19-validation-1413/journal/events.jsonl",
+    "identical_to": "/data/drive/tyche-raw/2026-11-19-premarket-1305/journal/events.jsonl",
+    "sha256": "ef8321c4845a458c8782c874f48c4ac24a18e044116c12b3c6bea1e9e76a27f6",
+    "events": 15,
+    "head": "cf2ab0696436b0b669519a050c9639c8a3c15b0c4e88cc26a7bff48bbfc163c1",
+    "restored_to": "R/journal/events.jsonl, chain verified OK"
+  },
+  "lifecycle_production": {
+    "book": "/data/drive/tyche-raw/lifecycle/book.json (r2 adoption plans SPY 28 / EFA 142, reviews valid until 15:55:34Z)",
+    "state": "/data/drive/tyche-raw/lifecycle/state.json approvals=[] reservations=[] latched_exits={}",
+    "plan_hashes": {"LC-20261119-SPY-ADOPT-r2": "e73ee77d4b6abca10545bd296537fcee34b9a2511440e49fcf1d3ad23f9c89df", "LC-20261119-EFA-ADOPT-r2": "add27d1a3e75fece0fe292c51050d9324ac33326a58ac4516cd93e3b39a9b33c"},
+    "operator_approval": "PENDING (F-22 verbatim preview/hash confirmation, F-01 acceptance, F-02 acknowledgment/remediation)",
+    "F-02": "legacy journal order.requested indices 3/5/7 lack request_id -> lifecycle reserve/execute-exit fail closed; exits cannot submit until operator-reviewed remediation",
+    "F-11": "TYCHE_ALLOWED_ACCOUNT_IDS now SET in this session (restored); approve still needs fresh <=120s capture + operator refs"
+  },
+  "config_hashes": {
+    "tactical.yaml": "ea7ba60a523c2c9c9582e5c4ca8dbad080d39ffa3401862bca8bcb05459c1e5d",
+    "risk.yaml": "69983dec7f9b83d5e0e02b36b8f4cf28661984e58962b97a858b94469f523df1",
+    "events.yaml": "77abf44779c84510b9a6fec44cbadf30b8fe9f05440ad1bea0581d61cb5e2ed0",
+    "rules_hash": "4105d7a680a3"
+  },
+  "nav_refs": {"prior_close_nav": 99914.93, "high_water_nav": 100193.13, "source": "validation-1413/coordination/nav-refs.json"},
+  "writer_note": "validation owner sess_00vz13yvcgmwwfskc72x completed r2 publication 14:55:34Z; schedule resumed via arm_hourly_desk.py (operator commit 601c731). This run performs NO production state writes: operator approval pending and durable cross-session writer proof remains schedule-based (max_concurrent_runs=1), not a distributed lock."
+}

@@ -1,0 +1,27 @@
+{
+  "plan_hash": "e73ee77d4b6abca10545bd296537fcee34b9a2511440e49fcf1d3ad23f9c89df",
+  "reviewed_at": "2026-11-19T15:11:03Z",
+  "reviewed_at_note": "Bounded timestamp: anchored to freshest MCP exchange payload (quote_stock_quote US.SPY data_time 1795101063712 = 15:11:03.712Z); evidence fetch ran 15:09:30Z-delegation to a few minutes after 15:11Z (final LEI/flow batch). Researcher has no wall clock; desk should stamp arrival time and recompute valid_until = stamped reviewed_at + 60min if later. Desk triage 15:21Z: bounded stamps retained, arrival disclosed separately; this file updated only to acknowledge newly pinned EV-20261119-ANT-DEBUT (bookkeeping, no new evidence fetch, verdict/fields unchanged).",
+  "valid_until": "2026-11-19T16:11:03Z",
+  "verdict": "valid",
+  "reason": "Protective-retention thesis intact. RTH last 735.83 (exchange 15:11:03.712Z) is +0.77% vs Nov-18 close 730.20 and +1.15% above the 727.50 daily-close stop; intraday low 735.29 well above stop; no completed daily close below 727.50 exists (Nov-18 closed 730.20; today's session incomplete). Faded from open 737.54/high 739.8999 but risk-on regime intact (Dec 25bp HIKE ~90%, 50bp tail ~8%; Nasdaq +1.60% at open). New since 14:55Z review: Oct Leading Index unexpectedly declined (Fisco 15:03:14Z, numeric value unavailable via MCP - growth-scare watch item, no visible market reaction); ANT first trade still UNCONFIRMED (TO_BE_OPEN, zero ticks ~15:11-15:12Z; 14:50Z was quotation-indication open, not a trade) - debut volatility pending, now pinned as EV-20261119-ANT-DEBUT; Barr speech 19:15Z inside holding window requires post-event review. None of these is condition-specific invalidation evidence.",
+  "evidence": [
+    "MCP quote_stock_quote US.SPY data_time 1795101063712 = 2026-11-19T15:11:03.712Z: last 735.83, open 737.54, high 739.8999, low 735.29, prev_close 730.20, volume 8152276, sec_status NORMAL; quote_market_state US.SPY AFTERNOON RTH (trade_section 1795098600-1795122000).",
+    "No completed daily close below 727.50: Nov-18 close 730.20 per baseline premarket-1305 kline capture cited in 14:55:34Z review; today's daily bar incomplete (RTH ends 21:00Z).",
+    "Sina/环球市场播报 news_id 1005057113 publish_time 1795098660000 = 2026-11-19T14:31:00Z: open Dow +0.39% / S&P +0.95% / Nasdaq +1.60%; CME FedWatch Dec 25bp HIKE probability ~90%; US 10Y ~5.08%; Waller 50bp rhetoric context.",
+    "Fisco flash news_id 1005060935 publish_time 1795100594000 = 2026-11-19T15:03:14Z: USDJPY 159.92; US Oct Leading Economic Index unexpectedly declined (qualitative only; numeric actual not returned by quote_economic_calendar_hot which listed only claims id294).",
+    "MCP quote_stock_quote US.ANT (fetched ~15:11Z): sec_status TO_BE_OPEN, volume 0, last 83 placeholder, data_time 1795035600000; MCP quote_rt_ticker US.ANT ticker_list=null (~15:12Z); flash 1005061142 publish_time 1795100773000 = 15:06:13Z: indicated open ~$100 (+20% vs $83 IPO price) - first trade pending, debut-volatility event imminent.",
+    "Gelonghui news_id 1005058820 publish_time 1795099667000 = 2026-11-19T14:47:47Z: Anthropic record IPO lifts storage/AI-chip/optical complex (MU +5%, NVDA +4%, AMD/AVGO +3%) - risk-on confirmation.",
+    "Fresh news check completed: news_search 'stocks Fed' (en) + '美股' (zh-CN) TIME sort plus targeted 'Anthropic 上市'/'AMD'/'日元'/'领先经济指标'; freshest item flash 1005061142 publish 15:06:13Z; no new SPY-material thesis-breaking event beyond acknowledged pins and the proposed ANT-debut event.",
+    "Barr speech 19:15Z (EV-20261119-BARR, AASTOCKS NOW.1555643 publish 12:32:30Z, desk-pinned) and PBoC LPR Nov-20 01:15Z (EV-20261120-PBOC-LPR, jin10 id235457) remain pending inside holding window; post-event reviews required.",
+    "EV-20261119-ANT-DEBUT acknowledgment (desk pin notified 15:21Z, config/events.yaml 'ANT Nasdaq first trade pending', time_et null): researcher MCP observation ~15:11Z quote_stock_quote US.ANT sec_status TO_BE_OPEN / volume 0 and quote_rt_ticker US.ANT ticker_list=null (~15:12Z) confirm first trade UNCONFIRMED; flash 1005061142 publish_time 1795100773000 = 2026-11-19T15:06:13Z indicates ~$100 open (+20% vs $83). Material to held SPY via risk-on/AI-halo sentiment; imminent-event entry block applies around the confirmed debut; post-debut review at next hourly check (17:05Z)."
+  ],
+  "acknowledged_events": [
+    "EV-20261119-CLAIMS",
+    "EV-20261119-PHILLYFED",
+    "EV-20261119-BARR",
+    "EV-20261120-PBOC-LPR",
+    "EV-20261119-ANT-DEBUT"
+  ],
+  "news_feed_ok": true
+}

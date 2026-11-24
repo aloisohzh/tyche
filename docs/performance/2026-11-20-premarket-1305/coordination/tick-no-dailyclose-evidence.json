@@ -1,0 +1,26 @@
+{
+ "decisions": [
+  {
+   "symbol": "US.SPY",
+   "action": "blocked",
+   "reason": "quote missing, stale, future-dated or suspended",
+   "warnings": [
+    "research review expired or future-dated",
+    "completed daily-close evidence unavailable for this lifecycle"
+   ]
+  },
+  {
+   "symbol": "US.EFA",
+   "action": "blocked",
+   "reason": "quote missing, stale, future-dated or suspended",
+   "warnings": [
+    "research review expired or future-dated",
+    "completed daily-close evidence unavailable for this lifecycle"
+   ]
+  }
+ ],
+ "gaps": [
+  "US.MSFT: held position missing a complete lifecycle plan"
+ ],
+ "latched": {}
+}
