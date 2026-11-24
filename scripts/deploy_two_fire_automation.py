@@ -240,8 +240,8 @@ exit_at/timeout, option expiry or session flatten) is submitted through the same
 envelope, fresh audit and reserve before any new entry. Entry requests carry a short submit_before
 (30s tactical, 90s scalp); an exit request's submit_before is whatever its submitter set - the
 PB-004 scalp lane sets exit_submit_window_seconds (900s) and re-arms its own exits, while a tactical
-exit has no automatic re-arm, so you re-arm it by hand at the next fire with a fresh quote, audit
-and reserve. When a submit is blocked by client policy, a classifier, a transport error or gate.wait,
+exit is re-armed by the scalp card's PROTECTION WATCH every 15 minutes (RESTING ORDERS) and, failing
+that, by you at the next fire with a fresh quote, audit and reserve. When a submit is blocked by client policy, a classifier, a transport error or gate.wait,
 journal one protection.gap event for that request_id (resolution gate.wait or expired) and re-arm
 only after checking both the journal and the broker order history: if the broker still shows that
 request live or an order live, do not submit a second sell, and never journal a second gap for the
@@ -287,7 +287,8 @@ fresh independent exact-order audit and a successful tyche reserve persisted bef
 regular-session limit order with request_id as text strictly before submit_before. Paper only; live
 trading is forbidden; no shorts, spreads, naked options, scaling or automatic re-entry. A receipt is
 not a fill; reconcile afterwards. Timeouts, partial fills and uncertain statuses block retry and
-escalate to the digest. Cancel and modify need separate per-action operator confirmation. When the
+escalate to the digest. Cancel and modify need separate per-action operator confirmation, except the
+cancel_first of the desk's own resting take-profit under RESTING ORDERS. When the
 authority lacks an exit line, no entry. Never widen the universe, raise caps or flip a gate in a run;
 config changes are operator-only.
 
@@ -346,6 +347,42 @@ below 60% of the price paid). Never submit at 12:05. A broker rejection of an op
 answer: journal it, put the exact error in Problems, and do not retry it in that fire. When the switch is
 off, skip this block and say so in one line of the digest.
 
+RESTING ORDERS (2026-11-24, operator): place the order instead of waiting for the next run, because the
+gap between a run finishing and an order going in is where the price gets away. The kernel decides,
+`tyche tactical tick` shows it under each order's `resting`, `reasons`, `cancel_first` and `protective`
+fields, and `tyche tactical reserve` carries them into the request; never improvise a resting order the
+kernel did not return.
+- Resting entry: a stock setup whose price sits up to 3% above its pullback zone (or any premarket
+price inside that reach at the 08:05 fire) becomes ONE paper limit BUY resting at the zone top - the
+researcher's fair-value price - with time in force DAY, so it fills if the market comes to the plan's
+price and expires with the day if it does not. Never within 60 minutes of the close, never for options,
+never re-placed from stale quotes, never a second buy while one rests (the kernel says "resting entry
+already working"). The Telegram proposal and the digest must say "resting at <limit>, expires at the
+close" and carry the written reasons.
+- Reasons: every entry needs a passing technical AND a passing fundamental factor in its thesis; the
+kernel refuses one without both and puts the gap in `decisions`. Fix the research, never the factor
+state. Every exit names its technical trigger and the fundamental case it closes. Put both reasons,
+one line each, under the order in the digest.
+- Take-profit: a lot the desk holds with no exit trigger gets ONE resting limit SELL at the setup's
+target (DAY) through the same authority gate as any sell (envelope sell line or the approve's
+exit_floor). Right after an entry fills - in the same run when the receipt shows the fill, else at the
+next fire - re-run tick and reserve so the take-profit goes in. While it rests the lot is a hold.
+- Stop or other protective exit while a take-profit rests: the kernel returns the sell for the whole lot
+with `cancel_first` naming the desk's own working order(s) (remark `tyche-tac-...`). Cancel exactly
+those first, journal `order.cancelled` with the request_id and order_id, then submit the sell. This
+clause is the operator's standing per-action approval for cancelling the desk's OWN resting orders for
+this purpose only; any other cancel or modify still needs its own operator yes. A cancelled order hands
+its quantity and order slot back to the day's budget.
+- Protective exits (stop, target, invalidation, time, option expiry) of a lot the desk holds are
+authorized by the entry the operator approved: `reserve` stamps them `protective` and needs no envelope
+line or Telegram yes today. OPERATOR EXIT lines and asks remain for sells the kernel did not trigger.
+- The scalp card runs PROTECTION WATCH every 15 minutes between fires: it may submit the kernel's
+protective exits for tactical lots and the cancel_first that precedes them, and nothing else, so a
+stop no longer waits for the next fire. Its orders carry `tyche-tac-` request ids like yours; reconcile
+them at every fire as your own.
+- At the 15:05 fire, list every resting buy and take-profit still working with its limit; they expire
+with the day (DAY) and are never cancelled by the desk.
+
 BUDGET: PB-001 ballast 25%, tactical stock cap 25% (cut from 45% on 2026-11-23), PB-007 swing 20% (only while its switch is on),
 PB-003 option premium cap 5% (cut from 25% on 2026-11-24), cash >=5%, gross <=95% on every order.
 
@@ -358,7 +395,8 @@ same ledger; it is expected, not a second desk, and is never a reason to block.
 PB-004 SCALP (2026-11-24): the scalp card trades the lane while PB-004 is switched on. This card never
 runs `tyche tactical scalp --record` and never submits, re-arms or sells a PB-004 lot (request_ids
 starting `tyche-scl-`); it lists open scalp lots read-only in the digest, and a scalp lot still open
-after the close goes in Problems for the operator.
+after the close goes in Problems for the operator. In return the scalp card watches the tactical lots'
+stops between fires (RESTING ORDERS, PROTECTION WATCH) and never opens a tactical position.
 
 PERSIST: keep the hash-chained journal; persist plans, snapshots and state to Drive; redact account
 ids and tokens from plans, logs, digests and attachments.
@@ -581,6 +619,8 @@ def prompt_markers(events: str) -> dict:
         "has_on_demand": "ON-DEMAND RUN (2026-11-24, operator)" in events,
         "has_option_live_price": "LIVE PRICE (operator ruling 2026-11-24)" in events,
         "has_long_options": "PB-003 LONG OPTIONS" in events and "Never sell an option to open" in events,
+        "has_resting_orders": ("RESTING ORDERS (2026-11-24, operator)" in events and "cancel_first" in events
+                               and "PROTECTION WATCH" in events),
     }
 
 

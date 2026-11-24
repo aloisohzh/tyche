@@ -22,6 +22,14 @@ from tyche.risk import RiskState, evaluate_intent
 from tyche.watchlist import Watchlist, WatchlistEntry
 
 RTH = {SessionPhase.OPENING_DRIVE, SessionPhase.MIDDAY, SessionPhase.CLOSING_DRIVE}
+# Exit triggers the kernel raises on its own. A sell carrying one of these reasons is a protective exit:
+# it only removes risk, so the reserve step authorizes it even when no operator line covers it today.
+PROTECTIVE_EXIT_REASONS = frozenset({
+    "underlying stop breached", "underlying target reached", "thesis invalidated",
+    "option premium drawdown reached 40%", "time exit before next scheduled check",
+    "close before option expiry/exercise",
+})
+TAKE_PROFIT_REASON = "resting take-profit at target"
 
 
 class MarketQuote(BaseModel):
@@ -102,6 +110,37 @@ def thesis_block(entry: WatchlistEntry) -> dict:
     }
 
 
+def order_reasons(entry: WatchlistEntry, trigger: str | None = None) -> dict:
+    """The written technical and fundamental reason an order carries (operator rule 2026-11-24).
+
+    Entries take them from the thesis factors that passed. An exit's technical reason is its trigger;
+    its fundamental reason is the thesis invalidation when the thesis broke, else the entry's own
+    fundamental case (the exit closes the trade the fundamental case opened). A missing reason is
+    None, never a made-up sentence; the kernel refuses an entry that lacks either.
+    """
+    def passing(axis: str) -> str | None:
+        for factor in entry.factors:
+            if factor.axis == axis and factor.state == "pass":
+                text = factor.why or factor.detail or factor.name
+                return f"{factor.name}: {text}" if text != factor.name else text
+        return None
+    technical, fundamental = passing("technical"), passing("fundamental")
+    if trigger is not None:
+        technical = trigger
+        if trigger == "thesis invalidated":
+            fundamental = entry.invalidation or "thesis invalidated by the researcher"
+        elif trigger == TAKE_PROFIT_REASON:
+            technical = f"target {entry.target} is the thesis's priced-in upside"
+    return {"technical": technical, "fundamental": fundamental}
+
+
+def open_orders_for(raw_orders: list[dict], symbol: str, today) -> list[str]:
+    """Broker order ids still working for one symbol (the desk's own resting orders to cancel first)."""
+    from tyche.execution_state import order_finished, order_symbol
+    return [str(r.get("order_id")) for r in raw_orders
+            if order_symbol(r) == symbol and not order_finished(r, today)]
+
+
 def risk_preview(intent: OrderIntent, entry: WatchlistEntry, nav: float, etf: bool) -> dict:
     fees = estimate_fees(intent.symbol, intent.side.value, intent.quantity, intent.limit_price,
                          "option" if intent.option else "stock").total
@@ -137,9 +176,12 @@ def plan_tick(
     phase = phase_at(now)
     report = {"as_of": now.isoformat(), "phase": phase.value, "config_hash": config_hash(config),
               "orders": [], "decisions": [], "alerts": [], "submitted": False}
-    if not cfg.enabled or phase not in RTH:
+    premarket = phase == SessionPhase.PRE_MARKET and cfg.resting_entries
+    if not cfg.enabled or (phase not in RTH and not premarket):
         report["alerts"].append("tactical lane disabled or outside regular session")
         return report
+    if premarket:
+        report["alerts"].append("premarket: resting DAY entries only; protection runs in the regular session")
     if len({q.symbol for q in quotes}) != len(quotes):
         raise ValueError("duplicate quote symbols")
     if snapshot.captured_at is None or snapshot.captured_at.tzinfo is None or not (
@@ -210,7 +252,12 @@ def plan_tick(
         underlying_fresh = uq is not None and uq.fresh(now, cfg.max_quote_age_seconds)
         last = uq.last if underlying_fresh else None
         exit_reason = state.latched_exits.get(entry.symbol)
+        resting_row = None
+        cancel_first: list[str] = []
         if held:
+            if premarket:
+                reject("premarket; protection and take-profit orders are placed in the regular session")
+                continue
             if entry.invalidated:
                 exit_reason = "thesis invalidated"
             if last is not None:
@@ -228,20 +275,43 @@ def plan_tick(
                 exit_reason = "time exit before next scheduled check"
             if entry.option and entry.option.expiry <= today and next_check >= close - timedelta(minutes=cfg.option_exit_minutes_before_close):
                 exit_reason = "close before option expiry/exercise"
+            resting_sells = [o for o in pending if o.symbol == entry.symbol and o.side == Side.SELL]
             if not exit_reason:
-                reject("hold; no exit trigger" if underlying_fresh else "underlying feed stale; protection incomplete")
-                continue
-            state.latched_exits[entry.symbol] = exit_reason
-            if held.available_quantity is None:
-                reject("broker available quantity required for close")
-                continue
-            quantity = held.sellable
-            if quantity <= 0:
-                reject("no available quantity to close")
-                continue
-            intent = OrderIntent(symbol=entry.symbol, option=entry.option, side=Side.SELL,
-                                 quantity=quantity, limit_price=q.bid, reason=exit_reason,
-                                 strategy_id="PB-003" if entry.option else "PB-002", setup_id=key)
+                if not underlying_fresh:
+                    reject("underlying feed stale; protection incomplete")
+                    continue
+                if resting_sells:
+                    reject(f"hold; take-profit sell resting at the broker ({resting_sells[0].limit_price})")
+                    continue
+                if (not cfg.resting_take_profit or entry.option or entry.direction != "bullish"
+                        or now >= close - timedelta(minutes=cfg.session_exit_minutes_before_close)):
+                    reject("hold; no exit trigger")
+                    continue
+                if held.available_quantity is None or held.sellable <= 0:
+                    reject("hold; no available quantity for a take-profit order")
+                    continue
+                # Rest the exit at the target so the win is taken without waiting for a run.
+                intent = OrderIntent(symbol=entry.symbol, option=None, side=Side.SELL,
+                                     quantity=held.sellable, limit_price=entry.target, reason=TAKE_PROFIT_REASON,
+                                     strategy_id="PB-002", setup_id=key)
+                resting_row = {"kind": "take_profit", "time_in_force": "day",
+                               "limit_basis": f"target {entry.target} from the approved setup",
+                               "expires": close.isoformat(),
+                               "note": "re-placed each session until filled, stopped or the deadline passes"}
+            else:
+                state.latched_exits[entry.symbol] = exit_reason
+                cancel_first = open_orders_for(raw_orders, entry.symbol, today)
+                if held.available_quantity is None:
+                    reject("broker available quantity required for close")
+                    continue
+                # A resting take-profit locks the shares at the broker; cancelling it first frees them.
+                quantity = held.quantity if cancel_first else held.sellable
+                if quantity <= 0:
+                    reject("no available quantity to close")
+                    continue
+                intent = OrderIntent(symbol=entry.symbol, option=entry.option, side=Side.SELL,
+                                     quantity=quantity, limit_price=q.bid, reason=exit_reason,
+                                     strategy_id="PB-003" if entry.option else "PB-002", setup_id=key)
         else:
             if entry.symbol in state.latched_exits:
                 reject("closed/triggered setup; no automatic re-entry")
@@ -285,10 +355,22 @@ def plan_tick(
             if attempts >= cfg.max_entries_per_setup:
                 reject("setup entry already attempted; no automatic re-entry")
                 continue
+            reasons = order_reasons(entry)
+            if not reasons["technical"] or not reasons["fundamental"]:
+                reject("entry needs a passing technical and a passing fundamental factor in the thesis")
+                continue
             # Option entries buy at the live price once approved (operator ruling 2026-11-24, PB-003
             # test): the underlying's zone still sets stop/target, but no pullback is awaited.
-            if entry.option is None and not entry.entry_low <= last <= entry.entry_high:
-                reject("outside entry zone; do not chase")
+            in_zone = entry.option is not None or entry.entry_low <= last <= entry.entry_high
+            resting_ok = (cfg.resting_entries and entry.option is None and entry.direction == "bullish"
+                          and now < close - timedelta(minutes=cfg.resting_cutoff_minutes))
+            within_reach = entry.entry_low <= last <= entry.entry_high * (1 + cfg.resting_reach_pct)
+            # In the session an in-zone price is bought at the ask now. A price up to the reach above
+            # the zone, or any premarket price inside the reach, is a DAY limit resting at the zone top.
+            resting_entry = resting_ok and within_reach and (premarket or not in_zone)
+            if not resting_entry and (premarket or not in_zone):
+                reject("outside entry zone; do not chase" if not premarket
+                       else "premarket price outside the resting reach of the entry zone")
                 continue
             distance = abs((entry.entry_high if entry.direction == "bullish" else entry.entry_low) - entry.stop)
             reward = abs(entry.target - (entry.entry_high if entry.direction == "bullish" else entry.entry_low))
@@ -306,7 +388,7 @@ def plan_tick(
                 reject("per-tick entry budget exhausted")
                 continue
             spread_cap = cfg.option_spread_pct if entry.option else cfg.stock_spread_pct
-            if q.spread_pct > spread_cap:
+            if q.spread_pct > spread_cap and not resting_entry:
                 reject("bid/ask spread too wide")
                 continue
             if entry.option:
@@ -327,10 +409,21 @@ def plan_tick(
                 quantity = math.floor(budget / (q.ask * 100))
                 limit = q.ask
             else:
-                if q.ask > entry.entry_high:
-                    reject("ask outside entry zone")
-                    continue
-                limit = q.ask
+                if not resting_entry and q.ask > entry.entry_high:
+                    if not resting_ok:
+                        reject("ask outside entry zone")
+                        continue
+                    resting_entry = True
+                if resting_entry:
+                    # Fair-value price: the top of the researcher's pullback zone. The order rests for
+                    # the day; a fill means the market came to the plan's price, not that the desk chased.
+                    limit = entry.entry_high
+                    resting_row = {"kind": "entry", "time_in_force": "day",
+                                   "limit_basis": f"entry zone top {entry.entry_high} (fair value); last {last}, ask {q.ask}",
+                                   "expires": close.isoformat(),
+                                   "note": "unfilled at the close it expires with the day; never re-placed from stale quotes"}
+                else:
+                    limit = q.ask
                 distance = limit - entry.stop
                 quantity = math.floor(config.risk.risk_per_trade_pct * projected.nav / distance)
                 quantity = min(quantity, math.floor(cfg.max_name_weight * projected.nav / limit))
@@ -361,8 +454,12 @@ def plan_tick(
             if not entry.option and tactical_stock + intent.notional > cfg.stock_allocation_cap * projected.nav:
                 reject("tactical-stock allocation exhausted")
                 continue
-        if entry.symbol in blocked_symbols or any(o.symbol == entry.symbol for o in pending):
-            reject("unresolved/resting order; reconcile before any further write")
+        if entry.symbol in blocked_symbols:
+            reject("unresolved order; reconcile before any further write")
+            continue
+        if any(o.symbol == entry.symbol for o in pending) and not cancel_first:
+            reject("resting entry already working at the broker; no second buy" if intent.side == Side.BUY
+                   else "unresolved/resting order; reconcile before any further write")
             continue
         if intent.side == Side.BUY:
             units = sum(p.quantity * p.multiplier for p in projected.positions if p.underlying == entry.underlying)
@@ -370,20 +467,37 @@ def plan_tick(
             if (units + intent.quantity * intent.multiplier) * last > cfg.max_name_weight * projected.nav:
                 reject("tactical combined-underlying name cap exceeded")
                 continue
-        verdict = evaluate_intent(intent, projected, config.risk, risk_state, q.last,
+        risk_pending = [o for o in pending if not (cancel_first and o.symbol == entry.symbol)]
+        risk_book = projected
+        if cancel_first and held:
+            # Cancelling the desk's own resting order frees the locked shares before the exit is sent.
+            risk_book = projected.model_copy(update={"positions": [
+                p.model_copy(update={"available_quantity": p.quantity}) if p.symbol == entry.symbol else p
+                for p in projected.positions]})
+        verdict = evaluate_intent(intent, risk_book, config.risk,
+                                  risk_state.model_copy(update={"pending_orders": risk_pending}), q.last,
                                   set(cfg.symbols), {s: "equity" for s in cfg.symbols},
                                   underlying_price=last)
-        if not verdict.allowed:
-            reject("; ".join(f"{b.rule}: {b.detail}" for b in verdict.breaches))
+        breaches = [b for b in verdict.breaches
+                    if not (b.rule == "price.limit_deviation" and intent.reason == TAKE_PROFIT_REASON)]
+        if breaches:
+            reject("; ".join(f"{b.rule}: {b.detail}" for b in breaches))
             continue
         intent = intent.model_copy(update={"quantity": min(intent.quantity, verdict.adjusted_quantity)})
         preview = risk_preview(intent, entry, snapshot.nav, entry.underlying in cfg.etf_symbols)
         contract_hash = setup_hash(entry, config, snapshot.account_id)
+        trigger = intent.reason if intent.side == Side.SELL else None
         report["orders"].append({"setup_hash": contract_hash, "order_hash": order_hash(intent, contract_hash),
                                  "intent": intent.model_dump(mode="json"),
                                  "thesis": thesis_block(entry),
+                                 "reasons": order_reasons(entry, trigger),
+                                 "resting": resting_row,
+                                 "cancel_first": cancel_first,
+                                 "protective": intent.reason in PROTECTIVE_EXIT_REASONS,
                                  "risk": preview, "verdict": verdict.model_dump(mode="json"),
-                                 "authorization": "not granted; auditor + operator envelope required"})
+                                 "authorization": ("not granted; protective exit - reserve authorizes it"
+                                                   if intent.reason in PROTECTIVE_EXIT_REASONS
+                                                   else "not granted; auditor + operator envelope required")})
         decision.update(action=intent.side.value, reason=intent.reason)
         risk_state.orders_today += 1
         if intent.side == Side.BUY:

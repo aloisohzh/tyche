@@ -307,6 +307,15 @@ class TacticalConfig(BaseModel):
     session_exit_minutes_before_close: int = Field(default=10, ge=5, le=60)
     max_new_orders_per_tick: int = Field(default=3, ge=1, le=10)
     max_entries_per_setup: int = Field(default=1, ge=1, le=3)
+    # Resting orders (operator direction 2026-11-24): place the order instead of waiting for a run.
+    # A stock entry whose underlying trades up to resting_reach_pct above its pullback zone becomes a
+    # DAY limit buy resting at the zone top (the fair-value price); it is never placed within
+    # resting_cutoff_minutes of the close. A held lot with no exit trigger gets a resting limit sell
+    # at its target. Both need a written technical and fundamental reason from the thesis factors.
+    resting_entries: bool = True
+    resting_reach_pct: float = Field(default=0.03, ge=0, le=0.10)
+    resting_cutoff_minutes: int = Field(default=60, ge=10, le=240)
+    resting_take_profit: bool = True
 
     @model_validator(mode="after")
     def _bounds(self):

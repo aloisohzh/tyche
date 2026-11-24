@@ -12,7 +12,7 @@ from pydantic import ValidationError
 from tyche.config import TacticalConfig, load_config
 from tyche.journal import append_event, read_events
 from tyche.tactical_cli import scout_cycle
-from tyche.watchlist import Watchlist, WatchlistEntry
+from tyche.watchlist import Factor, Watchlist, WatchlistEntry
 
 ROOT = Path(__file__).resolve().parents[1]
 NOW = datetime(2026, 11, 19, 15, 5, tzinfo=UTC)
@@ -50,7 +50,9 @@ def write_book(tmp_path: Path) -> Path:
                            expiry=NOW.date(), thesis="Synthetic catalyst thesis",
                            catalyst="synthetic earnings surprise", sources=["https://example.test/earnings"],
                            reviewed_at=NOW, market_cap_usd=1e12,
-                           exit_at=NOW.replace(hour=20, minute=45))
+                           exit_at=NOW.replace(hour=20, minute=45),
+                           factors=[Factor(name="reclaim", axis="technical", state="pass", why="held 150"),
+                                    Factor(name="guide", axis="fundamental", state="pass", why="raised")])
     book = Watchlist(as_of=NOW.date(), entries=[entry])
     path = tmp_path / "book.json"
     path.write_text(book.model_dump_json(), encoding="utf-8")

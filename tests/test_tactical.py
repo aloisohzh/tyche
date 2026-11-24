@@ -17,6 +17,7 @@ from tyche.config import load_config
 from tyche.execution_state import combined_usage, pending_intents, unresolved_symbols
 from tyche.fees import estimate_fees, reconcile_cash
 from tyche.journal import append_event, journal_lock, read_events, verify_chain
+from tyche.market_calendar import ET
 from tyche.models import AccountSnapshot, OptionContract, OrderIntent, Position, Side, apply_fill
 from tyche.risk import RiskState, evaluate_intent
 from tyche.tactical import MarketQuote, MonitorState, plan_tick, setup_hash
@@ -27,6 +28,9 @@ ROOT = Path(__file__).resolve().parents[1]
 NOW = datetime(2026, 11, 19, 15, 5, tzinfo=UTC)
 OPT = "US.NVDA261127P155000"
 CONTRACT = OptionContract(underlying="US.NVDA", expiry=date(2026, 11, 27), right="put", strike=155)
+# Every order needs a written technical AND fundamental reason (operator rule 2026-11-24).
+REASONS = (Factor(name="reclaim", axis="technical", state="pass", why="closed above 151 on volume"),
+           Factor(name="guidance raise", axis="fundamental", state="pass", why="FY guide lifted 8%"))
 
 
 def case(option=False, held=False):
@@ -47,7 +51,7 @@ def case(option=False, held=False):
                            option=CONTRACT if option else None, direction="bearish" if option else "bullish",
                            catalyst="synthetic earnings surprise", sources=["https://example.test/earnings"],
                            reviewed_at=NOW, market_cap_usd=1e12, premium_limit=6.1 if option else None,
-                           exit_at=NOW.replace(hour=20, minute=45))
+                           exit_at=NOW.replace(hour=20, minute=45), factors=list(REASONS))
     book = Watchlist(as_of=NOW.date(), entries=[entry])
     uq = MarketQuote(symbol="US.NVDA", last=150, bid=149.95, ask=150.05,
                      at=NOW, book_at=NOW, tradable=True)
@@ -90,8 +94,7 @@ def test_plan_carries_the_per_trade_thesis_block():
         "invalidation": "daily close below 145",
         "horizon": "2-4 weeks",
         "thesis_ref": "scout-2026-11-19-nvda",
-        "factors": [Factor(name="reclaim", axis="technical", state="pass", why="closed above 151"),
-                    Factor(name="CPI print", axis="macro", state="unknown", why="not published")],
+        "factors": [*REASONS, Factor(name="CPI print", axis="macro", state="unknown", why="not published")],
         "outlook": Outlook(regime="neutral", conviction="medium",
                            alignment={"technical": "bull", "macro": "neutral"}),
     })
@@ -101,7 +104,9 @@ def test_plan_carries_the_per_trade_thesis_block():
     assert thesis["thesis"] == "Synthetic catalyst thesis"
     assert thesis["thesis_ref"] == "scout-2026-11-19-nvda"
     assert thesis["direction"] == "bullish" and thesis["source"] == "scout"
-    assert {f["axis"] for f in thesis["factors"]} == {"technical", "macro"}
+    assert {f["axis"] for f in thesis["factors"]} == {"technical", "fundamental", "macro"}
+    assert result["orders"][0]["reasons"] == {"technical": "reclaim: closed above 151 on volume",
+                                              "fundamental": "guidance raise: FY guide lifted 8%"}
     assert thesis["outlook"]["conviction"] == "medium"
     assert thesis["invalidation"] == "daily close below 145"
 
@@ -590,4 +595,167 @@ def test_exact_reservation_runs_on_a_journaled_telegram_approval_without_an_enve
     assert payload["authorized"] and payload["request"]["authorization"] == {"kind": "telegram", "as_of": NOW.date().isoformat()}
     assert runner.invoke(app, cmd).exit_code == 1  # one yes, one order
     assert len([e for e in read_events(journal) if e["type"] == "order.requested"]) == 1
+    assert verify_chain(journal)[0]
+
+
+# --- Resting orders (operator direction 2026-11-24): place the order, do not wait for a run -------------
+
+
+def _ready_at(args, price):
+    """Two distinct fresh quotes at `price`, as the confirmation gate needs."""
+    for q in args[2]:
+        q.last, q.bid, q.ask = price, price - 0.05, price + 0.05
+    run(args)
+    now = NOW + timedelta(seconds=120)
+    advance(args, now)
+    return run(args, now), now
+
+
+def test_a_price_just_above_the_zone_rests_a_day_limit_at_the_zone_top_with_both_reasons():
+    args = case()
+    report, _ = _ready_at(args, 153)   # zone 149-151, reach 3% -> up to 155.53
+    [order] = report["orders"]
+    assert order["intent"]["side"] == "buy" and order["intent"]["limit_price"] == 151
+    assert order["resting"]["kind"] == "entry" and order["resting"]["time_in_force"] == "day"
+    assert order["resting"]["expires"].startswith("2026-11-19T16:00")
+    assert order["reasons"]["technical"] and order["reasons"]["fundamental"]
+    assert order["cancel_first"] == [] and order["protective"] is False
+    # Sized from the resting price, never from the chased price.
+    stop_distance = 151 - 145
+    assert order["intent"]["quantity"] <= args[7].risk.risk_per_trade_pct * 100000 / stop_distance
+
+
+def test_a_price_beyond_the_reach_is_still_not_chased():
+    args = case()
+    report, _ = _ready_at(args, 156)
+    assert not report["orders"]
+    assert report["decisions"][0]["reason"] == "outside entry zone; do not chase"
+
+
+def test_no_resting_entry_in_the_last_hour_and_none_when_switched_off():
+    args = case()
+    late = datetime(2026, 11, 19, 20, 10, tzinfo=UTC)  # 15:10 ET, inside the 60-minute cutoff
+    for q in args[2]:
+        q.last, q.bid, q.ask = 153, 152.95, 153.05
+    args[1].captured_at = late
+    for q in args[2]:
+        q.at = q.book_at = late
+    args[0].entries[0].exit_at = late + timedelta(minutes=20)
+    run(args, late)
+    later = late + timedelta(seconds=120)
+    advance(args, later)
+    assert not run(args, later)["orders"]
+    args = case()
+    args[7].tactical.resting_entries = False
+    report, _ = _ready_at(args, 153)
+    assert not report["orders"]
+
+
+def test_premarket_rests_the_entry_for_the_open_but_never_sells():
+    args = case()
+    pre = datetime(2026, 11, 19, 13, 10, tzinfo=UTC)  # 08:10 ET
+    args[1].captured_at = pre
+    args[0].entries[0].reviewed_at = pre
+    for q in args[2]:
+        q.at = q.book_at = pre
+        q.last, q.bid, q.ask = 150, 149.5, 150.5   # inside the zone, wide premarket spread
+    run(args, pre)
+    later = pre + timedelta(seconds=120)
+    advance(args, later)
+    report = run(args, later)
+    [order] = report["orders"]
+    assert order["intent"]["limit_price"] == 151 and order["resting"]["kind"] == "entry"
+    held = case(held=True)
+    held[1].captured_at = later
+    for q in held[2]:
+        q.at = q.book_at = later
+        q.last = 140  # stop would be hit in the session
+    report = run(held, later)
+    assert not report["orders"] and "premarket" in report["decisions"][0]["reason"]
+
+
+def test_an_entry_without_a_fundamental_reason_is_refused():
+    args = case()
+    args[0].entries[0].factors = [REASONS[0]]
+    assert not ready(args)["orders"]
+    assert "fundamental" in run(args, NOW + timedelta(seconds=120))["decisions"][0]["reason"]
+
+
+def test_a_held_lot_gets_a_resting_take_profit_at_the_target_without_latching():
+    args = case(held=True)
+    report = run(args)
+    [order] = report["orders"]
+    assert order["intent"]["side"] == "sell" and order["intent"]["limit_price"] == 165
+    assert order["intent"]["quantity"] == 10 and order["resting"]["kind"] == "take_profit"
+    assert order["reasons"]["fundamental"].startswith("guidance raise")
+    assert order["protective"] is False and not args[6].latched_exits
+    # Once it rests at the broker the lot is a hold, not a second sell.
+    args[3].append(OrderIntent(symbol="US.NVDA", side=Side.SELL, quantity=10, limit_price=165, reason="resting"))
+    report = run(args, NOW + timedelta(seconds=120))
+    assert not report["orders"] and report["decisions"][0]["reason"].startswith("hold; take-profit sell resting")
+
+
+def test_a_stop_breach_cancels_the_resting_take_profit_first_and_sells_the_whole_lot():
+    args = case(held=True)
+    args[1].positions[0].available_quantity = 0   # the broker locked the shares behind the resting sell
+    args[3].append(OrderIntent(symbol="US.NVDA", side=Side.SELL, quantity=10, limit_price=165, reason="resting"))
+    args[4].append({"order_id": 3124700, "symbol": "US.NVDA", "side": 2, "qty": 10, "cum_qty": 0, "price": 165,
+                    "status": 2, "create_time": int(NOW.timestamp() * 1_000_000), "text": "tyche-tac-tp"})
+    for q in args[2]:
+        q.last, q.bid, q.ask = 144, 143.95, 144.05
+    report = run(args)
+    [order] = report["orders"]
+    assert order["intent"]["side"] == "sell" and order["intent"]["quantity"] == 10
+    assert order["intent"]["reason"] == "underlying stop breached" and order["protective"] is True
+    assert order["cancel_first"] == ["3124700"]
+    assert order["reasons"] == {"technical": "underlying stop breached", "fundamental": "guidance raise: FY guide lifted 8%"}
+    assert args[6].latched_exits["US.NVDA"] == "underlying stop breached"
+
+
+def test_a_cancelled_take_profit_hands_its_quantity_and_slot_back(tmp_path):
+    from tyche.approvals import envelope_usage
+    journal = tmp_path / "events.jsonl"
+    auth = {"kind": "envelope", "as_of": NOW.astimezone(ET).date().isoformat()}
+    append_event(journal, "order.requested", {"symbol": "US.KO", "side": "sell", "quantity": 51, "limit_price": 101,
+                                             "request_id": "tyche-tac-tp", "authorization": auth})
+    append_event(journal, "order.requested", {"symbol": "US.KO", "side": "sell", "quantity": 51, "limit_price": 95,
+                                             "request_id": "tyche-tac-stop", "authorization": auth})
+    today = NOW.astimezone(ET).date()
+    assert envelope_totals(read_events(journal), today, "US.KO", "sell")[0] == 102
+    assert envelope_usage(journal, today) == 2
+    append_event(journal, "order.cancelled", {"request_id": "tyche-tac-tp", "order_id": "3124700"})
+    assert envelope_totals(read_events(journal), today, "US.KO", "sell")[0] == 51
+    assert envelope_usage(journal, today) == 1
+
+
+def test_a_stop_exit_of_a_held_lot_reserves_with_no_operator_line_but_a_take_profit_still_needs_one(tmp_path, monkeypatch):
+    """A protective exit removes risk, so the entry's approval is its authority; a resting take-profit is a
+    new order choice and still runs through the envelope or Telegram gate."""
+    args = case(held=True)
+    args[7].tactical.execution_enabled = True  # synthetic drill only
+    paths = write_cli_case(tmp_path, args)
+    journal = tmp_path / "events.jsonl"
+    append_event(journal, "tactical.monitor", {"state": args[6].model_dump(mode="json")})
+    monkeypatch.setattr("tyche.tactical_cli.now_utc", lambda: NOW)
+    monkeypatch.setattr("tyche.tactical_cli.load_config", lambda _: args[7])
+    cmd = ["tactical", "reserve", "--symbol", "US.NVDA", "--journal", str(journal), "--config-root", str(tmp_path)]
+    for key, path in paths.items():
+        cmd.extend(["--" + key, str(path)])
+    runner = CliRunner()
+    # No exit trigger: the kernel offers the resting take-profit, and with no authority it is refused.
+    refused = runner.invoke(app, cmd)
+    assert refused.exit_code == 1 and "no Telegram approval journaled today" in refused.output
+    # Stop breached: the protective sell is reserved with no envelope and no Telegram yes.
+    data = json.loads(paths["quotes"].read_text())
+    for row in data:
+        row["last"], row["bid"], row["ask"] = 144, 143.95, 144.05
+    paths["quotes"].write_text(json.dumps(data))
+    first = runner.invoke(app, cmd)
+    assert first.exit_code == 0, first.output
+    payload = json.loads(first.stdout)
+    assert payload["request"]["authorization"] == {"kind": "protective", "as_of": NOW.astimezone(ET).date().isoformat()}
+    assert payload["request"]["reason"] == "underlying stop breached" and payload["request"]["cancel_first"] == []
+    assert payload["request"]["reasons"]["technical"] == "underlying stop breached"
+    assert "protective exit" in payload["authority"]
+    assert runner.invoke(app, cmd).exit_code == 1  # the reservation blocks a second sell until reconciled
     assert verify_chain(journal)[0]

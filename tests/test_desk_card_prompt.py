@@ -262,3 +262,24 @@ def test_pb003_options_buy_at_the_live_price_once_approved():
                  "never a second re-proposal"):
         assert must in clause, must
     assert _module().prompt_markers(prompt)["has_option_live_price"]
+
+
+def test_resting_orders_are_kernel_decided_day_limits_with_both_reasons_and_a_bounded_cancel():
+    """Operator direction 2026-11-24: place the order instead of waiting for a run. The brief may only
+    pass through what the kernel returned, every order carries a technical and a fundamental reason, the
+    only cancel it pre-approves is the desk's own resting take-profit ahead of a stop, and protective
+    exits need no fresh operator line."""
+    module = _module()
+    prompt = module.card_prompt(PERMANENT)
+    clause = " ".join(prompt.split("RESTING ORDERS (2026-11-24, operator):", 1)[1].split("\n\nBUDGET", 1)[0].split())
+    for must in ("never improvise a resting order the kernel did not return", "time in force DAY",
+                 "Never within 60 minutes of the close", "never for options", "resting at <limit>, expires at the close",
+                 "passing technical AND a passing fundamental factor", "Fix the research, never the factor state",
+                 "resting limit SELL at the setup's target", "cancel_first", "journal `order.cancelled`",
+                 "desk's OWN resting orders for this purpose only", "stamps them `protective`",
+                 "PROTECTION WATCH every 15 minutes", "never cancelled by the desk"):
+        assert must in clause, must
+    assert module.prompt_markers(prompt)["has_resting_orders"]
+    assert "except the\ncancel_first of the desk's own resting take-profit" in prompt
+    # The old hand re-arm sentence is gone: the watch is the first line of defence.
+    assert "a tactical\nexit has no automatic re-arm" not in prompt

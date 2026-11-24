@@ -12,6 +12,7 @@ from pathlib import Path
 import typer
 
 from tyche.approvals import (
+    MODE_PROTECTIVE,
     ApprovalBatch,
     authorization_record,
     authorize_order,
@@ -268,21 +269,27 @@ def reserve(
             proposal = candidates[0]
             intent = OrderIntent.model_validate(proposal["intent"])
             batch, mode, how = resolve_batch(envelope, events, today)
-            if batch is None:
-                raise ValueError(how)
-            if batch.approved_at.tzinfo is None or batch.approved_at > now:
-                raise ValueError("invalid envelope approval time")
-            line = batch.line_for(symbol, intent.side.value)
-            if line is None:
-                raise ValueError("operator envelope has no line for this order")
+            line = batch.line_for(symbol, intent.side.value) if batch is not None else None
+            protective = bool(proposal.get("protective")) and intent.side.value == "sell" and snapshot.position(symbol)
+            if protective and (line is None or batch is None):
+                # A stop/target/time exit of a lot the desk holds removes risk: it is authorized by the
+                # entry the operator approved, not by a second yes today (direction 2026-11-24).
+                mode, how = MODE_PROTECTIVE, f"protective exit: {intent.reason}; no operator line needed"
+            else:
+                if batch is None:
+                    raise ValueError(how)
+                if batch.approved_at.tzinfo is None or batch.approved_at > now:
+                    raise ValueError("invalid envelope approval time")
+                if line is None:
+                    raise ValueError("operator envelope has no line for this order")
             # A line with no setup_hash is the operator's symbol-level pre-approval (2026-11-24 ruling:
             # "pre-approve now, I sleep"): any setup the kernel produces is authorized inside the line's
             # quantity and price bounds. A line that names a hash still binds that exact setup.
-            if line.setup_hash is not None and line.setup_hash != proposal["setup_hash"]:
+            if line is not None and line.setup_hash is not None and line.setup_hash != proposal["setup_hash"]:
                 raise ValueError("operator envelope must bind the complete setup/account/config hash")
             entry = state.protected.get(symbol) if snapshot.position(symbol) else None
             entry = entry or next(e for e in watchlist.entries if e.symbol == symbol)
-            if line.setup_hash is not None and setup_hash(entry, config, snapshot.account_id) != line.setup_hash:
+            if line is not None and line.setup_hash is not None and setup_hash(entry, config, snapshot.account_id) != line.setup_hash:
                 raise ValueError("protected setup changed; obtain renewed approval")
             if intent.side.value == "buy":
                 exit_line = batch.line_for(symbol, "sell")
@@ -292,23 +299,34 @@ def reserve(
             used_qty, used_notional = envelope_totals(events, today, symbol, intent.side.value)
             if intent.side.value == "buy" and effective_halt(journal.parent, config_root).get("halted"):
                 raise ValueError("kill-switch engaged - buys blocked, de-risking sells still allowed")
-            authorized, reason = authorize_order(
-                batch, symbol=symbol, side=intent.side.value, qty=intent.quantity,
-                limit=intent.limit_price, today=today, used=envelope_usage(journal, today),
-                used_qty=used_qty, used_notional=used_notional, multiplier=intent.multiplier)
-            if not authorized:
-                raise ValueError(reason)
+            if mode != MODE_PROTECTIVE:
+                authorized, reason = authorize_order(
+                    batch, symbol=symbol, side=intent.side.value, qty=intent.quantity,
+                    limit=intent.limit_price, today=today, used=envelope_usage(journal, today),
+                    used_qty=used_qty, used_notional=used_notional, multiplier=intent.multiplier)
+                if not authorized:
+                    raise ValueError(reason)
             request_id = "tyche-tac-" + uuid.uuid4().hex
+            resting = proposal.get("resting")
             payload = {**intent.model_dump(mode="json"), "request_id": request_id,
                        "multiplier": intent.multiplier, "setup_hash": proposal["setup_hash"],
                        "order_hash": proposal["order_hash"],
                        "protected_setup": entry.model_dump(mode="json"),
+                       "reasons": proposal.get("reasons"),
+                       "resting": resting,
+                       "cancel_first": proposal.get("cancel_first") or [],
                        "authorization": authorization_record(mode, today),
                        "submit_before": (now + timedelta(seconds=30)).isoformat()}
             append_locked(journal, "tactical.monitor", {"state": state.model_dump(mode="json")})
             append_locked(journal, "order.requested", payload)
+        steps = []
+        if payload["cancel_first"]:
+            steps.append("Cancel the desk's own working order(s) " + ", ".join(payload["cancel_first"])
+                         + " for this symbol first and journal order.cancelled for their request ids.")
+        steps.append("Persist the journal, then one US-paper limit order, exact fields and request_id as text"
+                     + (", time in force DAY (it rests until filled or the close)" if resting else "") + ". No retry.")
         emit({"authorized": True, "request": payload, "risk": proposal["risk"], "submitted": False,
-              "instructions": "Persist the journal, then one US-paper limit order, exact fields and request_id as text. No retry."})
+              "authority": how, "instructions": " ".join(steps)})
     except (OSError, ValueError, KeyError, TypeError, RuntimeError, StopIteration) as exc:
         fail(exc)
 
