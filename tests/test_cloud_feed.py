@@ -267,3 +267,19 @@ def test_card_view_carries_the_end_date():
     view = mod.card_view({"id": "d", "name": "Tyche scalp", "metadata": {"ends": "2026-11-30"}, "schedule": {}})
     assert view["ends"] == "2026-11-30"
     assert mod.card_view({"id": "d", "metadata": {}})["ends"] is None
+
+
+def test_score_table_has_one_row_per_strategy(srv):
+    from tyche.trade_risk import ClosedTrade
+    trade = ClosedTrade(symbol="US.SPY", sleeve="equity", quantity=1, entry_price=100, exit_price=102,
+                        pnl_gross=2, fees=0.5, pnl_net=1.5, realized_r=1.0, entry_ts="t0", exit_ts="t1")
+    orphan = trade.model_copy(update={"symbol": "US.ZZZZ", "sleeve": "zzz"})
+    view = {"strategies": [{"strategy_id": "PB-001", "enabled": True}, {"strategy_id": "PB-004", "enabled": False}]}
+    rows = srv.playbook_scores([trade, orphan], view)
+    ids = [r["id"] for r in rows]
+    assert ids[: len(srv.STRATEGY_META)] == list(srv.STRATEGY_META)
+    by_id = {r["id"]: r for r in rows}
+    assert by_id["PB-001"]["enabled"] is True and by_id["PB-004"]["enabled"] is False
+    assert sum(r["closed_n"] for r in rows) == 2  # the rows add up to the total
+    assert by_id[None]["name"] == "Not linked to a strategy"
+    assert by_id[srv.closed_trade_strategy(trade.model_dump())]["closed_n"] >= 1

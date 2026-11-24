@@ -9,8 +9,14 @@ const ucfirst = (s) => { const t = hy(s).trim(); return t ? t.charAt(0).toUpperC
 // A term with a one-line explanation on hover - the desk is read by people who do not trade for a living.
 const tip = (label, text) => `<span class="tip" data-tip="${esc(text)}">${esc(label)}</span>`;
 
-const VERSION = "0.16.3";
+const VERSION = "0.16.4";
 const CHANGELOG = [
+  {
+    version: "0.16.4", date: "2026-11-24", title: "Scores by strategy",
+    items: [
+      "Is the plan working? has one row per strategy (Regime rotation PB-001, Tactical stocks PB-002 and so on) with an On or Off tag, instead of the older kinds such as Credit and Equity that nothing switches. A finished trade that matches no strategy gets its own row, so the rows always add up to the total.",
+    ],
+  },
   {
     version: "0.16.3", date: "2026-11-24", title: "Real dates on readings and runs, scalp card shown properly",
     items: [
@@ -965,9 +971,16 @@ function renderExpectancy() {
   const e = STATE.expectancy;
   const r2 = (v) => (v == null ? "-" : v.toFixed(2));
   const pc = (v) => (v == null ? "-" : (100 * v).toFixed(0) + "%");
-  const rows = e.sleeves.length ? e.sleeves : [{ name: "No closed trades yet", closed_n: 0 }];
+  // One row per strategy (PB id) when the feed has them; the older kind-of-strategy rows are the fallback.
+  const byPlaybook = (e.playbooks || []).length > 0;
+  const rows = byPlaybook ? e.playbooks : (e.sleeves.length ? e.sleeves : [{ name: "No closed trades yet", closed_n: 0 }]);
+  const nameCell = (s) => {
+    if (!byPlaybook) return esc(s.name);
+    const tag = s.enabled === true ? '<span class="chip ok-chip">On</span>' : s.enabled === false ? '<span class="chip">Off</span>' : "";
+    return `<div class="score-name"><b>${esc(s.name)}</b>${tag}</div>${s.id ? `<div class="dim mono" style="font-size:11px">${esc(s.id)}</div>` : ""}`;
+  };
   $("#sleeve-rows").innerHTML = rows.map((s) =>
-    `<tr><td>${esc(s.name)}</td><td class="num">${s.closed_n}</td><td class="num">${pc(s.win_rate)}</td><td class="num">${r2(s.avg_win_r)}</td><td class="num">${r2(s.avg_loss_r)}</td><td class="num">${r2(s.expectancy_r)}</td><td class="num">${s.expectancy_pct == null ? "-" : (100 * s.expectancy_pct).toFixed(2) + "%"}</td></tr>`).join("");
+    `<tr><td>${nameCell(s)}</td><td class="num">${s.closed_n}</td><td class="num">${pc(s.win_rate)}</td><td class="num">${r2(s.avg_win_r)}</td><td class="num">${r2(s.avg_loss_r)}</td><td class="num">${r2(s.expectancy_r)}</td><td class="num">${s.expectancy_pct == null ? "-" : (100 * s.expectancy_pct).toFixed(2) + "%"}</td></tr>`).join("");
   const openRisk = (e.open_lots || []).reduce((a, l) => a + (l.risk_pct_nav || 0), 0);
   const lots = (e.open_lots || []).length;
   const tradesWord = `${e.r_n} finished trade${e.r_n === 1 ? "" : "s"} with a known risk unit`;
