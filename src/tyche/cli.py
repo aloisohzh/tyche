@@ -1739,6 +1739,77 @@ def fib_scan(
         console.print(f"  skip {symbol}: {why}")
 
 
+@app.command("fib-backtest")
+def fib_backtest(
+    bars: Path = typer.Option(..., "--bars", help="Long CSV date,symbol,open,high,low,close[,volume]; include US.SPY for the benchmark."),
+    strategy_id: str = typer.Option("PB-007", "--strategy"),
+    start: str | None = typer.Option(None, "--start", help="First session to trade (ISO date); earlier bars are warm-up."),
+    end: str | None = typer.Option(None, "--end", help="Last session (ISO date)."),
+    nav: float = typer.Option(100_000.0, "--nav"),
+    trades_out: Path | None = typer.Option(None, "--trades", help="Write every trade to this CSV."),
+    config_root: Path = typer.Option(Path.cwd(), "--config-root"),
+    json_out: bool = typer.Option(False, "--json"),
+) -> None:
+    """Replay the frozen fib-pullback rules over daily history: fee-net R and a pass/fail.
+
+    Research only: reads a CSV, writes nothing but the optional trades file. Pass needs all of
+    >= 30 trades, mean R > 0 after fees, profit factor >= 1.2, and a worst drawdown no deeper than
+    SPY's over the same sessions. Fewer than 30 trades is "inconclusive", never "pass".
+    """
+    import csv as _csv
+
+    from tyche.strategies.fib_backtest import backtest
+    from tyche.strategies.fib_pullback import load_ohlc
+
+    config = load_config(config_root)
+    try:
+        strategy = config.strategy_by_id(strategy_id)
+    except KeyError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    if strategy.kind != "fib_pullback":
+        raise typer.BadParameter(f"{strategy_id} is a {strategy.kind} lane, not fib_pullback")
+    if not bars.is_file():
+        raise typer.BadParameter(f"bars file not found: {bars}")
+    try:
+        first = date.fromisoformat(start) if start else None
+        last = date.fromisoformat(end) if end else None
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    trades, summary = backtest(load_ohlc(bars), strategy, nav=nav, start=first, end=last)
+    if trades_out:
+        trades_out.parent.mkdir(parents=True, exist_ok=True)
+        with trades_out.open("w", newline="", encoding="utf-8") as handle:
+            fields = list(trades[0].row()) if trades else ["symbol"]
+            writer = _csv.DictWriter(handle, fieldnames=fields)
+            writer.writeheader()
+            for trade in trades:
+                writer.writerow(trade.row())
+    report = {k: (v.isoformat() if isinstance(v, date) else v) for k, v in summary.__dict__.items()}
+    report["strategy"] = strategy_id
+    report["rules_hash"] = rules_hash(config_root, strategy_id)
+    report["exits"] = {reason: sum(1 for t in trades if t.exit_reason == reason)
+                       for reason in sorted({t.exit_reason for t in trades})}
+    if json_out:
+        print(json.dumps(report, default=str))
+    else:
+        def pct(x):
+            return "-" if x is None else f"{x * 100:+.2f}%"
+        console.print(f"[bold]{strategy_id} backtest[/] {report['start']} -> {report['end']} "
+                      f"(rules {report['rules_hash']}, fee-net)")
+        console.print(f"trades {summary.trades} | win rate {pct(summary.win_rate)} | "
+                      f"avg win {summary.avg_win_r}R | avg loss {summary.avg_loss_r}R | "
+                      f"mean {summary.mean_r}R | profit factor {summary.profit_factor}")
+        console.print(f"return {pct(summary.return_pct)} (SPY {pct(summary.spy_return_pct)}) | "
+                      f"worst drawdown {pct(summary.max_drawdown_pct)} (SPY {pct(summary.spy_max_drawdown_pct)})")
+        console.print(f"exits {report['exits']}")
+        for name, ok in summary.checks.items():
+            mark = "[green]pass[/]" if ok else ("[yellow]n/a[/]" if ok is None else "[red]fail[/]")
+            console.print(f"  {name}: {mark}")
+        colour = {"pass": "green", "fail": "red"}.get(summary.verdict, "yellow")
+        console.print(f"[bold {colour}]{summary.verdict.upper()}[/]")
+    raise typer.Exit(0 if summary.verdict == "pass" else 1)
+
+
 @app.command("strategy-score")
 def strategy_score(
     strategy_id: str = typer.Option("PB-004", "--strategy"),
