@@ -157,6 +157,7 @@ def P(t, size=11, color=INK, bold=False, font=BODY, align=PP_ALIGN.LEFT, line=1.
     # exception, and table cells and chart labels set their own sizes elsewhere
     if font in (BODY, HEAD):
         size = max(size, 10.0)
+        t = t.replace("`", "")
     return {"t": t, "size": size, "color": color, "bold": bold, "font": font,
             "align": align, "line": line, "before": before, "after": after, "italic": italic}
 
@@ -298,7 +299,7 @@ def table(slide, x, y, w, headers, rows, widths, font=10.0, head_font=10.0, tag=
 
 
 def notes(slide, text: str) -> None:
-    slide.notes_slide.notes_text_frame.text = text
+    slide.notes_slide.notes_text_frame.text = text.replace("`", "")
 
 
 def pic(slide, path, x=0.0, y=0.0, w=SW, h=SH, back=True):
@@ -588,7 +589,7 @@ def s02_one_minute(prs):
               "a judge can open.")
     tiles = [
         ("30%", "Qoder and Cloud Agent usage", GREEN, T_GREEN,
-         ["One scheduled cloud card runs four agents three times a day.",
+         ["Two scheduled cloud cards run four agents; the desk card fires three times a day.",
           "Eleven reusable skills, a hosted desk, and a Telegram approval step.",
           "Slides 5-17"]),
         ("30%", "Strategy and risk design", BLUE, T_BLUE,
@@ -600,7 +601,7 @@ def s02_one_minute(prs):
           "Four marks so far: desk -1.25% against SPY -5.82%. Small sample, labelled.",
           "Slides 25-28"]),
         ("15%", "Reusability and documentation", BRICK, T_BRICK,
-         ["607 tests in CI, 18 architecture records, 56 lessons, 11 skills.",
+         ["616 tests in the README, 18 decision records, 56 lessons, 11 skills.",
           "Runs with demo data and no credentials.",
           "Slides 29-33"]),
     ]
@@ -638,13 +639,14 @@ def s03_mapping(prs):
                "Where to check it in the repo"],
               [["Qoder and Cloud Agent usage", "30%",
                 "Multi-agent topology, automation, dashboards, reports, reusable skills", "5-17",
-                "docs/agent-engineering.md, scripts/deploy_two_fire_automation.py, skills/, desk-site/"],
+                "docs/agent-engineering.md, scripts/deploy_two_fire_automation.py, "
+                "scripts/deploy_scalp_card.py, skills/, desk-site/"],
                ["Strategy and risk design", "30%",
                 "Thesis, edge, invalidation conditions, position limits, drawdown responses, kill switches",
                 "18-24", "playbook/, config/risk.yaml, docs/risk-card.md, docs/validation/"],
                ["Risk-adjusted return", "25%",
                 "Results after costs against a baseline, honestly labelled", "25-28",
-                "docs/performance/2026-11-23-metrics.md, desk-site/web/data/state.json"],
+                "docs/performance/2026-11-23-metrics.md, docs/performance/README.md"],
                ["Reusability and documentation", "15%",
                 "Reference-ready templates, skills and scripts, slides or report", "29-33",
                 "README.md, documentation/PRD.md, docs/runbooks/, docs/lessons/LESSONS.md"]],
@@ -700,11 +702,11 @@ def s04_one_rule(prs):
           "Their output is an input to code, never a trade."]),
         ("Deterministic kernel", "the only path to a trade", BLUE, T_BLUE,
          ["risk.py: fixed limits, named breaches.",
-          "approvals.py: operator bounds, same-day only.",
+          "approvals.py: operator bounds, dated and revocable.",
           "lifecycle.py: re-validate, then reserve.",
           "journal.py: SHA-256 hash chain."]),
         ("The operator", "says yes, or says nothing", AMBER, T_AMBER,
-         ["An approval typed on Telegram, or an armed envelope.",
+         ["A Telegram /approve, or an armed envelope bounded by date.",
           "One click to halt: buys stop, sells stay possible.",
           "No human yes, no order."]),
     ]
@@ -757,12 +759,13 @@ def s05_divider(prs):
     txt(s, M + 0.35, 3.9, 8.9, 2.3,
         [P("What this section claims, and where each claim is checked", size=12, color=AMBER, bold=True,
            line=1.05, after=8),
-         P("One permanent scheduled card, three decision and watch fires a day, four pinned agents, "
-           "eleven skills, a Telegram approval step inside the run, a local desk, a hosted desk fed by "
+         P("One permanent desk card, three decision and watch fires a day, and since 24 Nov a second "
+           "time-boxed card that runs one lane every 15 minutes until 30 Nov. Four pinned agents, eleven "
+           "skills, a Telegram approval step inside the run, a local desk, a hosted desk fed by "
            "the run itself, and a hash-chained journal that records the refusals as well as the fills.",
            size=12, color=ONART, line=1.16, after=8),
          P("Slides 6-17. Evidence: docs/agent-engineering.md, scripts/deploy_two_fire_automation.py, "
-           "skills/*/*/SKILL.md, docs/runbooks/sentinel-telegram.md, desk-site/.",
+           "scripts/deploy_scalp_card.py, skills/*/*/SKILL.md, docs/runbooks/sentinel-telegram.md, desk-site/.",
            size=10.5, color=AMBER, line=1.1)], tag="s5 body")
     notes(s, "This section is worth thirty percent of the score, so it is the longest part of the deck. "
              "The handbook asks for more than one agent, automation that runs without me at the keyboard, "
@@ -779,10 +782,11 @@ def s06_architecture(prs):
               "documentation/architecture.md, drawn as it runs today. There is one boundary and one "
               "direction across it.")
     # Control plane row
-    box(s, M, y, 6.2, 0.88,
+    box(s, M, y, 6.2, 1.02,
         [P("CONTROL PLANE", size=9.6, color=GREEN, bold=True, line=1.0, after=1),
-         P("One permanent card, cron 5 8,12,15 * * 1-5 (America/New_York) - 08:05, 12:05, 15:05 ET, "
-           "a new session each fire", size=9.8, color=INK, line=1.05)],
+         P("Two cards on one agent. Desk: cron 5 8,12,15 * * 1-5 (America/New_York) - 08:05, 12:05, "
+           "15:05 ET, a new session each fire. Scalp, 24-30 Nov: 7,22,37,52 9-15 * * 1-5 - PB-004 only, "
+           "every 15 minutes in the session", size=9.8, color=INK, line=1.05)],
         fill=T_GREEN, line=GREEN, tag="s6 control", icon="clock", icon_size=0.30)
     box(s, M + 6.34, y, 3.3, 1.04,
         [P("OPERATOR DESK", size=9.6, color=BLUE, bold=True, line=1.0, after=1),
@@ -804,10 +808,10 @@ def s06_architecture(prs):
          P("No channel can place, cancel or widen an order. The desk can halt through a file that the "
            "kernel reads, and nothing else.", size=9.6, color=INK, line=1.08)],
         fill=T_BRICK, line=BRICK, tag="s6 side")
-    arrow_d(s, M + 2.7, y + 0.88, 0.24, 0.26, color=MUT)
+    arrow_d(s, M + 2.7, y + 1.02, 0.24, 0.20, color=MUT)
     # LLM perimeter
-    py = y + 1.20
-    box(s, M, py, 9.64, 1.90,
+    py = y + 1.24
+    box(s, M, py, 9.64, 1.86,
         [P("LLM PERIMETER - four Qoder Cloud Agents, pinned versions, least privilege", size=9.6,
            color=GREEN, bold=True, line=1.0, after=3)], fill=WHITE, line=GREEN, tag="s6 perim",
         icon="cloud", icon_size=0.30)
@@ -818,19 +822,19 @@ def s06_architecture(prs):
          "research"),
         ("Risk auditor", "4 built-in tools, no MCP. Reads the plan and the journal, writes a verdict.",
          "shield"),
-        ("Executor", "14 of 15 Moomoo tools + 6 built-ins, quote_rt_data off. Broker reads and paper submit.",
+        ("Executor", "14 of 15 Moomoo tools + 6 built-ins, quote_rt_data off. Broker reads, paper submit.",
          "terminal"),
     ]
     aw = (9.64 - 0.30 - 3 * 0.12) / 4
     for i, (nm, d, ic) in enumerate(agents):
-        card(s, M + 0.15 + i * (aw + 0.12), py + 0.44, aw, 1.30, nm, [d], accent=GREEN, fill=T_GREEN,
+        card(s, M + 0.15 + i * (aw + 0.12), py + 0.44, aw, 1.34, nm, [d], accent=GREEN, fill=T_GREEN,
              head_size=10.5, body_size=9.4, tag=f"s6 agent {i}", icon=ic, icon_size=0.26)
-    arrow_d(s, M + 4.4, py + 1.92, 0.30, 0.34, color=GREEN)
-    txt(s, M + 4.85, py + 1.94, 4.6, 0.34,
+    arrow_d(s, M + 4.4, py + 1.86, 0.30, 0.34, color=GREEN)
+    txt(s, M + 4.85, py + 1.88, 4.6, 0.34,
         [P("advisory only: text, proposals, audit verdicts", size=9.6, color=GREEN, bold=True, line=1.05)],
         tag="s6 adv")
     # Kernel
-    ky = py + 2.32
+    ky = py + 2.26
     box(s, M, ky, 9.64, 1.42,
         [P("DETERMINISTIC KERNEL - src/tyche, Python 3.13. The only path to a trade.", size=9.6,
            color=BLUE, bold=True, line=1.0, after=3)], fill=WHITE, line=BLUE, tag="s6 kernel",
@@ -858,8 +862,10 @@ def s06_architecture(prs):
            "market_id == 100. All four must hold; a live account is blocked in code.",
            size=9.6, color=INK, line=1.05)], fill=T_AMBER, line=AMBER, tag="s6 paper",
         icon="lock", icon_size=0.30)
-    notes(s, "Read this from the top down. The control plane is one scheduled card: it wakes the desk "
-             "three times a weekday and nothing else does. The blue row underneath is the AI perimeter: "
+    notes(s, "Read this from the top down. The control plane is two cards on one agent: the desk card wakes "
+             "three times a weekday, and since 24 November a second card wakes every fifteen minutes inside "
+             "the session to run one lane and nothing else, ending 30 November. The blue row underneath is "
+             "the AI perimeter: "
              "four agents, each with a fixed version and a tool list I control, and the counts on each box "
              "come from reading the live agent objects rather than from the prompts. The thick green arrow "
              "is the only thing that crosses the boundary, and it carries text. Below the line is the "
@@ -871,9 +877,10 @@ def s06_architecture(prs):
 
 def s07_one_day(prs):
     s = add_slide(prs, wash=True)
-    y = title(s, "One trading day, three fires",
-              "One card, cron 5 8,12,15 * * 1-5 in America/New_York. Each fire is a new session with a "
-              "self-contained brief, so nothing carries over from yesterday.")
+    y = title(s, "One trading day: three desk fires, and a 15-minute scalp",
+              "The desk card runs cron 5 8,12,15 * * 1-5 in America/New_York; since 24 Nov a second card "
+              "runs 7,22,37,52 9-15 * * 1-5 for PB-004 alone and stops after 30 Nov. Each fire is a new "
+              "session with a self-contained brief, so nothing carries over from yesterday.")
     cy = y + 0.04
     fires = [
         ("08:05 ET", "21:05 SGT", "Decide", GREEN, T_GREEN,
@@ -906,10 +913,12 @@ def s07_one_day(prs):
     facts = [
         ("Holiday filter lives in the run", "The cron carries no holiday list on purpose. "
          "`tyche calendar --json` inside the fire is the filter, so a holiday costs one read-only session."),
-        ("Secrets stay server-side", "The Telegram token, the chat id and the account allowlist are card "
-         "environment variables, referenced by name. No value is in a prompt, a file or this deck."),
+        ("Secrets stay server-side", "The Telegram token, the chat id, the account allowlist and the repo "
+         "publish token are card environment variables, referenced by name. No value is in a prompt, a "
+         "file or this deck."),
         ("Cadence is a pin, not a tweak", "Every cadence change means rebuilding the card and re-pinning, "
-         "with the prompt, cron and initial-events hash asserted unchanged."),
+         "with the prompt, cron and initial-events hash asserted unchanged. Two cards that fire are two "
+         "writers on one ledger."),
     ]
     fw = (CW - 2 * 0.16) / 3
     fact_icons = ["clock", "lock", "git"]
@@ -918,7 +927,9 @@ def s07_one_day(prs):
              body_size=9.6, tag=f"s7 fact {i}", line_w=0.75,
              icon=fact_icons[i], icon_size=0.24)
     notes(s, "This is what the desk actually does on a weekday, and the times are printed twice because "
-             "the operator is in Singapore. At 08:05 Eastern, which is 21:05 SGT, the desk does the "
+             "the operator is in Singapore. The three columns are the desk card: a second card, added on "
+             "24 November and ending after the 30th, wakes every fifteen minutes inside the session to run "
+             "the scalp lane alone. At 08:05 Eastern, which is 21:05 SGT, the desk does the "
              "research, the plan, the audit and the approval wait. At 01:05 SGT, which is midday in New "
              "York, it is deliberately forbidden from trading and only checks protection levels. At 04:05 "
              "SGT it reconciles fills and writes the end-of-day narrative. The first thing every fire does "
@@ -949,7 +960,7 @@ def s08_team(prs):
          "Agree under pressure, submit"),
         ("Advisor", "model-only consult, no tools", "advice in the coordinator context",
          "Tools, files"),
-        ("Executor", "sim trade tools + Moomoo MCP + vault", "plans/, journal/ (single writer)",
+        ("Executor", "sim trade tools + Moomoo MCP + vault", "plans/, journal/ (only writer role)",
          "Act without an approved plan and a human arm"),
     ]
     for i, (nm, tools, owns, may_not) in enumerate(members):
@@ -968,7 +979,8 @@ def s08_team(prs):
                ["Researcher", "none", "reports/<date>-research.md", "submit, write the journal"],
                ["Risk auditor", "none", "reports/<date>-audit.md, drawdown report",
                 "be talked into agreeing; it runs in its own thread"],
-               ["Executor", "Moomoo vault (the only role that holds it)", "plans/, journal/ as single writer",
+               ["Executor", "Moomoo vault (the only role that holds it)",
+                "plans/, journal/ as the only writer role; the scalp card never starts on the desk's :05",
                 "act without the auditor's approval and a human arm"],
                ["Advisor", "none", "advice only, in the coordinator's context", "hold tools or write files"]],
               [1.5, 2.6, 3.0, 5.2], font=9.8, head_font=10, tag="s8 table", bold_col0=True, max_h=2.45)
@@ -1035,7 +1047,8 @@ def s09_planes(prs):
              head_size=11, body_size=9.8, tag=f"s9 card {i}",
              icon=card_icons[i], icon_size=0.26)
     txt(s, M, cy + 2.02, CW, 0.4,
-        [P("What is on each plane today: four Managed agents and one permanent Managed card; four archived "
+        [P("What is on each plane today: four Managed agents and two live Managed cards, one permanent and "
+           "one time-boxed; four archived "
            "templates, eight archived schedules, one archived environment and one Forward identity that the "
            "journal lineage depends on. The archive is history, not a second control path.",
            size=10.2, color=MUT, line=1.1)], tag="s9 foot")
@@ -1095,9 +1108,9 @@ def s10_skills(prs):
             arrow_r(s, x + fw + 0.03, fy + 0.90, 0.18, 0.18, color=GREEN)
     ny = fy + 1.82
     card(s, M, ny, 6.05, 1.16, "What is on the platform today",
-         ["Three skills are created and pinned on a live agent: sentinel-digest on the coordinator, "
-          "exact-order-audit on the auditor, paper-submit-protocol on the executor. The other eight are "
-          "written, tested and ready; their create step is one reviewed command each."],
+         ["All eleven are created, attached and pinned by version on a live agent: three from round one, "
+          "eight from round two on 22 Nov (desk v5, researcher v4, auditor v2, executor v4). The first fire "
+          "on 23 Nov 08:05 ET read every pinned skill with no failed load."],
          accent=AMBER, fill=T_AMBER, head_size=10.6, body_size=9.8, tag="s10 now")
     card(s, M + 6.21, ny, CW - 6.21, 1.16, "The rule a skill has to obey",
          ["An agent reads a skill only when it decides it applies, so a rule that must hold on every turn "
@@ -1107,9 +1120,9 @@ def s10_skills(prs):
     notes(s, "Skills are how the procedures get reused instead of retyped. Each one is a markdown file in "
              "the repository, guarded by tests, and published to the platform as an immutable version that "
              "an agent pins by number. Publishing and pinning are deliberately two calls, so promoting a "
-             "procedure is an explicit act. The four boxes show that path and the honest note underneath it "
-             "says what is actually live: three skills are pinned today, the other eight exist in the repo "
-             "and are created one command each. Why bother splitting the text out of the prompt? Because a "
+             "procedure is an explicit act. The four boxes show that path and the note underneath it says "
+             "how the eleven got there: round one pinned three, round two was created, attached and pinned "
+             "on 22 November, and the first fire after it read all of them without a failed load. Why bother splitting the text out of the prompt? Because a "
              "number quoted in two places drifts, and a stale cap inside an auditor prompt reads as "
              "authority. That specific failure is lesson L-033, and it is on slide 31.")
 
@@ -1152,11 +1165,9 @@ def s11_telegram(prs):
          accent=BRICK, fill=T_BRICK, head_size=11.5, body_size=9.8, tag="s11 no",
          icon="shield", icon_size=0.26)
     card(s, rx, y + 2.46, CW - lw - 0.20, 1.62, "What /approve does not do",
-         ["It never cancels or modifies a resting order: those stay always_ask, and an envelope does not "
-          "approve them.",
-          "It cannot arm an envelope. The arm click on the desk is the only writer of the bounds file.",
-          "It does not survive the day: an envelope dated yesterday protects yesterday's book, so arming "
-          "it is refused."],
+         ["Never cancels or modifies a resting order: those stay always_ask, even under an envelope.",
+          "Cannot arm an envelope: the desk's Arm click is the only writer of the bounds file.",
+          "Cannot span days: one yes authorizes one order in one fire; past valid_until it is refused."],
          accent=BLUE, fill=T_BLUE, head_size=11.5, body_size=9.8, tag="s11 not",
          icon="lock", icon_size=0.26)
     card(s, rx, y + 4.22, CW - lw - 0.20, 1.34, "Proven by",
@@ -1180,7 +1191,7 @@ def s12_modes(prs):
     s = add_slide(prs)
     y = title(s, "Two trading modes, one fact each (ADR 0018)",
               "The desk had three operator modes and produced a two-yes gap nobody could reason about. "
-              "Two modes, decided by one fact: does a same-day envelope exist at the fire?")
+              "Two modes, decided by one fact: does an envelope that covers today exist at the fire?")
     mw = (CW - 0.30) / 2
     card(s, M, y, mw, 2.34, "ASK ME   ·   no envelope (the default)",
          ["Every entry waits for its own Telegram /approve during the fire. That approve is the whole yes.",
@@ -1189,18 +1200,19 @@ def s12_modes(prs):
           "Nothing is written to data/approvals.json. Authority comes from today's journaled approvals.",
           "One yes per entry, never two. Used on the days the operator is awake."],
          accent=GREEN, fill=T_GREEN, head_size=11.6, body_size=10, tag="s12 ask")
-    card(s, M + mw + 0.30, y, mw, 2.34, "WITHIN MY BOUNDS   ·   same-day envelope armed",
+    card(s, M + mw + 0.30, y, mw, 2.34, "WITHIN MY BOUNDS   ·   an envelope that covers today",
          ["The operator arms bounds from the desk in one click: re-arm the last bounds, define fresh ones, "
           "or arm a drafted exit note.",
           "The desk submits inside them with no Telegram ask, which is what makes the 15:05 ET fire usable "
           "while the operator sleeps.",
-          "The envelope is dated, bounded and git-tracked. Removing it is one click or one halt.",
+          "Same-day by default. Since 24 Nov an envelope may carry a last valid day, and the scalp lane's "
+          "own file covers 24-30 Nov for PB-004 alone. Removing it is one click or one halt.",
           "It never authorizes a cancel or a modify."],
          accent=AMBER, fill=T_AMBER, head_size=11.6, body_size=10, tag="s12 bounds")
     gy = y + 2.52
     box(s, M, gy, CW, 0.72,
         [P("ONE CHOOSER, ONE OVERRIDE", size=9.8, color=BLUE, bold=True, line=1.0, after=1),
-         P("resolve_batch() is the single decision point: a valid same-day envelope wins, otherwise today's "
+         P("resolve_batch() is the single decision point: a valid envelope wins, otherwise today's "
            "Telegram approvals, otherwise nothing is authorized. The kill switch overrides both. A run may "
            "read the envelope and never write it, so only the operator can change the mode.",
            size=9.9, color=INK, line=1.06)], fill=T_BLUE, line=BLUE, tag="s12 chooser")
@@ -1208,16 +1220,17 @@ def s12_modes(prs):
     facts = [
         ("What the envelope actually agrees to", GREEN,
          "The only number the operator sets on that path is the exit collar: a drafted sell sits 5% below "
-         "the stop the plan journaled. Symbols, quantities and stops come from the journal and the broker "
-         "book, and anything the kernel cannot ground is refused with a reason rather than guessed."),
+         "the stop the plan journaled. A scalp envelope is written out instead: five symbols, 60 shares an "
+         "order, a price bound each way, 200 orders a day. Its own note says the lane's sizing is the real "
+         "limit, not the bound."),
         ("Why the old third mode went", BLUE,
          "Manual and Pre-approve were two views of the same file, and from a phone they looked identical. "
          "A Telegram yes could not become an envelope either, because the cloud desk cannot push that file "
          "back (403). The gap was structural, not cosmetic."),
         ("Today, as published", AMBER,
-         "The desk feed for 22 Nov reports Ask me: the 19 Nov bounds had expired, so entries wait for a "
-         "reply. The draft exit note for the open lot is visible and marked not armed - a proposal, "
-         "awaiting one click."),
+         "The desk card's file is an exit note dated 24 Nov: three sells, SPY 28, EFA 142, MSFT 39, floors "
+         "about 5% under the 23 Nov marks, and it authorizes no entry. The scalp card holds the only "
+         "multi-day envelope: both sides of five symbols, 24-30 Nov."),
     ]
     fw = (CW - 2 * 0.16) / 3
     for i, (head, acc, body) in enumerate(facts):
@@ -1225,12 +1238,16 @@ def s12_modes(prs):
              fill=T_GRAY if i else T_GRAY, head_size=10.6, body_size=9.7, tag=f"s12 fact {i}")
     notes(s, "This slide answers the question a judge always asks about autonomy: what exactly is the human "
              "agreeing to? There are two modes, and the desk picks between them on one fact at the moment "
-             "it runs. If bounds exist for today, it trades inside them without asking. If they do not, "
+             "it runs. If bounds cover the day of the fire, it trades inside them without asking: the "
+             "envelope is same-day by default, and the new last-valid-day field lets one file cover a week "
+             "for one named lane. If no envelope covers the day, "
              "nothing is authorized without a reply on Telegram. The single chooser matters because the "
              "old design had three modes over one file and produced a state where a yes on the phone did "
              "nothing. The green card is the honest answer to what the operator signs: one number, the "
-             "collar, which is how far below the journaled stop a proposed exit may go. As of the last "
-             "published feed, the desk is in Ask me mode, because the bounds from the 19th expired.")
+             "collar, which is how far below the journaled stop a proposed exit may go. What is armed right "
+             "now is two different things: the desk card carries an exit note for 24 November, three sells "
+             "and no entry, while the scalp card carries the only standing envelope in the project, ten "
+             "rows across five symbols to 30 November.")
 
 
 def s13_rungs(prs):
@@ -1244,13 +1261,15 @@ def s13_rungs(prs):
          ["`tyche monitor tick` decides in plain Python whether a price crossed a level the journal already "
           "holds, and writes monitor.heartbeat / .breach / .clear / .gap. Nothing else.",
           "Fail-closed: a stale, missing or untradable quote exits 2 as NO-GO, never as \"no breaches\". "
-          "No clock runs it yet, so detection today is still the three fires."]),
-        ("RUNG 1.5", "Exit on a note the human signed in advance", BLUE, T_BLUE, "BUILT - ONE CLICK TO ARM",
+          "Nothing schedules this tick; the 15-minute card runs its own exit rules, not this code."]),
+        ("RUNG 1.5", "Exit on a note the human signed in advance", BLUE, T_BLUE, "ARMED 24 NOV, NO FILL ON FILE",
          0.55,
-         ["`src/tyche/envelope.py` drafts one sell line per open lot from the book the desk shows and the "
-          "stop each plan journaled. The operator owns exactly one number: the collar, 5% under that stop.",
-          "Only the Arm click writes the bounds file, and a draft not dated today is refused. Anything the "
-          "kernel cannot ground - no journaled stop, no verified option contract - is a reported refusal."]),
+         ["`src/tyche/envelope.py` drafts one sell line per open lot from the book and the stop the plan "
+          "journaled; the collar, 5% under that stop, is the one number the operator owns, and only the Arm "
+          "click writes the file.",
+          "On 24 Nov the note became executable: `tyche exit-now` reserves one paper sell of a held lot on "
+          "an envelope line or a Telegram yes, checks the floor and any resting order, and spends the "
+          "approval once."]),
         ("RUNG 2", "Decide and submit alone", BRICK, T_BRICK, "DECLINED", 1.10,
          ["Not built, not scheduled, not on the roadmap for this challenge.",
           "The simulator holds Limit and Market orders only, so an automatic exit is an automatic market "
@@ -1279,9 +1298,9 @@ def s13_rungs(prs):
     cw3 = (CW - 2 * 0.18) / 3
     cards = [
         ("What protects a lot right now", GREEN, T_GREEN,
-         ["The three fires: 08:05, 12:05 (watch and shout only) and 15:05 ET check every open position "
-          "against its journaled stop, target and deadline.",
-          "Between fires nothing watches. The gap is up to about 4 hours intraday and 17 overnight."]),
+         ["Ballast and tactical: only the three desk fires (08:05/12:05/15:05 ET) check them against the "
+          "journaled stop, target and deadline; 4h intraday and 17h overnight go unwatched.",
+          "Scalp: since 24 Nov a 15-minute card checks those lots, 09:07-15:52 ET, to 30 Nov."]),
         ("Why the line sits here", AMBER, T_AMBER,
          ["Rung 2 needs an order no human approved. Cancel and modify stay always_ask even inside an "
           "envelope, and only the arm click writes the bounds file.",
@@ -1289,7 +1308,8 @@ def s13_rungs(prs):
         ("Rung 1, and what is owed", BRICK, T_BRICK,
          ["The urgent bark renders but is never sent: per-tick routing needs its own approval, and it was "
           "not given.",
-          "PB-003 options stay off until the monitor is scheduled and passes a live-session drill."]),
+          "PB-003 options went live on 24 Nov by the operator switch, not behind the monitor: the test runs "
+          "to 27 Nov on a 5% premium slice."]),
     ]
     card_icons = ["shield", "lock", "telegram"]
     for i, (head, acc, tint, lines_) in enumerate(cards):
@@ -1303,38 +1323,43 @@ def s13_rungs(prs):
              "already recorded, and it is deliberately not scheduled, because a card that fires outside the "
              "session would judge overnight holds on stale quotes. The middle rung is the compromise the "
              "operator picked: the desk drafts the exit note from numbers it can ground, and one human "
-             "click arms it for the day. The top rung - the system submitting on its own - was declined, "
-             "because the simulator has no native stops, so an automatic exit is an automatic market order. "
-             "The three cards at the bottom state what actually protects the book today, why the line sits "
-             "where it does, and the two pieces still owed.")
+             "click arms it for the day - and since 24 November an armed sell line is executable on its own, "
+             "through tyche exit-now, one order per approval. The top rung - the system submitting on its "
+             "own - was declined, because the simulator has no native stops, so an automatic exit is an "
+             "automatic market order. The three cards at the bottom state what actually protects the book "
+             "today, why the line sits where it does, and the two pieces still owed.")
 
 
 def s14_dashboard(prs):
     s = add_slide(prs)
-    y = title(s, "The operator desk: five views, five reads, five writes",
-              "dashboard/ is stdlib Python on 127.0.0.1:8765 (UI v0.16.1). The handbook asks for a "
+    y = title(s, "The operator desk: five views, five reads, seven writes",
+              "dashboard/ is stdlib Python on 127.0.0.1:8765 (UI v0.16.4). The handbook asks for a "
               "dashboard; this one shows positions, P&L, the equity curve, open orders, drawdown and the "
               "decision log, and it is also the only place a control can be changed.")
     views = [
         ("Overview", "How am I doing?", GREEN,
-         ["Account value over time, cash, gross exposure and drawdown.",
+         ["Account value as the broker states it, so cash held against a resting order counts: gross "
+          "exposure, drawdown and the curve off that.",
           "Banked profit and win rate, with the finished trades behind them.",
           "What is open now, and what the desk has refused."]),
         ("Trade ideas", "Every idea and its five checks", BLUE,
-         ["One row per idea, tagged with its playbook id and its written thesis - or \"no written thesis\".",
-          "Is the plan working: closed trades by sleeve, R multiple, expectancy.",
+         ["One row per idea, tagged with its playbook id and its thesis - or \"no written thesis\".",
+          "Closed trades scored per strategy, on or off from the switches, with a Not linked row so the "
+          "table adds up.",
           "How complete the paperwork is for each lane."]),
         ("Safety & orders", "The rules, checked live", AMBER,
          ["One box per risk rule, evaluated against the latest numbers.",
           "\"Not measurable\" means the desk lacks the data, not that the rule is off.",
           "Only orders actually sent to the broker, with the price the broker gave back."]),
         ("Schedule", "The clock, as it really is", BRICK,
-         ["Fire times derived from the card's own cron expression, not a hand-kept list.",
+         ["Fire times derived from each card's own cron expression, not a hand-kept list; a card with more "
+          "than six runs a day shows as one tile with its end date.",
           "Recent runs with their errors, and the next run times.",
           "What each fire is allowed to do: plan, monitor, or act."]),
         ("Controls", "The only place a switch moves", NAVY,
          ["Trading mode: Ask me, or Within my bounds.",
-          "Arm or disarm the day's bounds, switch a lane, halt, run Scout.",
+          "Arm or disarm bounds, which since 24 Nov may carry a last valid day; switch a lane, halt, run "
+          "Scout.",
           "Unlocked by an operator passphrase held in memory; each write commits and pushes."]),
     ]
     vw = (CW - 4 * 0.16) / 5
@@ -1420,12 +1445,13 @@ def s15_hosted_feed(prs):
           "`node --check` runs on the desk script, because one raw newline in a JS string blanked the whole "
           "page while every Python test stayed green (L-040)."]),
         ("What is still true", AMBER, T_AMBER,
-         ["The feed advances three times a trading day from 23 Nov; the first unattended publish is today's "
-          "08:05 ET fire and is to be verified.",
-          "The pages themselves move only on a republish from the IDE, and the 23 Nov desk changes await "
-          "one.",
-          "A clone's data/*.json is a snapshot of whenever the publisher last ran, which reads as live "
-          "state to anyone who finds it (PRD §7 item 6)."]),
+         ["The feed publishes after every desk fire, and the PRD still marks the first unattended run "
+          "unverified. The scalp card writes the Drive ledger, never the feed.",
+          "The pages move only on a republish from the IDE, and the PRD still lists the 23 Nov desk PRs as "
+          "awaiting one.",
+          "A clone's data/*.json is a snapshot of whenever the publisher last ran: the newest committed "
+          "publish stamps 24 Nov, but the broker readings inside still carry the 18 Nov as_of - live state "
+          "to anyone who finds it (PRD §7 item 6)."]),
     ]
     widths = [3.62, 4.85, 3.62]
     xs, acc_x = [], M
@@ -1491,17 +1517,18 @@ def s16_evidence(prs):
     card(s, M + cw2 + 0.20, cy, cw2, ch, "ADR 0014: the rules a trade was taken under, hashed",
          ["`tyche rules-freeze` puts three claims about one lane in a table: the bytes the kernel hashes, "
           "the hash the playbook declares, the hash the chain last recorded.",
-          "Current per-lane hash from the published feed (23 Nov): PB-001 819ad06e35f0 · PB-002 and PB-003 "
-          "d5ef9567c736 (one file, one hash) · PB-004 72077d5d4808 · PB-007 e26f006da28a.",
+          "Current per-lane hash, frozen 23 Nov on the Drive ledger and asserted in CI: PB-001 "
+          "819ad06e35f0 · PB-002 and PB-003 "
+          "a1d9df1c687c (one file, one hash) · PB-004 72077d5d4808 · PB-007 e26f006da28a.",
           "A lane whose document disagrees with the kernel blocks the run. `old_hash` is read only from the "
           "chain, so a freeze row cannot launder a previous value (L-035)."],
          accent=BLUE, fill=T_BLUE, head_size=11.2, tag="s16 adr14")
     cy2 = cy + ch + 0.18
     card(s, M, cy2, cw2, 6.62 - cy2, "Decisions and refusals are first-class rows",
-         ["The published feed carries 13 rejections: account.paper_only 4, halt.active 3, turnover.daily 3, "
-          "portfolio.gross 1, portfolio.min_cash 1. The performance pack adds 6 gate.wait rows.",
-          "A rejection names the rule id, the symbol, the quantity and the reason, which is the log the "
-          "handbook asks for: what failed, and against what."],
+         ["The performance pack counts eighteen decisions not taken, by rule: gate.wait 6, "
+          "account.paper_only 4, halt.skip 3, turnover.daily 3, portfolio.gross 1, portfolio.min_cash 1.",
+          "It then prints all eighteen rows - date, rule, symbol and the reason in words - which is the log "
+          "the handbook asks for: what failed, and against what."],
          accent=AMBER, fill=T_AMBER, head_size=11.2, tag="s16 rejections")
     card(s, M + cw2 + 0.20, cy2, cw2, 6.62 - cy2, "The honest wrinkle: two chains",
          ["The 93-event chain verified above is the laptop's copy. The ledger the desk card reads is the "
@@ -1534,14 +1561,15 @@ def s17_checks(prs):
          "the window",
          "GitHub Actions on every push: ruff check src scripts tests, then pytest"],
         ["tyche journal-verify", "No journal row was edited, removed or reordered",
-         "OK, 93 events on the laptop chain (published feed, 23 Nov)",
+         "OK, 93 events on the laptop's copy; the Drive ledger the desk reads has 41 after the 23 Nov "
+         "re-freeze (L-056)",
          "journal.py, CI, and inside every lifecycle reserve"],
         ["test_docs_consistency.py", "Roster, playbook front matter, config and document versions agree",
          "Passes; it also refuses a doc link to a gitignored runtime file (L-042)",
          "tests/test_docs_consistency.py"],
         ["tyche rules-freeze", "Each lane's frozen rules hash on the chain equals the bytes it trades now",
          "Five lanes on the chain; hashes on slide 16",
-         "src/tyche/freeze.py, 18 tests"],
+         "src/tyche/freeze.py, 22 tests"],
         ["Kill-switch drill, 18 Nov", "Halt blocks buys, allows sells, leaves an intact trail",
          "PASS, 5 of 5 criteria, on the personal paper account",
          "docs/validation/2026-11-18-kill-switch-drill.md"],
@@ -1604,9 +1632,9 @@ def s18_divider_strategy(prs):
             "30% of the score: thesis, edge, invalidation conditions, position limits, drawdown "
             "responses and kill switches",
             "What this section claims",
-            ["Five strategy ids with a written thesis and a frozen rules hash each; three of them are "
-             "allowed to buy today, and the switch that decides which is an operator click, not a "
-             "code change.",
+            ["Five strategy ids with a written thesis and a frozen rules hash each; four of them may act "
+             "today - three against the cap sum, and the scalp inside a dated envelope - and the switch that "
+             "decides which is an operator click, not a code change.",
              "Every lane states, in its own document, the condition that makes its trade wrong - not just "
              "the condition that makes it right.",
              "Named limits in one YAML file, each with a rule id and a test that names it back, and two "
@@ -1636,20 +1664,20 @@ def s19_book(prs):
          "Single stocks from a short approved list the operator picks: Microsoft plus five staples "
          "(KO, PG, JNJ, PEP, MCD). Every trade needs its own written reason, a stop, and a target worth at "
          "least 1.5 times the risk.",
-         "Days", "45%", "ON", "PB-002 page (23 Nov)\nd5ef9567c736"],
+         "Days", "25%", "ON", "PB-002 page (23 Nov)\na1d9df1c687c"],
         ["PB-003\nTactical options",
-         "The same picks bought as one long call or one long put instead of shares, closed the same day. "
-         "Defined risk: the most that can be lost is the premium paid. No shorts on the platform at all.",
-         "Same day", "25%", "OFF", "No page - planned\nshares d5ef9567c736"],
+         "The same picks bought as one long call or one long put instead of shares, on a test that runs to "
+         "27 Nov. Defined risk: the most that can be lost is the premium paid. No shorts on the platform.",
+         "Days", "5%", "ON", "PB-003 page (24 Nov)\nshares a1d9df1c687c"],
         ["PB-004\nIntraday breakout (scalp)",
          "Five chip stocks on one-minute bars. Buy the break above the last five bars, stop 0.25% below "
          "entry, target twice the risk, out within 20 minutes, flat before the close.",
-         "Minutes", "20%", "OFF", "PB-004 page\n72077d5d4808"],
+         "Minutes", "20%", "ON", "PB-004 page\n72077d5d4808"],
         ["PB-007\nFib 50% pullback",
          "In a stock already trending up, buy the halfway retracement of the last leg up with a limit "
          "order, stop under the deeper pullback level, aim at the prior high. One entry per leg, no "
          "scaling, no re-entry.",
-         "1-10 sessions", "20%", "ON", "PB-007 page\ne26f006da28a"],
+         "1-10 sessions", "20%", "OFF", "PB-007 page (off 24 Nov)\ne26f006da28a"],
     ]
 
     def col(r, c, val):
@@ -1670,8 +1698,9 @@ def s19_book(prs):
          ["PB-002 and PB-003 are one code path with one parameter file, so they freeze to the same hash: "
           "editing config/tactical.yaml re-registers the pair (ADR 0014)."]),
         ("Off is a real state", BRICK, T_BRICK,
-         ["PB-004 was switched off by the operator on 23 Nov, PB-003 never switched on. A switch lives in "
-          "data/strategies.json so flipping it blocks new entries without moving any rules hash (L-037)."]),
+         ["PB-007 was switched off on 24 Nov because its own backtest failed; PB-004 went off on 23 Nov and "
+          "back on the next day with a card of its own. A switch lives in data/strategies.json, so flipping "
+          "it blocks new entries without moving any rules hash (L-037)."]),
         ("PB-005 parked, PB-006 planned", AMBER, T_AMBER,
          ["They hold an id and nothing else. A roster row without a file cannot be marked live, which is "
           "what keeps an undocumented lane from being called a strategy."]),
@@ -1680,14 +1709,15 @@ def s19_book(prs):
         card(s, M + i * (cw3 + 0.18), cy, cw3, 6.90 - cy, head,
              [P(ln, size=9.6, color=INK, line=1.09, after=4) for ln in lines_],
              accent=acc, fill=tint, head_size=10.8, tag=f"s19 card {i}")
-    notes(s, "Five strategy ids, and only three of them can buy today. The plain-English column is the "
+    notes(s, "Five strategy ids, and four of them can buy today. The plain-English column is the "
              "thesis: what has to be true in the market for the trade to work. The cap column is the "
-             "lane's share of the account, and the sum of the caps is checked at load time - that check "
-             "has a hole I show on the next slide. The last column matters most for judging: every lane "
+             "lane's share of the account, and the sum of the caps is checked at load time. The last "
+             "column matters most for judging: every lane "
              "has a written page and a frozen hash of the exact rules file it trades under, so a result "
-             "can be tied to a document rather than to a memory. PB-004 is genuinely off as of this "
-             "morning - the operator switched it - and PB-003 has never been on, because options are "
-             "blocked behind the protection monitor. I am not claiming five live strategies.")
+             "can be tied to a document rather than to a memory. PB-007 is off this morning, and it is off "
+             "because its own retirement test fired: a 94-trade replay of the frozen rules averaged minus "
+             "0.21R with a profit factor of 0.66 against the 1.2 its page demands. I am not claiming five "
+             "live strategies, and I am not burying the one that failed.")
 
 
 def s20_allocation(prs):
@@ -1699,8 +1729,8 @@ def s20_allocation(prs):
     # --- native horizontal bar chart of lane caps
     labels = ["PB-007\nFib pullback", "PB-004\nScalp", "PB-003\nOptions", "PB-002\nTactical stocks",
               "PB-001\nETF rotation"]
-    caps = [20.0, 20.0, 25.0, 45.0, 25.0]
-    on = [True, False, False, True, True]
+    caps = [20.0, 20.0, 5.0, 25.0, 25.0]
+    on = [False, True, True, True, True]
     cd = CategoryChartData()
     cd.categories = labels
     cd.add_series("Cap as a share of account value (%)", caps)
@@ -1722,10 +1752,11 @@ def s20_allocation(prs):
         pt = ser.points[i]
         pt.format.fill.solid()
         pt.format.fill.fore_color.rgb = GREEN if is_on else RGBColor(0xB4, 0xC2, 0xB9)
-    axis_style(ch, val_fmt='0"%"', vmin=0, vmax=50, cat_size=8.8)
+    axis_style(ch, val_fmt='0"%"', vmin=0, vmax=30, cat_size=8.8)
     txt(s, M, y + 3.50, 6.35, 0.52,
-        [P("Green = the lane may buy today. Grey = switched off (PB-003 also sits behind "
-           "options_enabled: false).", size=9.4, color=MUT, line=1.08)], tag="s20 chart note")
+        [P("Green = the lane may buy today; grey = switched off. PB-003's bar is premium at risk, not "
+           "shares. PB-004's 20% is four trades of 5%, closed same-day, outside the cap-sum rule.",
+           size=9.4, color=MUT, line=1.08)], tag="s20 chart note")
     # --- stat tiles
     tx = M + 6.62
     tw = CW - 6.62
@@ -1733,9 +1764,10 @@ def s20_allocation(prs):
     tiles = [
         ("95%", "portfolio gross cap: the book may hold 95% of NAV in positions, 5% must stay cash",
          GREEN),
-        ("90%", "caps on the lanes that can buy today: 25 + 45 + 20. Inside the gross cap.", GREEN),
-        ("115%", "if every switch were on. The cap-sum guard reads yaml only, so an operator switch bypasses "
-         "it (PRD §7 item 15)", BRICK),
+        ("55%", "cap sum for the lanes that can buy today: 25 + 25 + 5, inside the gross cap. PB-004's 20% "
+         "is same-day only and excluded.", GREEN),
+        ("75%", "the all-on sum the guard would refuse: 25 + 25 + 5 + 20. The switch file bypasses that "
+         "check, so a lane can be on without being counted (PRD item 15)", BRICK),
         ("34%", "PB-001's actual weight against its own 25% cap - cut on 19 Nov after the buys; a cap "
          "blocks new buys, never forces a sale", AMBER),
     ]
@@ -1747,24 +1779,30 @@ def s20_allocation(prs):
             pad=0.10)
     cy = y + 4.06
     box(s, M, cy, CW, 6.90 - cy,
-        [P("The current book, from the published feed (20 Nov broker capture, challenge account)",
+        [P("The current book: the operator's exit note and the newest committed capture",
            size=10.6, color=NAVY, bold=True, font=HEAD, line=1.04, after=4),
-         P("SPY 28 shares at 20.2% of NAV   ·   MSFT 39 shares at 19.5%   ·   EFA 142 shares at 14.1%   ·   "
-           "cash 46.3%   ·   account value 98,754.20 against a 100,000.00 start.   "
-           "Route to change a cap: pull request + both playbook hash lines + `tyche rules-freeze --record` "
-           "from a console session + the card's BUDGET line. Planned next weekend: cut PB-002 from 45% to 25%.",
+         P("data/approvals.json (as_of 24 Nov) is sell-only, three lines, max 3 orders: the whole SPY 28 "
+           "and EFA 142 lots and the MSFT 39 lot. The newest committed broker capture is the 18 Nov "
+           "end-of-day run - NAV 99,914.93, gross 34.7%, cash 57.4%, SPY 20.5% and EFA 14.2% of it - and "
+           "the 20 Nov mark is 98,754.20 against a 100,000.00 start "
+           "(docs/performance/2026-11-23-metrics.md).   Route to change a cap: pull request + both "
+           "playbook hash lines + `tyche rules-freeze --record` from a console session + the card's BUDGET "
+           "line. Done that way on 23 Nov: PB-002 cut from 45% to 25%.",
            size=9.6, color=INK, line=1.10)],
         fill=T_BLUE, line=BLUE, tag="s20 book", pad=0.12)
     notes(s, "These are the caps, not the positions: a cap says how much room a lane may take, and it "
-             "blocks new buys rather than forcing a sale. Three of the five lanes can buy today, and their "
-             "caps add to 90% against a 95% portfolio limit, which is deliberate. The 115% tile is an "
-             "honest defect: the config loader refuses to start when the caps in the YAML files add past "
-             "the gross limit, but PB-007 was switched on through the operator's switch file, which needs "
-             "no re-hash and so does not pass that check. The per-order gross test still holds, so it is a "
-             "fairness problem - the first lane to buy takes the room - not a safety hole, and the fix is "
-             "planned for next weekend. The bottom strip is the real book from the published feed: about "
-             "half cash, three ETF-and-stock positions, and the account value that the return section "
-             "measures.")
+             "blocks new buys rather than forcing a sale. Four of the five lanes can buy today, and the "
+             "three that count against the cap sum to 55% against a 95% portfolio limit, which is "
+             "deliberate. PB-004 is the fourth: it may buy today, but its lot is four trades of 5% that "
+             "close before the bell, so it never carries overnight risk and sits outside the sum. The 75% "
+             "tile is the honest part of the story - the config loader refuses to start when the caps in "
+             "the YAML files add past the gross limit, but PB-007 was switched on, then back off, through "
+             "the operator's switch file, which needs no re-hash and so never passes that check. The per-order gross "
+             "test still holds, so it is a fairness problem rather than a safety hole, and the two cuts on "
+             "23 and 24 Nov brought the all-on sum to 75%. The bottom strip is the book as the records "
+             "show it: the operator's sell-only note of three lots dated 24 November, and the newest "
+             "committed broker capture, which is still the 18 November end-of-day run - about half cash "
+             "and two positions - beside the 20 November mark the return section measures.")
 
 
 def s21_invalidation(prs):
@@ -1780,10 +1818,12 @@ def s21_invalidation(prs):
           "Protection type is rebalance, not stop: an alert on ballast is never read as an exit.",
           "No broker-native stop exists on the simulator."]),
         ("PB-002  tactical stocks", BLUE, T_BLUE,
-         ["The price trades at or through the stop; the researcher marks the setup invalidated; the exit "
-          "deadline arrives; the setup's expiry date passes. Any one produces a limit sell at the bid.",
+         ["The stop is hit, the researcher marks the setup invalidated, the exit deadline arrives, or the "
+          "setup's expiry passes. Any one produces a limit sell at the bid.",
           "One entry attempt per setup, ever. Fresh invalidation can tighten protection, never move a stop "
-          "away."]),
+          "away.",
+          "PB-003 runs the same list on a bought option, plus one: the premium at 60% of cost ends the "
+          "trade."]),
         ("PB-004  scalp", AMBER, T_AMBER,
          ["Last price at or below limit x 0.9975 - a fixed 0.25% stop; or the 20-minute clock; or the "
           "flatten time 10 minutes before the close.",
@@ -1803,32 +1843,42 @@ def s21_invalidation(prs):
         box(s, M + i * (cw + 0.18), y, cw, 2.86, paras, fill=tint, line=acc, tag=f"s21 lane {i}", pad=0.12)
     cy = y + 3.04
     cw2 = (CW - 0.20) / 2
-    card(s, M, cy, cw2, 6.88 - cy, "When a lane itself gets retired",
-         [P("PB-002: two consecutive weeks of negative realized R with at least ten closed trades, or one "
-            "loss that exceeds its planned stop risk by more than the fee model allows - the lane goes back "
-            "to Off until the thesis page is revised and re-registered.", size=9.6, color=INK, line=1.09,
-            after=5),
-          P("PB-007: after 30 or more closed trades, expected R at or below zero, profit factor under 1.2, "
-            "or sleeve drawdown over 4% - retire it with `tyche strategy-score` (ADR 0016). Inside the "
-            "window, 6 consecutive full-R losses disable the lane for review.", size=9.6, color=INK,
-            line=1.09)],
+    card(s, M, cy, cw2, 6.88 - cy, "When a lane retires itself - and one did",
+         [P("PB-002: two consecutive weeks of negative realized R with ten or more closed trades, or one "
+            "loss beyond its planned stop risk - back to Off until the thesis page is revised and "
+            "re-registered.", size=9.6, color=INK, line=1.09, after=5),
+          P("PB-007: after 30+ closed trades, E[R] at or below zero, profit factor under 1.2 or sleeve "
+            "drawdown over 4% - retire it with `tyche strategy-score` (ADR 0016).", size=9.6,
+            color=INK, line=1.09, after=5),
+          P("That clause fired on 24 Nov: a 94-trade replay of the frozen rules returned -0.21R mean and a "
+            "0.66 profit factor against the 1.2 required, so the operator switched PB-007 off in "
+            "data/strategies.json.", size=9.6, color=INK, line=1.09, after=5),
+          P("PB-003 ends on a fact, not a number: one rejected or unfillable option order stops the test "
+            "that runs to 27 Nov.", size=9.6, color=INK, line=1.09)],
          accent=BRICK, fill=T_BRICK, head_size=11.2, tag="s21 retire")
     card(s, M + cw2 + 0.20, cy, cw2, 6.88 - cy, "And the rules that override a lane",
          [P("config/risk.yaml is the same for all five lanes: a halt blocks buys and never blocks a "
             "protective sell; a 2.5% daily loss blocks buys; drawdown of 4% halves new buy size and 6% "
             "blocks buys outright.", size=9.6, color=INK, line=1.09, after=5),
           P("This is the part the LLM cannot negotiate: an agent can argue with a plan, not with risk.py. "
-            "The verdict names the rule id and the number it tripped on.", size=9.6, color=INK, line=1.09)],
+            "The verdict names the rule id and the number it tripped on.", size=9.6, color=INK, line=1.09,
+            after=5),
+          P("Three more, checked on every intent: shares times the distance to the stop stays under 1% of "
+            "NAV; a 500.00 floor on order notional that only a full exit may break; and 120 orders a day, "
+            "against the competition's own ceiling of 200.", size=9.6, color=INK, line=1.09)],
          accent=GREEN, fill=T_GREEN, head_size=11.2, tag="s21 kernel")
     notes(s, "A thesis says what has to be true. Invalidation says what would prove it wrong, and the "
              "handbook weights that explicitly, because most paper-trading entries describe only the first "
-             "half. Each of the four live-ish lanes has its own list, in its own playbook page, and each "
-             "entry writes those rules into the journal so the auditor reviews the exit plan rather than "
-             "the entry story. The two cards at the bottom are the layer below: a lane gets retired when "
-             "its realized results say so, and the shared risk kernel overrides everything on a bad day - "
-             "a halt stops buys while still allowing exits, because a desk that cannot sell during a "
-             "problem is a desk that makes the problem bigger. Note the honesty in PB-001: its protection "
-             "type is rebalance, so a warning on ballast is not an exit.")
+             "half. Each lane has its own list, in its own playbook page, and each entry writes those "
+             "rules into the journal so the auditor reviews the exit plan rather than the entry story. "
+             "PB-003 inherits the tactical list and adds one condition of its own, because an option can "
+             "die from time decay while the shares are still above the stop. The two cards at the bottom "
+             "are the layer below: a lane gets retired when its realized results say so - PB-007 met that "
+             "bar on 24 November, is off today, and returns only if new rules pass the same replay - and "
+             "the shared risk kernel overrides everything on a "
+             "bad day, so a halt stops buys while still allowing exits, because a desk that cannot sell "
+             "during a problem is a desk that makes the problem bigger. Note the honesty in PB-001: its "
+             "protection type is rebalance, so a warning on ballast is not an exit.")
 
 
 def s22_gates(prs):
@@ -1919,81 +1969,84 @@ def s22_gates(prs):
 def s23_drills(prs):
     s = add_slide(prs)
     y = title(s, "We broke it on purpose, twice",
-              "A safety story is only worth its drill record. Two exist, both written by the operator, both "
-              "naming what they did not prove.")
+              "Two drill records are on file, both written by the operator, both naming what they did "
+              "not prove.")
     dw = (CW - 0.22) / 2
     # left: kill switch
-    box(s, M, y, dw, 3.44,
+    box(s, M, y, dw, 3.62,
         [P("KILL SWITCH DRILL - 18 Nov 2026, paper", size=12.6, color=GREEN, bold=True, font=HEAD,
            line=1.03, after=2),
-         P("Result: PASS, 5 of 5 criteria. Runtime 14:54-15:06 UTC, personal paper account.", size=10.2,
-           color=INK, bold=True, line=1.05, after=6),
-         P("1. Wrote halt.json by hand; readback confirmed active=true and a real ISO timestamp. 14:54.",
-           size=9.7, color=INK, line=1.1, after=4),
-         P("2. Ran the 14:55Z intraday prompt: the coordinator read the card, saw the halt, bought nothing, "
-           "and reported it. No order call.", size=9.7, color=INK, line=1.1, after=4),
-         P("3. The desk showed an amber banner and disabled every buy control while sells stayed available.",
-           size=9.7, color=INK, line=1.1, after=4),
-         P("4. Cleared by hand; the 15:05Z run traded normally again. 15:06.", size=9.7, color=INK,
+         P("Result: PASS, 5 of 5 criteria. 09:34:50 to 09:45:07 UTC, personal paper account only.",
+           size=10.2, color=INK, bold=True, line=1.05, after=6),
+         P("1. tyche halt --reason \"kill-switch drill\", journaled halt.engaged. The runbook forbids "
+           "editing the flag files by hand.", size=9.7, color=INK, line=1.1, after=4),
+         P("2. Three buys withheld and journaled halt.skip in eleven seconds: QQQ 682, EFA 1724, VNQ 1157. "
+           "No drill buy reached the broker.", size=9.7, color=INK,
            line=1.1, after=4),
-         P("5. A refusal row was recorded before the halt on purpose, so the log path is proven to carry a "
-           "rejection with a reason.", size=9.7, color=INK, line=1.1, after=7),
-         P("The drill's own gaps, quoted: one refusal row proves the write path, not that the kernel refuses "
-           "every class of order; the desk was checked against the renderer, not the UI running on the "
-           "deployed URL.", size=9.6, color=BRICK, line=1.1)],
+         P("3. The de-risking sell went through while halted: 10 SPY sold at 731.71, filled 10/10 at 737.04. "
+           "The block is buy-side only.", size=9.7, color=INK, line=1.1, after=4),
+         P("4. tyche resume at 09:45:07: halt.released journaled, journal-verify OK on 20 events.", size=9.7, color=INK, line=1.1, after=4),
+         P("5. Same plan, a refusal the halt did not cause: the kernel blocked HYG at 98.6% gross over the "
+           "95% cap and 1.4% cash under the 5% floor.", size=9.7, color=INK,
+           line=1.1, after=7),
+         P("The drill's own limits: the plan ran on a labeled fixture, and this MCP-side run records the "
+           "withholds with `record-order`, so the withholding logic rests on tests/test_halt.py.", size=9.6, color=BRICK, line=1.1)],
         fill=T_GREEN, line=GREEN, tag="s23 kill", pad=0.13)
     # right: synthetic breach
     bx = M + dw + 0.22
-    box(s, bx, y, dw, 3.44,
+    box(s, bx, y, dw, 3.62,
         [P("SYNTHETIC BREACH DRILL - 21 Nov 2026, pinned clock", size=12.6, color=BLUE, bold=True,
            font=HEAD, line=1.03, after=2),
          P("Result: PASS on 11 of 13 criteria. Delivery and operator confirmation: NOT RUN.", size=10.2,
            color=INK, bold=True, line=1.05, after=6),
-         P("Setup: 2 open orders, a fake loss past the per-lane trigger and past the 6% account drawdown, a "
-           "journal with no existing exit row, clock pinned to Sat 21 Nov 03:00Z.", size=9.7, color=INK,
-           line=1.1, after=4),
-         P("Latency to detection: 0.03s from the state files and 0.05s through the API. An immediate exit "
-           "reserved 0.07s, the deferred one 0.05s - the desk is not slow when it matters.", size=9.7,
+         P("Setup: a synthetic US.MSFT lot nobody holds, 10 shares, stop 470.00, a quote pushed down to "
+           "455.00 by fixture files, NAV 30,000, the committed demo account id. Clock pinned to Wed 25 "
+           "Nov, one leg a minute.", size=9.7, color=INK, line=1.1, after=4),
+         P("Measured: detection tick 97.4 ms, alert render 576.4 ms, reserve 129.7 ms. The record calls "
+           "these judge-and-journal times, not how long after the market moved the desk knew.", size=9.7,
            color=INK, line=1.1, after=4),
-         P("One exit per order, the exit written before the alert, the alert exactly once, a second scan "
-           "quiet, the live guard returning no_order, and nothing sent to any broker.", size=9.7, color=INK,
-           line=1.1, after=4),
+         P("One breach event, de-duplicated on the repeat tick, the exit reserved and never submitted, a "
+           "second reserve refused, the episode closed at 135.0 s, zero broker writes, the real journal "
+           "unchanged at 89 events, 11 protected files hashed and none of them changed.", size=9.7,
+           color=INK, line=1.1, after=4),
          P("The two not-run rows say the alert routing was never approved and nobody was at the desk. Not "
            "skipped quietly - marked NOT RUN in the record.", size=9.6, color=BRICK, line=1.1)],
         fill=T_BLUE, line=BLUE, tag="s23 breach", pad=0.13)
-    cy = y + 3.62
+    cy = y + 3.80
     cw3 = (CW - 2 * 0.20) / 3
     card(s, M, cy, cw3, 6.90 - cy, "Both used fixtures, by choice",
-         [P("The 18 Nov halt was set by hand and the refusal row was planted; the 21 Nov loss was injected. "
-            "No natural breach happened in the window, and the record says so on its face.",
-            size=9.6, color=INK, line=1.09, after=5),
-          P("Re-running the 18 Nov drill on the challenge account is planned, not done.",
-            size=9.6, color=INK, line=1.09)],
+         [P("The 18 Nov plan ran on demo prices re-dated with a synthetic SPY path, so it held both a buy and "
+            "a position worth selling; the 21 Nov lot is 10 shares nobody holds. No natural breach happened "
+            "in the window, and each record says so.", size=9.6, color=INK, line=1.09, after=5),
+          P("Neither drill touched the challenge account: it cannot be reset, so drills run on paper.", size=9.6, color=INK, line=1.09)],
          accent=AMBER, fill=T_AMBER, head_size=10.9, tag="s23 fixture")
-    card(s, M + cw3 + 0.20, cy, cw3, 6.90 - cy, "What the breaches were built from",
-         [P("The 21 Nov fixtures were copied from the published feed, not invented: 85.8% gross exposure "
-            "against a 95% cap, a 2.46% cash buffer against a 2% floor, and 3 open orders against a 2-order "
-            "reserve - so the trigger had to be the injected loss, which is what the record states.",
-            size=9.6, color=INK, line=1.09)],
+    card(s, M + cw3 + 0.20, cy, cw3, 6.90 - cy, "Only the inputs were fake",
+         [P("The 21 Nov record lists what it fakes: the lot, the quote and the account id. The collar, the "
+            "universe, the quote and snapshot freshness limits and every authorization rule load from "
+            "config/, and the drill's envelope is kernel-generated into data/drill/, never copied to the "
+            "operator's approvals.", size=9.6, color=INK, line=1.09)],
          accent=GREEN, fill=T_GREEN, head_size=10.9, tag="s23 real")
     card(s, M + 2 * (cw3 + 0.20), cy, cw3, 6.90 - cy, "The part we have not drilled",
-         [P("Nothing has ever tripped on its own at 03:00 with nobody watching. The unattended path is built "
-            "and unit-tested, and the exit is deliberately queued rather than sent.", size=9.6, color=INK,
-            line=1.09, after=5),
+         [P("Nothing has tripped on its own with nobody at the desk. The record itself says wake-up latency "
+            "went unmeasured and the cross-process lock on a real schedule is still open; §8.4 closes only "
+            "on a run without a pinned clock.", size=9.6, color=INK, line=1.09, after=5),
           P("So this deck says the response is reserved and gated, never that it is autonomous.",
             size=9.6, color=INK, line=1.09)],
          accent=BRICK, fill=T_BRICK, head_size=10.9, tag="s23 notdrilled")
     notes(s, "These two files are the reason I can talk about safety instead of promising it. On the 18th I "
-             "set the halt by hand, ran the real scheduled task against it, watched the coordinator buy "
-             "nothing, watched the desk refuse the buy button and keep the sell button, then cleared it and "
-             "watched trading resume - all inside twelve minutes, all timestamped. On the 21st I pinned the "
-             "clock, injected a loss past both triggers, and checked thirteen things: how fast detection "
-             "was, that exactly one exit got reserved, that the exit was journaled before the alert, that a "
-             "second scan stayed quiet, and that nothing reached a broker. Two rows say NOT RUN because the "
-             "alert routing was never approved and nobody was at the desk - I left them visible rather than "
-             "reporting thirteen of thirteen. Both drills use injected fixtures, and the right card shows "
-             "they were built from the real published feed. What we have not done is a live unattended "
-             "breach, so this deck never claims the desk acts alone at night.")
+             "halted through the CLI on the personal paper account, and the eleven seconds that followed are "
+             "in the journal: three buys withheld as `halt.skip`, a de-risking sell submitted and filled "
+             "anyway, then resume and a chain that verified at 20 events - all inside about eleven minutes, "
+             "all timestamped. On the 21st I pinned the clock, walked a synthetic lot through the stop, and "
+             "checked thirteen things: that one breach event landed and a repeat tick stayed quiet, that the "
+             "exit was reserved and never submitted, that a second reserve was refused, that the real journal "
+             "and eleven protected files came out unchanged, and that nothing reached a broker. Two rows say "
+             "NOT RUN because the alert routing was never approved and nobody was at the desk - I left them "
+             "visible rather than reporting thirteen of thirteen. Both records disclose their own fixtures, "
+             "and the 21st one is the reason the exposure clock now reads the payload's market time rather "
+             "than the append stamp: the rehearsal exposed a 135-second breach as 4.5 days of exposure, which "
+             "22 unit tests had never caught. What we have not done is a live unattended breach, so this deck "
+             "never claims the desk acts alone at night.")
 
 
 def s24_lifecycle(prs):
@@ -2042,8 +2095,9 @@ def s24_lifecycle(prs):
          "A status transition is an event with a payload, not a field someone edited. Two agents cannot "
          "overwrite each other's meaning, and the chain makes the sequence checkable."),
         ("One writer, one clock", BLUE, T_BLUE,
-         "The laptop owns every write; cloud cards only read and report. Times are UTC to the second in the "
-         "data and ET in the prose, because the gap between the zones is exactly one trading day (L-036)."),
+         "The executor is the only journal writer, and the desk card's publish step is the only committer of "
+         "the feed - the scalp card deliberately has none, because two committers collide on every push. "
+         "Times are UTC in the data, ET in the prose."),
         ("A claim needs a file", AMBER, T_AMBER,
          "Any change to a strategy or risk file must name the tests and the record that cover it, and "
          "anything unverifiable is labelled 'planned' or 'not recorded' rather than asserted."),
@@ -2063,7 +2117,7 @@ def s24_lifecycle(prs):
              "arithmetic and a human decide. Stage six is where the design has grown most: a pre-armed "
              "exit, filed at entry time and bounded by that plan, can act before a person replies. The four "
              "cards are the rules that keep the story honest: reasons are human, state changes are events, "
-             "one machine writes, and any claim points at a file. If a judge asks how an agent did not run "
+             "one writer per file, and any claim points at a file. If a judge asks how an agent did not run "
              "away with the account, these four lines are the short answer.")
 
 
@@ -2145,9 +2199,10 @@ def s26_baseline(prs):
          P("The outperformance is +4.57% while losing money. The account is down 1.25%; SPY fell 5.82% in "
            "the same three sessions. Falling less fast is not the same as being right.", size=10.0,
            color=INK, line=1.10, after=6),
-         P("Where the cushion came from: 46.3% of the book was cash on 20 Nov, and the only closed trades "
-           "were three small scalps. The desk did not dodge the drop by reading it; it was early enough in "
-           "the build that most of the money had not been deployed.", size=10.0, color=INK, line=1.10,
+         P("Where the cushion came from: the newest committed snapshot, dated 18 Nov, has 57.4% of the book "
+           "in cash and 34.7% gross, and the only closed trades were three small scalps. The desk did not "
+           "dodge the drop by reading it; it was early enough in the build that most of the money had not "
+           "been deployed.", size=10.0, color=INK, line=1.10,
            after=6),
          P("The bar flatters SPY: the same starting cash into SPY at the 17 Nov close with no fees, per the "
            "report's own wording. It is the bar, not a strategy.", size=10.0, color=INK, line=1.10,
@@ -2172,9 +2227,9 @@ def s26_baseline(prs):
 def s27_results(prs):
     s = add_slide(prs)
     y = title(s, "Results so far, on the challenge account",
-              "The published feed's daily marks for the competition account, from "
-              "desk-site/web/data/state.json, tabulated by the same performance pack. Four trading days, "
-              "start to now.")
+              "The marks and the money come from docs/performance/2026-11-23-metrics.md, which the desk "
+              "generates; the holdings are the newest committed broker snapshot, "
+              "desk-site/web/data/state.json, stamped 18 Nov 21:30Z. Four trading days, start to now.")
     r1 = 1.95
     cd = CategoryChartData()
     cd.categories = ["17 Nov start", "18 Nov", "19 Nov", "20 Nov"]
@@ -2201,7 +2256,7 @@ def s27_results(prs):
     tiles = [
         ("-1.25%", "since the 100,000.00 start on 17 Nov", BRICK),
         ("+4.57%", "against the SPY baseline over the same three sessions", GREEN),
-        ("46.3%", "of the account in cash, so 53.7% gross against a 95% ceiling", BLUE),
+        ("57.4%", "cash in the committed 18 Nov snapshot; 34.7% gross against a 95% ceiling", BLUE),
         ("3 of 3", "closed trades won: +66.39 net of 5.95 in modelled fees", AMBER),
     ]
     for i, (big, small, acc) in enumerate(tiles):
@@ -2210,10 +2265,10 @@ def s27_results(prs):
              P(small, size=9.4, color=INK, line=1.07)], fill=T_GRAY, line=acc, tag=f"s27 tile {i}",
             pad=0.10)
     rows = [
-        ["US.SPY", "PB-001 rotation", "28", "731.54", "712.80", "19,958.40", "20.2%", "-524.72"],
-        ["US.MSFT", "PB-002 tactical", "39", "503.33", "492.70", "19,215.30", "19.5%", "-414.57"],
-        ["US.EFA", "PB-001 rotation", "142", "100.50", "97.89", "13,900.38", "14.1%", "-369.91"],
-        ["Cash", "unused buying power", "-", "-", "-", "45,680.12", "46.3%", "-"],
+        ["US.SPY", "PB-001 ballast", "28", "731.54", "730.17", "20,444.76", "20.5%", "-38.36"],
+        ["US.EFA", "PB-001 ballast", "142", "100.495", "100.18", "14,225.56", "14.2%", "-44.73"],
+        ["Cash", "unused buying power", "-", "-", "-", "57,360.28", "57.4%", "-"],
+        ["Account", "NAV at this reading", "-", "-", "-", "99,914.93", "34.7% gross", "-"],
     ]
 
     def col(r, c, val):
@@ -2229,39 +2284,43 @@ def s27_results(prs):
     cards = [
         ("Nothing here is a sample", BRICK, T_BRICK,
          "Three daily marks, three closed trades, 10 orders across two sessions against a 200-a-day "
-         "ceiling. The feed holds five marks, three of them intraday captures from 18 Nov. A desk on day "
+         "ceiling. The committed feed carries four NAV marks, all of them 18 Nov. A desk on day "
          "four, not a track record."),
         ("Expectancy is not recorded", AMBER, T_AMBER,
-         "Win rate 100%, average win 2.54R - and no losing trade yet, so the pack leaves expected R and "
-         "expected return blank. A formula with no losses is not an edge."),
-        ("Unrealized outweighs realized", BLUE, T_BLUE,
-         "Realized +66.39 against -1,309.20 open across the three positions. The account is down because of "
-         "what it still holds, not what it closed."),
-        ("One open lot has no stop", BRICK, T_BRICK,
-         "The feed's MSFT lot carries a null stop and no initial risk. Every closed scalp had one, so the "
-         "gap is in how that lot was recorded, not in the rule."),
+         "Three closed trades, all on 19 Nov, and the pack carries no expectancy section: with no losing "
+         "trade in the record, expected R cannot be computed. Absent, not zero."),
+        ("The drop is a mark, not a trade", BLUE, T_BLUE,
+         "The pack shows orders on two days only - 3 on 18 Nov, 7 on 19 Nov - and none on the 20th, the day "
+         "the account fell 1.17% against SPY's 3.64%. A mark, not a lost trade."),
+        ("The newest holdings are 18 Nov", BRICK, T_BRICK,
+         "The committed state.json carries two lots and 57.4% cash stamped 18 Nov 21:30Z. The capture behind "
+         "the 20 Nov mark is a run directory this repo does not commit, so the table stops at what a judge "
+         "can open."),
     ]
     for i, (head, acc, tint, body) in enumerate(cards):
         box(s, M + i * (cw4 + 0.16), cy, cw4, 6.90 - cy,
             [P(head, size=10.9, color=acc, bold=True, font=HEAD, line=1.02, after=4),
              P(body, size=9.5, color=INK, line=1.08)], fill=tint, line=acc, tag=f"s27 card {i}", pad=0.11)
-    notes(s, "This is the competition account as the desk publishes it. It started with 100,000 on 17 "
-             "November and reads 98,754 on 20 November, so it is down 1.25 percent, and the line bends "
-             "because the market fell while most of the book was invested. Three scalps closed on 19 "
-             "November for 66.39 net of fees, and the three positions still open carry a little over 1,300 "
-             "in unrealized loss, which is why realized profit and a falling account can both be true at "
-             "once. The four cards are the limits I want a judge to apply: this is four days, not a track "
-             "record; expectancy is blank because there is no losing trade to compute it from; the loss "
-             "sits in what we still hold; and one open lot was recorded without a stop, a data gap we found "
-             "in our own feed. Cash is 46 percent because the build is early and the kernel holds a floor, "
-             "not because of a market call.")
+    notes(s, "This is the competition account as the generated pack records it, and the pack names its own "
+             "inputs on the first line; it says plainly that the journal it read is the drill copy, not the "
+             "ledger the desk uses. It started with 100,000 on 17 November and reads 98,754 on 20 November, "
+             "so it is down 1.25 percent, and the line bends because the market fell while most of the book "
+             "was invested. The holdings table is a different file: the newest committed snapshot is the 18 "
+             "November reading, and the capture behind the 20 November mark is a run directory this "
+             "repository does not commit, so the slide quotes only what a judge can open. Three scalps "
+             "closed on 19 November for 66.39 net of 5.95 in modelled fees, which is why realized profit and "
+             "a falling account can both be true at once. The four cards are the limits I want applied: four "
+             "days is not a track record, expectancy is blank because there is no losing trade to compute it "
+             "from, the 20 November fall is a mark on a day the pack shows no orders for, and the committed "
+             "holdings are stale by two sessions. Cash is 57.4 percent of that snapshot because the build is "
+             "early, not because of a market call.")
 
 
 def s28_log(prs):
     s = add_slide(prs)
     y = title(s, "The decision log, both directions",
               "What the desk did, and the 18 times it decided not to. A trading deck that shows only fills "
-              "is showing half the evidence.")
+              "is showing half the evidence: fills are journal rows, refusals are in the published pack.")
     rows = [
         ["19 Nov", "US.NVDA", "PB-004 buy 33 at 149.053", "17:26:02Z", "17:31:46Z", "5m 44s",
          "+34.95", "1.99", "+32.96", "+2.70"],
@@ -2281,10 +2340,11 @@ def s28_log(prs):
                 aligns=[PP_ALIGN.LEFT, PP_ALIGN.LEFT, PP_ALIGN.LEFT] + [PP_ALIGN.RIGHT] * 7)
     ny = y + th_ + 0.08
     txt(s, M, ny, CW, 0.56,
-        [P("Exit reason for all three: not recorded. The pack carries timestamps, prices, fees and realized "
-           "R, and no exit-reason field, so I cannot say which of the lane's four exits fired. Two holds "
-           "ran past the 20-minute deadline: PB-004 exits are limit sells with a 900-second submit window, "
-           "so a fill can land after the clock - the playbook states that design.",
+        [P("Exit reason for all three: not recorded. The pack publishes the day's aggregate - 3 trades, "
+           "72.34 gross, 5.95 fees, 66.39 net - and these rows are the journal entries that sum to it to the "
+           "cent, with no exit-reason field in either. Two holds ran past the 20-minute deadline: PB-004 "
+           "exits are limit sells with a 900-second submit window, so a fill can land after the clock - the "
+           "playbook states that design.",
            size=9.4, color=BRICK, line=1.09)], tag="s28 trade note")
     ry = ny + 0.70
     lw = 7.20
@@ -2315,10 +2375,14 @@ def s28_log(prs):
     box(s, M, bky, CW, 6.90 - bky,
         [P("How a judge can check any of this", size=11.4, color=NAVY, bold=True, font=HEAD, line=1.02,
            after=4),
-         P("docs/performance/2026-11-23-metrics.md holds every table on these three slides, generated by "
-           "tyche performance report; desk-site/web/data/state.json holds the marks, the open book, the 13 "
-           "rejection rows and the chain length; journal/events.jsonl is the source, hash-chained and "
-           "verified by tyche journal-verify.", size=9.7, color=INK, line=1.09)],
+         P("docs/performance/2026-11-23-metrics.md is the committed record, and it holds the aggregate row "
+           "(3 closed trades, 72.34 gross, 5.95 fees, 66.39 net) plus all 18 rejection rows, one per line "
+           "with a symbol and a reason. The per-fill prices and timestamps above are journal rows, and "
+           "journal/ is gitignored by design (L-025): the ledger is hash-chained and verified by tyche "
+           "journal-verify, on two chains until the 23 Nov re-freeze (L-056). The committed feed copy is "
+           "not the file to check these rows against - it re-exported on 24 Nov to the 18 Nov capture, with "
+           "an empty rejection list and a chain length of zero.", size=9.7, color=INK,
+           line=1.09)],
         fill=T_BLUE, line=BLUE, tag="s28 verify", pad=0.12)
     notes(s, "The fills are three scalps on 19 November, all small, all won, and I have deliberately "
              "included the two that ran past the lane's 20-minute deadline - the playbook explains why a "
@@ -2328,9 +2392,10 @@ def s28_log(prs):
              "and one cash-floor breach, each with a symbol, a quantity and a rule id. Two of those groups "
              "are uncomfortable. The six waits are AMD and MU exits that never got armed, so the desk held "
              "risk it wanted to shed, and the turnover rows ran against a 25 percent cap that has since "
-             "been raised in config. The bottom strip is the verification route: three files in the "
-             "repository and a command that re-checks the chain, so none of these numbers have to be taken "
-             "on trust.")
+             "been raised in config. The bottom strip is the verification route: the generated pack, the "
+             "ledger it was built from, and a command that re-checks the chain, so none of these numbers "
+             "have to be taken on trust. That strip also names the one file a judge should not trust yet: "
+             "the committed feed copy is behind, and says so.")
 
 
 def s29_divider_reuse(prs):
@@ -2340,7 +2405,7 @@ def s29_divider_reuse(prs):
             ["The repository runs without a Moomoo account: create a virtual environment, install with the "
              "dev extra, generate demo data, and the same doctor, plan and journal-verify commands the live "
              "desk uses.",
-             "Eleven skills, eighteen ADRs, fifty-seven lesson rows and one open-defect list that is longer "
+             "Eleven skills, eighteen ADRs, fifty-six lesson rows and one open-defect list that is longer "
              "than most roadmaps - because every claim in this deck has a file behind it.",
              "The lessons and the defects are written down at the time they happen, including the ones that "
              "make the build look rough."],
@@ -2366,7 +2431,7 @@ def s30_package(prs):
         ("src/tyche/", "config, models, strategies, risk.py, journal.py, broker/, cli.py"),
         ("dashboard/  desk-site/", "local desk (authored) and hosted site (exported + feed)"),
         ("scripts/  tests/", "cloud deploys, fetches, exports; 616 unit and end-to-end tests"),
-        ("docs/", "18 ADRs, 57 lesson rows, runbooks, validation, performance, competition"),
+        ("docs/", "18 ADRs, 56 lesson rows, runbooks, validation, performance, competition"),
         ("journal/  plans/  runs/", "runtime evidence, gitignored by design (L-025, L-056)"),
     ]
     box(s, M, y, 6.95, 2.88,
@@ -2395,7 +2460,7 @@ def s30_package(prs):
         ("616", "tests pass with `pytest -q` on the README headline; the PRD's CI row says 607 and the "
          "22 Nov entry 651", GREEN),
         ("18", "architecture decision records, 0001 to 0018, each with status and consequences", BLUE),
-        ("57", "rows in docs/lessons/LESSONS.md: assumption, what broke, what changed", AMBER),
+        ("56", "rows in docs/lessons/LESSONS.md: assumption, what broke, what changed", AMBER),
         ("11", "skills across five roles: auditor, coordinator, executor, researcher, shared", BRICK),
         ("3", "role skills the prompts point at instead of repeating, so one fix reaches every card",
          NAVY),
@@ -2419,7 +2484,7 @@ def s30_package(prs):
              "the right is copied straight out of the README: four commands, then the doctor, then a plan "
              "against demo prices, and no Moomoo account is required to see the risk kernel refuse an order "
              "and write it to the chain. The tiles are counts you can reproduce with a file listing - 616 "
-             "tests, 18 decision records, 57 lesson rows, 11 skills. I gave three different test counts "
+             "tests, 18 decision records, 56 lesson rows, 11 skills. I gave three different test counts "
              "because the documents disagree and the suite is growing daily; I would rather show the "
              "disagreement than pick a number. The bottom point is the reusable part: the skills are "
              "published and version-pinned, so someone else can attach the same auditor skill and get the "
@@ -2494,7 +2559,7 @@ def s31_lessons(prs):
              "file, and a sandbox that forgot everything between runs. One is a guard that blocked the "
              "wrong accounts in both directions. The format is the same in every row because it is the "
              "format that makes a lesson reusable: name the assumption, name the cost, name the change. "
-             "Fifty-seven rows exist; these eight are the ones that changed the architecture.")
+             "Fifty-six rows exist; these eight are the ones that changed the architecture.")
 
 
 def s32_open(prs):
@@ -2511,16 +2576,16 @@ def s32_open(prs):
          "forgets to set it books trades under the wrong strategy - and the ledger filters on that field "
          "(item 3)."),
         ("Ballast lots cannot be pre-armed", "SAFETY", BRICK,
-         "PB-001 computes a stop it never journals, so the exit-envelope path finds nothing to protect and "
-         "SPY and EFA were refused drafting today. Matches ADR 0013's rebalance stance, but it was "
+         "PB-001 computes a stop it never journals, so the exit-envelope path finds nothing to protect, and "
+         "the 23 Nov close fire could not sell SPY or EFA. Matches ADR 0013's rebalance stance, but it was "
          "undocumented until rung 1.5 (item 11)."),
         ("A skipped calendar check leaves no trace", "PROVENANCE", AMBER,
-         "The drift clause is in the live card brief and the first unattended run was 23 Nov 13:05Z, but a "
+         "The drift clause is in the live card brief and 23 Nov 13:05Z was its first unattended run, but a "
          "prompt is not a kernel: a fire that skips it shows only as a missing event (item 7)."),
-        ("PB-003 has an id and no page", "PROVENANCE", AMBER,
-         "The options lane is registered and hashed through the tactical file but has no thesis document, so "
-         "it stays off behind options_enabled: false. PB-002's page landed on 23 Nov; PB-003's has not "
-         "(item 2 residue)."),
+        ("PRD item 2 lags its own fix", "PROVENANCE", AMBER,
+         "§7 still says PB-003 has no page and stays off behind options_enabled: false. The page landed on "
+         "24 Nov with the switch that turned the lane on, and v1.22 records that the switch, not the yaml, "
+         "now decides. A defect list that trails the thing it tracks is itself a finding (item 2)."),
         ("Provenance rows sit on the drill chain", "PROVENANCE", AMBER,
          "The 21 Nov freeze rows were written to the laptop's 93-event copy; the Drive ledger the desk reads "
          "was re-frozen on 23 Nov with 41 events. The performance pack is generated from the drill copy and "
@@ -2546,18 +2611,20 @@ def s32_open(prs):
     ny = y + 2 * (chh + 0.17) + 0.02
     txt(s, M, ny, CW, 6.92 - ny,
         [P("Also owed, from the competition notes: a fixed evaluation-prompt suite so a prompt change can be "
-           "claimed as an improvement (tip H6), the same drill re-run on the challenge account, and the "
-           "PB-002 cap cut from 45% to 25%. None of it is claimed as done on any slide in this deck.",
+           "claimed as an improvement (tip H6), and the same drill re-run on the challenge account. The "
+           "PB-002 cap cut was owed on this slide and landed on 23 Nov. None of the rest is claimed as done "
+           "on any slide in this deck.",
            size=9.7, color=BRICK, line=1.09)], tag="s32 owed")
     notes(s, "The PRD keeps a list of what is wrong, ordered by what it can cost rather than by effort, and "
              "this is a copy of eight rows from it. The red ones can lose money: a stale prompt can read as "
              "permission, a default strategy id can mis-attribute a trade, and ballast positions cannot be "
              "pre-armed because the stop is computed and never journaled. The amber ones can lose trust: a "
-             "skipped calendar check is invisible, one lane has an id without a document, and the freeze "
-             "rows sat on the wrong chain for two days. The blue ones are hygiene that has bitten before. "
-             "Two of these rows are why earlier slides say not recorded rather than guessing - I would "
-             "rather carry the blank than invent the number. The footer lists the three things I still owe, "
-             "so nobody has to discover them.")
+             "skipped calendar check is invisible, the freeze rows sat on the wrong chain for two days, and "
+             "one defect row now describes a gap its own changelog closed - which is why this deck quotes "
+             "the changelog and the config, not only the summary table. The blue ones are hygiene that has "
+             "bitten before. Two of these rows are why earlier slides say not recorded rather than guessing - "
+             "I would rather carry the blank than invent the number. The footer lists what I still owe, so "
+             "nobody has to discover it.")
 
 
 def s33_plan(prs):
@@ -2566,16 +2633,16 @@ def s33_plan(prs):
               "Deadline 30 Nov 2026, 23:59 SGT. The trading window closes 28 Nov, Thanksgiving shuts the "
               "market on 26 Nov and 27 Nov is a half day, so the useful days are these.")
     steps = [
-        ("Mon 23", "Re-pin check: confirm the calendar clause ran unattended at 13:05Z and that the feed "
-         "published itself from the desk card", GREEN),
-        ("Tue 24", "Re-run the performance pack from the Drive ledger, not the drill copy, and update slides "
-         "26-28 in place", GREEN),
-        ("Wed 25", "Cut PB-002 from 45% to 25% through the cap route: pull request, both hash lines, a "
-         "re-freeze from a console session", BLUE),
-        ("26-27", "Market closed, then a half day: no new lanes. Flatten anything that would carry into the "
-         "28 Nov close", AMBER),
-        ("Fri 28", "Last trading day: normal three-fire day, flat or hedged before the regular close",
-         AMBER),
+        ("Mon 23", "On file: five lanes re-frozen on the Drive ledger, 41 events; PB-002 cut 45% to 25%; "
+         "first unattended feed publish logged at the 08:05 fire", GREEN),
+        ("Tue 24", "Today. The scalp card is armed for PB-004 through 30 Nov, PB-003 is switched on for an "
+         "options test to 27 Nov, PB-007 is switched off", BLUE),
+        ("Wed 25", "Re-run the performance pack from the Drive ledger, not the drill copy, and update slides "
+         "26-28 in place. Confirm the calendar clause ran unattended", AMBER),
+        ("26-27", "Market closed, then a half day: no new lanes, and the options test ends here. Flatten "
+         "anything that would carry into the 28 Nov close", AMBER),
+        ("Fri 28", "Last full session: normal three-fire day plus the 15-minute scalp, flat or hedged before "
+         "the regular close", BRICK),
         ("Sat 29", "Freeze the deck against the published feed, record the demo video, and check every "
          "number against its file", BRICK),
         ("Sun 30", "Submit before 23:59 SGT: repository, deck, decision log, results, and a demo of what "
@@ -2602,8 +2669,10 @@ def s33_plan(prs):
            "in the journal with a risk verdict and a hash.", size=9.6, color=INK, line=1.09, after=4),
          P("3. Run tyche rules-freeze and tyche journal-verify on stage, and point at the refusal rows the "
            "chain already carries.", size=9.6, color=INK, line=1.09, after=4),
-         P("4. Open the hosted desk from a phone and show the same numbers, published by the run rather "
-           "than typed by me.", size=9.6, color=INK, line=1.09)],
+         P("4. Re-export the hosted desk, then open it from a phone: the numbers on that page have to be the "
+           "run's, not mine. Today the baked copy trails the local desk, and the live cloud read still needs "
+           "a signed-in session, so this step has a prerequisite I have not done.",
+           size=9.6, color=INK, line=1.09)],
         fill=T_GREEN, line=GREEN, tag="s33 demo", pad=0.13)
     box(s, M + cw2 + 0.22, cy, cw2, 6.90 - cy,
         [P("Submission checklist", size=11.6, color=NAVY, bold=True, font=HEAD, line=1.02, after=6),
@@ -2613,22 +2682,25 @@ def s33_plan(prs):
            "rules hash.", size=9.7, color=INK, line=1.08, after=3),
          P("Risk limits: docs/risk-card.md and config/risk.yaml, with the drill records beside them.",
            size=9.7, color=INK, line=1.08, after=3),
-         P("Decision log: journal/events.jsonl, verified; the same rows feed the desk and this deck.",
+         P("Decision log: the hash-chained ledger, verified - 41 events re-frozen on Drive on 23 Nov. The "
+           "local journal/ copy stays gitignored by design (L-025).",
            size=9.7, color=INK, line=1.08, after=3),
          P("Fills and results: docs/performance/2026-11-23-metrics.md, regenerated from the ledger before "
            "submission.", size=9.7, color=INK, line=1.08, after=3),
          P("Demo of what worked, what failed and why: this deck, plus slides 31 and 32 on purpose.",
            size=9.7, color=INK, line=1.08)],
         fill=T_BLUE, line=BLUE, tag="s33 check", pad=0.13)
-    notes(s, "Five trading days are left, and the calendar narrows them: Thanksgiving closes the market on "
-             "the 26th and the 27th is a half day, so the 28th is the last real session and everything "
-             "either ships by then or ships as documentation. The first two cards are verification, not "
-             "new work - confirm the calendar clause fired unattended, and regenerate the performance pack "
-             "from the ledger the desk actually reads so the numbers on slides 26 to 28 are the live ones. "
-             "Then the cap cut on PB-002, which is the planned change I mentioned earlier, done through the "
-             "freeze route so the chain records it. The two boxes at the bottom are the demo I would give "
-             "and the checklist the handbook asks for, and I would rather show the kill switch and the "
-             "refusals than a curve that is four days long.")
+    notes(s, "Three and a half trading days are left, and the calendar narrows them: Thanksgiving closes the "
+             "market on the 26th and the 27th is a half day, so the 28th is the last real session and "
+             "everything either ships by then or ships as documentation. The first two cards are history, "
+             "not plans - the 23rd carried the first unattended feed publish and the cap cut landed that "
+             "evening, and today the scalp and options tests were both armed by the operator's switches. "
+             "What I actually still owe is verification: regenerate the performance pack from the ledger the "
+             "desk reads, so the numbers on slides 26 to 28 are the live ones rather than the drill copy's. "
+             "The two boxes at the bottom are the demo I would give and the checklist the handbook asks for, "
+             "and step four carries its own admission - the hosted desk is behind, so the demo has to start "
+             "with a re-export. I would rather show the kill switch and the refusal rows than a curve that "
+             "is four days long.")
 
 
 def s34_close(prs):
@@ -2639,11 +2711,13 @@ def s34_close(prs):
            after=8),
          P("github.com/aloisohzh/tyche", size=15, color=AMBER, line=1.05)], tag="s34 head")
     cards = [
-        ("The idea", "A person owns the reasons, the code owns the numbers, and every claim is a file. "
-         "Three fires a day, four agents, eleven skills, one operator who has to say yes."),
+        ("The idea", "A person owns the reasons, the code owns the numbers, and every claim is a file. Three "
+         "desk fires a day and a 15-minute scalp inside a dated envelope, four agents, eleven skills, and an "
+         "operator who wrote the bounds."),
         ("What is proven", "616 tests, two safety drills, a hash-chained journal that carries the refusals, "
-         "five lanes with frozen rules hashes, and a hosted desk the run itself publishes to."),
-        ("What is not", "Four trading days of marks, an account down 1.25%, no evaluation-prompt suite, and "
+         "five lanes with frozen rules hashes, and a hosted desk built from the same export the local one "
+         "reads."),
+        ("What is not", "Three daily marks of history, an account down 1.25%, no evaluation-prompt suite, and "
          "a breach that has never been handled unattended. The deck says so on the slide, not in the notes."),
         ("Where to start", "README quick start, then docs/risk-card.md, playbook/INDEX.yaml, and "
          "docs/performance/2026-11-23-metrics.md. This deck is generated by "
@@ -2708,6 +2782,17 @@ def main() -> int:
             print("  " + t_)
     else:
         print("notes audit: every slide has 4-8 sentences")
+    cp = prs.core_properties
+    cp.title = "tyche - autonomous paper trading desk (competition deck)"
+    cp.author = "Qoder"
+    cp.last_modified_by = "Qoder"
+    cp.subject = "Qoder Agentic Coding Challenge 2026 - tyche"
+    cp.category = "Competition submission"
+    cp.keywords = "Qoder-generated; python-pptx; tyche; paper trading"
+    cp.comments = ("Generated by Qoder from the tyche repository's own records; every figure is sourced "
+                   "in the slide text or speaker notes. Built by docs/competition/deck/build_deck.py "
+                   "with python-pptx.")
+    cp.revision = 1
     prs.save(str(OUT))
     print(f"tighten pass: {tightened} shapes resized to fit their text")
     print(f"wrote {OUT} ({len(prs.slides._sldIdLst)} slides)")
