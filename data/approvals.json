@@ -1,30 +1,51 @@
 {
   "as_of": "2026-11-24",
-  "approved_at": "2026-11-24T00:42:00.109533+00:00",
-  "approved_by": "operator (Alois, project thread 24 Nov 2026: make the exits actually execute)",
-  "max_orders": 3,
+  "approved_at": "2026-11-24T15:57:21+00:00",
+  "approved_by": "operator (Alois, project thread 24 Nov 2026: pre-approve tonight's stock buys, \"Pre-approve now, I sleep\")",
+  "max_orders": 6,
   "orders": [
     {
-      "symbol": "US.SPY",
-      "side": "sell",
-      "max_qty": 28,
-      "max_total_qty": 28,
-      "limit_min": 690.0
+      "symbol": "US.KO",
+      "side": "buy",
+      "max_qty": 51,
+      "max_total_qty": 51,
+      "limit_max": 102.0
     },
     {
-      "symbol": "US.EFA",
+      "symbol": "US.KO",
       "side": "sell",
-      "max_qty": 142,
-      "max_total_qty": 142,
-      "limit_min": 94.5
+      "max_qty": 51,
+      "max_total_qty": 51,
+      "limit_min": 87.0
     },
     {
-      "symbol": "US.MSFT",
+      "symbol": "US.PG",
+      "side": "buy",
+      "max_qty": 29,
+      "max_total_qty": 29,
+      "limit_max": 177.0
+    },
+    {
+      "symbol": "US.PG",
       "side": "sell",
-      "max_qty": 39,
-      "max_total_qty": 39,
-      "limit_min": 474.0
+      "max_qty": 29,
+      "max_total_qty": 29,
+      "limit_min": 151.0
+    },
+    {
+      "symbol": "US.JNJ",
+      "side": "buy",
+      "max_qty": 17,
+      "max_total_qty": 17,
+      "limit_max": 300.0
+    },
+    {
+      "symbol": "US.JNJ",
+      "side": "sell",
+      "max_qty": 17,
+      "max_total_qty": 17,
+      "limit_min": 257.0
     }
   ],
-  "note": "Exit note, re-dated for 24 Nov: sell the whole SPY 28 and EFA 142 lots (stops 727.50 / 100.00 breached on two completed bars) and the unowned MSFT 39 lot via tyche exit-now. Floors about 5% under the 23 Nov marks. The 23 Nov close fire could not sell them (lifecycle gates); AAPL entry expired 23 Nov."
+  "note": "Pre-approval for 24 Nov (PB-002 tactical stocks): buy up to about 5% of NAV each in KO, PG and JNJ at the desk's own setup, stop and target; each buy line has its matching exit line. Caps are about 5% over the last closes seen (KO 96.99, PG ~168, JNJ ~286). SPY/EFA/MSFT exits filled at the 24 Nov open. PB-003 option entries are not pre-approved and still go to Telegram."
 }

@@ -273,11 +273,16 @@ def reserve(
             if batch.approved_at.tzinfo is None or batch.approved_at > now:
                 raise ValueError("invalid envelope approval time")
             line = batch.line_for(symbol, intent.side.value)
-            if line is None or line.setup_hash != proposal["setup_hash"]:
+            if line is None:
+                raise ValueError("operator envelope has no line for this order")
+            # A line with no setup_hash is the operator's symbol-level pre-approval (2026-11-24 ruling:
+            # "pre-approve now, I sleep"): any setup the kernel produces is authorized inside the line's
+            # quantity and price bounds. A line that names a hash still binds that exact setup.
+            if line.setup_hash is not None and line.setup_hash != proposal["setup_hash"]:
                 raise ValueError("operator envelope must bind the complete setup/account/config hash")
             entry = state.protected.get(symbol) if snapshot.position(symbol) else None
             entry = entry or next(e for e in watchlist.entries if e.symbol == symbol)
-            if setup_hash(entry, config, snapshot.account_id) != line.setup_hash:
+            if line.setup_hash is not None and setup_hash(entry, config, snapshot.account_id) != line.setup_hash:
                 raise ValueError("protected setup changed; obtain renewed approval")
             if intent.side.value == "buy":
                 exit_line = batch.line_for(symbol, "sell")

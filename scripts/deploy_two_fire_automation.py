@@ -15,6 +15,7 @@ Run: .venv/Scripts/python.exe scripts/deploy_two_fire_automation.py [--start 202
   --apply refuses to create a second active desk card unless --allow-overlap is given: two cards
   that both fire are two writers (STATE below), so pause the old card first, then create.
 Update a live card's prompt only: ... --apply-update <deployment_id>
+Fire the live desk card once now (on-demand run): ... --run-now <deployment_id>
   (its cron and metadata are re-sent exactly as the platform holds them; only initial_events moves)
 Copy a secret from .env into the desk environment: ... --set-env TYCHE_GITHUB_PAT [--card <deployment_id>]
   (merges into the environment's variables, or with --card into the live card's own variables, the way the
@@ -151,6 +152,16 @@ fire and submits nothing (see MIDDAY). 15:05 is the close fire; on a
 is session close minus 45 minutes (15:15 ET normally, 12:15 ET on early closes). On an early-close day
 the 12:05 fire is the last check inside the session, and its alert is notice for the operator, not an
 order. A late or skipped fire never authorizes catch-up with stale quotes.
+
+ON-DEMAND RUN (2026-11-24, operator): a run that does not start within 10 minutes after 08:05, 12:05
+or 15:05 ET was started by the operator on demand (desk "Run now" or --run-now), not by the cron. It
+uses fresh quotes, so the stale-catch-up rule above does not apply to it. If the calendar phase is the
+regular session it is a full trading run: do everything the 15:05 close fire does for protection,
+OPERATOR EXIT, ORDERS, PROPOSAL APPROVAL (Telegram asks with the same 10-minute window), PB-007 and
+PB-003 (each only while `tyche strategies --json` lists it as enabled - a switched-off strategy is
+never scanned), using a fresh scan for entries, then PUBLISH; skip only steps that belong to the end of the day
+(performance pack, end-of-day wrap). Outside the regular session it reconciles and reports only and
+submits nothing. Title the digest "ON-DEMAND RUN" so it is never mistaken for a scheduled fire.
 
 CALENDAR DRIFT (08:05 premarket only, once per day, alert-only): the gate above reads the pinned
 calendar tables, which can go stale against what NYSE publishes. At the first premarket fire of the day
@@ -562,6 +573,7 @@ def prompt_markers(events: str) -> dict:
         "has_nav_references": "NAV REFERENCES" in events and "100,000.00 starting" in events,
         "has_operator_exit": "OPERATOR EXIT" in events and "tyche exit-now" in events,
         "has_rulings": "RULINGS (2026-11-24, operator)" in events,
+        "has_on_demand": "ON-DEMAND RUN (2026-11-24, operator)" in events,
         "has_long_options": "PB-003 LONG OPTIONS" in events and "Never sell an option to open" in events,
     }
 
@@ -765,6 +777,21 @@ def main() -> None:
                           "payload_file": str(payload_path), "curl_config": str(config_path),
                           "cron": (before.get("schedule") or {}).get("expression"),
                           "window": live_window(before)}, indent=2))
+        return
+    if "--run-now" in sys.argv:
+        # On-demand run: fire the live desk card once now. The brief's ON-DEMAND RUN clause makes a run
+        # inside the regular session a full trading run (exits, entries, Telegram asks) on fresh quotes.
+        deployment_id = sys.argv[sys.argv.index("--run-now") + 1]
+        before = req(values, "GET", f"/deployments/{deployment_id}")
+        if not str(before.get("name", "")).startswith("Tyche desk"):
+            raise SystemExit("refusing to run a deployment that is not the Tyche desk card")
+        events = json.dumps(before.get("initial_events") or [])
+        if "ON-DEMAND RUN (2026-11-24, operator)" not in events:
+            raise SystemExit("the live brief has no ON-DEMAND RUN clause yet; run --apply-update first")
+        item = req(values, "POST", f"/deployments/{deployment_id}/run")
+        item = item.get("item") or item
+        print(json.dumps({"run_requested": deployment_id, "run_id": item.get("id"),
+                          "session_id": item.get("session_id"), "status": item.get("status")}, indent=2))
         return
     if "--apply-update" in sys.argv:
         import hashlib
