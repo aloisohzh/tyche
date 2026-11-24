@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import ROUND_CEILING, ROUND_FLOOR, Decimal
 from typing import Literal
 
@@ -153,9 +153,15 @@ class BrokerOrder(Instrument, StrictModel):
 
     @property
     def complete(self) -> bool:
-        # status=4 fully-filled verified against the actual sim API. All other
-        # statuses remain blocking until reconciled, not guessed as cancelled.
-        return self.status == 4 and self.filled_quantity == self.quantity
+        # status=4 fully-filled is verified terminal. A zero-fill order from an earlier
+        # session that the broker no longer shows as working (status 2) has expired
+        # (operator ruling 2026-11-24, `execution_state.expired_unfilled`).
+        if self.status == 4 and self.filled_quantity == self.quantity:
+            return True
+        from tyche.execution_state import expired_unfilled
+        today = datetime.now(UTC).astimezone(ET).date()
+        return expired_unfilled(self.status, self.quantity, self.filled_quantity,
+                                int(self.created_at.timestamp() * 1_000_000), today)
 
 
 class MarketSnapshot(StrictModel):

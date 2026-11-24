@@ -211,3 +211,11 @@ def test_nav_references_pin_the_verified_start_and_retire_the_unverified_mark():
     assert "100,000.00 starting" in clause and "102,208.99" in clause and "retired" in clause
     assert "never lower it" in clause
     assert _module().prompt_markers(prompt)["has_nav_references"]
+
+
+def test_operator_exit_is_direct_never_at_midday_and_paper_only():
+    prompt = _module().card_prompt(PERMANENT)
+    clause = prompt.split("OPERATOR EXIT (2026-11-24):", 1)[1].split("\n\n", 1)[0]
+    assert "tyche exit-now" in clause and "ONE" in clause and "Never at the 12:05 fire" in clause
+    assert "Paper account only" in clause and "never retry" in clause
+    assert _module().prompt_markers(prompt)["has_operator_exit"]

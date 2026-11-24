@@ -334,6 +334,12 @@ def reserve(
 
 def check_execution_journal(events: list[dict], ledger: LifecycleState) -> None:
     requests = [e["payload"] for e in events if e.get("type") == "order.requested"]
+    # Rows journaled before request ids existed (18-19 Nov drill and seed orders) carry only a
+    # broker remark. They never held a lifecycle reservation, so they are history, not a gate:
+    # the operator ruled on 2026-11-24 that they must not block every later reserve.
+    legacy = [r for r in requests if not r.get("request_id")
+              and r.get("authorization", {}).get("mode") not in {"lifecycle", "lifecycle_exit"}]
+    requests = [r for r in requests if r not in legacy]
     ids = [r.get("request_id") for r in requests]
     if any(not key for key in ids) or len(ids) != len(set(ids)):
         raise PaperApiError("unclassified or duplicate journal request; operator review required")
