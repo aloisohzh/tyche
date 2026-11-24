@@ -50,13 +50,12 @@ playbooks:
       regime_fit: [Any]
       direction: Both
 
+  # PB-006 got its one-page plan on 2026-11-24. It stays `planned`: there is no lane and no config, so
+  # nothing can trade it. Its tags moved to the file's front matter.
   - id: PB-006
-    file: null
+    file: playbook/PB-006-sector-rotation-heat.md
     config: null
     status: planned
-    tags:
-      regime_fit: [Bull]
-      direction: Long
 
   # Fib 50% pullback swing lane (ADR 0017): kind fib_pullback in config/strategies/pb-007.yaml,
   # plans through the lifecycle contract. Ships enabled: false; "live" here means a pre-registered

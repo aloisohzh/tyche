@@ -48,7 +48,7 @@ def test_every_lock_transition_redraws_all_control_surfaces() -> None:
 
 
 def test_strategy_switch_keeps_a_lock_button_while_locked() -> None:
-    row = re.search(r"function strategyRow\(row, canControl\) \{(.*?)\n\}", APP_JS, re.DOTALL).group(1)
+    row = re.search(r"function strategyRow\(row, canControl, view\) \{(.*?)\n\}", APP_JS, re.DOTALL).group(1)
     assert "adminLocked()" in row
     assert 'lockedButton(row.enabled ? "Turn off" : "Turn on")' in row
     # once unlocked the real toggle is wired
