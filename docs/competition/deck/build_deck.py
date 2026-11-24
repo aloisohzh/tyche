@@ -1333,7 +1333,7 @@ def s13_rungs(prs):
 def s14_dashboard(prs):
     s = add_slide(prs)
     y = title(s, "The operator desk: five views, five reads, seven writes",
-              "dashboard/ is stdlib Python on 127.0.0.1:8765 (UI v0.16.4). The handbook asks for a "
+              "dashboard/ is stdlib Python on 127.0.0.1:8765 (UI v0.16.6). The handbook asks for a "
               "dashboard; this one shows positions, P&L, the equity curve, open orders, drawdown and the "
               "decision log, and it is also the only place a control can be changed.")
     views = [
@@ -1358,8 +1358,8 @@ def s14_dashboard(prs):
           "What each fire is allowed to do: plan, monitor, or act."]),
         ("Controls", "The only place a switch moves", NAVY,
          ["Trading mode: Ask me, or Within my bounds.",
-          "Arm or disarm bounds, which since 24 Nov may carry a last valid day; switch a lane, halt, run "
-          "Scout.",
+          "Arm or disarm bounds; switch a lane, halt, run Scout. Since 0.16.6 a row says whether it can be "
+          "turned on.",
           "Unlocked by an operator passphrase held in memory; each write commits and pushes."]),
     ]
     vw = (CW - 4 * 0.16) / 5
@@ -1653,7 +1653,7 @@ def s19_book(prs):
     s = add_slide(prs)
     y = title(s, "The strategy book, as registered",
               "playbook/INDEX.yaml is the authority on what exists. An id is claimed once and kept forever "
-              "(L-029), and a row without a thesis file cannot be called live.")
+              "(L-029), and a row with no lane behind it cannot be called live.")
     rows = [
         ["PB-001\nRegime rotation (ETFs)",
          "Holds a basket of broad ETFs. Four market checks set a risk gate (SPY above its 200-day average, "
@@ -1702,14 +1702,16 @@ def s19_book(prs):
           "back on the next day with a card of its own. A switch lives in data/strategies.json, so flipping "
           "it blocks new entries without moving any rules hash (L-037)."]),
         ("PB-005 parked, PB-006 planned", AMBER, T_AMBER,
-         ["They hold an id and nothing else. A roster row without a file cannot be marked live, which is "
-          "what keeps an undocumented lane from being called a strategy."]),
+         ["PB-005 holds an id and nothing else: a spread needs a sold leg, and the desk sends single-leg "
+          "orders only. PB-006 got its plan page on 24 Nov but has no lane, config or backtest, so it "
+          "stays planned."]),
     ]
     for i, (head, acc, tint, lines_) in enumerate(cards):
         card(s, M + i * (cw3 + 0.18), cy, cw3, 6.90 - cy, head,
              [P(ln, size=9.6, color=INK, line=1.09, after=4) for ln in lines_],
              accent=acc, fill=tint, head_size=10.8, tag=f"s19 card {i}")
-    notes(s, "Five strategy ids, and four of them can buy today. The plain-English column is the "
+    notes(s, "Five lanes are in the table, and four of them can buy today; PB-005 and PB-006 hold roster "
+             "ids with no lane behind them. The plain-English column is the "
              "thesis: what has to be true in the market for the trade to work. The cap column is the "
              "lane's share of the account, and the sum of the caps is checked at load time. The last "
              "column matters most for judging: every lane "
@@ -1764,10 +1766,10 @@ def s20_allocation(prs):
     tiles = [
         ("95%", "portfolio gross cap: the book may hold 95% of NAV in positions, 5% must stay cash",
          GREEN),
-        ("55%", "cap sum for the lanes that can buy today: 25 + 25 + 5, inside the gross cap. PB-004's 20% "
-         "is same-day only and excluded.", GREEN),
-        ("75%", "the all-on sum the guard would refuse: 25 + 25 + 5 + 20. The switch file bypasses that "
-         "check, so a lane can be on without being counted (PRD item 15)", BRICK),
+        ("55%", "what the guard adds up today: 25 + 25 + 5, inside the gross cap. PB-004's 20% is same-day "
+         "only and outside the rule.", GREEN),
+        ("75%", "what the guard sums with every YAML switch on: 25 + 25 + 5 + 20. It never sees a lane "
+         "raised through the switch file, nor the scalp lane's 20%", AMBER),
         ("34%", "PB-001's actual weight against its own 25% cap - cut on 19 Nov after the buys; a cap "
          "blocks new buys, never forces a sale", AMBER),
     ]
@@ -1791,15 +1793,17 @@ def s20_allocation(prs):
            size=9.6, color=INK, line=1.10)],
         fill=T_BLUE, line=BLUE, tag="s20 book", pad=0.12)
     notes(s, "These are the caps, not the positions: a cap says how much room a lane may take, and it "
-             "blocks new buys rather than forcing a sale. Four of the five lanes can buy today, and the "
-             "three that count against the cap sum to 55% against a 95% portfolio limit, which is "
+             "blocks new buys rather than forcing a sale. Four of the five lanes can buy today, and what "
+             "the loader adds up for them is 55% against a 95% portfolio limit, which is "
              "deliberate. PB-004 is the fourth: it may buy today, but its lot is four trades of 5% that "
              "close before the bell, so it never carries overnight risk and sits outside the sum. The 75% "
              "tile is the honest part of the story - the config loader refuses to start when the caps in "
              "the YAML files add past the gross limit, but PB-007 was switched on, then back off, through "
-             "the operator's switch file, which needs no re-hash and so never passes that check. The per-order gross "
-             "test still holds, so it is a fairness problem rather than a safety hole, and the two cuts on "
-             "23 and 24 Nov brought the all-on sum to 75%. The bottom strip is the book as the records "
+             "the operator's switch file, which needs no re-hash and so never passes that check. "
+             "That bypass is PRD item 15, and the operator closed it on 23 Nov by cutting the tactical cap "
+             "from 45% to 25%: with every switch on the caps now sum to exactly the 95% gross limit, and "
+             "the per-order gross test in risk.py held throughout, so it was a fairness problem rather "
+             "than a safety hole. The bottom strip is the book as the records "
              "show it: the operator's sell-only note of three lots dated 24 November, and the newest "
              "committed broker capture, which is still the 18 November end-of-day run - about half cash "
              "and two positions - beside the 20 November mark the return section measures.")
