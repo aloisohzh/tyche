@@ -179,3 +179,20 @@ def test_a_broken_switch_file_is_visible_instead_of_dead_silent(srv, desk):
     assert view["problem"] and "strategies.json" in view["problem"]
     assert view["live"] == ["PB-001", "PB-002", "PB-004"]
     assert srv.toggle_strategy({"strategy_id": "PB-002", "enabled": False})["ok"] is False
+
+
+def test_a_switch_reason_is_shown_and_cleared_when_flipped_back(repo):
+    set_enabled(repo, "PB-007", False, reason="failed its backtest")
+    rows = {r["strategy_id"]: r for r in load_config(repo).playbook_switches()}
+    assert rows["PB-007"]["enabled"] is False
+    assert rows["PB-007"]["reason"] == "failed its backtest"
+    assert rows["PB-001"]["reason"] is None
+    set_enabled(repo, "PB-007", True)
+    assert "reasons" not in read_state(repo)
+    assert load_config(repo).playbook_switches()[-1]["reason"] is None
+
+
+def test_the_live_switch_file_says_why_pb007_is_off():
+    state = read_state(ROOT)
+    assert state["enabled"]["PB-007"] is False
+    assert "backtest" in state["reasons"]["PB-007"]

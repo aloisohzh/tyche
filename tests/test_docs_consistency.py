@@ -242,7 +242,7 @@ DIRECTIONS = {"Long", "Long puts", "Both"}
                        "Market making", "Event-driven", "Statistical/quantitative"}),
     ("execution_style", {"Manual", "Semi-automated", "Fully automated"}),
     ("direction", DIRECTIONS),
-    ("validation", {"Unvalidated", "Sanity-checked", "Validated"}),
+    ("validation", {"Unvalidated", "Sanity-checked", "Validated", "Failed"}),
 ])
 def test_playbook_classification_uses_the_frozen_vocabulary(
     dimension: str, vocabulary: set[str]

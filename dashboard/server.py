@@ -116,16 +116,32 @@ def closed_trade_strategy(trade: dict) -> str | None:
     if sid == "PB-002" and _is_option_symbol(symbol):
         sid = "PB-003"
     return sid
+def latest_backtests() -> dict[str, dict]:
+    """The newest recorded backtest verdict per strategy (research/backtests/results.json), or {}."""
+    path = ROOT / "research" / "backtests" / "results.json"
+    try:
+        rows = json.loads(path.read_text(encoding="utf-8")).get("results") or []
+    except (OSError, ValueError, AttributeError):
+        return {}
+    out: dict[str, dict] = {}
+    for row in rows:
+        if isinstance(row, dict) and row.get("strategy_id"):
+            out[str(row["strategy_id"])] = row
+    return out
+
+
 def playbook_scores(closed: list, strategies_view) -> list[dict]:
     """One score row per strategy the desk knows (PB-001 ...), in the order of Strategies in play.
 
     Finished trades are attributed by closed_trade_strategy(); one that matches no strategy gets its own
     row so the table always adds up to the total. Same maths as the sleeve scores (trade_risk._aggregate).
     """
-    switches = {}
+    switches, reasons = {}, {}
     if isinstance(strategies_view, dict):
         for row in strategies_view.get("strategies") or []:
             switches[row.get("strategy_id")] = bool(row.get("enabled"))
+            reasons[row.get("strategy_id")] = row.get("reason")
+    backtests = latest_backtests()
     groups: dict[str | None, list] = {}
     for trade in closed:
         groups.setdefault(closed_trade_strategy(trade.model_dump()), []).append(trade)
@@ -135,6 +151,7 @@ def playbook_scores(closed: list, strategies_view) -> list[dict]:
         agg = _aggregate(groups.get(sid, []), sid)
         rows.append({
             "id": sid, "name": STRATEGY_LABELS.get(sid, sid), "enabled": switches.get(sid),
+            "reason": reasons.get(sid), "backtest": backtests.get(sid),
             "closed_n": agg.closed_n, "win_rate": agg.win_rate, "avg_win_r": agg.avg_win_r,
             "avg_loss_r": agg.avg_loss_r, "expectancy_r": agg.expectancy_r,
             "expectancy_pct": agg.expectancy_pct, "pnl_net": agg.pnl_net,
@@ -197,7 +214,8 @@ REGIME_WORDS = {"Bull": "Bullish", "Bear": "Bearish", "Range": "Sideways", "Any"
 DIRECTION_WORDS = {"Long": "Buys only", "Long puts": "Puts only", "Both": "Calls or puts"}
 HOLDING_WORDS = {"Scalping": "Minutes", "Intraday": "Minutes, flat by the close", "Swing": "Days",
                  "Position": "Weeks", "Long-term": "Months"}
-PROOF_WORDS = {"Unvalidated": "Not yet proven", "Sanity-checked": "Sanity check only", "Validated": "Backtested"}
+PROOF_WORDS = {"Unvalidated": "Not yet proven", "Sanity-checked": "Sanity check only", "Validated": "Backtested",
+               "Failed": "Failed its backtest"}
 PLAYBOOK_URL = "https://github.com/aloisohzh/tyche/blob/main/"
 SLEEVE_LABELS = {"intraday": "Intraday (scalps)", "real_asset": "Real assets"}
 
@@ -2569,6 +2587,7 @@ def build_strategies() -> dict:
         for entry in (yaml.safe_load(index_path.read_text(encoding="utf-8")) or {}).get("playbooks", []):
             roster[str(entry.get("id"))] = entry
     rows = []
+    backtests = latest_backtests()
     for switch in config.playbook_switches():
         sid = switch["strategy_id"]
         entry = roster.get(sid, {})
@@ -2589,6 +2608,7 @@ def build_strategies() -> dict:
                 "rules_hash": frozen,
                 **playbook_facts(sid, entry),
                 **lane_allocation(config, sid),
+                "backtest": backtests.get(sid),
             }
         )
     state = read_state(ROOT)

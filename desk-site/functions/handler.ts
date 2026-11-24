@@ -140,12 +140,14 @@ async function handleState(): Promise<Response> {
     if (!view || !Array.isArray(view.strategies)) return json(base);
     const rows = view.strategies as Json[];
     const enabled = (sw.enabled && typeof sw.enabled === "object") ? sw.enabled as Json : {};
+    const reasons = (sw.reasons && typeof sw.reasons === "object") ? sw.reasons as Json : {};
     for (const row of rows) {
       const value = enabled[String(row.strategy_id)];
       if (typeof value === "boolean") {
         row.enabled = value;
         row.operator_override = value;
         row.source = "data/strategies.json";
+        row.reason = typeof reasons[String(row.strategy_id)] === "string" ? reasons[String(row.strategy_id)] : null;
       }
     }
     view.live = rows.filter((r) => r.enabled === true).map((r) => r.strategy_id);
