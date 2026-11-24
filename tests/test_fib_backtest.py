@@ -122,3 +122,19 @@ def test_cli_reports_json_and_writes_trades(tmp_path):
     assert report["trades"] == 1 and report["verdict"] == "inconclusive"
     assert report["spy_return_pct"] is not None and report["exits"] == {"target": 1}
     assert out.read_text().startswith("symbol,")
+
+
+def test_what_if_changes_a_copy_and_rejects_unknown_keys():
+    import pytest
+
+    from tyche.cli import what_if
+    from tyche.config import load_config
+
+    root = __import__("pathlib").Path(__file__).resolve().parents[1]
+    live = load_config(root).strategy_by_id("PB-007")
+    tweaked = what_if(live, ["max_hold_sessions=20", "fib.stop_atr_buffer=0.5"])
+    assert (tweaked.max_hold_sessions, tweaked.fib.stop_atr_buffer) == (20, 0.5)
+    assert (live.max_hold_sessions, live.fib.stop_atr_buffer) == (10, 0.1)
+    for bad in (["nope=1"], ["fib.nope=1"], ["max_hold_sessions"], ["max_hold_sessions=999"]):
+        with pytest.raises((KeyError, ValueError)):
+            what_if(live, bad)

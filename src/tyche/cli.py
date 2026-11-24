@@ -1739,6 +1739,25 @@ def fib_scan(
         console.print(f"  skip {symbol}: {why}")
 
 
+def what_if(model, overrides: list[str]):
+    """A copy of a lane config with dotted `key=value` changes, validated like the real file."""
+    data = model.model_dump()
+    for item in overrides:
+        key, sep, raw = item.partition("=")
+        if not sep or not key.strip():
+            raise ValueError(f"expected key=value, got {item!r}")
+        *parents, leaf = key.strip().split(".")
+        node = data
+        for part in parents:
+            if not isinstance(node.get(part), dict):
+                raise KeyError(f"unknown setting {key!r}")
+            node = node[part]
+        if leaf not in node:
+            raise KeyError(f"unknown setting {key!r}")
+        node[leaf] = json.loads(raw) if raw.strip() else raw
+    return type(model).model_validate(data)
+
+
 @app.command("fib-backtest")
 def fib_backtest(
     bars: Path = typer.Option(..., "--bars", help="Long CSV date,symbol,open,high,low,close[,volume]; include US.SPY for the benchmark."),
@@ -1749,6 +1768,8 @@ def fib_backtest(
     trades_out: Path | None = typer.Option(None, "--trades", help="Write every trade to this CSV."),
     config_root: Path = typer.Option(Path.cwd(), "--config-root"),
     json_out: bool = typer.Option(False, "--json"),
+    overrides: list[str] = typer.Option([], "--set", help="What-if rule change, e.g. max_hold_sessions=20 or "
+                                        "fib.stop_atr_buffer=0.5 (repeatable). Never touches the frozen file."),
 ) -> None:
     """Replay the frozen fib-pullback rules over daily history: fee-net R and a pass/fail.
 
@@ -1768,6 +1789,11 @@ def fib_backtest(
         raise typer.BadParameter(str(exc)) from exc
     if strategy.kind != "fib_pullback":
         raise typer.BadParameter(f"{strategy_id} is a {strategy.kind} lane, not fib_pullback")
+    if overrides:
+        try:
+            strategy = what_if(strategy, overrides)
+        except (ValueError, KeyError) as exc:
+            raise typer.BadParameter(f"--set: {exc}") from exc
     if not bars.is_file():
         raise typer.BadParameter(f"bars file not found: {bars}")
     try:
@@ -1786,7 +1812,8 @@ def fib_backtest(
                 writer.writerow(trade.row())
     report = {k: (v.isoformat() if isinstance(v, date) else v) for k, v in summary.__dict__.items()}
     report["strategy"] = strategy_id
-    report["rules_hash"] = rules_hash(config_root, strategy_id)
+    report["rules_hash"] = rules_hash(config_root, strategy_id) + ("+what-if" if overrides else "")
+    report["what_if"] = list(overrides)
     report["exits"] = {reason: sum(1 for t in trades if t.exit_reason == reason)
                        for reason in sorted({t.exit_reason for t in trades})}
     if json_out:
@@ -1802,6 +1829,8 @@ def fib_backtest(
         console.print(f"return {pct(summary.return_pct)} (SPY {pct(summary.spy_return_pct)}) | "
                       f"worst drawdown {pct(summary.max_drawdown_pct)} (SPY {pct(summary.spy_max_drawdown_pct)})")
         console.print(f"exits {report['exits']}")
+        if overrides:
+            console.print(f"what-if (not the live rules): {', '.join(overrides)}")
         for name, ok in summary.checks.items():
             mark = "[green]pass[/]" if ok else ("[yellow]n/a[/]" if ok is None else "[red]fail[/]")
             console.print(f"  {name}: {mark}")
