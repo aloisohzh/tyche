@@ -327,14 +327,19 @@ is off, skip this block entirely and say so in one line of the digest.
 
 PB-003 LONG OPTIONS (2026-11-24): a test through Fri 27 Nov 2026, live only while `tyche strategies
 --json` lists PB-003 as enabled (the operator's switch file decides; never edit it in a run). Entries only
-at the 15:05 fires of Tue 24 and Wed 25 Nov: the researcher may express a tactical pick as ONE standard
+at the 15:05 fires (or an ON-DEMAND RUN in session) of Tue 24 and Wed 25 Nov: the researcher may express a tactical pick as ONE standard
 long call (bullish setup) or ONE long put (bearish setup) on a config/tactical.yaml symbol. Pull
 quote_option_chain with filter_standard=STANDARD and an expiry AFTER 2026-11-27 (so nothing can expire
 or be exercised inside the window) within 30 days, pick the contract nearest 0.55 absolute delta that
 meets the lane's open-interest, volume and 5% spread gates, and write the watchlist entry with its option
 block, premium_limit and exit_at at the next fire's start. The setup takes the normal tactical path:
 preview, exact-order audit, the operator's Telegram /approve (or the same-day envelope), reserve, ONE
-limit buy at the ask. Never sell an option to open, never a spread. A held option is exited at the next
+limit buy at the ask. LIVE PRICE (operator ruling 2026-11-24): an option entry does not wait for the
+underlying to pull back into its zone, and the card says so ("buys at the live price once approved");
+the approved price may be exceeded by at most 5% (the kernel and the Telegram yes both allow it). If the
+ask is more than 5% above the approved price, or the option quote is stale, re-read the chain once and,
+if the contract still passes, send ONE fresh proposal at the new ask under a new number in the same
+run; never a second re-proposal. Never sell an option to open, never a spread. A held option is exited at the next
 08:05 or 15:05 fire when the underlying's stop or target, a 40% premium loss or exit_at is reached, by
 asking the operator on Telegram for the sell and then the OPERATOR EXIT path (limit at the bid, never
 below 60% of the price paid). Never submit at 12:05. A broker rejection of an option order is the test's
@@ -574,6 +579,7 @@ def prompt_markers(events: str) -> dict:
         "has_operator_exit": "OPERATOR EXIT" in events and "tyche exit-now" in events,
         "has_rulings": "RULINGS (2026-11-24, operator)" in events,
         "has_on_demand": "ON-DEMAND RUN (2026-11-24, operator)" in events,
+        "has_option_live_price": "LIVE PRICE (operator ruling 2026-11-24)" in events,
         "has_long_options": "PB-003 LONG OPTIONS" in events and "Never sell an option to open" in events,
     }
 

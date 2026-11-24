@@ -335,3 +335,14 @@ def test_a_sell_only_envelope_still_honours_todays_telegram_buys(tmp_path):
     assert merged.max_orders == 3
     alone, _, _ = resolve_batch(envelope, [], TODAY)
     assert alone.line_for("US.KO", "buy") is None and alone.max_orders == 1
+
+
+def test_an_approved_option_buy_may_fill_up_to_five_percent_over_the_card_price():
+    from tyche.approvals import TelegramApproval
+    opt = TelegramApproval(as_of=date(2026, 11, 24), ref="a51a8a33", n=1, symbol="US.KO261218C97000",
+                           side="buy", qty=1, limit=2.67, multiplier=100, exit_floor=1.60)
+    buy, sell = opt.lines()
+    assert buy.limit_max == 2.8 and sell.limit_min == 1.60
+    stock = TelegramApproval(as_of=date(2026, 11, 24), ref="b51a8a33", n=2, symbol="US.KO", side="buy",
+                             qty=10, limit=96.5, exit_floor=95.0)
+    assert stock.lines()[0].limit_max == 96.5
