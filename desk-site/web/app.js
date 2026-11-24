@@ -9,8 +9,15 @@ const ucfirst = (s) => { const t = hy(s).trim(); return t ? t.charAt(0).toUpperC
 // A term with a one-line explanation on hover - the desk is read by people who do not trade for a living.
 const tip = (label, text) => `<span class="tip" data-tip="${esc(text)}">${esc(label)}</span>`;
 
-const VERSION = "0.16.6";
+const VERSION = "0.16.7";
 const CHANGELOG = [
+  {
+    version: "0.16.7", date: "2026-11-24", title: "Publish no longer stops on a thin order row",
+    items: [
+      "The 9:05 PM run on 24 Nov finished its work but could not publish its numbers: one order row in the log had no share count, and that stopped the whole feed. A row like that is now read as far as it goes, so the numbers still publish.",
+      "If the desk made a change of its own that it could not send to GitHub, the publish step now carries that change along instead of giving up.",
+    ],
+  },
   {
     version: "0.16.6", date: "2026-11-24", title: "Can it be turned on?",
     items: [

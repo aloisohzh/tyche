@@ -794,6 +794,15 @@ def _max_loss(side: str | None, quantity, limit_price, stop_price) -> float | No
     return round(risk, 2) if risk > 0 else None
 
 
+def _payload_qty(payload: dict):
+    """Share count of a journal order row. Kernel rows say `quantity`; a row the desk wrote by hand may
+    say `qty` or leave it out, and one such row must never stop the whole feed from building."""
+    for key in ("quantity", "qty", "shares"):
+        if payload.get(key) is not None:
+            return payload[key]
+    return None
+
+
 def build_orders(events: list[dict], validation: dict) -> list[dict]:
     orders: list[dict] = []
     for ev in events:
@@ -805,9 +814,9 @@ def build_orders(events: list[dict], validation: dict) -> list[dict]:
         orders.append(
             {
                 "remark": p.get("remark"),
-                "symbol": p["symbol"],
-                "side": p["side"],
-                "quantity": p["quantity"],
+                "symbol": p.get("symbol") or "",
+                "side": p.get("side") or "",
+                "quantity": _payload_qty(p),
                 "account": p.get("account") or "",
                 "purpose": p.get("purpose"),
                 "requested_ts": ev["ts"],
@@ -839,9 +848,10 @@ def build_orders(events: list[dict], validation: dict) -> list[dict]:
         p = ev["payload"]
         candidates = [
             o for o in orders
-            if o["order_id"] is None and o["symbol"] == p["symbol"]
-            and o["side"] == p["side"] and o["quantity"] == p["quantity"]
+            if o["order_id"] is None and o["symbol"] == p.get("symbol")
             and o["requested_ts"] <= ev["ts"]
+            and (not p.get("side") or o["side"] == p.get("side"))
+            and (_payload_qty(p) is None or o["quantity"] == _payload_qty(p))
         ]
         by_request = [o for o in candidates if p.get("request_id") and o["request_id"] == p["request_id"]]
         exact = [o for o in candidates if o["limit_price"] == p.get("limit_price")]
@@ -919,10 +929,10 @@ def build_rejections(events: list[dict], orders: list[dict]) -> list[dict]:
                     "ts": ev["ts"],
                     "kind": "halt",
                     "rule": "halt.active",
-                    "symbol": p["symbol"],
-                    "side": p["side"],
-                    "quantity": p["quantity"],
-                    "detail": p["reason"],
+                    "symbol": p.get("symbol") or "",
+                    "side": p.get("side") or "",
+                    "quantity": _payload_qty(p),
+                    "detail": p.get("reason") or "",
                     "account": "***748",
                     "as_of": None,
                 }
@@ -1083,7 +1093,7 @@ def build_cards(plans: dict[str, dict], strat_plans: list[dict], orders: list[di
             symbol = intent["symbol"]
             matched = _matching_order(orders, acct, symbol, intent.get("side", ""), intent.get("quantity", 0))
             halted = any(
-                ev["type"] == "halt.skip" and ev["payload"]["symbol"] == symbol
+                ev["type"] == "halt.skip" and ev["payload"].get("symbol") == symbol
                 for ev in EVENTS
             )
             status = _card_status(verdict, matched, halted)
@@ -1201,7 +1211,7 @@ def build_cards(plans: dict[str, dict], strat_plans: list[dict], orders: list[di
             matched = _matching_order(orders, None, symbol, intent.get("side", ""),
                                       intent.get("quantity", 0), order.get("request_id"))
             halted = any(
-                ev["type"] == "halt.skip" and ev["payload"]["symbol"] == symbol
+                ev["type"] == "halt.skip" and ev["payload"].get("symbol") == symbol
                 for ev in EVENTS
             )
             status = _card_status(None, matched, halted)
