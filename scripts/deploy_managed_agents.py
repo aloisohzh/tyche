@@ -99,7 +99,7 @@ NAME_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 EXPORT_STEM = {"coordinator": "desk", "researcher": "researcher", "auditor": "auditor",
                "executor": "executor"}
 # the permanent weekday desk card (the monthly cards were archived 2026-11-22)
-CARD_IDS = ("dep_00w9n1b9mkb9cjkalhcv",)
+CARD_IDS = ("dep_00w9n1b9mkb9cjkalhcv", "dep_00wf6hsffery89aucq7x")  # desk card, scalp card (both pin the desk)
 
 
 
