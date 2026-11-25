@@ -72,6 +72,12 @@ def test_contract_prefers_journaled_thesis_over_generic_defaults(srv):
     assert "technical bull" in fields["outlook"]["value"]
 
 
-def test_scalp_symbols_attribute_to_an_intraday_sleeve(srv):
-    assert srv.SLEEVE_MAP["US.NVDA"] == "intraday"
+def test_lane_symbols_attribute_to_their_own_sleeve(srv):
+    # Attribution is by the lane that owns the ticker, so the drill reads the lane instead of naming a
+    # symbol: US.NVDA left the scalp lane for the tactical one on 2026-11-25 (v1.34), and a hard-coded
+    # "NVDA is intraday" assertion broke when it did.
+    assert srv.SCALP_SYMBOLS, "the scalp lane must have symbols to attribute"
+    assert all(srv.SLEEVE_MAP[s] == "intraday" for s in srv.SCALP_SYMBOLS)
+    assert "US.NVDA" not in srv.SCALP_SYMBOLS
+    assert srv.SLEEVE_MAP.get("US.NVDA") != "intraday"
     assert srv.SLEEVE_MAP["US.SPY"] != "intraday"
