@@ -1,10 +1,15 @@
 """Create the permanent three-fire Qoder Cloud Automation card for the tyche paper desk.
 
-One card, no end date: 08:05 premarket plan fire, 12:05 midday watch-and-shout protection check,
-15:05 close fire, every Monday to Friday in America/New_York. The cron knows nothing about NYSE
-holidays; the in-run `tyche calendar` gate is the holiday filter, so a holiday fire exits read-only.
+One card, no end date: 08:05 premarket fire (research, the day's watchlist, resting buys for the
+open), 12:05 and 15:05 fires, every Monday to Friday in America/New_York. The cron knows nothing about
+NYSE holidays; the in-run `tyche calendar` gate is the holiday filter, so a holiday fire exits read-only.
 This replaced the one-card-per-month design (trading days listed in the cron, a new card each month)
-on 2026-11-22. The midday fire shares the card and may never submit anything.
+on 2026-11-22.
+
+Since 2026-11-25 every fire runs THE CYCLE (`tyche cycle`, src/tyche/cycle.py): one command that
+decides every order from the saved broker reads, so the brief is a third of its old length and any
+fire inside the session may trade. The 15-minute card (scripts/deploy_scalp_card.py) carries the same
+CYCLE text word for word and runs it between the fires.
 
 Reads QODER_PAT and the three runtime secret values from gitignored .env and sends
 them directly to the Cloud API. Never prints secret values.
@@ -13,7 +18,7 @@ Run: .venv/Scripts/python.exe scripts/deploy_two_fire_automation.py [--start 202
   --pin names the exact compiled desk version the card runs (default: the agent's current version).
   --agent <id> targets another Managed desk agent than AGENT_ID (when the desk is recreated).
   --apply refuses to create a second active desk card unless --allow-overlap is given: two cards
-  that both fire are two writers (STATE below), so pause the old card first, then create.
+  that both fire are two desks doing the same research and digests, so pause the old card first, then create.
 Update a live card's prompt only: ... --apply-update <deployment_id>
 Fire the live desk card once now (on-demand run): ... --run-now <deployment_id>
   (its cron and metadata are re-sent exactly as the platform holds them; only initial_events moves)
@@ -24,9 +29,7 @@ Copy a secret from .env into the desk environment: ... --set-env TYCHE_GITHUB_PA
 Check without writing: ... --check [--card <deployment_id>]
   (environment key names, the card's key names, and for the card's publish token GitHub's verdict on the
   very value the desk runs with: kind, length, status and whether it may push; never the value)
-Any card write lands between fires only, with the operator's explicit go: the 2026-11-22 PROPOSAL
-APPROVAL paragraph (Telegram wait-for-reply) is in this file but is NOT on the live cards until that write.
-The two-mode wording (ASK ME / WITHIN MY BOUNDS, 2026-11-22) likewise waits for the operator's go between fires.
+Any card write lands between fires only, with the operator's explicit go.
 """
 from __future__ import annotations
 
@@ -138,303 +141,188 @@ def cadence_sentence(window: str) -> str:
 
 
 def card_prompt(window: str) -> str:
-    return PROMPT.replace("{{CADENCE}}", cadence_sentence(window))
+    return (PROMPT.replace("{{CADENCE}}", cadence_sentence(window))
+            .replace("{{CYCLE}}", cycle_text("<premarket|midday|close|ondemand>", "2026-11-25-premarket-1305")))
 
 
-PROMPT = """TYCHE THREE-FIRE PAPER DESK RUN (ARMED 2026-11-20: PER-TRADE THESES, RETRIED EXITS; MIDDAY IS ALERT-ONLY).
+# The one order procedure. Both cards carry this text word for word (the 15-minute card imports it), so
+# the two briefs can never drift apart again.
+CYCLE = """THE CYCLE (2026-11-25): one command decides every order. You run the command; the executor reads
+the broker and sends exactly what the command lists. Only the executor reads or writes at the broker.
+<run> is a new folder under /data/drive/tyche-raw named <New York date>-{{RUN_KIND}}-<HHMM UTC>,
+for example {{RUN_EXAMPLE}}.
+1. LIST: from /data/workspace/tyche run `tyche cycle --dir <run> --reads`. Status "skip" means the
+   market is closed: leave out steps 2 to 5, place nothing and send no Telegram for the cycle.
+   Otherwise keep its `reads` (quotes, books, bars). `watchlist` null means no setups for today yet.
+2. READ: delegate the executor once to read the paper account named by TYCHE_ALLOWED_ACCOUNT_IDS and
+   save these JSON files into <run>. Where the platform kept a tool's answer as a file under
+   /tmp/tool-outputs, copy that file whole with `cp`: nothing is retyped. Otherwise write the file
+   with the broker's own field names, only the fields listed, every number exactly as returned.
+   - accounts.json (sim_trade_account_list) = {"ret_code":0,"data":{"accounts":[...]}}: every row
+     with account_id, account_type, market_id.
+   - cash.json (sim_trade_cash_info) = the answer, whole.
+   - positions.json (sim_trade_position_list) = {"ret_code":0,"data":{"positions":[...]}}: each row
+     with symbol, qty, qty_avbl, cost_price, cur_price, pstn_type. Nothing held is "positions":[].
+   - orders.json (sim_trade_history_order_list, every page until has_more is false) =
+     {"ret_code":0,"data":{"orders":[...]},"pagination":{"has_more":false}}. Typed by hand, keep the
+     newest 60 rows and every row whose status is 2, each row with order_id, symbol, side, qty,
+     cum_qty, price, avg_fill_price, status, create_time, update_time, text. No order is "orders":[].
+   - quotes.json = {"ret_code":0,"data":{"quote_list":[...]}}: one quote_stock_quote call for every
+     code under reads.quotes, each row with code, data_time, last_price, volume, sec_status,
+     suspension, and for an option its option_ex_data (contract_multiplier, strike_price,
+     option_type, open_interest, delta, implied_volatility). With no code to quote, no file.
+   - book-<CODE>.json for each code under reads.books (quote_order_book) =
+     {"ret_code":0,"data":[{"code":"<CODE>","books":[{"exchange_data_time_ms":<ms>,
+     "bid_list":[{"price":<p>,"volume":<v>}],"ask_list":[{"price":<p>,"volume":<v>}]}]}]}
+     with the best bid and best ask of each venue.
+   - bars-<CODE>.json for each code under reads.bars (quote_cur_kline, 1-minute bars, the latest 12) =
+     {"ret_code":0,"data":{"kline_list":[{"time_key":<ms>,"open_price":<o>,"high_price":<h>,
+     "low_price":<l>,"close_price":<c>}]}}.
+   A read that answers an error code is tried up to 3 times, then saved as it answered.
+3. DECIDE: run `tyche cycle --dir <run> --record`. It checks the paper account, journals receipts and
+   fills from the order list, runs every lane, reserves each order in the ledger and prints `cancel`,
+   `submit`, `alerts` and `instructions`. Status "blocked" (exit 1): see PROBLEMS. Run again in the
+   same folder it prints the same answer again and reserves nothing twice.
+4. SEND: when `cancel` or `submit` is not empty, give both lists word for word to the same executor.
+   It cancels every order id under `cancel`. Then, for each `submit` item in order, it cancels the
+   item's `cancel_first` ids (a failed cancel means skip that item) and places
+   ONE sim_trade_input_order paper LIMIT order with exactly the item's symbol, side, quantity and
+   limit_price, time in force DAY, and the item's `remark` as the order remark, before the item's
+   `submit_before`. One attempt per item: never a retry, never a changed field and
+   never an order that is not on the list. It reports the broker's answer for each item.
+5. TELL: when <run>/telegram.txt exists, send it after step 4 with
+   `python scripts/telegram.py send "$(cat <run>/telegram.txt)"`, plus one line for each item the
+   broker refused. Send <run>/telegram-urgent.txt the same way when it exists. Otherwise send nothing.
+That is the whole order path. The command finds the ledger, today's watchlist and the NAV references
+by itself, and the next cycle reads receipts and fills from the broker's order list.
+Never run tactical tick, reserve, scalp, capture, lifecycle or record-order beside it, and never copy
+the journal.
+
+PROBLEMS: a "blocked" answer names its own fix in `reason`. Do that fix once (read the named broker
+call again, save the named file again) and run the same command again. Still blocked: send
+<run>/telegram-urgent.txt if the command wrote one, and end the run. Never place an order by hand,
+and never edit the journal, a config file or an approval file.
+
+RULINGS (2026-11-25, operator). These replace older wording in your own instructions, in any skill
+and in the executor's instructions wherever they differ; quote this block in every executor
+delegation.
+1. `tyche cycle --record` IS the reservation. It runs the same check-and-reserve as tactical reserve
+   and scalp --record for every order, under the journal lock, and journals order.requested before it
+   prints. An item under `submit` is authorized. Nothing else is.
+2. Authority is the operator's standing paper approval: data/standing-approval.json (stocks and
+   options, 25 to 27 Nov 2026) and data/scalp-approvals.json (scalp). The command checks both. A
+   listed order needs no Telegram approval, no auditor review and no per-order envelope, and selling
+   a lot the desk holds needs no approval line at all.
+3. The clocks are the kernel's own, read from config: reads up to 15 minutes old are fresh, and a
+   reserved order has 10 minutes to be sent. The 30, 60, 90 and 120 second figures in older text are
+   retired.
+4. Receipts and fills are journaled by the next cycle from the broker's order list. Broker status 5
+   is a finished order (cancelled or expired), not an open question.
+5. A cancel the command lists (`cancel` or `cancel_first`) is one of the desk's own orders and is
+   approved. No other cancel and no modify.
+6. The files saved in step 2 of THE CYCLE are the capture of record for these runs.
+7. Every run inside the session may place orders, the 12:05 fire included.
+8. Unchanged, the one hard rule: the allowlisted US paper account only, and the command refuses
+   anything else. Never a live account, a market order, a short sale or an order the command did not
+   list."""
+
+
+def cycle_text(kind: str, example: str) -> str:
+    """THE CYCLE, PROBLEMS and RULINGS for one card: only the run-folder name differs."""
+    return CYCLE.replace("{{RUN_KIND}}", kind).replace("{{RUN_EXAMPLE}}", example)
+
+
+PROMPT = """TYCHE DESK RUN (PAPER ONLY; REBUILT 2026-11-25 SO THAT ORDERS ARE ACTUALLY PLACED).
+
+OPERATOR, 25 Nov 2026: "No trades were placed. No point having a beautiful set of guardrails but
+nothing works." A run used to need about 45 hand steps and then refused its own data as too old.
+Every order decision now lives in one command, `tyche cycle`, and this brief is the whole job. Where
+it differs from your own instructions, a skill or an older brief, this brief wins (see RULINGS).
 
 CLOCK: {{CADENCE}}. At the very start always run
 tyche calendar --json from the repo. Exit 1 means skip: weekend, NYSE holiday or outside 04:00-20:00
-ET; finish read-only with a one-line note and submit nothing. Exit 0 reports trading_day, half_day,
-session phase and events; obey them. 08:05 is the premarket plan fire. 12:05 is the midday protection
-fire and submits nothing (see MIDDAY). 15:05 is the close fire; on a
-13:00 early close it is AFTER_HOURS, so it may reconcile only and never submit. The option exit cutoff
-is session close minus 45 minutes (15:15 ET normally, 12:15 ET on early closes). On an early-close day
-the 12:05 fire is the last check inside the session, and its alert is notice for the operator, not an
-order. A late or skipped fire never authorizes catch-up with stale quotes.
+ET; finish with a one-line note and submit nothing. Exit 0 reports trading_day, half_day and the
+session phase. On a 13:00 early close the 15:05 fire is AFTER_HOURS and places nothing; the last
+stock exit that day goes out by 12:50 ET and options are out by 12:15 ET.
+
+FIRES:
+- 08:05 ET premarket: BOOTSTRAP, RESEARCH, THE CYCLE once (stock setups within reach rest as DAY
+  limit orders for the open), DIGEST, PUBLISH.
+- 12:05 ET: BOOTSTRAP, RESEARCH only if today's watchlist is missing, THE CYCLE once, PUBLISH.
+- 15:05 ET: BOOTSTRAP, THE CYCLE once, DIGEST, PUBLISH.
+A fire whose cycle answers "skip" still sends its DIGEST and runs PUBLISH.
+Between these fires the 15-minute card ("Tyche scalp - PB-004 every 15 minutes") runs THE CYCLE at
+minutes 07, 22, 37 and 52 from 09:07 to 15:52 ET, with the same command on the same ledger. It places
+the stock, option and scalp orders and every exit. It is expected, never a second desk and never a
+reason to block. Runs that overlap are safe: the command never reserves a second order for a symbol
+while one is on its way or working.
 
 ON-DEMAND RUN (2026-11-24, operator): a run that does not start within 10 minutes after 08:05, 12:05
-or 15:05 ET was started by the operator on demand (desk "Run now" or --run-now), not by the cron. It
-uses fresh quotes, so the stale-catch-up rule above does not apply to it. If the calendar phase is the
-regular session it is a full trading run: do everything the 15:05 close fire does for protection,
-OPERATOR EXIT, ORDERS, PROPOSAL APPROVAL (Telegram asks with the same 10-minute window), PB-007 and
-PB-003 (each only while `tyche strategies --json` lists it as enabled - a switched-off strategy is
-never scanned), using a fresh scan for entries, then PUBLISH; skip only steps that belong to the end of the day
-(performance pack, end-of-day wrap). Outside the regular session it reconciles and reports only and
-submits nothing. Title the digest "ON-DEMAND RUN" so it is never mistaken for a scheduled fire.
+or 15:05 ET was started by the operator (desk "Run now" or --run-now). It does BOOTSTRAP, RESEARCH
+only if today's watchlist is missing, THE CYCLE once on fresh reads, a DIGEST titled "ON-DEMAND RUN",
+and PUBLISH. Outside the session the cycle answers "skip" and the run only reports.
 
-CALENDAR DRIFT (08:05 premarket only, once per day, alert-only): the gate above reads the pinned
-calendar tables, which can go stale against what NYSE publishes. At the first premarket fire of the day
-WebFetch https://www.nyse.com/trade/hours-calendars, save the readable output to data/nyse-calendar.txt
-(gitignored scratch, never committed), and run
-`tyche calendar-check --source data/nyse-calendar.txt --json`. Exit 0 means the tables still match: put
-one IN SYNC line in the run report and nothing more. Exit 1 is drift or an uncertain parse: put the
-report's `changes` and `new_years` - or its `warnings` when the parse was incomplete - in the digest's
-Problems section with the operator action "review and re-pin via scripts/refresh_calendar.py", and
-journal one `calendar.check` event for the run. Never edit config or the card's cron from a run, never
-invent a closure date the page did not state, and never let a finding change today's gate: the pinned
-tables govern until the operator re-pins them, so drift is a note on the run, not a reason to skip or to
-trade. An unavailable or unreadable page is UNCERTAIN, not a pass: say so and carry on. Skip at the 12:05
-and 15:05 fires.
+BOOTSTRAP: `cd /data/workspace/tyche`, run `pip install -e . --no-deps -q`, then `tyche cycle --help`.
+If that does not print the command's help, use `PYTHONPATH=src python -m tyche.cli` in place of
+`tyche` for the whole run. Then `tyche halt-status --json`: halted=true needs nothing from you, the
+command holds buys back and still sends exits; say so in the digest. Nothing is restored or looked up
+by hand.
 
-BOOTSTRAP: repo mount /data/workspace/tyche. Install editable --no-deps if tyche is missing; run
-tyche journal-verify and tyche halt-status --json. halted=true blocks buys while approved de-risking
-sells may still run. Restore the verified Drive journal lineage at
-/data/drive/tyche-raw/2026-11-18-eod/journal/events.jsonl, checking later descendants first. Lifecycle
-state belongs under /data/drive/tyche-raw/lifecycle; missing state is a reconciliation task, never
-proof there were no holdings. Never create adoption grants from current holdings alone.
+RESEARCH: delegate the researcher for today's long stock setups on the `symbols` of
+config/tactical.yaml, then write them yourself to /data/drive/tyche-raw/watchlist.json as
+{"as_of": "<New York date>", "entries": [...]}. At most one entry per symbol, each with:
+- symbol ("US.KO"), sleeve ("defensive" or "equity"), strategy (a few words), direction "bullish";
+- entry_low, entry_high, stop, target, with stop < entry_low <= entry_high < target and the reward
+  (target - entry_high) at least 1.5 times the risk (entry_high - stop);
+- thesis, catalyst, sources (at least one URL) and market_cap_usd;
+- factors: at least one {"name","axis":"technical","state":"pass","why"} and one with axis
+  "fundamental" and state "pass". They must be true; a setup without both does not trade;
+- max_quantity: the shares that about 5,000 dollars buys at entry_high.
+Leave out setup_id, expiry, reviewed_at and exit_at for a stock: the command fills them in, and the
+lot leaves at the session's exit time.
+How a setup trades: a live price inside the zone is bought at once at the ask; a price up to 3% above
+the zone rests a DAY limit at entry_high; further away, nothing happens. So pick a zone the price is
+in now or can reach today, with entry_high no more than about 1% below the last price. A level far
+below the market only waits, and a desk that only waits places no trade. No setup for a symbol is a
+valid answer when the evidence is not there. Then run `tyche cycle --dir <run> --reads`: its `setups`
+must list your symbols, and an alert "left out: ..." names a setup and the field to fix. Fix the file
+and run it again. After step 3 of THE CYCLE read `stocks.decisions`: a "wait" whose reason is about
+the setup itself (evidence, market cap, reward/risk, factors) is fixed in the file straight away, so
+the next 15-minute cycle trades it.
 
-NAV REFERENCES (2026-11-23): the drawdown ladder measures from the challenge's verified 100,000.00 starting
-NAV (18 Nov) until a verified broker close NAV (total_asset at the close fire) exceeds it; then that close
-is the new high-water mark. The 102,208.99 figure was never verified against a broker read and is retired;
-never carry an unverified high-water pin forward. prior_close_nav is the previous session's verified close
-NAV from the Drive nav-refs, refreshed at every close fire. The operator owns the start figure; a run may
-raise the mark only from a verified close, never lower it.
+PB-003 OPTION (2026-11-24 test; optional; only while `tyche strategies --json` lists PB-003 enabled):
+at the 08:05 fire of Wed 25 Nov the researcher may add at most ONE long call on a symbol that also
+has a stock setup. Use quote_option_chain (standard contracts, expiry after 2026-11-27 and within 30
+days) and take the call nearest 0.55 delta with open interest of at least 100. Its watchlist entry
+has symbol = the option code (like "US.KO261218C97000"), an `option` block {"underlying","expiry",
+"right":"call","strike"}, premium_limit (the ask per share now), the UNDERLYING's entry_low,
+entry_high, stop and target, expiry "2026-11-27", exit_at "2026-11-27T12:10:00-05:00", and every
+other field a stock setup has. The command buys it at the live ask inside the lane's own limits and
+sells it on the underlying's stop or target, a 40% premium loss or exit_at.
+Never sell an option to open, never a spread. If any field is in doubt, leave the option out: the
+stock setups do not depend on it.
 
-PHASES: at the premarket and close fires reconcile account positions, order history, pending orders
-and protection gaps FIRST through the executor, and re-arm any exit that never reached the broker
-before planning anything new. Premarket: run the researcher's broad source-backed discovery and produce
-approval-ready plans. Close: focused revalidation of holdings, approved plans and open proposals; no
-broad re-scout unless a held name has fresh material news. Later fires revalidate; they may add new
-candidates only as unapproved proposals through the same preview/audit/approval path; never scale,
-re-enter or silently modify approved plans. Any approved change needs the operator's exact approval
-again.
+{{CYCLE}}
 
-MIDDAY (12:05 ET, WATCH AND SHOUT ONLY): this fire is a protection check, not a trading decision, and
-is the one exception to the submission parts of PROTECTION and ORDERS. It may not open, change or close
-any position. Ask the executor for fresh broker reads of positions, every order-history page and quotes;
-normalize them with `tyche lifecycle capture`, then run `tyche lifecycle tick`, `tyche tactical tick`
-and, for the PB-004 lane, `tyche tactical scalp` with --record omitted (dry run: evaluation only, no
-latch, no reservation). Report every open position, lot and lifecycle grant: whether a live exit request
-exists, its submit_before, the stop/target/deadline versus the current quote, and the outcome of the most
-recent exit request. When an approved exit has no live request and its window has passed, journal ONE
-protection.gap for that request_id (resolution gate.wait or expired, never invented); if the broker still
-shows that order live, journal nothing and say so. If any level is breached or a lot is uncovered, send
-the URGENT RISK ALERT digest first: the title must carry the ` - URGENT RISK ALERT` suffix (the
-renderer's urgent field) and the Protection section must name the symbol, quantity, level versus current
-quote and the exact operator action. Then stop - the close fire and the operator decide the exit.
-Never at this fire: reserve, submit, cancel, modify, approve, revoke, write or edit an envelope or any
-config file, run `tyche lifecycle approve`, `revoke`, `reserve` or `execute-exit`, `tyche tactical
-reserve`, or `tyche tactical scalp --record` (the arm path); propose a new entry, a new plan or a new
-candidate; run broad discovery; delegate the researcher or the auditor; revalidate a thesis; re-arm an
-exit; widen a level; send the example template as a live report; or send a routine digest when nothing
-is open and nothing is wrong. With an empty watchlist and no gap, record the reconciliation in the
-journal only - no Telegram message, because a heartbeat nobody needs is noise.
+OTHER LANES: PB-001 ballast and PB-007 place no order from this brief. The account has held no
+ballast since the operator's 24 Nov exits and PB-007 is switched off. They come back only when the
+operator asks.
 
-THESIS: the per-trade thesis is the unit of work, not decoration. Every entry proposal, and the
-plan.created event it is journaled in, must carry the scout's thesis block: thesis, synthesis, edge,
-bear_case, invalidation, horizon, direction (bullish|bearish), factors [{name, axis, state, why,
-detail}] with axis in technical|fundamental|macro|flow|sentiment|seasonality|catalyst|liquidity and
-state pass|fail|unknown, outlook {regime, conviction high|medium|low, alignment per axis}, and
-thesis_ref when the scout journaled one. A missing input is state unknown with the reason; never
-omit a factor, never upgrade unknown to pass, never invent an edge or a source. tyche watchlist and
-the tactical planner build this block; keep it verbatim through audit, approval and the journal, and
-put a one-line thesis summary in the digest. A proposal without a thesis is incomplete: do not
-audit, approve or submit it. The PB-001 rotation plan carries its own rule-based reasoning instead;
-never fabricate a scout thesis for it.
+OPERATOR EXIT (2026-11-24): only when the operator asked today, on Telegram or with a sell line in a
+same-day data/approvals.json, to sell a lot the desk holds. After step 3 of THE CYCLE, for each such
+lot take limit = the higher of the approved floor and the bid less 0.5% and run `tyche exit-now
+--account <run>/snapshot.json --symbol <S> --qty <Q> --limit <L> --orders <run>/orders.json --journal
+<ledger>`, where <ledger> is the `ledger` path the cycle printed. Exit 0 is the whole authority for
+ONE limit sell with exactly those fields and its request_id as the remark; exit 1 is a refusal to
+report, never to retry. Paper account only, always.
 
-PROTECTION: exits come before entries at the premarket and close fires; the 12:05 midday fire only
-checks and shouts (see MIDDAY). Reconcile open lots against the journal and broker order history and
-name every lot with no live exit path. A triggered exit (stop, target,
-exit_at/timeout, option expiry or session flatten) is submitted through the same entry/exit
-envelope, fresh audit and reserve before any new entry. Entry requests carry a short submit_before
-(30s tactical, 90s scalp); an exit request's submit_before is whatever its submitter set - the
-PB-004 scalp lane sets exit_submit_window_seconds (900s) and re-arms its own exits, while a tactical
-exit is re-armed by the scalp card's PROTECTION WATCH every 15 minutes (RESTING ORDERS) and, failing
-that, by you at the next fire with a fresh quote, audit and reserve. When a submit is blocked by client policy, a classifier, a transport error or gate.wait,
-journal one protection.gap event for that request_id (resolution gate.wait or expired) and re-arm
-only after checking both the journal and the broker order history: if the broker still shows that
-request live or an order live, do not submit a second sell, and never journal a second gap for the
-same request_id. Synthetic exits are not resting broker stops; a blocked or late exit leaves the
-lot unprotected and must be reported as such, not implied filled.
-
-OPERATOR EXIT (2026-11-24): at the 08:05 and 15:05 fires, right after reconciling and before any
-other trading step, sell every held lot the operator has approved to sell today - each sell line of a
-same-day data/approvals.json, or a sell approved on Telegram. For each: fresh quote, limit = the higher
-of the approved floor and the bid less 0.5% (2 decimals), quantity = the sellable lot up to the line's
-max; then the executor runs `tyche exit-now --account <run>/snapshot.json --symbol <S> --qty <Q>
---limit <L> --orders <run>/orders.json --journal <ledger>`. Exit 0 is the whole authority: submit ONE
-sim_trade_input_order limit sell with exactly those fields and request_id as the remark before
-submit_before (at 08:05 it rests for the open), journal order.submitted, reconcile at the next fire.
-These exits need no lifecycle grant, research review, setup hash, auditor or tactical universe - an
-exit only removes risk - so never block one on those. Exit 1 is a refusal: put its reason in Problems
-and never retry the same fire. Never at the 12:05 fire. Paper account only, always.
-
-RULINGS (2026-11-24, operator): order.requested rows journaled before request ids existed (the
-18-19 Nov drill and seed rows) are history, not an open item; the kernel ignores them, so never list a
-"remap" as owed. A zero-fill order from a past session that the broker no longer shows working is
-finished: VNQ ...597 and SMH ...500 are closed, stop reporting them. A lot sold through OPERATOR EXIT needs
-no lifecycle plan or ownership record; the exit is its disposition. options_enabled in
-config/tactical.yaml no longer gates options: the PB-003 switch does.
-
-ROSTER GATING: always delegate the executor. Delegate the researcher at the premarket fire, or when
-holdings or open entry proposals need narrow revalidation. Delegate the auditor only when an
-executable proposal or contract revision needs independent exact-order review. If there are no
-positions, no open proposals, no pending orders and no discovery due, finish with the executor alone
-and say so.
-
-ORDERS: re-read config/tactical.yaml at every fire. When the lane is enabled and execution_enabled
-is true, the executor may submit paper orders under today's operator authority; when either is false,
-entries are proposals only. The authority has exactly two modes, read from data/approvals.json at the
-fire: WITHIN MY BOUNDS for whatever a same-day envelope's lines cover (submit inside them, no
-Telegram ask), and ASK ME for everything else (an entry the envelope has no line for is submitted only
-after the operator's Telegram /approve N in this run, journaled with `tyche approve-telegram`). A
-sell-only exit note never means "no buy authority today": entries still go to Telegram. Never write, edit or re-date the envelope. Options trade
-only under PB-003 LONG OPTIONS below. Broker writes follow the PB-001 lifecycle contract:
-the executor is the only writer; require a same-day exact setup/config/account-bound entry AND exit
-authorization (the envelope's lines, or the approved proposal's `order` block with its exit_floor), a
-fresh independent exact-order audit and a successful tyche reserve persisted before ONE paper
-regular-session limit order with request_id as text strictly before submit_before. Paper only; live
-trading is forbidden; no shorts, spreads, naked options, scaling or automatic re-entry. A receipt is
-not a fill; reconcile afterwards. Timeouts, partial fills and uncertain statuses block retry and
-escalate to the digest. Cancel and modify need separate per-action operator confirmation, except the
-cancel_first of the desk's own resting take-profit under RESTING ORDERS. When the
-authority lacks an exit line, no entry. Never widen the universe, raise caps or flip a gate in a run;
-config changes are operator-only.
-
-PROPOSAL APPROVAL (TELEGRAM WAIT, 2026-11-22): for every entry no same-day envelope line covers, at
-the 08:05 and 15:05 fires, an entry proposal may be submitted only after the operator approves it on
-Telegram during this run. Write the proposals to a private run-local JSON following
-templates/proposal-approval.example.json with the complete package - entry, size, value, stop, target,
-exit-by, thesis, invalidation - and the `order` block (symbol, side, qty, limit, exit_floor, and
-setup_hash when the lane binds one) naming the exact order the approve authorizes; preview with
-`python scripts/telegram.py render-proposal <file>`, then run
-`python scripts/telegram.py wait-for-reply <file>` (10-minute window; never pass a longer --timeout).
-The command's JSON result is the only authority: a number listed under `approved` authorizes
-`tyche approve-telegram <file>` (which journals that yes as today's order authorization), then the
-exact-order audit, reserve and ONE paper order for exactly that proposal, and nothing else does -
-`denied`, `timed_out`, `pending`, `conflict`, a non-zero exit or any free-text reply is a no. A
-question comes back as outcome `reply`: answer it with `send` and run the same wait-for-reply command
-again (it resumes the same window). A requested change is a no: record it, rebuild the proposal under
-a new number, re-audit and send the fresh preview. Never reuse a number within a fire, never approve
-on the operator's behalf, never submit after the window, and list every proposal with its decision in
-the digest's Proposals section. Skip the ask only for an entry a same-day envelope line already
-covers; every other entry proposal - including on a day with a sell-only exit note - still goes through
-this Telegram ask. List every entry in the digest either way. The 12:05 fire never
-runs this step. Cancel and modify asks stay on the console/bridge path unchanged.
-
-PB-007 FIB PULLBACK (2026-11-23): the swing lane trades only while `tyche strategies --json` lists
-PB-007 as enabled (the operator's switch file decides; never edit it in a run). When it is on, at the
-08:05 fire the executor pulls daily klines (quote_cur_kline, ktype day, num=370) for the PB-007 scope
-symbols, runs `python scripts/mcp_prices.py <tool-outputs> --ohlc --out data/ohlc.csv`, then
-`tyche fib-scan --bars data/ohlc.csv --account <snapshot> --book <run>/pb007-book.json --flat-by
-<the window's last session> --record`. Each proposal takes the normal path: preview, researcher review
-of the plan hash with evidence, exact-order audit, and the operator's Telegram /approve under PROPOSAL
-APPROVAL (or `tyche lifecycle approve` per hash from the console). 12:05 never scans or trades it.
-15:05 runs exits first, then `tyche lifecycle tick` / `reserve` for approved plans whose quote is inside
-the entry zone; fills are recorded with strategy id PB-007. A scan that finds no setup is a normal
-outcome, not a problem: the SMA50/200 filter is meant to produce nothing in a downtrend. When the switch
-is off, skip this block entirely and say so in one line of the digest.
-
-PB-003 LONG OPTIONS (2026-11-24): a test through Fri 27 Nov 2026, live only while `tyche strategies
---json` lists PB-003 as enabled (the operator's switch file decides; never edit it in a run). Entries only
-at the 15:05 fires (or an ON-DEMAND RUN in session) of Tue 24 and Wed 25 Nov: the researcher may express a tactical pick as ONE standard
-long call (bullish setup) or ONE long put (bearish setup) on a config/tactical.yaml symbol. Pull
-quote_option_chain with filter_standard=STANDARD and an expiry AFTER 2026-11-27 (so nothing can expire
-or be exercised inside the window) within 30 days, pick the contract nearest 0.55 absolute delta that
-meets the lane's open-interest, volume and 5% spread gates, and write the watchlist entry with its option
-block, premium_limit and exit_at at the next fire's start. The setup takes the normal tactical path:
-preview, exact-order audit, the operator's Telegram /approve (or the same-day envelope), reserve, ONE
-limit buy at the ask. LIVE PRICE (operator ruling 2026-11-24): an option entry does not wait for the
-underlying to pull back into its zone, and the card says so ("buys at the live price once approved");
-the approved price may be exceeded by at most 5% (the kernel and the Telegram yes both allow it). If the
-ask is more than 5% above the approved price, or the option quote is stale, re-read the chain once and,
-if the contract still passes, send ONE fresh proposal at the new ask under a new number in the same
-run; never a second re-proposal. Never sell an option to open, never a spread. A held option is exited at the next
-08:05 or 15:05 fire when the underlying's stop or target, a 40% premium loss or exit_at is reached, by
-asking the operator on Telegram for the sell and then the OPERATOR EXIT path (limit at the bid, never
-below 60% of the price paid). Never submit at 12:05. A broker rejection of an option order is the test's
-answer: journal it, put the exact error in Problems, and do not retry it in that fire. When the switch is
-off, skip this block and say so in one line of the digest.
-
-RESTING ORDERS (2026-11-24, operator): place the order instead of waiting for the next run, because the
-gap between a run finishing and an order going in is where the price gets away. The kernel decides,
-`tyche tactical tick` shows it under each order's `resting`, `reasons`, `cancel_first` and `protective`
-fields, and `tyche tactical reserve` carries them into the request; never improvise a resting order the
-kernel did not return.
-- Resting entry: a stock setup whose price sits up to 3% above its pullback zone (or any premarket
-price inside that reach at the 08:05 fire) becomes ONE paper limit BUY resting at the zone top - the
-researcher's fair-value price - with time in force DAY, so it fills if the market comes to the plan's
-price and expires with the day if it does not. Never within 60 minutes of the close, never for options,
-never re-placed from stale quotes, never a second buy while one rests (the kernel says "resting entry
-already working"). The Telegram proposal and the digest must say "resting at <limit>, expires at the
-close" and carry the written reasons.
-- Reasons: every entry needs a passing technical AND a passing fundamental factor in its thesis; the
-kernel refuses one without both and puts the gap in `decisions`. Fix the research, never the factor
-state. Every exit names its technical trigger and the fundamental case it closes. Put both reasons,
-one line each, under the order in the digest.
-- Take-profit: a lot the desk holds with no exit trigger gets ONE resting limit SELL at the setup's
-target (DAY) through the same authority gate as any sell (envelope sell line or the approve's
-exit_floor). Right after an entry fills - in the same run when the receipt shows the fill, else at the
-next fire - re-run tick and reserve so the take-profit goes in. While it rests the lot is a hold.
-- Stop or other protective exit while a take-profit rests: the kernel returns the sell for the whole lot
-with `cancel_first` naming the desk's own working order(s) (remark `tyche-tac-...`). Cancel exactly
-those first, journal `order.cancelled` with the request_id and order_id, then submit the sell. This
-clause is the operator's standing per-action approval for cancelling the desk's OWN resting orders for
-this purpose only; any other cancel or modify still needs its own operator yes. A cancelled order hands
-its quantity and order slot back to the day's budget.
-- Protective exits (stop, target, invalidation, time, option expiry) of a lot the desk holds are
-authorized by the entry the operator approved: `reserve` stamps them `protective` and needs no envelope
-line or Telegram yes today. OPERATOR EXIT lines and asks remain for sells the kernel did not trigger.
-- The scalp card runs PROTECTION WATCH every 15 minutes between fires: it may submit the kernel's
-protective exits for tactical lots and the cancel_first that precedes them, and nothing else, so a
-stop no longer waits for the next fire. Its orders carry `tyche-tac-` request ids like yours; reconcile
-them at every fire as your own.
-- At the 15:05 fire, list every resting buy and take-profit still working with its limit; they expire
-with the day (DAY) and are never cancelled by the desk.
-
-BUDGET: PB-001 ballast 25%, tactical stock cap 25% (cut from 45% on 2026-11-23), PB-007 swing 20% (only while its switch is on),
-PB-003 option premium cap 5% (cut from 25% on 2026-11-24), cash >=5%, gross <=95% on every order.
-
-STATE: this automation is the only scheduled execution owner. The paused Forward schedule and every
-other desk schedule must remain paused; never run two writers. Verify ownership first; if ownership
-cannot be verified, block. One named exception: the operator's "Tyche scalp - PB-004 every 15 minutes"
-card (scripts/deploy_scalp_card.py, 24-30 Nov 2026) owns the PB-004 lane and writes PB-004 orders to the
-same ledger; it is expected, not a second desk, and is never a reason to block.
-
-PB-004 SCALP (2026-11-24): the scalp card trades the lane while PB-004 is switched on. This card never
-runs `tyche tactical scalp --record` and never submits, re-arms or sells a PB-004 lot (request_ids
-starting `tyche-scl-`); it lists open scalp lots read-only in the digest, and a scalp lot still open
-after the close goes in Problems for the operator. In return the scalp card watches the tactical lots'
-stops between fires (RESTING ORDERS, PROTECTION WATCH) and never opens a tactical position.
-
-PERSIST: keep the hash-chained journal; persist plans, snapshots and state to Drive; redact account
-ids and tokens from plans, logs, digests and attachments.
-
-TELEGRAM (SENTINEL FORMAT V1, 2026-11-20): presentation only. Trading permissions, risk gates,
-schedules, recipients and secret bindings are unchanged. Use ONE shared layout for routine digests,
-no-order runs and urgent risk alerts - never a plain-text wall or an unformatted table.
-Preferred path is the mounted renderer: fill a private run-local JSON from
-templates/sentinel-digest.example.json with VERIFIED facts only, preview it with
-`python scripts/telegram.py render-digest <file>`, then deliver with
-`python scripts/telegram.py send-digest <file>`. Never send the example file as a live report. A
-render error means nothing was sent: shorten the prose while keeping every material risk fact, then
-validate again. If that renderer is not yet published in the mounted repo, compose the identical
-layout as escaped Telegram HTML (<b> headings and a <pre>ACTION SYMBOL QTY</pre> table) and pass it
-to the existing `send` command through a Python argument array - never raw curl, never shell
-interpolation, never dropping formatting as a fallback.
-Layout: bold `TYCHE <PHASE>` title, plus ` - URGENT RISK ALERT` when urgent; date with UTC/ET/SGT
-clocks; bold `PAPER ARMED` followed by the verified current state (observe-only, kill-switch, halt) -
-never imply an uncovered lot is protected; one plain-English sentence on market mood and what the desk
-did. Then bold sections in this order: **Orders** starts with the verified submission count and states
-"No orders submitted by this run" when true, the monospace table holds only ACTION SYMBOL QTY, and
-each symbol's VALUE, STATUS and a short plain-English REASON appear grouped below the table (a held
-position is never a new order; with no rows omit the table but keep the factual summary); **Account**
-puts NAV, cash, positions and kill-switch on separate lines; **Protection** names every uncovered lot,
-pending or uncertain order and any re-armed exit; **Problems** uses short bullets plus the operator
-action, and unverified means `Not verified`, never `None`; optional **Proposals** keeps each one-line
-thesis and invalidation, and **Next check** must be verified, never promised. Stay under 3500
-characters without dropping a material risk fact. Explain technical codes in ordinary words first
-("another process placed orders", "no shares filled", "approval missing"), keep brief rule, audit and
-reserve references, never equate a receipt with a fill, and put long evidence trails in the private
-run report. Use hyphens, not em dashes. Preserve the helper's masking, content-ref and at-least-once
-delivery behavior: exit code 2 means UNCONFIRMED, so never blindly retry an unknown delivery result.
-Never include account ids, tokens or secrets. Delivery failure is recorded and never blocks risk work.
-This formatting contract authorizes no extra run, test message or trade.
-
-REPORT: end with a short digest; state explicitly if no orders were submitted; list coverage gaps
-and every lot that still has no live exit path. Never invent references and never claim a fill or
-approval that did not occur.
+DIGEST (08:05, 15:05 and on-demand runs): ONE Telegram message in the SENTINEL FORMAT V1 layout (skill
+`sentinel-digest`; fill a run-local JSON from templates/sentinel-digest.example.json and deliver it
+with `python scripts/telegram.py send-digest <file>`), built only from this run's <run>/cycle.json:
+NAV, cash and positions from `account`; the orders placed and the fills seen; each stock setup with
+its `stocks.decisions` reason in plain words; every alert. Say plainly when no order was placed. Never
+claim a fill or an approval the report does not show, never include an account id or a token. Exit
+code 2 from the sender means UNCONFIRMED: do not send it again. The 12:05 fire sends no digest.
 
 PUBLISH (2026-11-23): the hosted desk page reads its numbers from the repo, so the very last step of
 every run - a skip run and a run with problems included, after the digest is sent - is
@@ -593,34 +481,30 @@ def sanitize(result: dict) -> dict:
 
 
 def prompt_markers(events: str) -> dict:
+    """What a live desk brief must contain; `--apply-update` refuses to finish without every one."""
     return {
         "has_calendar_gate": "tyche calendar --json" in events,
-        "has_calendar_drift_check": "tyche calendar-check --source" in events,
-        "has_half_day_cutoff": "12:15 ET" in events,
         "has_after_hours_guard": "AFTER_HOURS" in events,
-        "has_execution_gate": "execution_enabled" in events,
-        "has_per_trade_thesis": "the per-trade thesis is the unit of work" in events,
-        "has_exit_retry": "exit_submit_window_seconds" in events,
-        "has_protection_gap": "protection.gap" in events,
-        "has_sentinel_format_v1": "SENTINEL FORMAT V1" in events,
-        "has_renderer_path": "send-digest" in events,
-        "has_midday_watch": ("MIDDAY (12:05 ET, WATCH AND SHOUT ONLY)" in events
-                             and "08:05, 12:05 and 15:05" in events),
         "has_holiday_note": ("the only holiday filter" in events
                              or "the cron day list already excludes" in events),
-        "has_proposal_approval": ("PROPOSAL APPROVAL (TELEGRAM WAIT" in events
-                                  and "wait-for-reply" in events),
+        "has_three_fires": "08:05 ET premarket" in events and "12:05 ET" in events and "15:05 ET" in events,
+        "has_cycle_reads": "tyche cycle --dir <run> --reads" in events,
+        "has_cycle_record": "tyche cycle --dir <run> --record" in events,
+        "has_exact_submit": ("ONE sim_trade_input_order paper LIMIT order" in events
+                             and "never an order that is not on the list" in events),
+        "has_no_hand_steps": "Never run tactical tick, reserve, scalp, capture, lifecycle or record-order" in events,
+        "has_problems": "PROBLEMS:" in events and "Never place an order by hand" in events,
+        "has_rulings": ("RULINGS (2026-11-25, operator)" in events
+                        and "IS the reservation" in events and "data/standing-approval.json" in events),
+        "has_paper_only": "the allowlisted US paper account only" in events and "Never a live account" in events,
+        "has_research": "/data/drive/tyche-raw/watchlist.json" in events and "left out" in events,
+        "has_long_options": "PB-003 OPTION" in events and "Never sell an option to open" in events,
+        "has_on_demand": "ON-DEMAND RUN (2026-11-24, operator)" in events,
+        "has_operator_exit": "OPERATOR EXIT" in events and "tyche exit-now" in events,
+        "has_sentinel_format_v1": "SENTINEL FORMAT V1" in events,
+        "has_renderer_path": "send-digest" in events,
         "has_feed_publish": "scripts/publish_desk_data.py" in events,
         "has_performance_pack": "performance pack" in events,
-        "has_fib_pullback": "PB-007 FIB PULLBACK" in events and "tyche fib-scan" in events,
-        "has_nav_references": "NAV REFERENCES" in events and "100,000.00 starting" in events,
-        "has_operator_exit": "OPERATOR EXIT" in events and "tyche exit-now" in events,
-        "has_rulings": "RULINGS (2026-11-24, operator)" in events,
-        "has_on_demand": "ON-DEMAND RUN (2026-11-24, operator)" in events,
-        "has_option_live_price": "LIVE PRICE (operator ruling 2026-11-24)" in events,
-        "has_long_options": "PB-003 LONG OPTIONS" in events and "Never sell an option to open" in events,
-        "has_resting_orders": ("RESTING ORDERS (2026-11-24, operator)" in events and "cancel_first" in events
-                               and "PROTECTION WATCH" in events),
     }
 
 
@@ -647,7 +531,7 @@ def update_payload(deployment: dict, prompt_text: str) -> dict:
 
 
 def active_desk_cards(values: dict[str, str], start: date) -> list[dict]:
-    """Other desk cards that would still fire on or after `start`: a second writer (STATE in PROMPT)."""
+    """Other desk cards that would still fire on or after `start`: a second desk card."""
     rows = req(values, "GET", "/deployments?limit=50")
     return other_writers(rows.get("data") or rows.get("items") or [], start)
 
@@ -825,8 +709,8 @@ def main() -> None:
                           "window": live_window(before)}, indent=2))
         return
     if "--run-now" in sys.argv:
-        # On-demand run: fire the live desk card once now. The brief's ON-DEMAND RUN clause makes a run
-        # inside the regular session a full trading run (exits, entries, Telegram asks) on fresh quotes.
+        # On-demand run: fire the live desk card once now. The brief's ON-DEMAND RUN clause makes it a
+        # full run (research if the day's watchlist is missing, then THE CYCLE once on fresh reads).
         deployment_id = sys.argv[sys.argv.index("--run-now") + 1]
         before = req(values, "GET", f"/deployments/{deployment_id}")
         if not str(before.get("name", "")).startswith("Tyche desk"):

@@ -23,7 +23,15 @@ from tyche.approvals import (
 from tyche.broker.mcp_json import snapshot_from_dir
 from tyche.broker.tactical_data import normalize_quotes
 from tyche.config import load_config
-from tyche.execution_state import broker_orders, combined_usage, order_symbol, pending_intents
+from tyche.execution_state import (
+    broker_orders,
+    combined_usage,
+    dead_request_ids,
+    in_flight_symbols,
+    order_finished,
+    order_symbol,
+    pending_intents,
+)
 from tyche.halt import effective_halt
 from tyche.journal import append_locked, journal_lock, read_events, verify_chain
 from tyche.lifecycle import LifecycleState, account_hash
@@ -54,6 +62,13 @@ def monitor_state(events: list[dict]) -> MonitorState:
     return state
 
 
+def verified_paper(snapshot: AccountSnapshot) -> AccountSnapshot:
+    """The one hard rule: a snapshot the broker itself lists as a US paper account, or nothing."""
+    if snapshot.source != "sim_list" or snapshot.account_type not in (1, 2) or snapshot.market_id != 100:
+        raise ValueError("verified US paper account snapshot required")
+    return snapshot
+
+
 def inputs(book: Path, account: Path, quotes: Path, orders: Path, journal: Path, config_root: Path, now: datetime):
     if not journal.is_file():
         raise ValueError("persistent journal required; restore rather than invent empty history")
@@ -62,9 +77,7 @@ def inputs(book: Path, account: Path, quotes: Path, orders: Path, journal: Path,
         raise ValueError(f"journal integrity: {error}")
     events = read_events(journal)
     state = monitor_state(events)
-    snapshot = load(AccountSnapshot, account)
-    if snapshot.source != "sim_list" or snapshot.account_type not in (1, 2) or snapshot.market_id != 100:
-        raise ValueError("verified US paper account snapshot required")
+    snapshot = verified_paper(load(AccountSnapshot, account))
     quote_rows = [MarketQuote.model_validate(row) for row in json.loads(quotes.read_text(encoding="utf-8"))]
     contracts = {q.symbol: q.option for q in quote_rows if q.option}
     contracts.update({p.symbol: p.option for p in snapshot.positions if p.option})
@@ -98,16 +111,35 @@ def capture(
         fail(exc)
 
 
-def capture_dir(directory: Path, account_id: str, prior_close_nav: float, high_water_nav: float) -> int:
+def capture_dir(directory: Path, account_id: str, prior_close_nav: float, high_water_nav: float, *,
+                synthetic_spread_pct: float | None = None,
+                contracts: dict | None = None, problems: list[str] | None = None) -> int:
+    """Normalize the saved broker payloads into tactical-account.json and tactical-quotes.json.
+
+    `synthetic_spread_pct` lets a stock with a quote but no saved book through (the one-command cycle
+    passes the lane's value); `contracts` adds option metadata the caller already holds (the watchlist's
+    own contract blocks), so a chain payload is not needed for them; with `problems`, an unreadable
+    book or an option row that fails its metadata check is named there and skipped, not fatal.
+    """
     def raw(path):
         return json.loads(path.read_text(encoding="utf-8"))
-    quotes = normalize_quotes(raw(directory / "quotes.json"),
-                              [raw(p) for p in directory.glob("book-*.json")],
-                              [raw(p) for p in directory.glob("chain-*.json")])
-    if not quotes:
+    books = []
+    for path in sorted(directory.glob("book-*.json")):
+        try:
+            books.append(raw(path))
+        except ValueError as exc:
+            if problems is None:
+                raise
+            problems.append(f"{path.name}: unreadable order book ({str(exc)[:80]})")
+    quotes = normalize_quotes(raw(directory / "quotes.json"), books,
+                              [raw(p) for p in directory.glob("chain-*.json")],
+                              synthetic_spread_pct=synthetic_spread_pct, contracts=contracts,
+                              problems=problems)
+    if not quotes and problems is None:
         raise ValueError("no verified two-sided quotes")
-    snapshot = snapshot_from_dir(directory, account_id,
-                                 contracts={q.symbol: q.option for q in quotes if q.option})
+    known = {q.symbol: q.option for q in quotes if q.option}
+    known.update({symbol: contract for symbol, contract in (contracts or {}).items() if symbol not in known})
+    snapshot = snapshot_from_dir(directory, account_id, contracts=known)
     snapshot = AccountSnapshot.model_validate({**snapshot.model_dump(),
                                                "prior_close_nav": prior_close_nav,
                                                "high_water_nav": high_water_nav})
@@ -232,6 +264,76 @@ def scout(
         fail(exc)
 
 
+def authorize_tactical(proposal: dict, *, batch: ApprovalBatch | None, mode: str, how: str,
+                       events: list[dict], journal: Path, today, now: datetime, snapshot: AccountSnapshot,
+                       state: MonitorState, watchlist: Watchlist, config, halted: bool) -> tuple[dict, str]:
+    """Check ONE kernel proposal against the operator's authority; return its order.requested payload.
+
+    Raises ValueError with the plain reason when the order is not authorized. Writes nothing: the
+    caller holds the journal lock and appends the payload. Shared by `tactical reserve` (one symbol)
+    and `tyche cycle` (every order the kernel returned), so both apply exactly the same gate.
+    """
+    intent = OrderIntent.model_validate(proposal["intent"])
+    symbol, side = intent.symbol, intent.side.value
+
+    def line_of(which: str):
+        return batch.line_for(symbol, which, multiplier=intent.multiplier, underlying=intent.underlying)
+    line = line_of(side) if batch is not None else None
+    held = snapshot.position(symbol)
+    if side == "sell" and held is not None and 0 < intent.quantity <= held.quantity:
+        # Selling a lot the desk holds only removes risk: the stop, the target, the time exit and the
+        # resting take-profit are all authorized by the entry the operator approved, not by a second
+        # yes today (direction 2026-11-24). No line is consulted, so no envelope arithmetic (a
+        # take-profit plus the stop that replaces it used to count twice) can ever hold an exit back.
+        line = None
+        mode, how = MODE_PROTECTIVE, f"exit of a held lot: {intent.reason}; no operator line needed"
+    else:
+        if batch is None:
+            raise ValueError(how)
+        if batch.approved_at.tzinfo is None or batch.approved_at > now:
+            raise ValueError("invalid envelope approval time")
+        if line is None:
+            raise ValueError("operator envelope has no line for this order")
+    # A line with no setup_hash is the operator's symbol-level pre-approval (2026-11-24 ruling:
+    # "pre-approve now, I sleep"): any setup the kernel produces is authorized inside the line's
+    # quantity and price bounds. A line that names a hash still binds that exact setup.
+    if line is not None and line.setup_hash is not None and line.setup_hash != proposal["setup_hash"]:
+        raise ValueError("operator envelope must bind the complete setup/account/config hash")
+    entry = state.protected.get(symbol) if snapshot.position(symbol) else None
+    entry = entry or next(e for e in watchlist.entries if e.symbol == symbol)
+    if line is not None and line.setup_hash is not None and setup_hash(entry, config, snapshot.account_id) != line.setup_hash:
+        raise ValueError("protected setup changed; obtain renewed approval")
+    if side == "buy":
+        exit_line = line_of("sell")
+        if (exit_line is None or exit_line.setup_hash != line.setup_hash
+                or exit_line.multiplier != intent.multiplier or exit_line.max_qty < intent.quantity):
+            raise ValueError("entry requires a matching bounded exit authorization")
+    # An option bought under a class line (the underlying's x100 line) counts against that line with
+    # every other option on the same underlying.
+    class_of = intent.underlying if line is not None and line.symbol != symbol else None
+    used_qty, used_notional = envelope_totals(events, today, symbol, side, class_of=class_of)
+    if side == "buy" and halted:
+        raise ValueError("kill-switch engaged - buys blocked, de-risking sells still allowed")
+    if mode != MODE_PROTECTIVE:
+        authorized, reason = authorize_order(
+            batch, symbol=symbol, side=side, qty=intent.quantity,
+            limit=intent.limit_price, today=today, used=envelope_usage(journal, today),
+            used_qty=used_qty, used_notional=used_notional, multiplier=intent.multiplier,
+            underlying=intent.underlying)
+        if not authorized:
+            raise ValueError(reason)
+    payload = {**intent.model_dump(mode="json"), "request_id": "tyche-tac-" + uuid.uuid4().hex,
+               "multiplier": intent.multiplier, "setup_hash": proposal["setup_hash"],
+               "order_hash": proposal["order_hash"],
+               "protected_setup": entry.model_dump(mode="json"),
+               "reasons": proposal.get("reasons"),
+               "resting": proposal.get("resting"),
+               "cancel_first": proposal.get("cancel_first") or [],
+               "authorization": authorization_record(mode, today),
+               "submit_before": (now + timedelta(seconds=config.tactical.submit_window_seconds)).isoformat()}
+    return payload, how
+
+
 @app.command("reserve")
 def reserve(
     book: Path = typer.Option(...), account: Path = typer.Option(...),
@@ -267,56 +369,12 @@ def reserve(
             if len(candidates) != 1:
                 raise ValueError(f"no unique actionable order: {report['decisions']}")
             proposal = candidates[0]
-            intent = OrderIntent.model_validate(proposal["intent"])
             batch, mode, how = resolve_batch(envelope, events, today)
-            line = batch.line_for(symbol, intent.side.value) if batch is not None else None
-            protective = bool(proposal.get("protective")) and intent.side.value == "sell" and snapshot.position(symbol)
-            if protective and (line is None or batch is None):
-                # A stop/target/time exit of a lot the desk holds removes risk: it is authorized by the
-                # entry the operator approved, not by a second yes today (direction 2026-11-24).
-                mode, how = MODE_PROTECTIVE, f"protective exit: {intent.reason}; no operator line needed"
-            else:
-                if batch is None:
-                    raise ValueError(how)
-                if batch.approved_at.tzinfo is None or batch.approved_at > now:
-                    raise ValueError("invalid envelope approval time")
-                if line is None:
-                    raise ValueError("operator envelope has no line for this order")
-            # A line with no setup_hash is the operator's symbol-level pre-approval (2026-11-24 ruling:
-            # "pre-approve now, I sleep"): any setup the kernel produces is authorized inside the line's
-            # quantity and price bounds. A line that names a hash still binds that exact setup.
-            if line is not None and line.setup_hash is not None and line.setup_hash != proposal["setup_hash"]:
-                raise ValueError("operator envelope must bind the complete setup/account/config hash")
-            entry = state.protected.get(symbol) if snapshot.position(symbol) else None
-            entry = entry or next(e for e in watchlist.entries if e.symbol == symbol)
-            if line is not None and line.setup_hash is not None and setup_hash(entry, config, snapshot.account_id) != line.setup_hash:
-                raise ValueError("protected setup changed; obtain renewed approval")
-            if intent.side.value == "buy":
-                exit_line = batch.line_for(symbol, "sell")
-                if (exit_line is None or exit_line.setup_hash != line.setup_hash
-                        or exit_line.multiplier != intent.multiplier or exit_line.max_qty < intent.quantity):
-                    raise ValueError("entry requires a matching bounded exit authorization")
-            used_qty, used_notional = envelope_totals(events, today, symbol, intent.side.value)
-            if intent.side.value == "buy" and effective_halt(journal.parent, config_root).get("halted"):
-                raise ValueError("kill-switch engaged - buys blocked, de-risking sells still allowed")
-            if mode != MODE_PROTECTIVE:
-                authorized, reason = authorize_order(
-                    batch, symbol=symbol, side=intent.side.value, qty=intent.quantity,
-                    limit=intent.limit_price, today=today, used=envelope_usage(journal, today),
-                    used_qty=used_qty, used_notional=used_notional, multiplier=intent.multiplier)
-                if not authorized:
-                    raise ValueError(reason)
-            request_id = "tyche-tac-" + uuid.uuid4().hex
-            resting = proposal.get("resting")
-            payload = {**intent.model_dump(mode="json"), "request_id": request_id,
-                       "multiplier": intent.multiplier, "setup_hash": proposal["setup_hash"],
-                       "order_hash": proposal["order_hash"],
-                       "protected_setup": entry.model_dump(mode="json"),
-                       "reasons": proposal.get("reasons"),
-                       "resting": resting,
-                       "cancel_first": proposal.get("cancel_first") or [],
-                       "authorization": authorization_record(mode, today),
-                       "submit_before": (now + timedelta(seconds=30)).isoformat()}
+            payload, how = authorize_tactical(
+                proposal, batch=batch, mode=mode, how=how, events=events, journal=journal, today=today,
+                now=now, snapshot=snapshot, state=state, watchlist=watchlist, config=config,
+                halted=bool(effective_halt(journal.parent, config_root).get("halted")))
+            resting = payload["resting"]
             append_locked(journal, "tactical.monitor", {"state": state.model_dump(mode="json")})
             append_locked(journal, "order.requested", payload)
         steps = []
@@ -364,7 +422,7 @@ def scalp(
             for path in [*(feed / name for name in FEED_FILES), *feed.glob("book-*.json")]:
                 shutil.copy2(path, work / path.name)
         capture_dir(work, account_id, prior_close_nav, high_water_nav)
-        snapshot = load(AccountSnapshot, work / "tactical-account.json")
+        snapshot = verified_paper(load(AccountSnapshot, work / "tactical-account.json"))
         quotes = {q.symbol: q for q in (MarketQuote.model_validate(row) for row in json.loads(
             (work / "tactical-quotes.json").read_text(encoding="utf-8")))}
         bars = {symbol: bars_from_kline(json.loads((feed / f"bars-{symbol}.json").read_text(encoding="utf-8")))
@@ -379,97 +437,117 @@ def scalp(
         rows = broker_orders(json.loads(orders.read_text(encoding="utf-8")))
         count, turnover = combined_usage(events, rows, today, {})
         state = scalp_state(events, today, config.scalp.timeout_minutes,
-                            stop_pct=config.scalp.stop_pct, target_r=config.scalp.target_r)
+                            stop_pct=config.scalp.stop_pct, target_r=config.scalp.target_r,
+                            never_sent=dead_request_ids(events, rows, now))
         report = plan_scalp(quotes, bars, state, snapshot, config, now, orders_today=count,
                             traded_notional_today=turnover,
                             halted=bool(effective_halt(journal.parent, config_root).get("halted")))
         if record and report["orders"]:
             report["requests"] = _arm_scalp(report["orders"], envelope, journal, today, count,
-                                            rows=rows)
+                                            rows=rows, config=config,
+                                            held={p.symbol: p.sellable for p in snapshot.positions})
         emit(report)
     except (OSError, ValueError, KeyError, TypeError, RuntimeError) as exc:
         fail(exc)
 
 
 def _arm_scalp(proposals: list[dict], envelope: Path | None, journal: Path, today, used: int,
-               rows: list[dict] | None = None) -> list[dict]:
-    batch, mode, how = resolve_batch(envelope, read_events(journal), today)
-    if batch is None:
-        raise ValueError(how)
-    armed = []
-    now = now_utc()
+               rows: list[dict] | None = None, *, config=None, held: dict[str, int] | None = None) -> list[dict]:
+    """Authorize and journal the scalp kernel's orders under the journal lock (`tactical scalp --record`)."""
     with journal_lock(journal):
+        batch, mode, how = resolve_batch(envelope, read_events(journal), today)
+        return arm_scalp_locked(proposals, batch=batch, mode=mode, how=how, journal=journal, today=today,
+                                now=now_utc(), rows=rows or [], config=config, held=held)
+
+
+ENTRY_SUBMIT_WINDOW_SECONDS = 90
+
+
+def arm_scalp_locked(proposals: list[dict], *, batch: ApprovalBatch | None, mode: str, how: str,
+                     journal: Path, today, now: datetime, rows: list[dict], config=None,
+                     held: dict[str, int] | None = None) -> list[dict]:
+    """Turn PB-004 proposals into journaled requests. The caller holds the journal lock.
+
+    The broker's order list decides what is still open, not the journal's memory of old requests:
+    - an order for the symbol on its way to the broker (reserved, window open, not listed yet): wait;
+    - a buy while any order for the symbol is working: skip, never a second buy;
+    - a sell while an older order is working: that order is stale, so the request names it under
+      `cancel_first` and the fresh sell replaces it (before 2026-11-25 the lot simply stayed open);
+    - a sell of shares the broker shows the desk holding is a protective exit and needs no operator
+      line; a buy always needs its line in the scalp envelope.
+    Each symbol used to get one buy and one sell per day, because the first receipt ever journaled
+    for a request counted as "already submitted" forever (2026-11-25 review).
+    """
+    armed = []
+    window = config.scalp.entry_submit_window_seconds if config is not None else ENTRY_SUBMIT_WINDOW_SECONDS
+    for proposal in proposals:
+        intent = OrderIntent.model_validate(proposal["intent"])
+        symbol, side = intent.symbol, intent.side.value
         events = read_events(journal)
-        for proposal in proposals:
-            intent = OrderIntent.model_validate(proposal["intent"])
-            live = _live_broker_order(rows or [], events, intent.symbol)
-            if live is not None:
-                armed.append({"symbol": intent.symbol, "side": intent.side.value,
-                              "skipped": "broker already has a live order; reconcile before re-arm",
-                              "order_id": live.get("order_id")})
+        row = {"symbol": symbol, "side": side}
+        if symbol in in_flight_symbols(events, rows, now):
+            armed.append({**row, "skipped": "an order for this symbol is on its way to the broker; "
+                                           "the next run reads its receipt"})
+            continue
+        working = [r for r in rows if order_symbol(r) == symbol and not order_finished(r, today)]
+        if working and side == "buy":
+            armed.append({**row, "skipped": "an order for this symbol is already working at the broker",
+                          "order_id": str(working[0].get("order_id"))})
+            continue
+        cancel_first = [str(r.get("order_id")) for r in working]
+        gap_payload = None
+        if side == "sell":
+            dead = dead_request_ids(events, rows, now)
+            prior = _latest_scalp_request(events, symbol, "sell")
+            if (prior is not None and prior["payload"].get("request_id") in dead
+                    and not _gap_recorded(events, prior["payload"].get("request_id"))):
+                gap_payload = append_locked(journal, "protection.gap", {
+                    "symbol": symbol, "side": "sell", "strategy_id": "PB-004",
+                    "request_id": prior["payload"].get("request_id"), "resolution": "expired",
+                    "submit_before": prior["payload"].get("submit_before"),
+                    "reason": "exit request never reached the broker; re-arming with fresh quotes"})["payload"]
+                events = read_events(journal)
+        protective = side == "sell" and held is not None and held.get(symbol, 0) >= intent.quantity
+        if protective:
+            record, reason = authorization_record(MODE_PROTECTIVE, today), "protective exit of a held scalp lot"
+        else:
+            if batch is None:
+                armed.append({**row, "denied": how})
                 continue
-            prior = _latest_scalp_request(events, intent.symbol, intent.side.value)
-            gap_payload = None
-            if prior is not None:
-                resolution = _request_resolution(events, prior["payload"].get("request_id"))
-                if resolution == "order.submitted":
-                    armed.append({"symbol": intent.symbol, "side": intent.side.value,
-                                  "skipped": "request already submitted; reconcile before re-arm",
-                                  "request": prior["payload"]})
-                    continue
-                submit_before = prior["payload"].get("submit_before")
-                if resolution is None and submit_before and datetime.fromisoformat(submit_before) > now:
-                    armed.append({"symbol": intent.symbol, "side": intent.side.value,
-                                  "skipped": "active request pending; retry the existing request",
-                                  "request": prior["payload"]})
-                    continue
-                if (intent.side.value == "sell" and resolution in (None, "gate.wait")
-                        and not _gap_recorded(events, prior["payload"].get("request_id"))):
-                    gap = append_locked(journal, "protection.gap", {
-                        "symbol": intent.symbol, "side": "sell", "strategy_id": "PB-004",
-                        "request_id": prior["payload"].get("request_id"),
-                        "resolution": resolution or "expired",
-                        "submit_before": submit_before,
-                        "reason": "exit request never reached the broker; re-arming with fresh quotes"})
-                    events = read_events(journal)
-                    gap_payload = gap["payload"]
-            used_qty, used_notional = envelope_totals(events, today, intent.symbol, intent.side.value)
+            used_qty, used_notional = envelope_totals(events, today, symbol, side)
             ok, reason = authorize_order(
-                batch, symbol=intent.symbol, side=intent.side.value, qty=intent.quantity,
+                batch, symbol=symbol, side=side, qty=intent.quantity,
                 limit=intent.limit_price, today=today, used=envelope_usage(journal, today),
                 used_qty=used_qty, used_notional=used_notional, multiplier=intent.multiplier)
             if not ok:
-                denied = {"symbol": intent.symbol, "side": intent.side.value, "denied": reason}
+                denied = {**row, "denied": reason}
                 if gap_payload:
                     denied["protection_gap"] = gap_payload
                 armed.append(denied)
                 continue
-            request_id = "tyche-scl-" + uuid.uuid4().hex
-            plan_intent = {**intent.model_dump(mode="json"), **proposal.get("plan", {})}
-            append_locked(journal, "plan.created", {"plan": {"nav": None, "orders": [
-                {"intent": plan_intent}], "strategy_id": "PB-004",
-                "thesis": proposal.get("thesis")}})
-            payload = {**intent.model_dump(mode="json"), "request_id": request_id,
-                       "multiplier": intent.multiplier, "setup_hash": None,
-                       "order_hash": proposal["order_hash"],
-                       "authorization": authorization_record(mode, today),
-                       "submit_before": proposal.get("submit_before") or (
-                           now + timedelta(seconds=ENTRY_SUBMIT_WINDOW_SECONDS)).isoformat()}
-            append_locked(journal, "order.requested", payload)
-            events = read_events(journal)
-            entry = {"request": payload, "authorized": reason}
-            if gap_payload:
-                entry["protection_gap"] = gap_payload
-            armed.append(entry)
+            record = authorization_record(mode, today)
+        request_id = "tyche-scl-" + uuid.uuid4().hex
+        plan_intent = {**intent.model_dump(mode="json"), **proposal.get("plan", {})}
+        append_locked(journal, "plan.created", {"plan": {"nav": None, "orders": [
+            {"intent": plan_intent}], "strategy_id": "PB-004",
+            "thesis": proposal.get("thesis")}})
+        payload = {**intent.model_dump(mode="json"), "request_id": request_id,
+                   "multiplier": intent.multiplier, "setup_hash": None,
+                   "order_hash": proposal["order_hash"],
+                   "cancel_first": cancel_first,
+                   "authorization": record,
+                   "submit_before": proposal.get("submit_before") or (
+                       now + timedelta(seconds=window)).isoformat()}
+        append_locked(journal, "order.requested", payload)
+        entry = {"request": payload, "authorized": reason}
+        if gap_payload:
+            entry["protection_gap"] = gap_payload
+        armed.append(entry)
     return armed
 
 
-RESOLVED_REQUEST_EVENTS = {"order.submitted", "order.filled", "order.rejected",
-                           "order.cancelled", "gate.wait"}
-ENTRY_SUBMIT_WINDOW_SECONDS = 90
-
-
 def _latest_scalp_request(events: list[dict], symbol: str, side: str) -> dict | None:
+    """The newest PB-004 request for one symbol and side."""
     latest = None
     for event in events:
         payload = event.get("payload", {})
@@ -479,42 +557,10 @@ def _latest_scalp_request(events: list[dict], symbol: str, side: str) -> dict | 
     return latest
 
 
-def _request_resolution(events: list[dict], request_id: str | None) -> str | None:
-    if not request_id:
-        return None
-    for event in events:
-        if (event.get("type") in RESOLVED_REQUEST_EVENTS
-                and event.get("payload", {}).get("request_id") == request_id):
-            return event["type"]
-    return None
-
-
 def _gap_recorded(events: list[dict], request_id: str | None) -> bool:
     return any(event.get("type") == "protection.gap"
                and event.get("payload", {}).get("request_id") == request_id
                for event in events)
-
-
-def _live_broker_order(rows: list[dict], events: list[dict], symbol: str) -> dict | None:
-    """An order the broker still shows open, matched by request-id text.
-
-    The journal can miss an order.submitted receipt, so the broker list is the
-    tie-breaker that prevents a second exit on the same position.
-    """
-    request_ids = {event.get("payload", {}).get("request_id") for event in events
-                   if event.get("type") == "order.requested"
-                   and event.get("payload", {}).get("strategy_id") == "PB-004"
-                   and event.get("payload", {}).get("symbol") == symbol}
-    for row in rows:
-        if order_symbol(row) != symbol:
-            continue
-        if (row.get("status") == 4
-                and float(row.get("cum_qty", 0)) == float(row.get("qty", 0))):
-            continue
-        if str(row.get("text") or "") in request_ids:
-            return row
-    return None
-
 
 
 @app.command("rollout-check")

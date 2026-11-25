@@ -20,6 +20,8 @@ dist/
 !/data/halt.json
 !/data/strategies.json
 !/data/scalp-approvals.json
+# The operator's standing paper approval for the stock and option lanes (read by `tyche cycle`).
+!/data/standing-approval.json
 # The kernel's drafted exit note (proposed bounds, never an approval). Covered by /data/*.json
 # today, stated explicitly because a draft must not reach the cloud mount even if that changes:
 # only Arm writes data/approvals.json.

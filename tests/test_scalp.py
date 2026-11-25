@@ -227,7 +227,7 @@ def test_arm_scalp_keeps_an_active_exit_request(tmp_path):
         "strategy_id": "PB-004", "symbol": "US.NVDA", "side": "sell", "quantity": 10,
         "limit_price": 99.99, "request_id": "tyche-scl-old", "submit_before": future.isoformat()})
     armed = _arm_scalp([_sell_proposal(future)], envelope, journal, TODAY, 0)
-    assert "active request pending" in armed[0]["skipped"]
+    assert "on its way to the broker" in armed[0]["skipped"]
     assert sum(1 for e in read_events(journal) if e["type"] == "order.requested") == 1
 
 
@@ -245,12 +245,12 @@ def test_arm_scalp_journals_one_gap_then_rearms_an_expired_exit(tmp_path):
     assert armed[0]["protection_gap"]["resolution"] == "expired"
     assert armed[0]["request"]["request_id"].startswith("tyche-scl-")
     again = _arm_scalp([_sell_proposal(future)], envelope, journal, TODAY, 0)
-    assert "active request pending" in again[0]["skipped"]
+    assert "on its way to the broker" in again[0]["skipped"]
     gaps = [e for e in read_events(journal) if e["type"] == "protection.gap"]
     assert len(gaps) == 1
 
 
-def test_arm_scalp_never_doubles_an_exit_the_broker_shows_live(tmp_path):
+def test_arm_scalp_replaces_a_stale_exit_the_broker_still_shows_working(tmp_path):
     journal = tmp_path / "events.jsonl"
     append_event(journal, "test", {})
     envelope = tmp_path / "approvals-scalp.json"
@@ -264,10 +264,18 @@ def test_arm_scalp_never_doubles_an_exit_the_broker_shows_live(tmp_path):
              "text": "tyche-scl-live", "order_id": "b-1"}]
     armed = _arm_scalp([_sell_proposal(now + timedelta(minutes=10))], envelope, journal,
                        TODAY, 0, rows=rows)
-    assert "live order" in armed[0]["skipped"]
+    # The old sell did not fill, so the lot is still open: the fresh exit names it to be cancelled
+    # first. Before 2026-11-25 the run skipped here and the lot stayed open behind a dead price.
+    assert armed[0]["request"]["cancel_first"] == ["b-1"]
     types = [e["type"] for e in read_events(journal)]
     assert "protection.gap" not in types
-    assert types.count("order.requested") == 1
+    assert types.count("order.requested") == 2
+    # A buy never joins an order that is still working for its symbol.
+    buy = OrderIntent(symbol="US.NVDA", side="buy", quantity=10, limit_price=100.0, stop_price=99.75,
+                      strategy_id="PB-004", reason="test")
+    again = _arm_scalp([{"order_hash": "h-buy", "intent": buy.model_dump(mode="json")}], envelope, journal,
+                       TODAY, 0, rows=[{**rows[0], "text": "someone-else"}])
+    assert "on its way" in again[0]["skipped"] or "already working" in again[0]["skipped"]
 
 
 def _sell_proposal(submit_before: datetime) -> dict:

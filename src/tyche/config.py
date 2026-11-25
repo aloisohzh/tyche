@@ -259,6 +259,9 @@ class RiskPolicy(BaseModel):
     max_daily_turnover_pct: float = 0.50
     max_orders_per_day: int = 6
     max_limit_deviation_pct: float = 0.03
+    # How far the NAV computed from cash and positions may sit from the broker's own total before
+    # buys stop. The reads are seconds to minutes apart in an agent run, so prices move in between.
+    nav_reconcile_tolerance_pct: float = Field(default=0.001, gt=0.0, le=0.02)
     # How far below the journaled stop a proposed exit floor may sit (envelope drafts).
     exit_collar_pct: float = Field(default=0.05, gt=0.0, le=0.20)
     min_order_notional: float = 500.0
@@ -294,9 +297,21 @@ class TacticalConfig(BaseModel):
     stock_allocation_cap: float = Field(default=0.65, gt=0, le=0.8)
     max_name_weight: float = Field(default=0.20, gt=0, le=0.38)
     min_reward_risk: float = Field(default=1.5, ge=1)
-    max_quote_age_seconds: int = Field(default=60, ge=5, le=120)
-    max_snapshot_age_seconds: int = Field(default=120, ge=5, le=300)
+    # Freshness is measured against how long an agent run really takes to read, save and decide
+    # (6-9 minutes on 2026-11-24), not against a 30-second daemon: the bounds reach 30 minutes.
+    max_quote_age_seconds: int = Field(default=60, ge=5, le=1800)
+    max_snapshot_age_seconds: int = Field(default=120, ge=5, le=1800)
     monitor_interval_seconds: int = Field(default=120, ge=5, le=86400)
+    # A setup asks for N distinct quote samples (WatchlistEntry.confirmation_ticks); this caps what the
+    # lane will wait for. 1 means the first fresh quote inside the plan's zone is enough.
+    max_confirmation_ticks: int = Field(default=5, ge=1, le=5)
+    # How old a setup's research review may be at entry. The watchlist must still be dated today.
+    max_review_age_seconds: int = Field(default=1800, ge=60, le=86400)
+    # How long the executor has to send a reserved order before the reservation lapses unsent.
+    submit_window_seconds: int = Field(default=30, ge=10, le=1800)
+    # A stock quote saved without its order book gets a two-sided market this wide around the last
+    # trade (regular session only; the last-trade time is its age). Options always need the real book.
+    synthetic_spread_pct: float = Field(default=0.0006, gt=0, le=0.005)
     stock_spread_pct: float = Field(default=0.003, gt=0, le=0.01)
     option_spread_pct: float = Field(default=0.05, gt=0, le=0.10)
     min_option_open_interest: int = Field(default=100, ge=0)
@@ -305,6 +320,9 @@ class TacticalConfig(BaseModel):
     max_option_dte: int = Field(default=30, ge=2)
     option_exit_minutes_before_close: int = Field(default=45, ge=15, le=120)
     session_exit_minutes_before_close: int = Field(default=10, ge=5, le=60)
+    # How far under the bid a stock's stop/target/time exit is priced, so an exit built from a
+    # minutes-old quote still trades (a marketable limit fills at the market, not at the limit).
+    exit_collar_pct: float = Field(default=0.0, ge=0.0, le=0.02)
     max_new_orders_per_tick: int = Field(default=3, ge=1, le=10)
     max_entries_per_setup: int = Field(default=1, ge=1, le=3)
     # Resting orders (operator direction 2026-11-24): place the order instead of waiting for a run.
@@ -344,6 +362,20 @@ class ScalpConfig(BaseModel):
     flatten_minutes_before_close: int = Field(default=10, ge=5, le=30)
     # A blocked exit must stay retryable; an entry can expire quickly.
     exit_submit_window_seconds: int = Field(default=900, ge=60, le=3600)
+    entry_submit_window_seconds: int = Field(default=90, ge=10, le=1800)
+    # The lane's own freshness clocks (it used to borrow the tactical quote age and a fixed 120s
+    # account age, which no 15-minute agent run could meet).
+    max_quote_age_seconds: int = Field(default=120, ge=5, le=1800)
+    max_snapshot_age_seconds: int = Field(default=120, ge=5, le=1800)
+    # The breakout may have printed on any of the last N one-minute bars, provided the latest close
+    # still holds above the level it broke. 1 is the original "latest bar only" rule.
+    breakout_window_bars: int = Field(default=1, ge=1, le=15)
+    # Entry limit sits this far above the ask and exit limit this far below the bid, so an order
+    # priced from a quote that is minutes old still trades at the market instead of resting.
+    entry_buffer_pct: float = Field(default=0.0, ge=0, le=0.005)
+    exit_collar_pct: float = Field(default=0.0, ge=0, le=0.02)
+    # An entry order still unfilled after this long is cancelled so its symbol is free again.
+    entry_ttl_seconds: int = Field(default=300, ge=60, le=3600)
 
     @model_validator(mode="after")
     def _bounds(self):

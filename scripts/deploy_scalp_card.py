@@ -1,21 +1,28 @@
-"""Create (or pause) the PB-004 scalp card: a second Qoder card that runs only the scalp lane.
+"""Create, update, pause or fire the 15-minute card: the desk's second Qoder card.
 
-The desk card fires three times a day, which is too slow for a scalp whose trades last at most 20
-minutes and must be flat 10 minutes before the close. This card wakes at minutes 07, 22, 37 and 52 of
-every hour from 09:00 to 15:59 New York time, Monday to Friday, and its brief ends the run at once
-outside the regular session or after STOP_AFTER. The minutes are chosen so that:
-  - 09:37 is the first run that has five 1-minute bars after the open (the breakout needs them),
-  - 15:52 (12:52 on a 13:00 early close) lands after the flatten line, so every lot is sold,
+The desk card fires three times a day. That is too slow for anything that has to react inside the
+session, so this card wakes at minutes 07, 22, 37 and 52 of every hour from 09:00 to 15:59 New York
+time, Monday to Friday, and runs THE CYCLE once: `tyche cycle`, the one command that decides every
+order for every lane (stock and option entries from the day's watchlist, the PB-004 scalp, and every
+exit). It carries the desk brief's CYCLE text word for word, imported from
+deploy_two_fire_automation.py, so the two briefs cannot drift apart. The minutes are chosen so that:
+  - 09:07 and 09:22 rest the day's stock buys before the open,
+  - 09:37 is the first run that has five 1-minute bars after the open (the scalp breakout needs them),
+  - 15:37 (12:37 on a 13:00 early close) lands after the scalp's flatten line and is the stock lane's
+    last check before its exit time, so every lot is sold there, with 15:52 (12:52) as the second chance,
   - no run starts on the desk card's :05 minute.
 
+It began on 2026-11-24 as the PB-004 scalp card, which is why its name still says so: a live card's
+name cannot be changed by a prompt update, and `--apply-update` recognises the card by that name.
 It runs on the same desk agent, environment, vault and repo mount as the desk card, and writes the same
-Drive ledger journal. It may only arm and submit PB-004 orders inside data/scalp-approvals.json.
+Drive ledger. Until 2026-11-25 it ran the scalp lane only, by hand-run steps, and placed no order.
 
 Run from the laptop repo root (reads QODER_PAT and the desk secrets from the gitignored .env):
   .venv\\Scripts\\python.exe scripts\\deploy_scalp_card.py            dry run: shows the card, writes nothing
   .venv\\Scripts\\python.exe scripts\\deploy_scalp_card.py --apply    creates the card
   .venv\\Scripts\\python.exe scripts\\deploy_scalp_card.py --pause <deployment_id>
   .venv\\Scripts\\python.exe scripts\\deploy_scalp_card.py --apply-update <deployment_id>   prompt only
+  .venv\\Scripts\\python.exe scripts\\deploy_scalp_card.py --run-now <deployment_id>        one run now
 Never prints secret values.
 """
 from __future__ import annotations
@@ -34,107 +41,62 @@ CARD_NAME = "Tyche scalp - PB-004 every 15 minutes"
 PROFILE = "scalp-15min-weekday"
 SCALP_CRON = "7,22,37,52 9-15 * * 1-5"
 STOP_AFTER = "2026-11-30"
-DESCRIPTION = ("Tyche paper desk, PB-004 intraday scalp only: 1-minute breakout entries and exits on "
-               "NVDA, AMD, AVGO, MU and SMH every 15 minutes in the regular session, until " + STOP_AFTER + ".")
+DESCRIPTION = ("Tyche paper desk, the 15-minute cycle: every lane's entries and exits (stocks and options "
+               "from the day's watchlist, the PB-004 scalp) from one command, every 15 minutes in the "
+               "session, until " + STOP_AFTER + ".")
 
-PROMPT = """TYCHE PB-004 SCALP RUN (PAPER ONLY; ONE LANE; ADDED 2026-11-24, ENDS AFTER {{STOP_AFTER}}).
+PROMPT = """TYCHE 15-MINUTE CYCLE RUN (PAPER ONLY; ALL LANES; REBUILT 2026-11-25; ENDS AFTER {{STOP_AFTER}}).
 
-You are the scalp card, not the desk. You run ONLY the PB-004 intraday scalp on US.NVDA, US.AMD, US.AVGO,
-US.MU and US.SMH, plus the PROTECTION WATCH below (protective exits of the desk's tactical lots). The desk
-card (08:05/12:05/15:05 ET) owns everything else; you are the one expected second writer, limited to
-PB-004 orders and those protective exits. Never touch another plan, envelope or config file.
+OPERATOR, 25 Nov 2026: "No trades were placed. No point having a beautiful set of guardrails but
+nothing works." This card used to run the scalp lane by hand-run steps and refused its own data as too
+old. It now has ONE job: run THE CYCLE below once, for every lane, and stop. Where this brief differs
+from your own instructions, a skill or an older brief, this brief wins (see RULINGS).
 
-TIME LIMIT (2026-11-24): this run owns at most 10 minutes from its scheduled start (minute :07, :22,
-:37 or :52). Note the scheduled start first. Before every step, and again immediately before each
-submit, check the clock: once 10 minutes have passed, stop at once - no further submits, no journal
-writes beyond what is already done - and log "SCALP RUN end: time limit". Never submit an order after
-that point, even if the command returned it. The next run picks up anything left; its FILLS FIRST step
-journals what the broker shows.
+WHAT THIS RUN IS: this card fires at minutes 07, 22, 37 and 52 from 09:07 to 15:52 New York time,
+Monday to Friday. The desk card (08:05, 12:05 and 15:05 ET) does the research, writes the day's
+watchlist and runs the same cycle on the same ledger. It is expected, never a second writer to stop
+for. Runs that overlap are safe: the command never reserves a second order for a symbol while one is
+on its way or working. What a run does at each time is the command's business, not yours: before
+09:30 it rests the day's stock buys, in the session it trades the stock, option and scalp lanes and
+every exit, the 15:37 run (12:37 on an early close) sells every stock and scalp lot, and the 15:52
+run (12:52) is the second chance for a sell that did not fill.
 
-RUN LOCK: before the GATE, read /data/drive/tyche-raw/scalp-lock.json. If it names another run whose
-`started_at` is under 12 minutes old, stop with one log line "SCALP RUN skipped: run <id> still holds
-the lock" (no Telegram). Otherwise write it with this run's id and started_at (UTC), and delete it as
-the last action of the run, whatever the outcome. A lock 12 minutes or older is stale: overwrite it.
+GATE: if the New York date is after {{STOP_AFTER}}, end the run with one log line and nothing else.
 
-GATE (stop at the first that fails, with one line in the run log and nothing else - no Telegram):
-1. ET date after {{STOP_AFTER}}: stop; the operator pauses this card.
-2. `tyche calendar --json` exit 1, or a phase other than the regular session: stop.
-3. `tyche strategies --json` does not list PB-004 as enabled: stop.
-4. `tyche journal-verify` on the ledger fails: stop and send ONE Telegram line "SCALP BLOCKED: journal".
+TIME LIMIT: this run owns 13 minutes from its scheduled start (minute :07, :22, :37 or :52). Note the
+start first. Once 13 minutes have passed, stop where you are: the next run is already on its way and
+reads the broker's own order list. An order is never sent after its `submit_before`.
 
-LEDGER: repo mount /data/workspace/tyche (install editable --no-deps if tyche is missing). Use the same
-Drive ledger journal the desk card uses (its BOOTSTRAP lineage under /data/drive/tyche-raw, latest
-verified descendant), never a fresh or local journal. prior_close_nav and high_water_nav come from the
-Drive nav-refs exactly as the desk reads them; never invent one. The account id is the paper account in
-TYCHE_ALLOWED_ACCOUNT_IDS; never print it.
+BOOTSTRAP: `cd /data/workspace/tyche`, run `pip install -e . --no-deps -q`, then `tyche cycle --help`.
+If that does not print the command's help, use `PYTHONPATH=src python -m tyche.cli` in place of
+`tyche` for the whole run. Nothing is restored or looked up by hand.
 
-FEED: delegate the executor to save raw MCP payloads, verbatim, into a run directory <run>:
-accounts.json (sim_trade_account_list), cash.json (sim_trade_cash_info), positions.json
-(sim_trade_position_list), quotes.json (quote_stock_quote for the five symbols), book-<US.SYMBOL>.json
-(quote_order_book each), bars-<US.SYMBOL>.json (quote_cur_kline, 1-minute bars, num=30, each) and
-orders.json (sim_trade_order_list plus sim_trade_history_order_list for today).
+{{CYCLE}}
 
-FILLS FIRST: for every broker order whose remark is a `tyche-scl-` request_id, journal what the broker
-shows and the journal lacks: `tyche record-order order.submitted|order.filled|order.rejected --data
-{...,"request_id":..,"strategy_id":"PB-004"} --journal <ledger>` (order.filled needs symbol, side,
-quantity, price). Never journal a fill the broker does not show.
-
-CYCLE: run
-`tyche tactical scalp --feed <run> --dir <run> --orders <run>/orders.json --envelope
-data/scalp-approvals.json --account-id <id> --prior-close-nav <n> --high-water-nav <n> --journal
-<ledger> --record`. Exits come before entries inside the command; the halt switch blocks buys only.
-For each item under `requests`, the executor submits ONE sim_trade_input_order paper LIMIT order with
-exactly that symbol, side, quantity and limit_price, the request_id as the remark, strictly before its
-submit_before, then journals `tyche record-order order.submitted`. Items marked `skipped` or `denied`
-are not submitted; list them in the log. A blocked or failed submit is journaled as gate.wait for that
-request_id; the next run re-arms exits itself. Never retry within the run, never cancel or modify, never
-place an order the command did not return, never trade anything outside the five symbols.
-
-PROTECTION WATCH (2026-11-24, operator): after CYCLE, and still inside the TIME LIMIT, guard the desk's
-tactical lots so a stop never waits for the next desk fire. If positions.json holds a lot whose symbol
-(or option underlying) is in config/tactical.yaml `symbols`, the executor also saves quotes.json rows,
-book-<US.SYMBOL>.json and, for an option lot, chain-<US.SYMBOL>.json for each such symbol, writes a watch
-book <run>/watch-book.json as {"as_of": "<ET date>", "entries": []} (the lots' protected setups come from
-the ledger, never from you), then runs `tyche tactical capture --dir <run> --account-id <id>
---prior-close-nav <n> --high-water-nav <n>` and `tyche tactical tick --book <run>/watch-book.json
---account <run>/tactical-account.json --quotes <run>/tactical-quotes.json --orders <run>/orders.json
---journal <ledger> --record`. For each order it returns whose `protective` is true, run `tyche tactical
-reserve` with the same files plus `--symbol <S> --envelope data/approvals.json --lifecycle-state
-/data/drive/tyche-raw/lifecycle/state.json` (a missing envelope is fine: a protective exit needs no
-operator line); exit 0 is the authority. If the request lists `cancel_first`, cancel exactly those
-order ids first (the desk's own resting take-profit, remark `tyche-tac-...`), journal `order.cancelled`
-with request_id and order_id, then submit ONE limit SELL with the request's exact fields and request_id
-as the remark before its submit_before, and journal `order.submitted`. The desk's RESTING ORDERS clause
-is the operator's standing approval for exactly this cancel. An order whose `protective` is false (a
-new entry, a resting take-profit) is never yours: skip it and name it in the log for the desk. Never buy
-a tactical symbol, never touch the watchlist, envelope or lifecycle files, never widen a level. With no
-tactical lot held, skip this block in one log line. Add one Telegram line when you sell a tactical lot
-("WATCH: sold 51 KO @ 95.10, stop hit").
-
-TELEGRAM: send one short line only when an order was submitted or filled this run
-(`python scripts/telegram.py send`, e.g. "SCALP: bought 10 AMD @ 541.20, stop 539.85, target 543.90"),
-and an urgent line when a lot is still open at or after the flatten time. Silent otherwise.
-
-RULINGS (2026-11-24, operator): a zero-fill order from a past session that is not working (status 2)
-is finished - SMH 3118500 and VNQ 3116597 are closed, not unresolved, and never block a run. Empty
-positions are broker truth when the account read itself succeeded and today's orders show the lots
-were sold; only an error code (ret_code non-zero) on cash, positions or orders is an outage.
-
-PERSIST: the journal on Drive; redact account ids and tokens everywhere. Paper only; live trading is
-forbidden.
+NOTHING ELSE: no research, no watchlist edit, no digest, no publish step and no lock file. When the
+cycle answers "skip" or lists nothing, end the run with one log line; a quiet run sends no Telegram.
 """
 
 
 def card_prompt() -> str:
-    return PROMPT.replace("{{STOP_AFTER}}", STOP_AFTER)
+    return (PROMPT.replace("{{STOP_AFTER}}", STOP_AFTER)
+            .replace("{{CYCLE}}", desk.cycle_text("cycle", "2026-11-25-cycle-1437")))
 
 
 def prompt_markers(events: str) -> dict[str, bool]:
-    return {"has_time_limit": "TIME LIMIT (2026-11-24)" in events,
-            "has_run_lock": "RUN LOCK" in events and "scalp-lock.json" in events,
-            "has_scalp_rulings": "RULINGS (2026-11-24, operator)" in events,
-            "has_protection_watch": ("PROTECTION WATCH (2026-11-24, operator)" in events
-                                     and "`protective` is true" in events and "cancel_first" in events)}
+    """What a live 15-minute brief must contain; `--apply-update` refuses to finish without every one."""
+    return {"has_one_job": "ONE job: run THE CYCLE below once" in events,
+            "has_stop_after": f"after {STOP_AFTER}" in events,
+            "has_time_limit": "TIME LIMIT: this run owns 13 minutes" in events,
+            "has_cycle_reads": "tyche cycle --dir <run> --reads" in events,
+            "has_cycle_record": "tyche cycle --dir <run> --record" in events,
+            "has_exact_submit": ("ONE sim_trade_input_order paper LIMIT order" in events
+                                 and "never an order that is not on the list" in events),
+            "has_no_hand_steps": "Never run tactical tick, reserve, scalp, capture, lifecycle or record-order" in events,
+            "has_problems": "PROBLEMS:" in events and "Never place an order by hand" in events,
+            "has_rulings": ("RULINGS (2026-11-25, operator)" in events
+                            and "IS the reservation" in events and "data/scalp-approvals.json" in events),
+            "has_paper_only": "the allowlisted US paper account only" in events and "Never a live account" in events}
 
 
 def scalp_cards(values: dict[str, str]) -> list[dict]:
@@ -180,6 +142,20 @@ def main() -> None:
         desk.req(values, "POST", f"/deployments/{deployment_id}/pause")
         after = desk.req(values, "GET", f"/deployments/{deployment_id}")
         print(json.dumps({"paused": deployment_id, "status": after.get("status")}, indent=2))
+        return
+    if "--run-now" in sys.argv:
+        # One run of the 15-minute card now: THE CYCLE once on fresh reads (a closed market is a skip).
+        deployment_id = sys.argv[sys.argv.index("--run-now") + 1]
+        before = desk.req(values, "GET", f"/deployments/{deployment_id}")
+        if not str(before.get("name", "")).startswith("Tyche scalp"):
+            raise SystemExit("refusing to run a deployment that is not the Tyche scalp card")
+        events = json.dumps(before.get("initial_events") or [])
+        if "tyche cycle --dir <run> --record" not in events:
+            raise SystemExit("the live brief has no THE CYCLE clause yet; run --apply-update first")
+        item = desk.req(values, "POST", f"/deployments/{deployment_id}/run")
+        item = item.get("item") or item
+        print(json.dumps({"run_requested": deployment_id, "run_id": item.get("id"),
+                          "session_id": item.get("session_id"), "status": item.get("status")}, indent=2))
         return
     if "--apply-update" in sys.argv:
         import hashlib

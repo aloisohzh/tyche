@@ -177,13 +177,23 @@ def build_snapshot(
                    if isinstance(node, dict) and ("hold" in node or "frozen_cash" in node)), 0.0)
     if cash is None:
         raise ValueError("no cash balance found in the funds payload")
+    positions = extract_positions(positions_payload, market_prefix, contracts)
+    broker_nav = extract_nav(cash_payload)
+    frozen = frozen or 0.0
+    if frozen > 0 and broker_nav:
+        # The paper API has never shown whether `balance` already contains the cash it holds for a
+        # resting buy. Whichever reading agrees with the broker's own total is the one in force, so a
+        # resting order cannot make the account look unreconciled and stop the next buy.
+        gross = sum(p.market_value for p in positions)
+        if abs(cash + gross - broker_nav) < abs(cash + frozen + gross - broker_nav):
+            frozen = 0.0
     return AccountSnapshot(
         account_id=str(account_id),
         cash=cash,
-        frozen_cash=frozen or 0.0,
-        broker_nav=extract_nav(cash_payload),
+        frozen_cash=frozen,
+        broker_nav=broker_nav,
         captured_at=captured_at,
-        positions=extract_positions(positions_payload, market_prefix, contracts),
+        positions=positions,
         env=env,
         account_type=meta.get("account_type") if meta else None,
         market_id=meta.get("market_id") if meta else None,

@@ -1,7 +1,7 @@
 """Cumulative paper budgets and conservative broker-order reconciliation."""
 from __future__ import annotations
 
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 from tyche.market_calendar import ET
@@ -58,9 +58,10 @@ def combined_usage(events: list[dict], rows: list[dict], today, contracts: dict)
         if row.get("side") == 1:
             symbol = order_symbol(row)
             contract = contracts.get(symbol)
-            if looks_like_option(symbol) and contract is None:
-                raise ValueError("daily option budget requires verified contract metadata")
-            notional += float(row["qty"]) * float(row["price"]) * (contract.multiplier if contract else 1)
+            # An option row with no chain metadata to hand is still a standard 100-share contract here;
+            # counting it at 100 is the conservative budget, and a missing chain never stops the run.
+            multiplier = contract.multiplier if contract else (100 if looks_like_option(symbol) else 1)
+            notional += float(row["qty"]) * float(row["price"]) * multiplier
     return len(current) + len(unmatched), notional
 
 
@@ -68,6 +69,16 @@ def combined_usage(events: list[dict], rows: list[dict], today, contracts: dict)
 # was created before today's US session (ET) is a DAY order the broker has expired: the operator
 # ruled on 2026-11-24 (VNQ ...597, SMH ...500) that this counts as finished, not "unresolved".
 WORKING_STATUS = 2
+FILLED_STATUS = 4
+# Status 5 is terminal: the order is cancelled or expired and can never trade again. Seen going 2 -> 5
+# twice, SMH ...500 two minutes after it was placed (a cancel) and VNQ ...597 at the end of its DAY,
+# and still 5 on every later read. Treating a same-day 5 as "unresolved" blocked its symbol until the
+# next session (2026-11-25 review), so a cancelled order is finished the moment the broker says so.
+DEAD_STATUS = 5
+# Remark prefixes of the desk's own orders: the request_id each one carries as its broker text.
+SCALP_PREFIX, TACTICAL_PREFIX, EXIT_PREFIX = "tyche-scl-", "tyche-tac-", "tyche-exit-"
+# How long a reserved request may still be on its way to the broker when it names no submit_before.
+DEFAULT_SUBMIT_WINDOW_SECONDS = 900
 
 
 def expired_unfilled(status, quantity, cum_qty, created_us, today: date) -> bool:
@@ -82,8 +93,10 @@ def expired_unfilled(status, quantity, cum_qty, created_us, today: date) -> bool
 
 
 def order_finished(row: dict, today: date | None = None) -> bool:
-    """Full verified fill, or a zero-fill order from a past session (see expired_unfilled)."""
-    if row.get("status") == 4 and float(row.get("cum_qty", 0)) == float(row.get("qty", 0)):
+    """Nothing more can trade on it: a full fill, a cancelled/expired order, or a stale zero-fill row."""
+    if row.get("status") == FILLED_STATUS and float(row.get("cum_qty", 0)) == float(row.get("qty", 0)):
+        return True
+    if row.get("status") == DEAD_STATUS:
         return True
     today = today or datetime.now(UTC).astimezone(ET).date()
     return expired_unfilled(row.get("status"), row.get("qty"), row.get("cum_qty", 0),
@@ -133,26 +146,151 @@ def pending_intents(rows: list[dict], contracts: dict[str, OptionContract]) -> l
     return out
 
 
-def unresolved_symbols(events: list[dict], rows: list[dict]) -> set[str]:
-    """Atomic reservations remain blocked until their broker receipt is reconciled."""
+def _broker_time(value) -> datetime | None:
+    try:
+        return datetime.fromtimestamp(int(value) / 1_000_000, UTC)
+    except (TypeError, ValueError, OverflowError):
+        return None
+
+
+def _request_rows(events: list[dict], rows: list[dict]) -> list[tuple[dict, dict, list[dict]]]:
+    """Every reserved request with the broker order(s) that carry it: (event, payload, matching rows)."""
     submitted = {e.get("payload", {}).get("request_id"): e.get("payload", {}).get("order_id")
                  for e in events if e.get("type") == "order.submitted"}
-    filled_ids = {str(r.get("order_id")) for r in rows if order_finished(r)}
-    pending = set()
+    out = []
     for event in events:
-        p = event.get("payload", {})
-        if event.get("type") == "order.requested" and p.get("request_id"):
-            matches = [r for r in rows if str(r.get("order_id")) == str(submitted.get(p["request_id"]))
-                       or r.get("text") == p["request_id"]]
-            if len(matches) > 1:
-                raise ValueError("ambiguous reservation receipt")
-            if matches:
-                r = matches[0]
-                if (order_symbol(r) != p["symbol"]
-                        or r.get("side") != (1 if p["side"] == "buy" else 2)
-                        or float(r["qty"]) != p["quantity"]
-                        or float(r["price"]) != p["limit_price"]):
-                    raise ValueError("broker receipt does not match reserved order")
-            if not matches or str(matches[0]["order_id"]) not in filled_ids:
-                pending.add(p["symbol"])
+        payload = event.get("payload", {})
+        if event.get("type") != "order.requested" or not payload.get("request_id"):
+            continue
+        receipt = submitted.get(payload["request_id"])
+        matches = [r for r in rows if r.get("text") == payload["request_id"]
+                   or (receipt is not None and str(r.get("order_id")) == str(receipt))]
+        out.append((event, payload, matches))
+    return out
+
+
+def _window_open(event: dict, payload: dict, now: datetime) -> bool:
+    """Whether the executor may still be about to send this request."""
+    try:
+        deadline = datetime.fromisoformat(payload["submit_before"])
+    except (KeyError, TypeError, ValueError):
+        try:
+            deadline = datetime.fromisoformat(event["ts"]) + timedelta(seconds=DEFAULT_SUBMIT_WINDOW_SECONDS)
+        except (KeyError, TypeError, ValueError):
+            return False
+    if deadline.tzinfo is None:
+        deadline = deadline.replace(tzinfo=UTC)
+    return now < deadline
+
+
+def closed_request_ids(events: list[dict]) -> set[str]:
+    """Requests the journal already shows finished: filled, rejected, cancelled, or never sent.
+
+    `gate.wait` is the executor saying a submit was blocked and did not go out, so that request is
+    over the moment it is journaled; nothing has to wait for its window to run down.
+    """
+    return {str(e.get("payload", {}).get("request_id")) for e in events
+            if e.get("type") in ("order.filled", "order.rejected", "order.cancelled", "gate.wait")
+            and e.get("payload", {}).get("request_id")}
+
+
+def in_flight_symbols(events: list[dict], rows: list[dict], now: datetime | None = None) -> set[str]:
+    """Symbols with a reserved order the broker does not show yet and that may still be sent.
+
+    A second order for such a symbol could double the first, so it waits. Once the submit window has
+    closed with no broker order, the request never reached the broker: it is dead and blocks nothing.
+    """
+    now = now or datetime.now(UTC)
+    closed = closed_request_ids(events)
+    return {payload["symbol"] for event, payload, matches in _request_rows(events, rows)
+            if not matches and payload["request_id"] not in closed and payload.get("symbol")
+            and _window_open(event, payload, now)}
+
+
+def dead_request_ids(events: list[dict], rows: list[dict], now: datetime | None = None) -> set[str]:
+    """Reserved requests that never reached the broker: no order, no receipt, window closed."""
+    now = now or datetime.now(UTC)
+    receipts = {e.get("payload", {}).get("request_id") for e in events
+                if e.get("type") in ("order.submitted", "order.filled")}
+    blocked = {e.get("payload", {}).get("request_id") for e in events if e.get("type") == "gate.wait"}
+    return {payload["request_id"] for event, payload, matches in _request_rows(events, rows)
+            if not matches and payload["request_id"] not in receipts
+            and (payload["request_id"] in blocked or not _window_open(event, payload, now))}
+
+
+def unresolved_symbols(events: list[dict], rows: list[dict], now: datetime | None = None) -> set[str]:
+    """Symbols a new order must wait for: an order working at the broker, or one still on its way.
+
+    Before 2026-11-25 every reservation blocked its symbol until a full fill, forever: a request that
+    was never submitted froze the symbol for good, a resting take-profit froze the stop behind it, and
+    a receipt that differed from the reservation raised and ended the whole run. Now the broker's own
+    list decides: working blocks, finished (filled, cancelled, expired) does not, and an unsent request
+    blocks only while its submit window is open.
+    """
+    now = now or datetime.now(UTC)
+    today = now.astimezone(ET).date()
+    pending = set(in_flight_symbols(events, rows, now))
+    for _, payload, matches in _request_rows(events, rows):
+        if payload.get("symbol") and any(not order_finished(r, today) for r in matches):
+            pending.add(payload["symbol"])
     return pending
+
+
+def receipts_to_journal(events: list[dict], rows: list[dict], today: date) -> tuple[list[tuple[str, dict]], list[str]]:
+    """What the broker shows for the desk's own orders today that the journal still lacks.
+
+    Returns the (event type, payload) rows to append, oldest order first, plus plain-word alerts. The
+    order list is the truth about receipts, fills and cancels, so nobody has to type them in by hand:
+    a submitted order gets its order.submitted, a finished one its order.filled (once, for what filled)
+    or order.cancelled (nothing filled). Only orders created today are touched; history stays history.
+    """
+    from tyche.models import looks_like_option
+    requests = {p["request_id"]: p for _, p, _ in _request_rows(events, [])}
+    have = {kind: {} for kind in ("order.submitted", "order.filled", "order.cancelled", "order.rejected")}
+    for event in events:
+        rid = event.get("payload", {}).get("request_id")
+        if event.get("type") in have and rid:
+            have[event["type"]][rid] = have[event["type"]].get(rid, 0.0) + float(
+                event["payload"].get("quantity") or 0)
+    out: list[tuple[str, dict]] = []
+    alerts: list[str] = []
+    for row in sorted(rows, key=lambda r: int(r.get("create_time") or 0)):
+        rid = str(row.get("text") or "")
+        created = _broker_time(row.get("create_time"))
+        if not rid.startswith((SCALP_PREFIX, TACTICAL_PREFIX, EXIT_PREFIX)) or created is None:
+            continue
+        if created.astimezone(ET).date() != today:
+            continue
+        symbol = order_symbol(row)
+        side = {1: "buy", 2: "sell"}.get(row.get("side"))
+        if side is None:
+            continue
+        request = requests.get(rid, {})
+        strategy = request.get("strategy_id") or (
+            "PB-004" if rid.startswith(SCALP_PREFIX) else "operator-exit" if rid.startswith(EXIT_PREFIX)
+            else "PB-003" if looks_like_option(symbol) else "PB-002")
+        quantity, filled = float(row.get("qty") or 0), float(row.get("cum_qty") or 0)
+        base = {"request_id": rid, "order_id": str(row.get("order_id")), "symbol": symbol, "side": side,
+                "strategy_id": strategy, "broker_status": row.get("status"), "source": "broker order list"}
+        if request.get("option"):
+            base["option"] = request["option"]
+            base["multiplier"] = request.get("multiplier", 100)
+        if request and (request.get("symbol") != symbol or request.get("side") != side
+                        or float(request.get("quantity") or 0) != quantity
+                        or float(request.get("limit_price") or 0) != float(row.get("price") or 0)):
+            alerts.append(f"{symbol}: broker order {row.get('order_id')} differs from what was reserved "
+                          f"({side} {quantity:g} @ {row.get('price')} against {request.get('side')} "
+                          f"{request.get('quantity')} @ {request.get('limit_price')})")
+        if rid not in have["order.submitted"]:
+            out.append(("order.submitted", {**base, "quantity": quantity, "limit_price": float(row.get("price") or 0)}))
+        terminal = row.get("status") in (FILLED_STATUS, DEAD_STATUS)
+        already = have["order.filled"].get(rid, 0.0)
+        if terminal and filled > already:
+            price = float(row.get("avg_fill_price") or 0) or float(row.get("price") or 0)
+            moment = _broker_time(row.get("update_time")) or created
+            out.append(("order.filled", {**base, "quantity": filled - already, "price": price,
+                                         "filled_at": moment.isoformat()}))
+        if (row.get("status") == DEAD_STATUS and filled == 0
+                and rid not in have["order.cancelled"] and rid not in have["order.rejected"]):
+            out.append(("order.cancelled", {**base, "reason": "broker shows the order cancelled or expired unfilled"}))
+    return out, alerts

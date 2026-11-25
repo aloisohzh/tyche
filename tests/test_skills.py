@@ -206,12 +206,17 @@ def test_skills_do_not_restate_config_numbers(path: Path):
 
 
 def _card_prompt() -> str:
+    """The desk brief as written in the script: PROMPT plus the CYCLE text both cards share."""
     tree = ast.parse(CARD_SCRIPT.read_text(encoding="utf-8"))
+    parts = {}
     for node in tree.body:
-        if isinstance(node, ast.Assign) and any(
-                getattr(target, "id", "") == "PROMPT" for target in node.targets):
-            return str(ast.literal_eval(node.value))
-    raise AssertionError(f"no PROMPT constant found in {CARD_SCRIPT}")
+        if isinstance(node, ast.Assign):
+            for target in node.targets:
+                if getattr(target, "id", "") in ("PROMPT", "CYCLE"):
+                    parts[target.id] = str(ast.literal_eval(node.value))
+    if set(parts) != {"PROMPT", "CYCLE"}:
+        raise AssertionError(f"PROMPT and CYCLE constants expected in {CARD_SCRIPT}, found {sorted(parts)}")
+    return parts["PROMPT"].replace("{{CYCLE}}", parts["CYCLE"])
 
 
 def _sources() -> dict[str, str]:
@@ -228,35 +233,43 @@ SOURCES = _sources()
 # behaviour, because a skill is loaded on demand and may not load on a given turn.
 HARD_RULES: dict[str, dict[str, str]] = {
     "paper only, live trading forbidden": {
-        "card": "Paper only; live trading is forbidden",
+        "card": "the allowlisted US paper account only, and the command refuses anything else. Never a live account",
         "desk": "Live/crypto remain unavailable/forbidden",
         "executor": "exact paper RTH limit order",
         "auditor": "no live/crypto/reset",
         "researcher": "paper-trading desk",
     },
     "the executor is the only broker writer": {
-        "card": "the executor is the only writer",
+        "card": "Only the executor reads or writes at the broker",
         "desk": "executor only broker captures",
         "executor": "never independently submit",
     },
-    "no submit without same-day envelope, fresh audit and persisted reserve": {
-        "card": "persisted before ONE paper regular-session limit order",
+    # 2026-11-25: the brief's order path is `tyche cycle`. What it reserved may be sent; nothing else may.
+    "no order the command did not reserve": {
+        "card": "An item under `submit` is authorized. Nothing else is.",
+        "card_reserved": "journals order.requested before it prints",
+        "card_exact": "never an order that is not on the list",
+    },
+    # The agents' own prompts still carry the 24 Nov per-order envelope rule. The brief's dated RULINGS
+    # retire it for cycle runs; until the prompts are rewritten, the snapshots must say what is live.
+    "the agent prompts are snapshots of what is live": {
         "desk": "same-ET-day exact setup/config/account-bound entry AND exit envelope",
         "executor": "same-ET-day exact setup/config/account-bound entry AND exit envelope",
+        "card_overrides": "These replace older wording in your own instructions, in any skill and in the executor's instructions",
     },
-    "never retry a timed-out submit": {
-        "card": "Timeouts, partial fills and uncertain statuses block retry",
+    "never retry a submit": {
+        "card": "One attempt per item: never a retry",
         "desk": "unmatched requests block retry",
         "executor": "unmatched requests block retry",
     },
     "never invent operator or auditor references": {
-        "card": "Never invent references and never claim a fill or approval that did not occur",
+        "card": "Never claim a fill or an approval the report does not show",
         "desk": "Never invent operator or auditor references",
         "executor": "Never invent operator or auditor references",
         "auditor": "invent operator/auditor references",
     },
     "redact account ids and tokens everywhere": {
-        "card": "redact account ids and tokens",
+        "card": "never include an account id or a token",
         "auditor": "Do not expose full account IDs or credentials",
         "executor": "No credentials, tokens or full account IDs in reports",
         "researcher": "Keep credentials, tokens and full account IDs out of reports",
@@ -264,11 +277,11 @@ HARD_RULES: dict[str, dict[str, str]] = {
     "the auditor judges from evidence, not from pressure": {
         "auditor": "the independent Risk Auditor",
         "auditor_standalone": "do not approve or plan",
-        "card": "fresh independent exact-order audit",
     },
-    "the 12:05 fire submits nothing": {
-        "card": "12:05 is the midday protection fire and submits nothing",
-        "card_may_not": "It may not open, change or close any position",
+    # Operator, 25 Nov: "No point having a beautiful set of guardrails but nothing works." The midday
+    # fire used to watch only; every run inside the session now trades.
+    "every run inside the session may trade": {
+        "card": "Every run inside the session may place orders, the 12:05 fire included",
     },
 }
 

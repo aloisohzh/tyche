@@ -28,6 +28,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from tyche.execution_state import request_notional
 from tyche.journal import read_events
+from tyche.models import looks_like_option
 
 # Journal event type for one operator yes given on Telegram during a fire.
 TELEGRAM_APPROVAL_EVENT = "approval.telegram"
@@ -88,7 +89,9 @@ class ApprovalBatch(BaseModel):
 
     @model_validator(mode="after")
     def _unique_lines(self) -> ApprovalBatch:
-        keys = [(o.symbol, o.side) for o in self.orders]
+        # A stock line and an option line may share a symbol: "US.KO" x1 is the shares, "US.KO" x100
+        # is the class line for any standard option on KO (see `line_for`).
+        keys = [(o.symbol, o.side, o.multiplier) for o in self.orders]
         if len(keys) != len(set(keys)):
             raise ValueError("duplicate symbol+side lines in envelope")
         if self.valid_until is not None and self.valid_until < self.as_of:
@@ -100,8 +103,21 @@ class ApprovalBatch(BaseModel):
             return self.as_of == today
         return self.as_of <= today <= self.valid_until
 
-    def line_for(self, symbol: str, side: str) -> ApprovalLine | None:
-        return next((o for o in self.orders if o.symbol == symbol and o.side == side), None)
+    def line_for(self, symbol: str, side: str, *, multiplier: int | None = None,
+                 underlying: str | None = None) -> ApprovalLine | None:
+        """The line that covers this order: its own symbol first, else its option class.
+
+        A line whose symbol is an underlying stock and whose multiplier is 100 is a class line: it
+        covers every standard option on that underlying, so a standing approval does not have to name
+        a contract the researcher has not picked yet. `underlying` is what makes that lookup possible.
+        """
+        want = multiplier if multiplier is not None else (100 if looks_like_option(symbol) else 1)
+        own = [o for o in self.orders if o.symbol == symbol and o.side == side]
+        match = next((o for o in own if o.multiplier == want), None) or (own[0] if own else None)
+        if match is None and underlying and underlying != symbol:
+            match = next((o for o in self.orders if o.symbol == underlying and o.side == side
+                          and o.multiplier == 100), None)
+        return match
 
 
 class TelegramApproval(BaseModel):
@@ -263,14 +279,26 @@ def envelope_usage(journal_path: Path, today: date) -> int:
     return count
 
 
-def envelope_totals(events: list[dict], today: date, symbol: str, side: str) -> tuple[int, float]:
+def envelope_totals(events: list[dict], today: date, symbol: str, side: str, *,
+                    class_of: str | None = None) -> tuple[int, float]:
+    """Quantity already reserved today against one line, and the day's reserved notional.
+
+    `class_of` names an underlying when the line is an option class line: every option request on
+    that underlying counts against it, whichever contract it named.
+    """
     cancelled = cancelled_request_ids(events)
     rows = [e.get("payload", {}) for e in events if e.get("type") == "order.requested"
             and e.get("payload", {}).get("authorization", {}).get("kind") in OPERATOR_AUTHORIZATION_KINDS
             and e.get("payload", {}).get("authorization", {}).get("as_of") == today.isoformat()
             and str(e.get("payload", {}).get("request_id")) not in cancelled]
-    qty = sum(int(r.get("quantity", r.get("qty", 0))) for r in rows
-              if r.get("symbol") == symbol and r.get("side") == side)
+
+    def counts(row: dict) -> bool:
+        if row.get("side") != side:
+            return False
+        if class_of is not None:
+            return (row.get("option") or {}).get("underlying") == class_of
+        return row.get("symbol") == symbol
+    qty = sum(int(r.get("quantity", r.get("qty", 0))) for r in rows if counts(r))
     return qty, sum(request_notional(r) for r in rows)
 
 
@@ -286,11 +314,12 @@ def authorize_order(
     used_qty: int = 0,
     used_notional: float = 0.0,
     multiplier: int = 1,
+    underlying: str | None = None,
 ) -> tuple[bool, str]:
     """Deterministic envelope gate: (authorized, plain-words reason)."""
     if not batch.valid_on(today):
         return False, f"envelope dated {batch.as_of} is not valid today ({today}); operator must re-approve"
-    line = batch.line_for(symbol, side)
+    line = batch.line_for(symbol, side, multiplier=multiplier, underlying=underlying)
     if line is None:
         return False, f"no operator-approved line for {symbol} {side}"
     if qty <= 0:

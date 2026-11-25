@@ -13,38 +13,92 @@ def successful(payload: dict):
     return payload["data"]
 
 
+# A venue whose book stopped updating this long before the newest venue is a dead feed, not the market.
+VENUE_LAG_MS = 300_000
+
+
 def consolidate_book(books: list[dict]) -> tuple[float, float, datetime] | None:
     """NBBO across the venue books in one MCP row.
 
     The best bid can come from one venue and the best ask from another; that is
     a single consolidated top of book, not an ambiguous choice. The timestamp is
-    the oldest contributing venue so consolidation never masks a stale side.
+    the oldest contributing venue so consolidation never masks a stale side. A
+    venue with no timestamp, or one that fell minutes behind the others, does not
+    contribute at all: one silent venue used to date the whole book in 1970.
     """
-    bids, asks, stamps = [], [], []
+    def prices(levels) -> list[float]:
+        # A level saved without its size still names a price someone quoted; only a stated zero is empty.
+        return [float(r["price"]) for r in levels or []
+                if float(r.get("price") or 0) > 0 and float(r.get("volume", 1) or 0) > 0]
+
+    venues = []
     for book in books:
-        v_bids = [r["price"] for r in book["bid_list"] if r["volume"] > 0 and r["price"] > 0]
-        v_asks = [r["price"] for r in book["ask_list"] if r["volume"] > 0 and r["price"] > 0]
-        if not v_bids or not v_asks:
-            continue
-        bids.append(max(v_bids))
-        asks.append(min(v_asks))
-        stamps.append(int(book["exchange_data_time_ms"]))
-    if not bids or not asks:
+        v_bids, v_asks = prices(book.get("bid_list")), prices(book.get("ask_list"))
+        try:
+            stamp = int(book.get("exchange_data_time_ms") or 0)
+        except (TypeError, ValueError):
+            stamp = 0
+        if v_bids and v_asks and stamp > 0:
+            venues.append((max(v_bids), min(v_asks), stamp))
+    if not venues:
         return None  # no executable two-sided market on any venue
-    return max(bids), min(asks), datetime.fromtimestamp(min(stamps) / 1000, UTC)
+    newest = max(stamp for _, _, stamp in venues)
+    venues = [v for v in venues if newest - v[2] <= VENUE_LAG_MS]
+    return (max(b for b, _, _ in venues), min(a for _, a, _ in venues),
+            datetime.fromtimestamp(min(s for _, _, s in venues) / 1000, UTC))
 
 
-def normalize_quotes(quote_payload: dict, book_payloads: list[dict], chain_payloads: list[dict]) -> list[MarketQuote]:
+def synthetic_book(last: float, at: datetime, spread_pct: float) -> tuple[float, float, datetime]:
+    """A two-sided market around the last trade for a stock saved without its order book.
+
+    The last-trade time is the book's age, so before the open (when the last trade is yesterday's close)
+    this is never fresh and the real book is still required. Liquid large caps trade inside a few
+    basis points; an order priced here either trades at once or rests a tick away from the market.
+    """
+    half = spread_pct / 2
+    return round(last * (1 - half), 2), round(last * (1 + half), 2), at
+
+
+def normalize_quotes(quote_payload: dict, book_payloads: list[dict], chain_payloads: list[dict],
+                     *, synthetic_spread_pct: float | None = None,
+                     contracts: dict[str, OptionContract] | None = None,
+                     problems: list[str] | None = None) -> list[MarketQuote]:
+    """Quotes joined to their order books.
+
+    With `synthetic_spread_pct`, a stock that has a quote but no saved book still gets a market (see
+    `synthetic_book`); an option never does. `contracts` is option metadata the caller already holds
+    (a watchlist entry's own contract block), used when no chain payload names the symbol. With
+    `problems`, one bad row is named there and skipped instead of failing every other symbol.
+    """
+    def skip(text: str) -> None:
+        if problems is None:
+            raise ValueError(text)
+        problems.append(text)
+
     books = {}
     for payload in book_payloads:
-        for row in successful(payload):
-            code = row["code"]
+        try:
+            rows = successful(payload)
+        except (ValueError, AttributeError):
+            skip("an order-book payload reports an error; its symbol has no book")
+            continue
+        for row in [rows] if isinstance(rows, dict) else rows:   # one symbol saved without the list around it
+            try:
+                code = row["code"]
+                consolidated = consolidate_book(row["books"])
+            except (KeyError, TypeError, ValueError, AttributeError) as exc:
+                if problems is None:
+                    raise
+                problems.append(f"an order-book row is unusable ({type(exc).__name__}: {str(exc)[:60]}); "
+                                "its symbol has no book")
+                continue
             if code in books:
-                raise ValueError("duplicate order book")
-            consolidated = consolidate_book(row["books"])
+                skip(f"{code}: duplicate order book")
+                continue
             if consolidated is None:
                 continue
             books[code] = consolidated
+    held = dict(contracts or {})
     contracts = {}
     for payload in chain_payloads:
         for row in successful(payload)["option_chain"]:
@@ -60,12 +114,31 @@ def normalize_quotes(quote_payload: dict, book_payloads: list[dict], chain_paylo
             if row["code"] in contracts and contracts[row["code"]] != contract:
                 raise ValueError("conflicting chain metadata")
             contracts[row["code"]] = contract
+    for symbol, contract in held.items():
+        contracts.setdefault(symbol, contract)
     out = []
+    seen: set[str] = set()
     for row in successful(quote_payload)["quote_list"]:
-        symbol = row["code"]
-        if symbol not in books:
+        try:
+            symbol = row["code"]
+            at = datetime.fromtimestamp(int(row["data_time"]) / 1000, UTC)
+            if float(row.get("last_price") or 0) <= 0:
+                raise ValueError("no last price")
+        except (KeyError, TypeError, ValueError, OverflowError, OSError) as exc:
+            if problems is None:
+                raise
+            label = row.get("code", "?") if isinstance(row, dict) else "?"
+            problems.append(f"{label}: quote row unusable ({type(exc).__name__}: {str(exc)[:60]}); not priced this run")
             continue
-        bid, ask, book_at = books[symbol]
+        if symbol in seen and problems is not None:
+            continue  # the same symbol quoted twice: the first row stands
+        seen.add(symbol)
+        if symbol in books:
+            bid, ask, book_at = books[symbol]
+        elif synthetic_spread_pct and not looks_like_option(symbol) and float(row.get("last_price") or 0) > 0:
+            bid, ask, book_at = synthetic_book(float(row["last_price"]), at, synthetic_spread_pct)
+        else:
+            continue
         option = None
         extra = {}
         if looks_like_option(symbol):
@@ -74,13 +147,14 @@ def normalize_quotes(quote_payload: dict, book_payloads: list[dict], chain_paylo
             if (option is None or float(data.get("contract_multiplier", 0)) != 100
                     or float(data.get("strike_price", 0)) != option.strike
                     or data.get("option_type") != option.right.upper()):
-                raise ValueError("quote needs matching standard-chain metadata and multiplier")
-            extra = {"open_interest": data["open_interest"], "delta": data["delta"],
-                     "implied_volatility": data["implied_volatility"]}
+                skip(f"{symbol}: quote needs matching standard-chain metadata and multiplier")
+                continue
+            extra = {"open_interest": data.get("open_interest") or 0, "delta": data.get("delta"),
+                     "implied_volatility": data.get("implied_volatility")}
         out.append(MarketQuote(
-            symbol=symbol, at=datetime.fromtimestamp(int(row["data_time"]) / 1000, UTC),
+            symbol=symbol, at=at,
             book_at=book_at, last=row["last_price"], bid=bid, ask=ask,
             tradable=row.get("sec_status") == "NORMAL" and row.get("suspension") is False,
-            option=option, volume=row["volume"], **extra,
+            option=option, volume=row.get("volume") or 0, **extra,
         ))
     return out

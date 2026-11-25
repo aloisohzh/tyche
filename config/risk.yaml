@@ -20,6 +20,9 @@ competition_order_cap: 200
 option_risk_per_trade_pct: 0.0075
 max_option_premium_pct: 0.05
 max_limit_deviation_pct: 0.03
+# An agent run reads cash and positions up to a minute apart, so the two never agree to the dollar.
+# 0.5% still catches a wrong account or a missing position; 0.1% blocked buys on ordinary price moves.
+nav_reconcile_tolerance_pct: 0.005
 # The one exit number the operator owns: a drafted exit floor sits this far under the
 # stop the plan journaled. Wide enough that a normal gap still fills, bounded enough that
 # a collapse is a decision rather than a market order. Not entry limit drift (line above).
