@@ -1,6 +1,6 @@
 {
   "as_of": "2026-11-25",
-  "note": "Draft for operator approval, written 2026-11-25 08:40 ET from the Moomoo quotes read at that minute and the 25 Nov Scout capture, with the US.KO swing setup added at 09:15 ET from the 09:13 ET snapshot and 22 daily bars. Not an order: nothing here trades until the operator approves it. Levels are the plan, the kernel decides.",
+  "note": "Draft for operator approval, written 2026-11-25 08:40 ET from the Moomoo quotes read at that minute and the 25 Nov Scout capture, with the US.KO swing setup added at 09:15 ET from the 09:13 ET snapshot and 22 daily bars. All three setups were approved by the operator and placed by hand from the desktop session on 25 Nov: NVDA 66 at 145.20, one NVDA 18 Dec 150 call at 9.12, KO 100 at 98.195 average. Their status is now entered. Not an order authorization for anything else: nothing here trades until the operator approves it. Levels are the plan, the kernel decides.",
   "entries": [
     {
       "symbol": "US.NVDA",
@@ -8,7 +8,7 @@
       "strategy": "PB-002",
       "hold": "swing",
       "direction": "bullish",
-      "status": "watch",
+      "status": "entered",
       "setup_id": "NVDA-20261125-SWING",
       "entry_low": 151.0,
       "entry_high": 156.0,
@@ -98,7 +98,7 @@
       "strategy": "PB-003",
       "hold": "swing",
       "direction": "bullish",
-      "status": "watch",
+      "status": "entered",
       "setup_id": "NVDA261218C150-20261125",
       "entry_low": 151.0,
       "entry_high": 156.0,
@@ -187,7 +187,7 @@
       "strategy": "PB-002",
       "hold": "swing",
       "direction": "bullish",
-      "status": "watch",
+      "status": "entered",
       "setup_id": "KO-20261125-SWING",
       "entry_low": 96.8,
       "entry_high": 98.3,
