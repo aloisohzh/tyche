@@ -79,6 +79,12 @@ Related caps: `option_risk_per_trade_pct`, `max_option_premium_pct` (option lane
 `max_limit_deviation_pct`, which is entry-limit drift and a different quantity from the
 exit collar above.
 
+What the operator actually reads before any of this is spent is the order preview card,
+[../templates/order-preview.md](../templates/order-preview.md): product type, price ladder, %NAV and the
+plain-language risk block (worst-case loss, halts and gaps, exit, ladder). The card is a convention the
+prompts enforce in prose, not a schema the kernel validates, so an audit finding on a missing field is a
+first-class defect rather than a formatting complaint.
+
 ## Competition maxima vs tyche internal discipline
 
 The kernel enforces tyche's stricter internal budget; the competition maxima are
