@@ -182,9 +182,17 @@ def plan_tick(
     book: Watchlist, snapshot: AccountSnapshot, quotes: list[MarketQuote],
     pending: list[OrderIntent], raw_orders: list[dict], events: list[dict],
     state: MonitorState, config: AppConfig, now: datetime, *, halted: bool = False,
+    skip: dict[str, str] | None = None,
 ) -> dict:
+    """One pass of the PB-002 stock and PB-003 option lanes. Never submits.
+
+    `skip` maps shared tickers the PB-004 scalp holds this run (tyche.leases) to the reason: their
+    shares are not this lane's, so it neither manages nor buys them, and they do not use up its
+    stock allocation. Options on those tickers are still this lane's own.
+    """
     if now.tzinfo is None:
         raise ValueError("timezone-aware clock required")
+    skip = skip or {}
     cfg = config.tactical
     today = now.astimezone(ET).date()
     phase = phase_at(now)
@@ -235,7 +243,8 @@ def plan_tick(
                 symbol in entries and entries[symbol].invalidated
             )})
             entries[symbol] = protected
-    uncovered = [p.symbol for p in snapshot.positions if p.underlying in cfg.symbols and p.symbol not in entries]
+    uncovered = [p.symbol for p in snapshot.positions
+                 if p.underlying in cfg.symbols and p.symbol not in entries and p.symbol not in skip]
     if uncovered:
         # An alert, not a brake: a lot with no plan on file is a problem to fix, and holding every other
         # setup back until it is fixed only adds a second problem (MSFT on 2026-11-23).
@@ -260,6 +269,9 @@ def plan_tick(
             decision["reason"] = reason
             state.observations.pop(key, None)
 
+        if entry.option is None and entry.symbol in skip:
+            reject(skip[entry.symbol])
+            continue
         if entry.underlying not in cfg.symbols:
             reject("outside tactical universe; ETF ballast has its own planner")
             continue
@@ -484,8 +496,11 @@ def plan_tick(
                                  stop_price=None if entry.option else entry.stop,
                                  strategy_id="PB-003" if entry.option else "PB-002", setup_id=key,
                                  reason=entry.thesis)
-            tactical_stock = sum(p.market_value for p in projected.positions if not p.option and p.symbol in cfg.symbols)
-            tactical_stock += sum(o.notional for o in pending if o.side == Side.BUY and not o.option and o.symbol in cfg.symbols)
+            # Shares the scalp holds in a shared ticker are its own lane's, not this lane's allocation.
+            tactical_stock = sum(p.market_value for p in projected.positions
+                                 if not p.option and p.symbol in cfg.symbols and p.symbol not in skip)
+            tactical_stock += sum(o.notional for o in pending if o.side == Side.BUY and not o.option
+                                  and o.symbol in cfg.symbols and o.symbol not in skip)
             if not entry.option and tactical_stock + intent.notional > cfg.stock_allocation_cap * projected.nav:
                 reject("tactical-stock allocation exhausted")
                 continue

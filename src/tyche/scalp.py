@@ -151,8 +151,12 @@ def plan_scalp(
     quotes: dict[str, MarketQuote], bars: dict[str, list[Bar]], state: ScalpState,
     snapshot: AccountSnapshot, config: AppConfig, now: datetime, *,
     orders_today: int = 0, traded_notional_today: float = 0.0, halted: bool = False,
+    skip: set[str] | frozenset[str] = frozenset(),
 ) -> dict:
-    """Exit open lots first, then one entry per eligible symbol. Never submits."""
+    """Exit open lots first, then one entry per eligible symbol. Never submits.
+
+    `skip` names shared tickers the PB-002 stock lane holds this run (tyche.leases): no entry there.
+    """
     cfg = config.scalp
     today = now.astimezone(ET).date()
     report = {"as_of": now.isoformat(), "strategy": "PB-004", "orders": [], "decisions": [],
@@ -211,6 +215,9 @@ def plan_scalp(
         decision = {"symbol": symbol, "action": "wait", "reason": ""}
         report["decisions"].append(decision)
         if symbol in state.lots:
+            continue
+        if symbol in skip:
+            decision["reason"] = "shared ticker held or worked by the PB-002 stock lane this run"
             continue
         q = quotes.get(symbol)
         if q is None or not q.fresh(now, max_age):

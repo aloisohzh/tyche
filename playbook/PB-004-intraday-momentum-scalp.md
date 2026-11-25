@@ -46,6 +46,12 @@ validated against a random entry in the same regime. Drift ≠ edge.
 ## Universe / liquidity filter
 `config/scalp.yaml`: US.NVDA, US.AMD, US.AVGO, US.MU, US.SMH. All large and liquid, so the binding
 liquidity test is the spread gate, not market cap: `max_spread_pct: 0.001`.
+Since 2026-11-25 the same five tickers are also on the PB-002 stock lane's list. They are shared one lane
+at a time (`src/tyche/leases.py`): in each run of `tyche cycle` a ticker belongs to the lane that holds
+shares in it, has an order working or a reservation on its way, and the other lane neither enters it nor
+touches its shares. A free ticker goes to the scalp for the run when it enters, because the scalp plans
+first. Shares no journal explains still go to the scalp, which sells them, unless today's watchlist has a
+stock setup for the ticker. The scalp's own parameter file is unchanged, so its rules hash is too.
 
 ## Entry trigger
 Deterministic, per tick:

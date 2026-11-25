@@ -17,6 +17,16 @@
     {"symbol": "US.MCD", "side": "sell", "max_qty": 70, "max_total_qty": 140, "limit_min": 196.0},
     {"symbol": "US.MSFT", "side": "buy", "max_qty": 20, "max_total_qty": 40, "limit_max": 575.0},
     {"symbol": "US.MSFT", "side": "sell", "max_qty": 40, "max_total_qty": 80, "limit_min": 350.0},
+    {"symbol": "US.NVDA", "side": "buy", "max_qty": 64, "max_total_qty": 2000, "limit_max": 199.0},
+    {"symbol": "US.NVDA", "side": "sell", "max_qty": 128, "max_total_qty": 2000, "limit_min": 99.0},
+    {"symbol": "US.AMD", "side": "buy", "max_qty": 24, "max_total_qty": 2000, "limit_max": 545.0},
+    {"symbol": "US.AMD", "side": "sell", "max_qty": 48, "max_total_qty": 2000, "limit_min": 266.0},
+    {"symbol": "US.AVGO", "side": "buy", "max_qty": 32, "max_total_qty": 2000, "limit_max": 377.0},
+    {"symbol": "US.AVGO", "side": "sell", "max_qty": 64, "max_total_qty": 2000, "limit_min": 196.0},
+    {"symbol": "US.MU", "side": "buy", "max_qty": 15, "max_total_qty": 2000, "limit_max": 850.0},
+    {"symbol": "US.MU", "side": "sell", "max_qty": 30, "max_total_qty": 2000, "limit_min": 410.0},
+    {"symbol": "US.SMH", "side": "buy", "max_qty": 23, "max_total_qty": 2000, "limit_max": 553.0},
+    {"symbol": "US.SMH", "side": "sell", "max_qty": 46, "max_total_qty": 2000, "limit_min": 276.0},
     {"symbol": "US.KO", "side": "buy", "multiplier": 100, "max_qty": 5, "max_total_qty": 10, "limit_max": 40.0},
     {"symbol": "US.KO", "side": "sell", "multiplier": 100, "max_qty": 10, "max_total_qty": 20, "limit_min": 0.01},
     {"symbol": "US.PG", "side": "buy", "multiplier": 100, "max_qty": 5, "max_total_qty": 10, "limit_max": 40.0},
@@ -28,7 +38,17 @@
     {"symbol": "US.MCD", "side": "buy", "multiplier": 100, "max_qty": 5, "max_total_qty": 10, "limit_max": 40.0},
     {"symbol": "US.MCD", "side": "sell", "multiplier": 100, "max_qty": 10, "max_total_qty": 20, "limit_min": 0.01},
     {"symbol": "US.MSFT", "side": "buy", "multiplier": 100, "max_qty": 5, "max_total_qty": 10, "limit_max": 40.0},
-    {"symbol": "US.MSFT", "side": "sell", "multiplier": 100, "max_qty": 10, "max_total_qty": 20, "limit_min": 0.01}
+    {"symbol": "US.MSFT", "side": "sell", "multiplier": 100, "max_qty": 10, "max_total_qty": 20, "limit_min": 0.01},
+    {"symbol": "US.NVDA", "side": "buy", "multiplier": 100, "max_qty": 5, "max_total_qty": 10, "limit_max": 40.0},
+    {"symbol": "US.NVDA", "side": "sell", "multiplier": 100, "max_qty": 10, "max_total_qty": 20, "limit_min": 0.01},
+    {"symbol": "US.AMD", "side": "buy", "multiplier": 100, "max_qty": 5, "max_total_qty": 10, "limit_max": 40.0},
+    {"symbol": "US.AMD", "side": "sell", "multiplier": 100, "max_qty": 10, "max_total_qty": 20, "limit_min": 0.01},
+    {"symbol": "US.AVGO", "side": "buy", "multiplier": 100, "max_qty": 5, "max_total_qty": 10, "limit_max": 40.0},
+    {"symbol": "US.AVGO", "side": "sell", "multiplier": 100, "max_qty": 10, "max_total_qty": 20, "limit_min": 0.01},
+    {"symbol": "US.MU", "side": "buy", "multiplier": 100, "max_qty": 5, "max_total_qty": 10, "limit_max": 40.0},
+    {"symbol": "US.MU", "side": "sell", "multiplier": 100, "max_qty": 10, "max_total_qty": 20, "limit_min": 0.01},
+    {"symbol": "US.SMH", "side": "buy", "multiplier": 100, "max_qty": 5, "max_total_qty": 10, "limit_max": 40.0},
+    {"symbol": "US.SMH", "side": "sell", "multiplier": 100, "max_qty": 10, "max_total_qty": 20, "limit_min": 0.01}
   ],
-  "note": "Standing paper approval for the PB-002 stock lane and the PB-003 long-option lane, Wed 25 to Fri 27 Nov 2026 (the last sessions of the challenge). Read by `tyche cycle`. Paper account only. A line with multiplier 100 on a stock symbol covers any standard option on that stock. The numbers are fat-finger guards: about 10% of NAV per stock order, at most twice a day, prices within about 15% above and 30% below the 24 Nov levels. The real limits are the kernel's own: risk 1% of NAV to the stop, the researcher's size per setup, 20% of NAV per name, 25% for all tactical stocks, 0.75% of NAV per option and 5% for all options. The PB-004 scalp keeps data/scalp-approvals.json."
+  "note": "Standing paper approval for the PB-002 stock lane and the PB-003 long-option lane, Wed 25 to Fri 27 Nov 2026 (the last sessions of the challenge). Read by `tyche cycle`. Paper account only. A line with multiplier 100 on a stock symbol covers any standard option on that stock. The numbers are fat-finger guards: about 10% of NAV per stock order, at most twice a day, prices within about 15% above and 30% below the 24 Nov levels. The real limits are the kernel's own: risk 1% of NAV to the stop, the researcher's size per setup, 20% of NAV per name, 25% for all tactical stocks, 0.75% of NAV per option and 5% for all options. The PB-004 scalp keeps data/scalp-approvals.json. Added 2026-11-25 on the operator's request to trade the five scalp chips in every lane: NVDA, AMD, AVGO, MU and SMH, stock and option lines. Each chip stock line allows about 10% of NAV per order at prices from 20% above the 23 Nov close down to 35% below the 24 Nov midday price (chips moved 7 to 11% in a day), and 2,000 shares a day, the scalp file's own daily figure, because a ticker's daily usage counts both lanes. `tyche cycle` gives each shared ticker to one lane per run (src/tyche/leases.py)."
 }

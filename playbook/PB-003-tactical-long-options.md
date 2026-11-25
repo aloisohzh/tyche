@@ -21,7 +21,7 @@ classification:
   re-hashes the lane. From 25 to 27 Nov 2026 an entry inside the operator's standing paper approval
   (`data/standing-approval.json`: at most 5 contracts an order on a tactical symbol) is placed by
   `tyche cycle` with no per-order ask; selling a held contract never needs a line.
-- **Rules hash:** `4d305127a2cd` (sha256 of `config/tactical.yaml` + `config/universe.yaml`, CRLF normalized,
+- **Rules hash:** `a70f84c3936a` (sha256 of `config/tactical.yaml` + `config/universe.yaml`, CRLF normalized,
   first 12). PB-002 and PB-003 are one lane with one parameter file, so they share this hash; see the
   [PB-002 page](PB-002-tactical-stocks.md) for the history. This page adds no rules bytes, so no re-freeze.
 - **Validation:** unvalidated. No option order has been sent on this account before this test.
@@ -42,7 +42,8 @@ can still lose money. The aim of this first week is plumbing proof: that an opti
 approved, filled, protected and closed on this paper account, with fees journaled.
 
 ## Universe / liquidity filter
-Underlyings are the tactical lane's symbols in `config/tactical.yaml` (today MSFT, KO, PG, JNJ, PEP, MCD).
+Underlyings are the tactical lane's symbols in `config/tactical.yaml` (since 2026-11-25 MSFT, KO, PG,
+JNJ, PEP, MCD and the chips NVDA, AMD, AVGO, MU, SMH; an option never collides with the scalp's shares).
 The contract must be a standard, 100-share, US-listed call or put from `quote_option_chain`, with:
 - expiry after Fri 27 Nov 2026 and within 30 days (the lane's 2-30 day limits),
 - open interest ≥ 100 and day volume ≥ 50,

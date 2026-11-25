@@ -549,9 +549,10 @@ def load_config(root: Path) -> AppConfig:
     universe = UniverseConfig.model_validate(_read_yaml(config_dir / "universe.yaml"))
     if tactical.enabled and set(tactical.symbols) & set(universe.by_symbol()):
         raise ValueError("tactical and ballast symbols must not overlap; separate position ownership")
-    if scalp.enabled and set(scalp.symbols) & (
-            set(universe.by_symbol()) | (set(tactical.symbols) if tactical.enabled else set())):
-        raise ValueError("scalp symbols must not overlap ballast/tactical ownership")
+    # The scalp may share tickers with the PB-002 stock lane (2026-11-25): `tyche cycle` gives each shared
+    # ticker to one lane per run (tyche.leases). The ballast universe stays separate.
+    if scalp.enabled and set(scalp.symbols) & set(universe.by_symbol()):
+        raise ValueError("scalp symbols must not overlap ballast ownership")
     owned: dict[str, str] = {symbol: "ballast universe" for symbol in universe.by_symbol()}
     if tactical.enabled:
         owned.update({symbol: "tactical lane" for symbol in tactical.symbols})

@@ -19,9 +19,11 @@ classification:
   25 to 27 Nov 2026 an entry inside the operator's standing paper approval
   (`data/standing-approval.json`) is placed by `tyche cycle` with no per-order ask; outside those dates an
   entry again needs a same-day envelope or a Telegram `/approve`. Selling a held lot never needs a line.
-- **Rules hash:** `4d305127a2cd` (sha256 of `config/tactical.yaml` + `config/universe.yaml`, CRLF normalized,
+- **Rules hash:** `a70f84c3936a` (sha256 of `config/tactical.yaml` + `config/universe.yaml`, CRLF normalized,
   first 12). PB-002 and PB-003 are one lane with one parameter file, so they share this hash: editing the
-  file re-registers the pair. `58a3ce686238` was the hash from 2026-11-24 until 2026-11-25, when the lane's
+  file re-registers the pair. `4d305127a2cd` was the hash on 2026-11-25 until the five scalp chips (NVDA,
+  AMD, AVGO, MU, SMH) joined this lane's symbols that evening, shared with the scalp one lane per run (see
+  Universe below); `tyche cycle` registers the new hash by itself. `58a3ce686238` was the hash from 2026-11-24 until 2026-11-25, when the lane's
   clocks were reset for a desk that agents run every 15 minutes instead of a 30-second feed (quotes and
   the account read good for 15 minutes, one confirming quote, research good for the session, ten minutes
   to send a reserved order) and stock exits were priced 0.3% under the bid (`exit_collar_pct`): with the
@@ -50,10 +52,19 @@ deadline. The desk buys only at that zone, only on the day the thesis was writte
 if the target pays at least 1.5 times the distance to the stop. The bet is that a documented, time-boxed
 reason plus strict reward-to-risk filtering beats both idle cash and undocumented discretion.
 
-The current list (2026-11-23) is MSFT plus five low-beta defensives: KO, PG, JNJ, PEP and MCD. The
-operator's standing thesis behind the defensives is a risk-off rotation into staples and healthcare,
-long only: if the broad tape weakens, these names should fall less and recover first, and their earnings
-and dividend news give the researcher concrete catalysts to write against.
+The list since 2026-11-25 is MSFT, five low-beta defensives (KO, PG, JNJ, PEP and MCD) and the five
+scalp chips (NVDA, AMD, AVGO, MU and SMH). The operator's standing thesis behind the defensives is a
+risk-off rotation into staples and healthcare, long only: if the broad tape weakens, these names should
+fall less and recover first, and their earnings and dividend news give the researcher concrete catalysts
+to write against. The chips were added on the operator's request so the semiconductor names the scalp
+trades intraday can also be held as researched pullback setups.
+
+The chips are shared with the PB-004 scalp, one lane at a time (`src/tyche/leases.py`). Each run of
+`tyche cycle` gives every shared ticker to the lane that holds shares in it, has an order working for
+it or a reservation on its way; a ticker nobody holds is free, and the scalp, which plans first, takes
+it for that run if it enters. Neither lane buys, sells or counts the other's shares, so no share is
+ever managed twice; the stock lane's per-name cap still counts every share and option on the name.
+SMH is an ETF (`etf_symbols`), so the market-cap floor does not apply to it.
 
 ## Edge
 Why it should work after fees: every entry needs reward/risk ≥ 1.5 at the underlying, so a win rate of

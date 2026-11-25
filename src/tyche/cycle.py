@@ -42,6 +42,7 @@ from tyche.execution_state import (
 )
 from tyche.halt import effective_halt
 from tyche.journal import append_locked, journal_lock, read_events, verify_chain
+from tyche.leases import SCALP, STOCK, shared_symbols, ticker_leases
 from tyche.market_calendar import ET, SessionPhase, phase_at, regular_close
 from tyche.models import OPTION_SYMBOL, AccountSnapshot, OptionContract
 from tyche.scalp import ScalpLot, ScalpState, bars_from_kline, plan_scalp, scalp_state
@@ -452,14 +453,17 @@ def merged_orders(payload) -> tuple[dict, str | None]:
 
 
 def reconcile_scalp_lots(state: ScalpState, snapshot: AccountSnapshot, rows: list[dict], config,
-                         now: datetime, today) -> list[str]:
+                         now: datetime, today, skip: set[str] | frozenset[str] = frozenset()) -> list[str]:
     """Make the journal's scalp lots agree with what the broker actually holds.
 
     The broker's positions are the truth. A lot the broker does not hold is closed; a lot of a
     different size is resized; shares of a scalp symbol that no lot explains are sold at once, because
-    this lane is flat by the close and nothing else may own its symbols.
+    this lane is flat by the close. A shared ticker the stock lane holds this run (`skip`, see
+    tyche.leases) is left alone entirely: its shares are that lane's to manage.
     """
     cfg, alerts = config.scalp, []
+    for symbol in [s for s in state.lots if s in skip]:
+        state.lots.pop(symbol)
     for symbol in list(state.lots):
         position = snapshot.position(symbol)
         if position is None or position.quantity <= 0:
@@ -475,7 +479,8 @@ def reconcile_scalp_lots(state: ScalpState, snapshot: AccountSnapshot, rows: lis
         elif quantity != state.lots[symbol].quantity:
             state.lots[symbol] = state.lots[symbol].model_copy(update={"quantity": quantity})
     for position in snapshot.positions:
-        if position.symbol in cfg.symbols and position.symbol not in state.lots and position.quantity > 0:
+        if (position.symbol in cfg.symbols and position.symbol not in state.lots and position.symbol not in skip
+                and position.quantity > 0):
             cost = position.avg_cost or position.last_price
             if cost <= 0:
                 continue
@@ -675,13 +680,26 @@ def run_cycle(*, directory: Path, record: bool, now: datetime, config_root: Path
         sells: list[dict] = []
         buys: list[dict] = []
 
+        # Shared tickers (2026-11-25): a ticker both lanes may trade is held by one lane per run.
+        scalp_cfg = config.scalp
+        scalp_book = scalp_state(events, today, scalp_cfg.timeout_minutes, stop_pct=scalp_cfg.stop_pct,
+                                 target_r=scalp_cfg.target_r, never_sent=dead_request_ids(events, rows, now))
+        leases, lease_alerts = ticker_leases(
+            shared_symbols(config), events=events, rows=rows, snapshot=snapshot, scalp_lots=set(scalp_book.lots),
+            stock_setups={e.symbol for e in watchlist.entries if e.option is None}, today=today, now=now)
+        out["alerts"].extend(lease_alerts)
+        if leases:
+            out["shared_tickers"] = dict(leases)
+        scalp_skip = {symbol for symbol, lane in leases.items() if lane == STOCK}
+        stock_skip = {symbol: "shared ticker held or worked by the PB-004 scalp this run"
+                      for symbol, lane in leases.items() if lane == SCALP}
+
         # 2. PB-004 scalp: exits first, then breakout entries (regular session only).
         scalp_report: dict = {"decisions": [], "orders": [], "alerts": []}
         if config.scalp.enabled and config.strategy_enabled("PB-004") and not premarket:
             cfg = config.scalp
-            state = scalp_state(events, today, cfg.timeout_minutes, stop_pct=cfg.stop_pct, target_r=cfg.target_r,
-                                never_sent=dead_request_ids(events, rows, now))
-            out["alerts"].extend(reconcile_scalp_lots(state, snapshot, rows, config, now, today))
+            state = scalp_book
+            out["alerts"].extend(reconcile_scalp_lots(state, snapshot, rows, config, now, today, skip=scalp_skip))
             bars = {}
             for symbol in cfg.symbols:
                 path = directory / f"bars-{symbol}.json"
@@ -695,7 +713,9 @@ def run_cycle(*, directory: Path, record: bool, now: datetime, config_root: Path
                     out["alerts"].append(f"{symbol}: 1-minute bars unusable ({str(exc)[:60]})")
             count, turnover = combined_usage(events, rows, today, contracts)
             scalp_report = plan_scalp(quote_map, bars, state, snapshot, config, now, orders_today=count,
-                                      traded_notional_today=turnover, halted=halted)
+                                      traded_notional_today=turnover, halted=halted, skip=scalp_skip)
+            entering = {o["intent"]["symbol"] for o in scalp_report["orders"]
+                        if o["intent"].get("side") == "buy" and o["intent"].get("symbol") in leases}
             if record and scalp_report["orders"]:
                 batch, mode, how = resolve_batch(scalp_envelope, events, today)
                 armed = arm_scalp_locked(scalp_report["orders"], batch=batch, mode=mode, how=how, journal=ledger,
@@ -708,8 +728,13 @@ def run_cycle(*, directory: Path, record: bool, now: datetime, config_root: Path
                         (sells if row["side"] == "sell" else buys).append(row)
                         cancel_ids.update(row["cancel_first"])
                     else:
+                        if item.get("side") == "buy":
+                            entering.discard(item.get("symbol"))  # refused: the ticker stays free this run
                         out["alerts"].append(f"{item['symbol']} scalp {item['side']} not sent: "
                                              f"{item.get('skipped') or item.get('denied')}")
+            for symbol in entering:
+                # The scalp plans first, so a free shared ticker it enters is its own for this run.
+                stock_skip[symbol] = "shared ticker the PB-004 scalp enters this run"
             # An entry still unfilled after its time-to-live is pulled so the symbol is free again.
             for row in rows:
                 created = _created(row)
@@ -741,7 +766,7 @@ def run_cycle(*, directory: Path, record: bool, now: datetime, config_root: Path
                     if line is not None and line.max_qty and (entry.max_quantity or line.max_qty + 1) > line.max_qty:
                         entry.max_quantity = line.max_qty
             tactical_report = plan_tick(watchlist, snapshot, quotes, pending_intents(rows, contracts), rows,
-                                        events, state, config, now, halted=halted)
+                                        events, state, config, now, halted=halted, skip=stock_skip)
             if record:
                 append("tactical.monitor", {"state": state.model_dump(mode="json"),
                                             "alerts": tactical_report["alerts"]})

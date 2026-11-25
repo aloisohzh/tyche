@@ -1,12 +1,13 @@
 # PB-004 scalp is the primary lane (2026-11-19 operator direction). The tactical
 # lane is enabled for the MSFT lifecycle mechanics test plus, from 2026-11-23, five low-beta
-# defensives (operator thesis: risk-off rotation into staples/healthcare, long only). Scalp
-# symbols must not overlap a lane that can also trade them.
+# defensives (operator thesis: risk-off rotation into staples/healthcare, long only).
+# From 2026-11-25 (operator) the five scalp chips are shared with this lane: `tyche cycle` gives a
+# shared ticker to one lane per run (src/tyche/leases.py), so no share is ever managed twice.
 enabled: true
 options_enabled: false
 execution_enabled: true
-symbols: [US.MSFT, US.KO, US.PG, US.JNJ, US.PEP, US.MCD]
-etf_symbols: []
+symbols: [US.MSFT, US.KO, US.PG, US.JNJ, US.PEP, US.MCD, US.NVDA, US.AMD, US.AVGO, US.MU, US.SMH]
+etf_symbols: [US.SMH]
 stock_allocation_cap: 0.25
 max_name_weight: 0.20
 min_reward_risk: 1.5

@@ -63,9 +63,11 @@ def test_paper_allocation_profile_preserves_risk_limits() -> None:
     assert config.risk.daily_loss_limit_pct == pytest.approx(0.025)
     assert config.risk.soft_drawdown_pct == pytest.approx(0.04)
     assert config.risk.hard_drawdown_pct == pytest.approx(0.06)
-    # PB-004 is the live lane; any enabled tactical lane must own disjoint symbols.
+    # PB-004 is the live lane. From 2026-11-25 its five chips are shared with the tactical lane, one
+    # lane per run (tyche.leases); the scalp still never shares a ticker with the ballast universe.
     assert config.scalp.enabled
-    assert not set(config.scalp.symbols) & set(config.tactical.symbols)
+    assert set(config.scalp.symbols) <= set(config.tactical.symbols)
+    assert not set(config.scalp.symbols) & set(config.universe.by_symbol())
     assert config.scalp.max_round_trips_per_day == 50
     assert TacticalConfig().execution_enabled is False  # model default stays closed
     assert not config.risk.allow_short
