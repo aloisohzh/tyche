@@ -1,6 +1,6 @@
 {
   "as_of": "2026-11-25",
-  "note": "Draft for operator approval, written 2026-11-25 08:40 ET from the Moomoo quotes read at that minute and the 25 Nov Scout capture. Not an order: nothing here trades until this file is copied to the Drive watchlist path and the operator has approved it (trading halt, operator ruling 25 Nov 2026). Levels are the plan, the kernel decides.",
+  "note": "Draft for operator approval, written 2026-11-25 08:40 ET from the Moomoo quotes read at that minute and the 25 Nov Scout capture, with the US.KO swing setup added at 09:15 ET from the 09:13 ET snapshot and 22 daily bars. Not an order: nothing here trades until the operator approves it. Levels are the plan, the kernel decides.",
   "entries": [
     {
       "symbol": "US.NVDA",
@@ -179,6 +179,85 @@
         "https://news.futunn.com/post/1005622835",
         "research/sources/2026-11-25/semiconductor-scout.json",
         "moomoo quote US.NVDA261218C150000 2026-11-25 08:40 ET (last 9.55, open interest 22950, volume 109, delta 0.4908, implied vol 76.185, 23 days to expiry)"
+      ]
+    },
+    {
+      "symbol": "US.KO",
+      "sleeve": "defensive",
+      "strategy": "PB-002",
+      "hold": "swing",
+      "direction": "bullish",
+      "status": "watch",
+      "setup_id": "KO-20261125-SWING",
+      "entry_low": 96.8,
+      "entry_high": 98.3,
+      "stop": 94.4,
+      "target": 105.0,
+      "expiry": "2026-12-04",
+      "confirmation_ticks": 1,
+      "max_quantity": 100,
+      "market_cap_usd": 419951705942,
+      "reviewed_at": "2026-11-25T09:15:00-05:00",
+      "catalyst": "No KO-specific event in the window. The driver is the tape: BNP Paribas raised its KO price target to 107 from 102 on 25 Nov (MT Newswires, 05:30 ET), and the Street average of 100.14 sits just above the 24 Nov close.",
+      "thesis": "Money is rotating out of the AI complex and into staples on the same tape that knocked 5.9% off NVIDIA on 24 Nov: KO closed 97.62, up 1.81% on the day NVDA fell 5.86%, and it trades 98.19 in the 25 Nov premarket - 1.9% above its 20-day average of 96.33 and only 2.4% below its all-time high of 100.56. The 23 Nov low of 94.60 has now held twice (19 Nov low 94.73), so the pullback has a floor under it and the breakout has a ceiling above it that is 2.4% away. The desk buys the floor, not the ceiling: entry 96.80-98.30, stop 94.40 under both swing lows, target 105.00 for a move through the old high.",
+      "synthesis": "Long 100 Coca-Cola shares as a defensive-rotation swing to 4 Dec. This is the operator's own 23 Nov thesis (risk-off into staples and healthcare, long only) with the tape finally agreeing, and it diversifies a book that is currently all NVIDIA.",
+      "edge": "(105.00 - 98.30) / (98.30 - 94.40) = 1.72 reward per unit of risk, above the lane's 1.5 floor, and the stop is 2.0 times KO's own 14-day average range of 1.94 rather than an arbitrary round number. A full stop-out costs about 0.39% of NAV, well inside the 1% per-trade risk budget.",
+      "bear_case": "KO is not cheap on any measure: 32.1 trailing PE, 28.8 PE TTM, price to book 11.2, and the Street's average target of 100.14 is only 2.6% above the last close, so there is no valuation cushion if the rotation reverses. The 24 Nov rise came on 21.6M shares, a volume ratio of 0.909, i.e. below average participation, and a risk-on snap-back after the holiday would take the bid out of staples first.",
+      "invalidation": "A regular close below 94.60 means the twice-held floor has gone and the rotation is over: exit at the 94.40 stop. If the price runs above 98.30 without filling the zone, the entry is skipped rather than chased, and the 4 Dec hold-by date closes the trade regardless of price.",
+      "horizon": "Swing: held across sessions to 4 Dec 2026, or its stop, or its target, whichever comes first. Never closed because a session ended.",
+      "factors": [
+        {
+          "name": "defensive-rotation-reclaim",
+          "axis": "technical",
+          "state": "pass",
+          "why": "KO closed 97.62 on 24 Nov (+1.81%) on a day semis fell 5.9%, sits 1.9% above its 20-day average of 96.33, and 2.4% under its all-time high of 100.56",
+          "detail": "Daily bars read 25 Nov 09:14 ET: 19 Nov low 94.73, 23 Nov low 94.60, 24 Nov OHLC 96.24/98.30/95.65/97.62; premarket last 98.19 (+0.58%)"
+        },
+        {
+          "name": "twice-held-swing-low",
+          "axis": "technical",
+          "state": "pass",
+          "why": "The stop at 94.40 sits under the 94.60 and 94.73 lows, so the trade is wrong at a level the market has already defended twice",
+          "detail": "94.40 is 2.0 x the 14-day average true range of 1.94, which keeps ordinary noise from triggering it"
+        },
+        {
+          "name": "quality-cash-flows-not-valuation",
+          "axis": "fundamental",
+          "state": "pass",
+          "why": "Net profit 13.08B, EPS 3.04, dividend 2.04 paying a 2.09% yield, and a beta of -0.05 to the market, which is exactly the profile a risk-off tape bids",
+          "detail": "The case is durability, not price: PE 32.1, PE TTM 28.8 and PB 11.2 are rich, and BNP Paribas's 107 target is the top of the range rather than the average (100.14)"
+        },
+        {
+          "name": "below-average-participation",
+          "axis": "flow",
+          "state": "unknown",
+          "why": "The 24 Nov up-day traded a volume ratio of 0.909, below its own average, and this session captured no KO main-force flow, so the bid is unproven",
+          "detail": "Recorded as unknown rather than a pass: no flow evidence was pulled for KO the way the Scout pulled it for semiconductors"
+        },
+        {
+          "name": "spread-and-size",
+          "axis": "liquidity",
+          "state": "pass",
+          "why": "Bid 98.10 against ask 98.32 is a 0.22% spread inside the lane's 0.30% cap, and 100 shares is 1.0% of the 24 Nov turnover of 21.6M shares",
+          "detail": "Market snapshot 25 Nov 09:13 ET: market cap 419.95B, lot size 1, no suspension flag, status NORMAL"
+        }
+      ],
+      "outlook": {
+        "regime": "Risk-off rotation: AI and semis de-rated on tariff and rate news while staples and healthcare bid",
+        "conviction": "medium",
+        "alignment": {
+          "US.KO": "bull",
+          "staples": "bull",
+          "semiconductors": "bear",
+          "flows": "neutral"
+        }
+      },
+      "thesis_ref": "research/2026-11-25/scout-2026-11-25-semiconductors/market-research.json",
+      "sources": [
+        "https://news.futunn.com/post/1005605257",
+        "moomoo quote US.KO 2026-11-25 09:13 ET (last 97.62 on 24 Nov, premarket 98.19, bid 98.10 / ask 98.32, volume_ratio 0.909)",
+        "moomoo daily klines US.KO 2026-11-25 09:14 ET (22 bars to 24 Nov: SMA20 96.33, ATR14 1.94, high 100.56, 23 Nov low 94.60)",
+        "research/2026-11-25/scout-2026-11-25-semiconductors/market-research.json (sector flows: NVDA main net flow -230.3M on 24 Nov)"
       ]
     }
   ]
