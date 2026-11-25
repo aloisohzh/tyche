@@ -639,6 +639,31 @@ def run_cycle(*, directory: Path, record: bool, now: datetime, config_root: Path
             + (f" {payload['quantity']:g}" if payload.get("quantity") is not None else "")
             for kind, payload in receipts]
         fills = [p for kind, p in receipts if kind == "order.filled"]
+        # A reservation whose window closed with no broker order was never sent. Say so once, loudly:
+        # this is how the operator learns that the orders the command lists are not being placed.
+        told = {(e.get("payload") or {}).get("request_id") for e in events if e.get("type") == "order.unsent"}
+        dead = dead_request_ids(events, rows, now) - told
+        unsent = []
+        for event in list(events):
+            payload = event.get("payload") or {}
+            if event.get("type") != "order.requested" or payload.get("request_id") not in dead:
+                continue
+            try:
+                listed = datetime.fromisoformat(str(event.get("ts")))
+            except ValueError:
+                continue
+            if listed.tzinfo is not None and listed.astimezone(ET).date() == today:
+                unsent.append((listed, payload))
+        for listed, payload in unsent:
+            append("order.unsent", {key: payload.get(key) for key in (
+                "request_id", "symbol", "side", "quantity", "limit_price", "strategy_id")}
+                | {"listed_at": listed.isoformat()})
+        if unsent:
+            names = ", ".join(f"{p.get('side')} {p.get('quantity')} {str(p.get('symbol')).removeprefix('US.')} "
+                              f"(listed {listed.astimezone(ET):%H:%M} ET)" for listed, p in unsent[:6])
+            out["alerts"].append(f"URGENT: {len(unsent)} order(s) the command listed never reached the broker: "
+                                 f"{names}. Each is free to be listed again; check that the executor places "
+                                 "what it is given.")
         cancel_ids: set[str] = set()
         sells: list[dict] = []
         buys: list[dict] = []
@@ -784,7 +809,7 @@ def run_cycle(*, directory: Path, record: bool, now: datetime, config_root: Path
     lines = [_telegram_line(row) for row in out["submit"]]
     if lines or out["fills_seen"]:
         clock = now.astimezone(ET).strftime("%H:%M ET")
-        head = f"TYCHE {clock} (paper): {len(lines)} order(s) placed" if lines else f"TYCHE {clock} (paper)"
+        head = f"TYCHE {clock} (paper): {len(lines)} order(s) sent" if lines else f"TYCHE {clock} (paper)"
         out["telegram"] = "\n".join([head, *lines, *(f"FILLED {text}" for text in out["fills_seen"])])
     urgent = [a for a in out["alerts"] if a.startswith("URGENT")]
     if urgent:

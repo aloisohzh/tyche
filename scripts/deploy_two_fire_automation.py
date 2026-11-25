@@ -192,7 +192,9 @@ for example {{RUN_EXAMPLE}}.
    never an order that is not on the list. It reports the broker's answer for each item.
 5. TELL: when <run>/telegram.txt exists, send it after step 4 with
    `python scripts/telegram.py send "$(cat <run>/telegram.txt)"`, plus one line for each item the
-   broker refused. Send <run>/telegram-urgent.txt the same way when it exists. Otherwise send nothing.
+   broker refused. If the executor placed none of the listed orders, send one line saying so and why
+   instead of the file. Send <run>/telegram-urgent.txt the same way when it exists. Otherwise send
+   nothing.
 That is the whole order path. The command finds the ledger, today's watchlist and the NAV references
 by itself, and the next cycle reads receipts and fills from the broker's order list.
 Never run tactical tick, reserve, scalp, capture, lifecycle or record-order beside it, and never copy

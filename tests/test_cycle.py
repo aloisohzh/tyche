@@ -209,7 +209,7 @@ def test_one_command_carries_a_stock_and_a_scalp_from_entry_to_exit(desk):
     assert nvda["limit_price"] == 100.73 and 0 < nvda["quantity"] * nvda["limit_price"] <= 5000  # 5% of NAV
     assert datetime.fromisoformat(ko["submit_before"]) == NOW + timedelta(minutes=10)
     assert [row["n"] for row in first["submit"]] == [1, 2]
-    assert "2 order(s) placed" in first["telegram"] and "BUY 51 KO @ 96.43" in first["telegram"]
+    assert "2 order(s) sent" in first["telegram"] and "BUY 51 KO @ 96.43" in first["telegram"]
     assert "No record-order" not in first["instructions"] and "no record-order step" in first["instructions"]
     assert len(desk.events("order.requested")) == 2 and verify_chain(desk.ledger)[0]
 
@@ -298,6 +298,14 @@ def test_a_reservation_that_was_never_sent_frees_the_setup_for_the_next_run(desk
     retry = desk.run(NOW + timedelta(minutes=15))      # the window (10 minutes) closed with no broker order
     assert [(row["symbol"], row["side"]) for row in retry["submit"]] == [("US.KO", "buy")], retry
     assert len(desk.events("order.requested")) == 2
+    # The operator is told, once, that a listed order was not placed: silence here is how a desk
+    # that lists orders nobody sends could go unnoticed for a whole session.
+    assert "1 order(s) the command listed never reached the broker: buy 51 KO (listed 10:10 ET)" in retry["telegram_urgent"]
+    assert [e["payload"]["symbol"] for e in desk.events("order.unsent")] == ["US.KO"]
+    desk.order(retry["submit"][0]["remark"], "US.KO", 1, 51, 96.43, status=2, filled=0,
+               at=NOW + timedelta(minutes=16))
+    third = desk.run(NOW + timedelta(minutes=30))      # the second listing was placed and is working
+    assert "telegram_urgent" not in third and len(desk.events("order.unsent")) == 1
 
 
 def test_a_price_just_above_the_zone_rests_a_day_order_at_the_plan_price(desk):
