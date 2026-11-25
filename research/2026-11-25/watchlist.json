@@ -1,264 +1,293 @@
 {
-  "as_of": "2026-11-25",
-  "note": "Draft for operator approval, written 2026-11-25 08:40 ET from the Moomoo quotes read at that minute and the 25 Nov Scout capture, with the US.KO swing setup added at 09:15 ET from the 09:13 ET snapshot and 22 daily bars. All three setups were approved by the operator and placed by hand from the desktop session on 25 Nov: NVDA 66 at 145.20, one NVDA 18 Dec 150 call at 9.12, KO 100 at 98.195 average. Their status is now entered. The two NVDA rows carry the levels actually traded after the operator waived the reclaim, which is what their journaled order.requested rows protect; the KO row was filled at 98.195 on its own plan levels. Not an order authorization for anything else: nothing here trades until the operator approves it. Levels are the plan, the kernel decides.",
-  "entries": [
+ "as_of": "2026-11-25",
+ "note": "Draft for operator approval, written 2026-11-25 08:40 ET from the Moomoo quotes read at that minute and the 25 Nov Scout capture, with the US.KO swing setup added at 09:15 ET from the 09:13 ET snapshot and 22 daily bars. All three setups were approved by the operator and placed by hand from the desktop session on 25 Nov: NVDA 66 at 145.20, one NVDA 18 Dec 150 call at 9.12, KO 100 at 98.195 average. Their status is now entered. The two NVDA rows carry the levels actually traded after the operator waived the reclaim, which is what their journaled order.requested rows protect; the KO row was filled at 98.195 on its own plan levels. Not an order authorization for anything else: nothing here trades until the operator approves it. Levels are the plan, the kernel decides.",
+ "entries": [
+  {
+   "symbol": "US.NVDA",
+   "sleeve": "equity",
+   "strategy": "PB-002",
+   "hold": "swing",
+   "direction": "bullish",
+   "status": "entered",
+   "setup_id": "NVDA-20261125-SWING",
+   "entry_low": 144.0,
+   "entry_high": 146.0,
+   "stop": 141.0,
+   "target": 156.0,
+   "expiry": "2026-12-04",
+   "confirmation_ticks": 1,
+   "max_quantity": 66,
+   "market_cap_usd": 3560000000000,
+   "reviewed_at": "2026-11-25T09:20:00-05:00",
+   "catalyst": "Jensen Huang testifies before the Senate Banking Committee Wed 3 Dec 2026 (Bloomberg, reported 25 Nov 2026); post-Thanksgiving seasonal window noted by McMillan/MarketWatch 25 Nov",
+   "thesis": "TRADED LEVELS (operator override, 25 Nov 09:00 ET: buy at the lower price instead of waiting for the 151-156 reclaim) - entry zone 144.00-146.00, stop 141.00, target 156.00. NVIDIA has gone from a leadership shock to a valuation floor in nine sessions: 239.24 on 6 Oct to 125.53 on 20 Nov (-47.5%), then +31.5% on 23 Nov when the board re-hired Jensen Huang, then -5.9% on 24 Nov to 155.38, and 146.04 in the 25 Nov premarket while the whole AI complex is down 3-5% on a reported tariff threat to 16 trading partners and a core PCE print of 3.3% y/y, the highest since Nov 2023. The desk is not buying the fall. It buys only if the price reclaims the 24 Nov low of 150.50 and trades back into 151-156, which is the level the 24 Nov close left and the level the bounce has to hold for the 23 Nov reversal to mean anything. Fundamentally the stock trades near 10x forward earnings, its cheapest multiple since 2008 and the lowest of the Mag-7, after at least three sell-side upgrades since the re-hire with targets of 220 (Goldman), 220 (UBS), 240 (Citi) and 270 (StoneX); the mean target implies about +57% over twelve months. That is the case for owning a recovery rather than chasing one: the entry is a level, the stop is 148 (under the 24 Nov low, so a failed reclaim is out for 2-5%), the target 172 is a retest of the 23 Nov high of 171.50, and 172 against a 156 top-of-zone entry is 2.0 reward per unit of risk, above the lane's 1.5 floor.",
+   "synthesis": "Two axes agree and two disagree, so the plan is conditional instead of immediate: valuation and sentiment lean up, trend and fund flows lean down, and the only honest way to trade that split is to let the market prove the support first by reclaiming 150.50-151.00.",
+   "edge": "The lane's edge here is discipline, not forecast: the desk buys a defined level with a defined stop, sizes so a stop-out costs 0.53% of NAV, and holds for a scheduled catalyst rather than a chart. A swing hold is what makes that possible at all, because the reclaim may come a day or two after the entry is reviewed.",
+   "bear_case": "The 25 Nov premarket is a broad AI de-rating (MSFT -3.3%, GOOGL -4.5%, META -2.1%, AMZN -3.4%), not an NVIDIA story, so a reclaim can fail on tape. The Scout capture has NVDA at rank 3, conviction medium, stance watch, with heavy sector outflows, insider selling and price 17% under its 20-day average; the tariff headline and the hearing can both go against the stock, and the 8-K and Form 4 filings of 24-25 Nov show the governance story is unresolved.",
+   "invalidation": "Stop 141.00 (under the 25 Nov premarket low), target 156.00, or the hold-by date. A close below 150.50 with the reclaim never taken means the 23 Nov reversal was a dead-cat bounce: no entry. If filled, the plan is wrong below 148, and the Scout capture's own test, price back above SMA20 175.78, is not met today, so this entry buys support rather than a trend.",
+   "horizon": "Swing: held to the 4 Dec 2026 hold-by date, or its stop, target, or invalidation, whichever comes first. 3 Dec testimony falls inside the hold; 2 Dec is the alternative hold-by if the operator prefers to sit the hearing out.",
+   "factors": [
     {
-      "symbol": "US.NVDA",
-      "sleeve": "equity",
-      "strategy": "PB-002",
-      "hold": "swing",
-      "direction": "bullish",
-      "status": "entered",
-      "setup_id": "NVDA-20261125-SWING",
-      "entry_low": 144.0,
-      "entry_high": 146.0,
-      "stop": 141.0,
-      "target": 156.0,
-      "expiry": "2026-12-04",
-      "confirmation_ticks": 1,
-      "max_quantity": 66,
-      "market_cap_usd": 3560000000000,
-      "reviewed_at": "2026-11-25T09:20:00-05:00",
-      "catalyst": "Jensen Huang testifies before the Senate Banking Committee Wed 3 Dec 2026 (Bloomberg, reported 25 Nov 2026); post-Thanksgiving seasonal window noted by McMillan/MarketWatch 25 Nov",
-      "thesis": "TRADED LEVELS (operator override, 25 Nov 09:00 ET: buy at the lower price instead of waiting for the 151-156 reclaim) - entry zone 144.00-146.00, stop 141.00, target 156.00. NVIDIA has gone from a leadership shock to a valuation floor in nine sessions: 239.24 on 6 Oct to 125.53 on 20 Nov (-47.5%), then +31.5% on 23 Nov when the board re-hired Jensen Huang, then -5.9% on 24 Nov to 155.38, and 146.04 in the 25 Nov premarket while the whole AI complex is down 3-5% on a reported tariff threat to 16 trading partners and a core PCE print of 3.3% y/y, the highest since Nov 2023. The desk is not buying the fall. It buys only if the price reclaims the 24 Nov low of 150.50 and trades back into 151-156, which is the level the 24 Nov close left and the level the bounce has to hold for the 23 Nov reversal to mean anything. Fundamentally the stock trades near 10x forward earnings, its cheapest multiple since 2008 and the lowest of the Mag-7, after at least three sell-side upgrades since the re-hire with targets of 220 (Goldman), 220 (UBS), 240 (Citi) and 270 (StoneX); the mean target implies about +57% over twelve months. That is the case for owning a recovery rather than chasing one: the entry is a level, the stop is 148 (under the 24 Nov low, so a failed reclaim is out for 2-5%), the target 172 is a retest of the 23 Nov high of 171.50, and 172 against a 156 top-of-zone entry is 2.0 reward per unit of risk, above the lane's 1.5 floor.",
-      "synthesis": "Two axes agree and two disagree, so the plan is conditional instead of immediate: valuation and sentiment lean up, trend and fund flows lean down, and the only honest way to trade that split is to let the market prove the support first by reclaiming 150.50-151.00.",
-      "edge": "The lane's edge here is discipline, not forecast: the desk buys a defined level with a defined stop, sizes so a stop-out costs 0.53% of NAV, and holds for a scheduled catalyst rather than a chart. A swing hold is what makes that possible at all, because the reclaim may come a day or two after the entry is reviewed.",
-      "bear_case": "The 25 Nov premarket is a broad AI de-rating (MSFT -3.3%, GOOGL -4.5%, META -2.1%, AMZN -3.4%), not an NVIDIA story, so a reclaim can fail on tape. The Scout capture has NVDA at rank 3, conviction medium, stance watch, with heavy sector outflows, insider selling and price 17% under its 20-day average; the tariff headline and the hearing can both go against the stock, and the 8-K and Form 4 filings of 24-25 Nov show the governance story is unresolved.",
-      "invalidation": "Stop 141.00 (under the 25 Nov premarket low), target 156.00, or the hold-by date. A close below 150.50 with the reclaim never taken means the 23 Nov reversal was a dead-cat bounce: no entry. If filled, the plan is wrong below 148, and the Scout capture's own test, price back above SMA20 175.78, is not met today, so this entry buys support rather than a trend.",
-      "horizon": "Swing: held to the 4 Dec 2026 hold-by date, or its stop, target, or invalidation, whichever comes first. 3 Dec testimony falls inside the hold; 2 Dec is the alternative hold-by if the operator prefers to sit the hearing out.",
-      "factors": [
-        {
-          "name": "reclaim-of-the-24-nov-low",
-          "axis": "technical",
-          "state": "pass",
-          "why": "Entry zone 151.00-156.00 sits above the 24 Nov low of 150.50 and below the 23 Nov bounce high; the kernel buys only inside the zone, so a breakdown never fills and a fill means support held",
-          "detail": "24 Nov OHLC 159.10/159.92/150.50/155.38; 23 Nov 167.04/171.50/156.93/165.05; 25 Nov premarket 146.04 (high 150.40, low 146.02) - the zone is untraded until the price comes back to it"
-        },
-        {
-          "name": "price-under-sma20",
-          "axis": "technical",
-          "state": "fail",
-          "why": "The Scout capture's own NVDA invalidation: no entry while price remains below SMA20 175.78, and price is 146.04",
-          "detail": "This plan buys a defined support reclaim, not a trend. Recorded as a fail so the journal shows the desk knew which side of the trade it was taking."
-        },
-        {
-          "name": "valuation-floor-and-upgrades",
-          "axis": "fundamental",
-          "state": "pass",
-          "why": "About 10x forward earnings, the cheapest multiple since 2008 and the cheapest Mag-7 name, with at least three upgrades since the CEO re-hire (Goldman 220, UBS 220, Citi 240, StoneX 270) and an average target implying +57% in twelve months",
-          "detail": "Bloomberg compiles cited 25 Nov 2026: 15x at end-Oct, 25x at the start of the year, 10x now; Carson Group's chief market strategist on 25 Nov: earnings estimates are still rising, which is why he is not bearish"
-        },
-        {
-          "name": "sector-outflows-and-insider-selling",
-          "axis": "flow",
-          "state": "fail",
-          "why": "The Scout capture records heavy semiconductor outflows and further NVDA insider selling; 8 of the 9 sessions from 13 to 24 Nov closed lower",
-          "detail": "research/sources/2026-11-25/semiconductor-scout.json sector_flows and moomoo-insider refs; volume 386.2M on 24 Nov, turnover_rate 1.66%"
-        },
-        {
-          "name": "put-call-ratio-rollover",
-          "axis": "sentiment",
-          "state": "pass",
-          "why": "Lawrence McMillan, MarketWatch 25 Nov 2026: the NVDA weighted put-call ratio has rolled off its spike and his program reads a contrarian buy signal, meaning put buyers are exhausted",
-          "detail": "His own caveat is recorded: he would prefer the ratio to fall for another day or two, as it did before the April signal, so this is a weak-pass sentiment factor, not a strong one"
-        },
-        {
-          "name": "senate-testimony-2026-12-03",
-          "axis": "catalyst",
-          "state": "unknown",
-          "why": "Huang testifies on 3 Dec before the Senate Banking Committee inside the hold-by window; the event is scheduled and large, its direction is not knowable",
-          "detail": "Sen. Warren has said the re-hiring does not answer Congress on AI-chip export controls; the same week the White House discussed a presidential pardon and possible US equity ownership, which is why the sign is unknown rather than bullish"
-        }
-      ],
-      "outlook": {
-        "regime": "Range with a high-valuation unwind under way; AI complex de-rating on tariff and rate news",
-        "conviction": "low",
-        "alignment": {
-          "US.NVDA": "bull",
-          "semiconductors": "neutral",
-          "macro": "bear",
-          "flows": "bear"
-        }
-      },
-      "thesis_ref": "research/2026-11-25/scout-2026-11-25-semiconductors/market-research.json",
-      "sources": [
-        "https://news.futunn.com/post/1005623278",
-        "https://news.futunn.com/post/1005622835",
-        "https://news.futunn.com/post/1005623485",
-        "https://news.futunn.com/post/1005626670",
-        "https://www.benzinga.com/markets/equities/26/11/63618833/ryan-detrick-says-nvidia-is-cheapest-in-years-after-48-slide-calls-tech-annihilated",
-        "https://www.benzinga.com/trading-ideas/long-ideas/26/11/63619800/jim-cramer-backs-dupont-says-buy-nvidia",
-        "research/sources/2026-11-25/semiconductor-scout.json",
-        "moomoo quote US.NVDA 2026-11-25 08:40 ET (regular 155.38 on 24 Nov, pre_market 146.04)"
-      ]
+     "name": "reclaim-of-the-24-nov-low",
+     "axis": "technical",
+     "state": "pass",
+     "why": "Entry zone 151.00-156.00 sits above the 24 Nov low of 150.50 and below the 23 Nov bounce high; the kernel buys only inside the zone, so a breakdown never fills and a fill means support held",
+     "detail": "24 Nov OHLC 159.10/159.92/150.50/155.38; 23 Nov 167.04/171.50/156.93/165.05; 25 Nov premarket 146.04 (high 150.40, low 146.02) - the zone is untraded until the price comes back to it"
     },
     {
-      "symbol": "US.NVDA261218C150000",
-      "sleeve": "equity",
-      "strategy": "PB-003",
-      "hold": "swing",
-      "direction": "bullish",
-      "status": "entered",
-      "setup_id": "NVDA261218C150-20261125",
-      "entry_low": 144.0,
-      "entry_high": 146.0,
-      "stop": 141.0,
-      "target": 156.0,
-      "expiry": "2026-11-27",
-      "exit_at": "2026-11-27T12:10:00-05:00",
-      "confirmation_ticks": 1,
-      "max_quantity": 1,
-      "premium_limit": 10.0,
-      "market_cap_usd": 3560000000000,
-      "reviewed_at": "2026-11-25T09:20:00-05:00",
-      "option": {
-        "underlying": "US.NVDA",
-        "expiry": "2026-12-18",
-        "right": "call",
-        "strike": 150.0,
-        "multiplier": 100
-      },
-      "catalyst": "Same thesis as NVDA-20261125-SWING: the 3 Dec Senate testimony and the post-Thanksgiving window; this leg only has to prove the option plumbing inside the challenge window",
-      "thesis": "TRADED LEVELS (operator override, 25 Nov 09:00 ET: buy at the lower price instead of waiting for the 151-156 reclaim) - entry zone 144.00-146.00, stop 141.00, target 156.00. The same NVIDIA thesis as the share plan, expressed with one long call so the loss is capped at the premium. NVDA 18 Dec 150 call (US.NVDA261218C150000) printed 9.55 on 25 Nov after a 10.20-10.30 open, on 109 contracts and 22,950 open interest, with delta 0.49, implied volatility 76.2% and 23 days to expiry; the 14.209 previous settlement shows how much premium the -5.9% 24 Nov day took out. It is the only tactical contract that clears this lane's own filters: the 4 Dec and 11 Dec weeklies fail the volume floor (29 and 30 contracts on 24 Nov) and the 155 and 160 strikes fail the 0.45 delta floor. One contract at about 9.55 is roughly $955 plus fees, which fits the 1.5% per-trade premium budget (about $1,482) and the 5% aggregate cap.",
-      "synthesis": "Buying the option instead of the shares here is the test, not the bet: same levels, same thesis, a known maximum loss, and the desk's first proof that an option can be planned, approved, filled, protected and closed on this account.",
-      "edge": "Time-boxed and small: the hold-by date is Fri 27 Nov, the last session of the challenge window, so this leg cannot become a stranded position. The lane's exit rules sell at the bid if the underlying hits 148 or 172, if the premium falls 40% from the fill, or at 12:10 ET on 27 Nov, whichever comes first.",
-      "bear_case": "The call is at the money against a falling tape: at a 146.04 premarket the 150 strike is out of the money and delta 0.49 sits only just above the 0.45 floor, so if NVDA keeps sliding the contract stops qualifying before it loses more. Implied vol of 76% is expensive, theta is about -0.25 per day, and a flat three days costs roughly 2.5 points of the 9.55.",
-      "invalidation": "Stop 141.00 (under the 25 Nov premarket low), target 156.00, or the hold-by date. Per the lane: underlying at 148, the option's bid at 60% of the price paid, the share thesis invalidated, or the 27 Nov deadline. Under the operator ruling of 24 Nov this option does not wait for the underlying to enter the 151-156 zone - the first in-session run that finds the contract inside the liquidity filter buys it, so on a down morning it can be bought below the share zone. Turn PB-003 off before the 09:30 open if that is not wanted today.",
-      "horizon": "Two sessions: bought on 25 Nov, sold by 12:10 ET Fri 27 Nov, or earlier on its stop, target or 40% premium drawdown. The contract itself expires 18 Dec, outside the window, so it can never be exercised or expire inside the test.",
-      "factors": [
-        {
-          "name": "only-contract-that-passes-the-filters",
-          "axis": "liquidity",
-          "state": "pass",
-          "why": "Open interest 22,950 and 109 contracts traded on 25 Nov clear the OI and volume floors; delta 0.4908 and implied vol 76.185 are inside the directional and data requirements; 23 days to expiry sits inside the 2-30 day window",
-          "detail": "Last 9.55 against a 14.209 previous settlement, open 10.20, high 10.30, low 9.55; premium_limit 10.00 with the lane's 5% live slack means an ask above 10.50 is refused rather than chased"
-        },
-        {
-          "name": "reclaim-of-the-24-nov-low",
-          "axis": "technical",
-          "state": "pass",
-          "why": "Reward/risk on the underlying is (172-156)/(156-148) = 2.0, above the lane's 1.5 floor, and the levels are the same ones the share plan uses",
-          "detail": "Measured on the underlying, not on the option: the lane forbids reading an option return forecast out of this number"
-        },
-        {
-          "name": "valuation-floor-and-upgrades",
-          "axis": "fundamental",
-          "state": "pass",
-          "why": "About 10x forward earnings, cheapest multiple since 2008 and cheapest Mag-7 name, four published targets of 220-270 after three upgrades since the CEO re-hire",
-          "detail": "The option needs only a partial recovery to pay: 156 to 172 on the underlying is roughly a 16-point move against a 9.55 debit, before delta and decay"
-        },
-        {
-          "name": "theta-and-vol-cost",
-          "axis": "liquidity",
-          "state": "fail",
-          "why": "Implied volatility 76.2% and theta about -0.25 a day mean a correct but slow call still loses money, and the 5% spread cap can be eaten by a wide option book",
-          "detail": "Recorded so the journal shows the cost side of the first option test, not only the upside"
-        },
-        {
-          "name": "price-under-sma20",
-          "axis": "technical",
-          "state": "fail",
-          "why": "The Scout capture's NVDA invalidation (no entry below SMA20 175.78) applies to this leg too, and its capture holds no option bid/ask, so the liquidity check falls to this lane's own chain read",
-          "detail": "research/2026-11-25/scout-2026-11-25-semiconductors/market-research.json limitations: no verified option quotes, so no option expression was selected by the Scout"
-        }
-      ],
-      "outlook": {
-        "regime": "Range with a high-valuation unwind under way; AI complex de-rating on tariff and rate news",
-        "conviction": "low",
-        "alignment": {
-          "US.NVDA": "bull",
-          "semiconductors": "neutral",
-          "macro": "bear",
-          "flows": "bear"
-        }
-      },
-      "thesis_ref": "research/2026-11-25/scout-2026-11-25-semiconductors/market-research.json",
-      "sources": [
-        "https://news.futunn.com/post/1005623278",
-        "https://news.futunn.com/post/1005623485",
-        "https://news.futunn.com/post/1005622835",
-        "research/sources/2026-11-25/semiconductor-scout.json",
-        "moomoo quote US.NVDA261218C150000 2026-11-25 08:40 ET (last 9.55, open interest 22950, volume 109, delta 0.4908, implied vol 76.185, 23 days to expiry)"
-      ]
+     "name": "price-under-sma20",
+     "axis": "technical",
+     "state": "fail",
+     "why": "The Scout capture's own NVDA invalidation: no entry while price remains below SMA20 175.78, and price is 146.04",
+     "detail": "This plan buys a defined support reclaim, not a trend. Recorded as a fail so the journal shows the desk knew which side of the trade it was taking."
     },
     {
-      "symbol": "US.KO",
-      "sleeve": "defensive",
-      "strategy": "PB-002",
-      "hold": "swing",
-      "direction": "bullish",
-      "status": "entered",
-      "setup_id": "KO-20261125-SWING",
-      "entry_low": 96.8,
-      "entry_high": 98.3,
-      "stop": 94.4,
-      "target": 105.0,
-      "expiry": "2026-12-04",
-      "confirmation_ticks": 1,
-      "max_quantity": 100,
-      "market_cap_usd": 419951705942,
-      "reviewed_at": "2026-11-25T09:15:00-05:00",
-      "catalyst": "No KO-specific event in the window. The driver is the tape: BNP Paribas raised its KO price target to 107 from 102 on 25 Nov (MT Newswires, 05:30 ET), and the Street average of 100.14 sits just above the 24 Nov close.",
-      "thesis": "Money is rotating out of the AI complex and into staples on the same tape that knocked 5.9% off NVIDIA on 24 Nov: KO closed 97.62, up 1.81% on the day NVDA fell 5.86%, and it trades 98.19 in the 25 Nov premarket - 1.9% above its 20-day average of 96.33 and only 2.4% below its all-time high of 100.56. The 23 Nov low of 94.60 has now held twice (19 Nov low 94.73), so the pullback has a floor under it and the breakout has a ceiling above it that is 2.4% away. The desk buys the floor, not the ceiling: entry 96.80-98.30, stop 94.40 under both swing lows, target 105.00 for a move through the old high.",
-      "synthesis": "Long 100 Coca-Cola shares as a defensive-rotation swing to 4 Dec. This is the operator's own 23 Nov thesis (risk-off into staples and healthcare, long only) with the tape finally agreeing, and it diversifies a book that is currently all NVIDIA.",
-      "edge": "(105.00 - 98.30) / (98.30 - 94.40) = 1.72 reward per unit of risk, above the lane's 1.5 floor, and the stop is 2.0 times KO's own 14-day average range of 1.94 rather than an arbitrary round number. A full stop-out costs about 0.39% of NAV, well inside the 1% per-trade risk budget.",
-      "bear_case": "KO is not cheap on any measure: 32.1 trailing PE, 28.8 PE TTM, price to book 11.2, and the Street's average target of 100.14 is only 2.6% above the last close, so there is no valuation cushion if the rotation reverses. The 24 Nov rise came on 21.6M shares, a volume ratio of 0.909, i.e. below average participation, and a risk-on snap-back after the holiday would take the bid out of staples first.",
-      "invalidation": "A regular close below 94.60 means the twice-held floor has gone and the rotation is over: exit at the 94.40 stop. If the price runs above 98.30 without filling the zone, the entry is skipped rather than chased, and the 4 Dec hold-by date closes the trade regardless of price.",
-      "horizon": "Swing: held across sessions to 4 Dec 2026, or its stop, or its target, whichever comes first. Never closed because a session ended.",
-      "factors": [
-        {
-          "name": "defensive-rotation-reclaim",
-          "axis": "technical",
-          "state": "pass",
-          "why": "KO closed 97.62 on 24 Nov (+1.81%) on a day semis fell 5.9%, sits 1.9% above its 20-day average of 96.33, and 2.4% under its all-time high of 100.56",
-          "detail": "Daily bars read 25 Nov 09:14 ET: 19 Nov low 94.73, 23 Nov low 94.60, 24 Nov OHLC 96.24/98.30/95.65/97.62; premarket last 98.19 (+0.58%)"
-        },
-        {
-          "name": "twice-held-swing-low",
-          "axis": "technical",
-          "state": "pass",
-          "why": "The stop at 94.40 sits under the 94.60 and 94.73 lows, so the trade is wrong at a level the market has already defended twice",
-          "detail": "94.40 is 2.0 x the 14-day average true range of 1.94, which keeps ordinary noise from triggering it"
-        },
-        {
-          "name": "quality-cash-flows-not-valuation",
-          "axis": "fundamental",
-          "state": "pass",
-          "why": "Net profit 13.08B, EPS 3.04, dividend 2.04 paying a 2.09% yield, and a beta of -0.05 to the market, which is exactly the profile a risk-off tape bids",
-          "detail": "The case is durability, not price: PE 32.1, PE TTM 28.8 and PB 11.2 are rich, and BNP Paribas's 107 target is the top of the range rather than the average (100.14)"
-        },
-        {
-          "name": "below-average-participation",
-          "axis": "flow",
-          "state": "unknown",
-          "why": "The 24 Nov up-day traded a volume ratio of 0.909, below its own average, and this session captured no KO main-force flow, so the bid is unproven",
-          "detail": "Recorded as unknown rather than a pass: no flow evidence was pulled for KO the way the Scout pulled it for semiconductors"
-        },
-        {
-          "name": "spread-and-size",
-          "axis": "liquidity",
-          "state": "pass",
-          "why": "Bid 98.10 against ask 98.32 is a 0.22% spread inside the lane's 0.30% cap, and 100 shares is 1.0% of the 24 Nov turnover of 21.6M shares",
-          "detail": "Market snapshot 25 Nov 09:13 ET: market cap 419.95B, lot size 1, no suspension flag, status NORMAL"
-        }
-      ],
-      "outlook": {
-        "regime": "Risk-off rotation: AI and semis de-rated on tariff and rate news while staples and healthcare bid",
-        "conviction": "medium",
-        "alignment": {
-          "US.KO": "bull",
-          "staples": "bull",
-          "semiconductors": "bear",
-          "flows": "neutral"
-        }
-      },
-      "thesis_ref": "research/2026-11-25/scout-2026-11-25-semiconductors/market-research.json",
-      "sources": [
-        "https://news.futunn.com/post/1005605257",
-        "moomoo quote US.KO 2026-11-25 09:13 ET (last 97.62 on 24 Nov, premarket 98.19, bid 98.10 / ask 98.32, volume_ratio 0.909)",
-        "moomoo daily klines US.KO 2026-11-25 09:14 ET (22 bars to 24 Nov: SMA20 96.33, ATR14 1.94, high 100.56, 23 Nov low 94.60)",
-        "research/2026-11-25/scout-2026-11-25-semiconductors/market-research.json (sector flows: NVDA main net flow -230.3M on 24 Nov)"
-      ]
+     "name": "valuation-floor-and-upgrades",
+     "axis": "fundamental",
+     "state": "pass",
+     "why": "About 10x forward earnings, the cheapest multiple since 2008 and the cheapest Mag-7 name, with at least three upgrades since the CEO re-hire (Goldman 220, UBS 220, Citi 240, StoneX 270) and an average target implying +57% in twelve months",
+     "detail": "Bloomberg compiles cited 25 Nov 2026: 15x at end-Oct, 25x at the start of the year, 10x now; Carson Group's chief market strategist on 25 Nov: earnings estimates are still rising, which is why he is not bearish"
+    },
+    {
+     "name": "sector-outflows-and-insider-selling",
+     "axis": "flow",
+     "state": "fail",
+     "why": "The Scout capture records heavy semiconductor outflows and further NVDA insider selling; 8 of the 9 sessions from 13 to 24 Nov closed lower",
+     "detail": "research/sources/2026-11-25/semiconductor-scout.json sector_flows and moomoo-insider refs; volume 386.2M on 24 Nov, turnover_rate 1.66%"
+    },
+    {
+     "name": "put-call-ratio-rollover",
+     "axis": "sentiment",
+     "state": "pass",
+     "why": "Lawrence McMillan, MarketWatch 25 Nov 2026: the NVDA weighted put-call ratio has rolled off its spike and his program reads a contrarian buy signal, meaning put buyers are exhausted",
+     "detail": "His own caveat is recorded: he would prefer the ratio to fall for another day or two, as it did before the April signal, so this is a weak-pass sentiment factor, not a strong one"
+    },
+    {
+     "name": "senate-testimony-2026-12-03",
+     "axis": "catalyst",
+     "state": "unknown",
+     "why": "Huang testifies on 3 Dec before the Senate Banking Committee inside the hold-by window; the event is scheduled and large, its direction is not knowable",
+     "detail": "Sen. Warren has said the re-hiring does not answer Congress on AI-chip export controls; the same week the White House discussed a presidential pardon and possible US equity ownership, which is why the sign is unknown rather than bullish"
     }
-  ]
+   ],
+   "outlook": {
+    "regime": "Range with a high-valuation unwind under way; AI complex de-rating on tariff and rate news",
+    "conviction": "low",
+    "alignment": {
+     "US.NVDA": "bull",
+     "semiconductors": "neutral",
+     "macro": "bear",
+     "flows": "bear"
+    }
+   },
+   "thesis_ref": "research/2026-11-25/scout-2026-11-25-semiconductors/market-research.json",
+   "sources": [
+    "https://news.futunn.com/post/1005623278",
+    "https://news.futunn.com/post/1005622835",
+    "https://news.futunn.com/post/1005623485",
+    "https://news.futunn.com/post/1005626670",
+    "https://www.benzinga.com/markets/equities/26/11/63618833/ryan-detrick-says-nvidia-is-cheapest-in-years-after-48-slide-calls-tech-annihilated",
+    "https://www.benzinga.com/trading-ideas/long-ideas/26/11/63619800/jim-cramer-backs-dupont-says-buy-nvidia",
+    "research/sources/2026-11-25/semiconductor-scout.json",
+    "moomoo quote US.NVDA 2026-11-25 08:40 ET (regular 155.38 on 24 Nov, pre_market 146.04)"
+   ]
+  },
+  {
+   "symbol": "US.NVDA261218C150000",
+   "sleeve": "equity",
+   "strategy": "PB-003",
+   "hold": "swing",
+   "direction": "bullish",
+   "status": "entered",
+   "setup_id": "NVDA261218C150-20261125",
+   "entry_low": 144.0,
+   "entry_high": 146.0,
+   "stop": 141.0,
+   "target": 156.0,
+   "expiry": "2026-11-27",
+   "exit_at": "2026-11-27T12:10:00-05:00",
+   "confirmation_ticks": 1,
+   "max_quantity": 1,
+   "premium_limit": 10.0,
+   "market_cap_usd": 3560000000000,
+   "reviewed_at": "2026-11-25T09:20:00-05:00",
+   "option": {
+    "underlying": "US.NVDA",
+    "expiry": "2026-12-18",
+    "right": "call",
+    "strike": 150.0,
+    "multiplier": 100
+   },
+   "catalyst": "Same thesis as NVDA-20261125-SWING: the 3 Dec Senate testimony and the post-Thanksgiving window; this leg only has to prove the option plumbing inside the challenge window",
+   "thesis": "TRADED LEVELS (operator override, 25 Nov 09:00 ET: buy at the lower price instead of waiting for the 151-156 reclaim) - entry zone 144.00-146.00, stop 141.00, target 156.00. The same NVIDIA thesis as the share plan, expressed with one long call so the loss is capped at the premium. NVDA 18 Dec 150 call (US.NVDA261218C150000) printed 9.55 on 25 Nov after a 10.20-10.30 open, on 109 contracts and 22,950 open interest, with delta 0.49, implied volatility 76.2% and 23 days to expiry; the 14.209 previous settlement shows how much premium the -5.9% 24 Nov day took out. It is the only tactical contract that clears this lane's own filters: the 4 Dec and 11 Dec weeklies fail the volume floor (29 and 30 contracts on 24 Nov) and the 155 and 160 strikes fail the 0.45 delta floor. One contract at about 9.55 is roughly $955 plus fees, which fits the 1.5% per-trade premium budget (about $1,482) and the 5% aggregate cap.",
+   "synthesis": "Buying the option instead of the shares here is the test, not the bet: same levels, same thesis, a known maximum loss, and the desk's first proof that an option can be planned, approved, filled, protected and closed on this account.",
+   "edge": "Time-boxed and small: the hold-by date is Fri 27 Nov, the last session of the challenge window, so this leg cannot become a stranded position. The lane's exit rules sell at the bid if the underlying hits 148 or 172, if the premium falls 40% from the fill, or at 12:10 ET on 27 Nov, whichever comes first.",
+   "bear_case": "The call is at the money against a falling tape: at a 146.04 premarket the 150 strike is out of the money and delta 0.49 sits only just above the 0.45 floor, so if NVDA keeps sliding the contract stops qualifying before it loses more. Implied vol of 76% is expensive, theta is about -0.25 per day, and a flat three days costs roughly 2.5 points of the 9.55.",
+   "invalidation": "Stop 141.00 (under the 25 Nov premarket low), target 156.00, or the hold-by date. Per the lane: underlying at 148, the option's bid at 60% of the price paid, the share thesis invalidated, or the 27 Nov deadline. Under the operator ruling of 24 Nov this option does not wait for the underlying to enter the 151-156 zone - the first in-session run that finds the contract inside the liquidity filter buys it, so on a down morning it can be bought below the share zone. Turn PB-003 off before the 09:30 open if that is not wanted today.",
+   "horizon": "Two sessions: bought on 25 Nov, sold by 12:10 ET Fri 27 Nov, or earlier on its stop, target or 40% premium drawdown. The contract itself expires 18 Dec, outside the window, so it can never be exercised or expire inside the test.",
+   "factors": [
+    {
+     "name": "only-contract-that-passes-the-filters",
+     "axis": "liquidity",
+     "state": "pass",
+     "why": "Open interest 22,950 and 109 contracts traded on 25 Nov clear the OI and volume floors; delta 0.4908 and implied vol 76.185 are inside the directional and data requirements; 23 days to expiry sits inside the 2-30 day window",
+     "detail": "Last 9.55 against a 14.209 previous settlement, open 10.20, high 10.30, low 9.55; premium_limit 10.00 with the lane's 5% live slack means an ask above 10.50 is refused rather than chased"
+    },
+    {
+     "name": "reclaim-of-the-24-nov-low",
+     "axis": "technical",
+     "state": "pass",
+     "why": "Reward/risk on the underlying is (172-156)/(156-148) = 2.0, above the lane's 1.5 floor, and the levels are the same ones the share plan uses",
+     "detail": "Measured on the underlying, not on the option: the lane forbids reading an option return forecast out of this number"
+    },
+    {
+     "name": "valuation-floor-and-upgrades",
+     "axis": "fundamental",
+     "state": "pass",
+     "why": "About 10x forward earnings, cheapest multiple since 2008 and cheapest Mag-7 name, four published targets of 220-270 after three upgrades since the CEO re-hire",
+     "detail": "The option needs only a partial recovery to pay: 156 to 172 on the underlying is roughly a 16-point move against a 9.55 debit, before delta and decay"
+    },
+    {
+     "name": "theta-and-vol-cost",
+     "axis": "liquidity",
+     "state": "fail",
+     "why": "Implied volatility 76.2% and theta about -0.25 a day mean a correct but slow call still loses money, and the 5% spread cap can be eaten by a wide option book",
+     "detail": "Recorded so the journal shows the cost side of the first option test, not only the upside"
+    },
+    {
+     "name": "price-under-sma20",
+     "axis": "technical",
+     "state": "fail",
+     "why": "The Scout capture's NVDA invalidation (no entry below SMA20 175.78) applies to this leg too, and its capture holds no option bid/ask, so the liquidity check falls to this lane's own chain read",
+     "detail": "research/2026-11-25/scout-2026-11-25-semiconductors/market-research.json limitations: no verified option quotes, so no option expression was selected by the Scout"
+    }
+   ],
+   "outlook": {
+    "regime": "Range with a high-valuation unwind under way; AI complex de-rating on tariff and rate news",
+    "conviction": "low",
+    "alignment": {
+     "US.NVDA": "bull",
+     "semiconductors": "neutral",
+     "macro": "bear",
+     "flows": "bear"
+    }
+   },
+   "thesis_ref": "research/2026-11-25/scout-2026-11-25-semiconductors/market-research.json",
+   "sources": [
+    "https://news.futunn.com/post/1005623278",
+    "https://news.futunn.com/post/1005623485",
+    "https://news.futunn.com/post/1005622835",
+    "research/sources/2026-11-25/semiconductor-scout.json",
+    "moomoo quote US.NVDA261218C150000 2026-11-25 08:40 ET (last 9.55, open interest 22950, volume 109, delta 0.4908, implied vol 76.185, 23 days to expiry)"
+   ]
+  },
+  {
+   "symbol": "US.KO",
+   "sleeve": "defensive",
+   "strategy": "PB-002",
+   "hold": "swing",
+   "direction": "bullish",
+   "status": "entered",
+   "setup_id": "KO-20261125-SWING",
+   "entry_low": 96.8,
+   "entry_high": 98.3,
+   "stop": 94.4,
+   "target": 105.0,
+   "expiry": "2026-12-04",
+   "confirmation_ticks": 1,
+   "max_quantity": 100,
+   "market_cap_usd": 419951705942,
+   "reviewed_at": "2026-11-25T09:15:00-05:00",
+   "catalyst": "No KO-specific event in the window. The driver is the tape: BNP Paribas raised its KO price target to 107 from 102 on 25 Nov (MT Newswires, 05:30 ET), and the Street average of 100.14 sits just above the 24 Nov close.",
+   "thesis": "Money is rotating out of the AI complex and into staples on the same tape that knocked 5.9% off NVIDIA on 24 Nov: KO closed 97.62, up 1.81% on the day NVDA fell 5.86%, and it trades 98.19 in the 25 Nov premarket - 1.9% above its 20-day average of 96.33 and only 2.4% below its all-time high of 100.56. The 23 Nov low of 94.60 has now held twice (19 Nov low 94.73), so the pullback has a floor under it and the breakout has a ceiling above it that is 2.4% away. The desk buys the floor, not the ceiling: entry 96.80-98.30, stop 94.40 under both swing lows, target 105.00 for a move through the old high.",
+   "synthesis": "Long 100 Coca-Cola shares as a defensive-rotation swing to 4 Dec. This is the operator's own 23 Nov thesis (risk-off into staples and healthcare, long only) with the tape finally agreeing, and it diversifies a book that is currently all NVIDIA.",
+   "edge": "(105.00 - 98.30) / (98.30 - 94.40) = 1.72 reward per unit of risk, above the lane's 1.5 floor, and the stop is 2.0 times KO's own 14-day average range of 1.94 rather than an arbitrary round number. A full stop-out costs about 0.39% of NAV, well inside the 1% per-trade risk budget.",
+   "bear_case": "KO is not cheap on any measure: 32.1 trailing PE, 28.8 PE TTM, price to book 11.2, and the Street's average target of 100.14 is only 2.6% above the last close, so there is no valuation cushion if the rotation reverses. The 24 Nov rise came on 21.6M shares, a volume ratio of 0.909, i.e. below average participation, and a risk-on snap-back after the holiday would take the bid out of staples first.",
+   "invalidation": "A regular close below 94.60 means the twice-held floor has gone and the rotation is over: exit at the 94.40 stop. If the price runs above 98.30 without filling the zone, the entry is skipped rather than chased, and the 4 Dec hold-by date closes the trade regardless of price.",
+   "horizon": "Swing: held across sessions to 4 Dec 2026, or its stop, or its target, whichever comes first. Never closed because a session ended.",
+   "factors": [
+    {
+     "name": "defensive-rotation-reclaim",
+     "axis": "technical",
+     "state": "pass",
+     "why": "KO closed 97.62 on 24 Nov (+1.81%) on a day semis fell 5.9%, sits 1.9% above its 20-day average of 96.33, and 2.4% under its all-time high of 100.56",
+     "detail": "Daily bars read 25 Nov 09:14 ET: 19 Nov low 94.73, 23 Nov low 94.60, 24 Nov OHLC 96.24/98.30/95.65/97.62; premarket last 98.19 (+0.58%)"
+    },
+    {
+     "name": "twice-held-swing-low",
+     "axis": "technical",
+     "state": "pass",
+     "why": "The stop at 94.40 sits under the 94.60 and 94.73 lows, so the trade is wrong at a level the market has already defended twice",
+     "detail": "94.40 is 2.0 x the 14-day average true range of 1.94, which keeps ordinary noise from triggering it"
+    },
+    {
+     "name": "quality-cash-flows-not-valuation",
+     "axis": "fundamental",
+     "state": "pass",
+     "why": "Net profit 13.08B, EPS 3.04, dividend 2.04 paying a 2.09% yield, and a beta of -0.05 to the market, which is exactly the profile a risk-off tape bids",
+     "detail": "The case is durability, not price: PE 32.1, PE TTM 28.8 and PB 11.2 are rich, and BNP Paribas's 107 target is the top of the range rather than the average (100.14)"
+    },
+    {
+     "name": "below-average-participation",
+     "axis": "flow",
+     "state": "unknown",
+     "why": "The 24 Nov up-day traded a volume ratio of 0.909, below its own average, and this session captured no KO main-force flow, so the bid is unproven",
+     "detail": "Recorded as unknown rather than a pass: no flow evidence was pulled for KO the way the Scout pulled it for semiconductors"
+    },
+    {
+     "name": "spread-and-size",
+     "axis": "liquidity",
+     "state": "pass",
+     "why": "Bid 98.10 against ask 98.32 is a 0.22% spread inside the lane's 0.30% cap, and 100 shares is 1.0% of the 24 Nov turnover of 21.6M shares",
+     "detail": "Market snapshot 25 Nov 09:13 ET: market cap 419.95B, lot size 1, no suspension flag, status NORMAL"
+    }
+   ],
+   "outlook": {
+    "regime": "Risk-off rotation: AI and semis de-rated on tariff and rate news while staples and healthcare bid",
+    "conviction": "medium",
+    "alignment": {
+     "US.KO": "bull",
+     "staples": "bull",
+     "semiconductors": "bear",
+     "flows": "neutral"
+    }
+   },
+   "thesis_ref": "research/2026-11-25/scout-2026-11-25-semiconductors/market-research.json",
+   "sources": [
+    "https://news.futunn.com/post/1005605257",
+    "moomoo quote US.KO 2026-11-25 09:13 ET (last 97.62 on 24 Nov, premarket 98.19, bid 98.10 / ask 98.32, volume_ratio 0.909)",
+    "moomoo daily klines US.KO 2026-11-25 09:14 ET (22 bars to 24 Nov: SMA20 96.33, ATR14 1.94, high 100.56, 23 Nov low 94.60)",
+    "research/2026-11-25/scout-2026-11-25-semiconductors/market-research.json (sector flows: NVDA main net flow -230.3M on 24 Nov)"
+   ]
+  },
+  {
+   "symbol": "US.PG",
+   "sleeve": "equity",
+   "strategy": "PB-002",
+   "hold": "swing",
+   "direction": "bullish",
+   "status": "entered",
+   "setup_id": "PG-20261125-SWING",
+   "entry_low": 170.0,
+   "entry_high": 172.5,
+   "stop": 169.3,
+   "target": 178.0,
+   "expiry": "2026-12-04",
+   "confirmation_ticks": 1,
+   "max_quantity": 31,
+   "market_cap_usd": 405000000000,
+   "reviewed_at": "2026-11-25T10:21:00-05:00",
+   "catalyst": "No company catalyst; this is the consumer-staples bid the tape showed on 25 Nov, where PG traded a new all-time high of 173.60 while the semiconductor complex fell 3-5% (moomoo quote read 25 Nov 10:21 ET)",
+   "thesis": "TRADED LEVELS - entry zone 170.00-172.50, stop 169.30, target 178.00. PG closed higher in each of the last five weeks (161.57, 165.40, 169.80, 169.37, 172.80 weekly closes per research/2026-11-25/next-slots.md) and on 25 Nov it printed an all-time high of 173.60 with a 172.555 low while the broad tape fell about 3%: the desk is buying the only name in its universe that is making new highs on a risk-off day, not the dip. The entry is the zone top, not the market: at the 10:21 ET last of 173.09 the reward/risk to the 178.00 target is 1.29, under the desk's 1.5 floor, so the reservation bids 172.50 and lets the tape come to it. The stop sits under the 25 Nov low and under the 172.47 previous close, which is the level the breakout is measured against.",
+   "synthesis": "Defensive momentum in a falling tape; the trade is a pullback fill or nothing.",
+   "edge": "Relative strength: a new high on a 3% down day, with the entry priced below the market so the position only exists at a level where the maths still works.",
+   "bear_case": "A rotation back into cyclicals takes the flows out of staples; the 172.47 previous close is the line, and a fill here followed by a break of 169.30 is a failed breakout bought at a high.",
+   "invalidation": "PG closes below 169.30, or the entry never fills and the price runs without a valid R:R.",
+   "horizon": "2-6 weeks, reviewed at each session",
+   "sources": [
+    "moomoo quote read 2026-11-25 10:21 ET (last 173.09, high 173.60, low 172.555, prev close 172.47)",
+    "research/2026-11-25/next-slots.md (weekly closes, candidate comparison, gate maths)"
+   ]
+  }
+ ]
 }
