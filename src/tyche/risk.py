@@ -60,7 +60,10 @@ def evaluate_intent(
         breach("account.sim_verified", "broker must verify US paper account type and market")
     if nav <= 0:
         breach("account.nav", "positive NAV required")
-    if snapshot.broker_nav is not None and abs(snapshot.broker_nav - nav) > max(1.0, snapshot.broker_nav * 0.001):
+    # A NAV that does not reconcile stops new risk, never an exit: a sell only reduces exposure, and
+    # before 2026-11-25 a few dollars of drift between two reads could hold a stop back.
+    if (buy and snapshot.broker_nav is not None and abs(snapshot.broker_nav - nav)
+            > max(1.0, snapshot.broker_nav * policy.nav_reconcile_tolerance_pct)):
         breach("account.reconcile", "computed NAV differs from broker NAV; reconcile cash/frozen/positions")
     if intent.symbol.split(".")[0] not in policy.allowed_markets:
         breach("market.allowed", "market is not allowed")

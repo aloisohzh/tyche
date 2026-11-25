@@ -14,7 +14,7 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validato
 
 from tyche.approvals import OPTION_LIVE_SLACK
 from tyche.config import AppConfig
-from tyche.execution_state import combined_usage, unresolved_symbols
+from tyche.execution_state import combined_usage, day_requests, dead_request_ids, in_flight_symbols
 from tyche.fees import estimate_fees
 from tyche.market_calendar import ET, SessionPhase, phase_at, regular_close
 from tyche.models import AccountSnapshot, OptionContract, OrderIntent, Side, apply_fill
@@ -56,9 +56,20 @@ class MarketQuote(BaseModel):
         return self
 
     def fresh(self, now: datetime, seconds: int) -> bool:
+        """A tradable two-sided market whose order book is recent.
+
+        The book's own time decides. The last-trade time (`at`) no longer does: before the open it is
+        yesterday's close and for a thin option it can be hours old while the quoted market is live,
+        which made every premarket and option quote "stale" (2026-11-24). `price` handles an old print.
+        """
         return (self.tradable and self.ask >= self.bid
-                and 0 <= (now - self.at).total_seconds() <= seconds
                 and 0 <= (now - self.book_at).total_seconds() <= seconds)
+
+    def price(self, now: datetime, seconds: int) -> float:
+        """The reference price: the last trade when it is recent, else the live book's midpoint."""
+        if 0 <= (now - self.at).total_seconds() <= seconds:
+            return self.last
+        return round((self.bid + self.ask) / 2, 4)
 
     @property
     def spread_pct(self) -> float:
@@ -71,6 +82,9 @@ class MonitorState(BaseModel):
     observation_hashes: dict[str, str] = Field(default_factory=dict)
     protected: dict[str, WatchlistEntry] = Field(default_factory=dict)
     latched_exits: dict[str, str] = Field(default_factory=dict)
+    # ET date each latch was set. A latch stops re-entry for the rest of that session only: kept forever
+    # it barred the symbol on every later day once the monitor state was recorded (2026-11-25 review).
+    latched_on: dict[str, str] = Field(default_factory=dict)
 
 
 def config_hash(config: AppConfig) -> str:
@@ -199,12 +213,17 @@ def plan_tick(
         state.observations.clear()
         report["alerts"].append("monitor starting or heartbeat gap; rebuild entry confirmations")
     state.last_tick = now
+    for symbol in [s for s in state.latched_exits
+                   if snapshot.position(s) is None and state.latched_on.get(s) != today.isoformat()]:
+        state.latched_exits.pop(symbol)
+        state.latched_on.pop(symbol, None)
     contracts = {q.symbol: q.option for q in quotes if q.option}
     count, turnover = combined_usage(events, raw_orders, today, contracts)
     risk_state = RiskState(nav=snapshot.nav, prior_close_nav=snapshot.prior_close_nav,
                            high_water_nav=snapshot.high_water_nav, orders_today=count,
                            traded_notional_today=turnover, halted=halted, pending_orders=pending)
-    blocked_symbols = unresolved_symbols(events, raw_orders)
+    in_flight = in_flight_symbols(events, raw_orders, now)
+    never_sent = dead_request_ids(events, raw_orders, now)
     quote_map = {q.symbol: q for q in quotes}
     entries = {e.symbol: e for e in book.entries}
     for symbol, protected in state.protected.items():
@@ -218,9 +237,12 @@ def plan_tick(
             entries[symbol] = protected
     uncovered = [p.symbol for p in snapshot.positions if p.underlying in cfg.symbols and p.symbol not in entries]
     if uncovered:
-        report["alerts"].append(f"unprotected tactical positions: {', '.join(uncovered)}; block new entries")
+        # An alert, not a brake: a lot with no plan on file is a problem to fix, and holding every other
+        # setup back until it is fixed only adds a second problem (MSFT on 2026-11-23).
+        report["alerts"].append(f"unprotected tactical positions: {', '.join(uncovered)}; no exit plan on file")
     projected = snapshot.model_copy(deep=True)
     close = datetime.combine(today, regular_close(today), ET)
+    session_end = close - timedelta(minutes=cfg.session_exit_minutes_before_close)
     new_orders = 0
     for entry in sorted(entries.values(), key=lambda e: snapshot.position(e.symbol) is None):
         key = setup_key(book, entry)
@@ -250,7 +272,7 @@ def plan_tick(
             reject("contract metadata mismatch")
             continue
         underlying_fresh = uq is not None and uq.fresh(now, cfg.max_quote_age_seconds)
-        last = uq.last if underlying_fresh else None
+        last = uq.price(now, cfg.max_quote_age_seconds) if underlying_fresh else None
         exit_reason = state.latched_exits.get(entry.symbol)
         resting_row = None
         cancel_first: list[str] = []
@@ -269,7 +291,9 @@ def plan_tick(
                     exit_reason = "underlying target reached"
             if entry.option and q.bid <= held.avg_cost * 0.60:
                 exit_reason = "option premium drawdown reached 40%"
-            deadline = entry.exit_at or close - timedelta(minutes=cfg.session_exit_minutes_before_close)
+            deadline = entry.exit_at or session_end
+            if entry.option is None:
+                deadline = min(deadline, session_end)  # stock lots are same-session: out before the close
             next_check = now + timedelta(seconds=cfg.monitor_interval_seconds)
             if next_check >= deadline or today > entry.expiry:
                 exit_reason = "time exit before next scheduled check"
@@ -300,6 +324,7 @@ def plan_tick(
                                "note": "re-placed each session until filled, stopped or the deadline passes"}
             else:
                 state.latched_exits[entry.symbol] = exit_reason
+                state.latched_on.setdefault(entry.symbol, today.isoformat())
                 cancel_first = open_orders_for(raw_orders, entry.symbol, today)
                 if held.available_quantity is None:
                     reject("broker available quantity required for close")
@@ -309,8 +334,11 @@ def plan_tick(
                 if quantity <= 0:
                     reject("no available quantity to close")
                     continue
+                # A stock exit is priced a collar under the bid so it still trades when the quote is a
+                # few minutes old. An option keeps the quoted bid: its tick size is not ours to guess.
+                exit_limit = q.bid if entry.option else max(0.01, round(q.bid * (1 - cfg.exit_collar_pct), 2))
                 intent = OrderIntent(symbol=entry.symbol, option=entry.option, side=Side.SELL,
-                                     quantity=quantity, limit_price=q.bid, reason=exit_reason,
+                                     quantity=quantity, limit_price=exit_limit, reason=exit_reason,
                                      strategy_id="PB-003" if entry.option else "PB-002", setup_id=key)
         else:
             if entry.symbol in state.latched_exits:
@@ -319,8 +347,8 @@ def plan_tick(
             if not underlying_fresh:
                 reject("fresh underlying quote required")
                 continue
-            if uncovered or book.stale(today) or entry.expiry < today or entry.status != "watch" or entry.invalidated:
-                reject("watchlist stale/inactive/invalidated or protection coverage incomplete")
+            if book.stale(today) or entry.expiry < today or entry.status != "watch" or entry.invalidated:
+                reject("watchlist stale/inactive/invalidated")
                 continue
             if snapshot.prior_close_nav is None or snapshot.high_water_nav is None:
                 reject("prior-close and high-water NAV references required")
@@ -328,8 +356,9 @@ def plan_tick(
             if not entry.catalyst or not entry.sources or not entry.thesis or not entry.setup_id:
                 reject("actionable setup needs id, thesis, catalyst and cited evidence")
                 continue
-            if entry.reviewed_at is None or not 0 <= (now - entry.reviewed_at).total_seconds() <= 1800:
-                reject("research review older than 30 minutes; refresh only this setup")
+            if entry.reviewed_at is None or not 0 <= (now - entry.reviewed_at).total_seconds() <= cfg.max_review_age_seconds:
+                reject(f"research review missing, future-dated or older than {cfg.max_review_age_seconds // 60} "
+                       "minutes; refresh only this setup")
                 continue
             if entry.underlying not in cfg.etf_symbols and (entry.market_cap_usd or 0) < config.universe.min_market_cap_usd:
                 reject("verified underlying market cap required")
@@ -337,21 +366,25 @@ def plan_tick(
             if entry.exit_at is None:
                 reject("explicit exit deadline required")
                 continue
+            entry_deadline = entry.exit_at
             if entry.option is not None:
                 # PB-003 holds overnight by design: its deadline is the next fire's start (operator
                 # ruling 2026-11-24). It must still fall before the contract can expire or be exercised.
                 if entry.exit_at.astimezone(ET).date() >= entry.option.expiry:
                     reject("option exit deadline must fall before the contract's expiry")
                     continue
-            elif entry.exit_at > close - timedelta(minutes=cfg.session_exit_minutes_before_close):
-                reject("explicit exit deadline before session close required")
-                continue
-            if now >= entry.exit_at - timedelta(seconds=max(600, cfg.monitor_interval_seconds)):
+            else:
+                # A stock deadline past the session's exit time is cut back to it, not refused: a plan
+                # written for a normal day (15:50 ET) still trades on a half day and leaves by 12:50.
+                entry_deadline = min(entry.exit_at, session_end)
+            if now >= entry_deadline - timedelta(seconds=max(600, cfg.monitor_interval_seconds)):
                 reject("too close to exit deadline for the next scheduled check")
                 continue
-            attempts = sum(1 for e in events if e.get("type") == "order.requested"
-                           and e.get("payload", {}).get("setup_id") == key
-                           and e.get("payload", {}).get("side") == "buy")
+            # One entry per setup per session. A reservation that never reached the broker is not an
+            # attempt (the next run may send it); one from an earlier day is not today's attempt.
+            attempts = sum(1 for row in day_requests(events, today)
+                           if row.get("setup_id") == key and row.get("side") == "buy"
+                           and row.get("request_id") not in never_sent)
             if attempts >= cfg.max_entries_per_setup:
                 reject("setup entry already attempted; no automatic re-entry")
                 continue
@@ -374,14 +407,16 @@ def plan_tick(
                 continue
             distance = abs((entry.entry_high if entry.direction == "bullish" else entry.entry_low) - entry.stop)
             reward = abs(entry.target - (entry.entry_high if entry.direction == "bullish" else entry.entry_low))
-            if reward / distance < cfg.min_reward_risk:
+            if reward / distance < cfg.min_reward_risk - 1e-9:  # 2.7/1.8 is 1.4999... in floating point
                 reject("underlying reward/risk below threshold (not an option return forecast)")
                 continue
+            ticks = min(entry.confirmation_ticks, cfg.max_confirmation_ticks)
+            stamp = max(uq.at, uq.book_at).isoformat()  # one sample per distinct quote, print or book
             observations = state.observations.setdefault(key, [])
-            if not observations or observations[-1]["at"] != uq.at.isoformat():
-                observations.append({"at": uq.at.isoformat(), "price": last})
-            observations[:] = [o for o in observations if 0 <= (now - datetime.fromisoformat(o["at"])).total_seconds() <= cfg.monitor_interval_seconds * (entry.confirmation_ticks + 1)][-entry.confirmation_ticks:]
-            if len(observations) < entry.confirmation_ticks:
+            if not observations or observations[-1]["at"] != stamp:
+                observations.append({"at": stamp, "price": last})
+            observations[:] = [o for o in observations if 0 <= (now - datetime.fromisoformat(o["at"])).total_seconds() <= cfg.monitor_interval_seconds * (ticks + 1)][-ticks:]
+            if len(observations) < ticks:
                 decision["reason"] = "awaiting distinct fresh quote confirmations"
                 continue
             if new_orders >= cfg.max_new_orders_per_tick:
@@ -454,8 +489,8 @@ def plan_tick(
             if not entry.option and tactical_stock + intent.notional > cfg.stock_allocation_cap * projected.nav:
                 reject("tactical-stock allocation exhausted")
                 continue
-        if entry.symbol in blocked_symbols:
-            reject("unresolved order; reconcile before any further write")
+        if entry.symbol in in_flight:
+            reject("an order for this symbol is on its way to the broker; wait for its receipt")
             continue
         if any(o.symbol == entry.symbol for o in pending) and not cancel_first:
             reject("resting entry already working at the broker; no second buy" if intent.side == Side.BUY
@@ -475,7 +510,8 @@ def plan_tick(
                 p.model_copy(update={"available_quantity": p.quantity}) if p.symbol == entry.symbol else p
                 for p in projected.positions]})
         verdict = evaluate_intent(intent, risk_book, config.risk,
-                                  risk_state.model_copy(update={"pending_orders": risk_pending}), q.last,
+                                  risk_state.model_copy(update={"pending_orders": risk_pending}),
+                                  q.price(now, cfg.max_quote_age_seconds),
                                   set(cfg.symbols), {s: "equity" for s in cfg.symbols},
                                   underlying_price=last)
         breaches = [b for b in verdict.breaches

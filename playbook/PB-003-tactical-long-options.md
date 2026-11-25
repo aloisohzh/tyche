@@ -6,7 +6,7 @@ title: Tactical long options (one call or one put on a desk pick)
 classification:
   holding_period: Swing             # hours to a few sessions; every setup carries an explicit exit deadline
   strategy_type: Event-driven       # same researcher-written thesis and catalyst as PB-002
-  execution_style: Semi-automated   # the researcher proposes, the kernel gates, the operator approves on Telegram
+  execution_style: Semi-automated   # the researcher proposes, the kernel gates, the operator sets the approval bounds
   instruments: [Options]            # one standard long call or one standard long put; nothing sold to open
   regime_fit: [Bull, Bear, Range]   # calls for a bullish pick, puts for a bearish one
   direction: Both                   # bullish = long call, bearish = long put; no shorts, no spreads
@@ -18,9 +18,10 @@ classification:
 - **Status:** on from 2026-11-24 through Fri 27 Nov 2026 (the last session of the challenge window), by the
   operator switch in `data/strategies.json`. `options_enabled` in `config/tactical.yaml` stays `false`: the
   switch, not the yaml, now decides (`AppConfig.options_live`), so turning options on or off never
-  re-hashes the lane. Every entry still waits for the operator's Telegram `/approve` in Ask me mode, or a
-  same-day envelope in Within my bounds.
-- **Rules hash:** `58a3ce686238` (sha256 of `config/tactical.yaml` + `config/universe.yaml`, CRLF normalized,
+  re-hashes the lane. From 25 to 27 Nov 2026 an entry inside the operator's standing paper approval
+  (`data/standing-approval.json`: at most 5 contracts an order on a tactical symbol) is placed by
+  `tyche cycle` with no per-order ask; selling a held contract never needs a line.
+- **Rules hash:** `4d305127a2cd` (sha256 of `config/tactical.yaml` + `config/universe.yaml`, CRLF normalized,
   first 12). PB-002 and PB-003 are one lane with one parameter file, so they share this hash; see the
   [PB-002 page](PB-002-tactical-stocks.md) for the history. This page adds no rules bytes, so no re-freeze.
 - **Validation:** unvalidated. No option order has been sent on this account before this test.
@@ -50,15 +51,18 @@ The contract must be a standard, 100-share, US-listed call or put from `quote_op
 - ask no higher than the researcher's `premium_limit` on the setup.
 
 ## Entry trigger
-Only at the 15:05 ET fires of Tue 24 and Wed 25 Nov 2026. The same gate as PB-002, applied to the underlying: a fresh researcher-reviewed setup, the underlying's
-last price inside the entry zone for the configured number of fresh quotes, reward/risk ≥ 1.5 measured on
-the underlying, and an exit deadline. Bullish setups may only carry a call, bearish setups only a put
+At most one call, which the researcher may add to the watchlist at the 08:05 ET fire of Wed 25 Nov 2026
+(the 15:05 fires of 24 and 25 Nov until the desk moved to `tyche cycle`). The same gate as PB-002, applied
+to the underlying: a researcher-reviewed setup dated today, reward/risk ≥ 1.5 measured on the underlying,
+and an exit deadline. The option does not wait for the underlying to pull back (operator ruling
+2026-11-24): the first run of `tyche cycle` in the regular session that finds the contract inside the
+liquidity filter buys it. Bullish setups may only carry a call, bearish setups only a put
 (`WatchlistEntry` refuses anything else). The order is a limit buy at the option's ask.
 
 ## Invalidation
 Per trade: the underlying reaches the setup's stop; the option's bid falls to 60% of the price paid (a 40%
 premium loss); the researcher invalidates the setup; or the exit deadline arrives. Any of these produces a
-limit sell at the bid at the next fire or monitor check.
+limit sell at the bid at the next run of `tyche cycle` (every 15 minutes in the regular session).
 For the test: any rejected or unfillable option order, or a position the desk cannot close, ends it.
 
 ## Sizing
@@ -68,11 +72,11 @@ per-order NAV budget. Usually one contract.
 
 ## Exit
 Target: sell at the bid when the underlying reaches the setup's target. Stop: the underlying's stop or the
-40% premium loss, whichever comes first (synthetic, checked at each 08:05 and 15:05 fire; not a resting
-broker stop). Time: the setup's exit deadline, set to the next fire after entry. Entries happen only at the
-15:05 ET fires of Tue 24 and Wed 25 Nov, and an overnight sell goes through the operator exit path (the
-desk asks on Telegram, then sells with `tyche exit-now`), never below 60% of the price paid. The 12:05
-fire never submits, so on the Fri 27 Nov half day the last sell chance is the 08:05 fire. Every contract
+40% premium loss, whichever comes first (synthetic, checked by every run of `tyche cycle` in the regular
+session; not a resting broker stop). Time: the setup's exit deadline, for this test 12:10 ET on the
+Fri 27 Nov half day, which leaves the 12:07, 12:22, 12:37 and 12:52 runs to get the sell in. A contract
+bought on Wed 25 Nov is held over the Thanksgiving closure; nothing can be done about it while the market
+is shut. Selling a held contract needs no operator line. Every contract
 must expire after 27 Nov, so a contract still held at the final close is valued at market and can never
 be exercised inside the window.
 

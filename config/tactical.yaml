@@ -10,9 +10,18 @@ etf_symbols: []
 stock_allocation_cap: 0.25
 max_name_weight: 0.20
 min_reward_risk: 1.5
-max_quote_age_seconds: 120
-max_snapshot_age_seconds: 120
-monitor_interval_seconds: 30
+# Clocks for agent runs, not for a 30-second daemon (2026-11-25): a run needs 5 to 10 minutes to read
+# the broker, save the reads and decide, and the next check comes 15 minutes later. With the old 120s
+# and 30s values every run refused its own data and no stock order was ever placed.
+max_quote_age_seconds: 900
+max_snapshot_age_seconds: 900
+monitor_interval_seconds: 900
+# One fresh quote inside the plan's zone is enough; waiting for a second run to confirm cost 15 minutes.
+max_confirmation_ticks: 1
+# The premarket research stays good for the whole session; the watchlist must still be dated today.
+max_review_age_seconds: 43200
+# The executor has ten minutes to send a reserved order before the reservation lapses unsent.
+submit_window_seconds: 600
 stock_spread_pct: 0.003
 option_spread_pct: 0.05
 min_option_open_interest: 100
@@ -20,7 +29,12 @@ min_option_volume: 50
 min_option_dte: 2
 max_option_dte: 30
 option_exit_minutes_before_close: 45
+# Stock lots leave by 10 minutes before the close. The kernel sells at the last check BEFORE that
+# time, so the 15:37 run of the 15-minute card sends the exit and the 15:52 run is the second chance.
 session_exit_minutes_before_close: 10
+# A stock's stop, target or time exit is priced 0.3% under the bid: the quote is minutes old by the
+# time the order goes in, and an exit that rests unfilled is a lot left unprotected.
+exit_collar_pct: 0.003
 max_new_orders_per_tick: 3
 max_entries_per_setup: 1
 # Resting orders (2026-11-24): place the order instead of waiting for the next run.

@@ -1,6 +1,6 @@
 # PB-004: one deterministic intraday momentum scalp, many small round trips.
 # 1-minute 5-bar breakout entry, 0.25% stop, 2R target, 20-minute timeout,
-# flat 10 minutes before the close. Sizing is 0.1% of NAV risk to the stop,
+# flat 25 minutes before the close. Sizing is 0.1% of NAV risk to the stop,
 # capped at 5% of NAV notional per trade, max 4 open names.
 enabled: true
 symbols: ["US.NVDA", "US.AMD", "US.AVGO", "US.MU", "US.SMH"]
@@ -14,4 +14,19 @@ cooldown_seconds: 600
 timeout_minutes: 20
 max_round_trips_per_day: 50
 max_spread_pct: 0.001
-flatten_minutes_before_close: 10
+# The card looks every 15 minutes (2026-11-25), so the lane is tuned to that, not to a live feed:
+# - flatten 25 minutes before the close: the 15:37 ET run sells every lot and the 15:52 run retries;
+flatten_minutes_before_close: 25
+# - its own freshness clocks (it borrowed the tactical lane's and a fixed 120s account age);
+max_quote_age_seconds: 900
+max_snapshot_age_seconds: 900
+# - ten minutes to send a reserved order; a reservation never sent frees the symbol for the next run;
+entry_submit_window_seconds: 600
+exit_submit_window_seconds: 600
+# - the breakout may be any of the last 5 one-minute bars, if the latest close still holds above it;
+breakout_window_bars: 5
+# - limits priced through the market so an order built from a minutes-old quote still trades;
+entry_buffer_pct: 0.001
+exit_collar_pct: 0.003
+# - an entry still unfilled after 5 minutes is cancelled by the next run.
+entry_ttl_seconds: 300

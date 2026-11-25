@@ -73,9 +73,15 @@ def test_paper_allocation_profile_preserves_risk_limits() -> None:
 
 def test_intraday_tactical_cadence_keeps_freshness_bounds() -> None:
     config = load_config(ROOT)
-    assert config.tactical.monitor_interval_seconds == 30
-    assert config.tactical.max_quote_age_seconds == 120
-    assert config.tactical.max_snapshot_age_seconds == 120
+    # Agent runs come 15 minutes apart and take minutes to read the broker (2026-11-25): the clocks
+    # match that cadence. They still exist and are still bounded; they are no longer a 30-second daemon's.
+    assert config.tactical.monitor_interval_seconds == 900
+    assert config.tactical.max_quote_age_seconds == 900
+    assert config.tactical.max_snapshot_age_seconds == 900
+    assert config.scalp.max_quote_age_seconds == 900
+    assert config.tactical.submit_window_seconds == 600
+    with pytest.raises(ValidationError):
+        TacticalConfig(max_quote_age_seconds=1801)
     assert not TacticalConfig().execution_enabled
     assert TacticalConfig(monitor_interval_seconds=5).monitor_interval_seconds == 5
     with pytest.raises(ValidationError):

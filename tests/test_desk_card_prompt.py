@@ -1,4 +1,4 @@
-"""The live card instruction is a trading contract: pin its fires, gates and midday limits."""
+"""The live card instruction is a trading contract: pin its fires, its one order path and its one hard rule."""
 from __future__ import annotations
 
 import importlib.util
@@ -70,8 +70,8 @@ def test_a_prompt_update_resends_the_live_cards_cron_and_metadata_unchanged():
 
 
 def test_creating_the_card_sees_every_other_desk_card_that_would_still_fire():
-    """Two cards that both fire are two writers (STATE). The guard lists what is still active on or after
-    the start day; a paused card and a monthly card already ended are not writers."""
+    """Two desk cards that both fire would each do the research and send the digests. The guard lists what
+    is still active on or after the start day; a paused card and a monthly card already ended do not count."""
     rows = [
         {"id": "nov", "name": "Tyche desk - premarket and close", "status": "active",
          "metadata": {"window": "2026-11-19..2026-11-30"}},
@@ -106,69 +106,116 @@ def test_the_card_can_be_born_on_a_recreated_desk_agent():
             module.card_agent(["--agent", bad])
 
 
-def test_midday_fire_watches_and_shouts_but_never_trades():
-    prompt = _module().card_prompt(PERMANENT)
-    assert "MIDDAY (12:05 ET, WATCH AND SHOUT ONLY)" in prompt
-    midday = prompt.split("MIDDAY (12:05 ET, WATCH AND SHOUT ONLY):", 1)[1].split("\n\n", 1)[0].lower()
-    for forbidden in ("reserve", "approve", "revoke", "modify", "config", "propose"):
-        assert forbidden in midday
-    assert "urgent risk alert" in midday and "never at this fire" in midday
+def _clause(prompt: str, start: str, end: str = "\n\n") -> str:
+    """One clause of the brief with its line wraps removed: the brief wraps for reading, the contract does not."""
+    return " ".join(prompt.split(start, 1)[1].split(end, 1)[0].split())
 
 
-def test_premarket_and_close_authority_and_contracts_survive_the_edit():
-    markers = _module().prompt_markers(_module().card_prompt(PERMANENT))
+def test_the_brief_is_complete_and_stays_short():
+    """Every marker `--apply-update` insists on is present, and the brief does not grow back: the
+    27,000-character brief of 24 Nov asked for about 45 hand steps and placed no order."""
+    module = _module()
+    prompt = module.card_prompt(PERMANENT)
+    markers = module.prompt_markers(prompt)
     assert all(markers.values()), markers
-    assert "the executor may submit paper orders" in _module().PROMPT
+    assert len(prompt) < 17_000, len(prompt)
+    assert "{{CYCLE}}" not in prompt and "{{RUN_KIND}}" not in prompt and "{{RUN_EXAMPLE}}" not in prompt
+    # The markers are read from the platform's JSON, where a line break is two characters: every
+    # marker phrase therefore has to sit on one line of the brief.
+    import json
+    events = json.dumps([{"type": "user.message", "content": [{"type": "text", "text": prompt}]}])
+    assert all(module.prompt_markers(events).values()), module.prompt_markers(events)
 
 
-def test_calendar_drift_check_is_premarket_alert_only_and_never_self_applying():
-    """The clause the paused schedule used to carry alone is now on the fire that runs (L-019's
-    live object is the card, so a check nobody schedules is a check that does not happen)."""
+def test_every_fire_runs_the_cycle_and_the_midday_fire_may_trade():
+    """12:05 used to watch and shout only, so a setup that came into range at noon waited three hours."""
     prompt = _module().card_prompt(PERMANENT)
-    assert "CALENDAR DRIFT" in prompt
-    clause = prompt.split("CALENDAR DRIFT", 1)[1].split("\n\n", 1)[0]
-    clause = " ".join(clause.split())  # the prompt wraps for reading; the contract does not
-    assert "08:05 premarket only" in clause and "Skip at the 12:05 and 15:05 fires" in clause
-    assert "tyche calendar-check --source" in clause and "--json" in clause
-    assert "scripts/refresh_calendar.py" in clause and "calendar.check" in clause
-    # Alert-only means the run cannot act on its own finding, in either direction.
-    for guard in ("Never edit config", "never invent a", "not a reason to skip or to trade"):
-        assert guard in clause
-    assert "UNCERTAIN, not a pass" in clause
-    # L-033 discipline: the clause points at the tables and the command, never at their contents.
-    assert not any(year in clause for year in ("2026", "2027", "2028"))
+    fires = _clause(prompt, "FIRES:")
+    for must in ("08:05 ET premarket: BOOTSTRAP, RESEARCH, THE CYCLE once", "DIGEST, PUBLISH",
+                 "12:05 ET: BOOTSTRAP, RESEARCH only if today's watchlist is missing, THE CYCLE once, PUBLISH",
+                 "15:05 ET: BOOTSTRAP, THE CYCLE once, DIGEST, PUBLISH",
+                 "It is expected, never a second desk and never a reason to block",
+                 "never reserves a second order for a symbol while one is on its way or working"):
+        assert must in fires, must
+    assert "Every run inside the session may place orders, the 12:05 fire included" in " ".join(prompt.split())
+    for gone in ("WATCH AND SHOUT", "submits nothing", "never at this fire", "Never at the 12:05 fire"):
+        assert gone not in prompt, gone
 
 
-def test_orders_clause_names_the_two_modes_and_forbids_writing_the_envelope():
-    """Ask me or Within my bounds, decided by the same-day envelope at the fire; the run may read that
-    file and never author it, so a mode can only be set by the operator from the desk."""
+def test_the_order_path_is_one_command_and_nothing_is_run_by_hand():
     prompt = _module().card_prompt(PERMANENT)
-    clause = " ".join(prompt.split("ORDERS:", 1)[1].split("\n\n", 1)[0].split())
-    for must in ("exactly two modes", "WITHIN MY BOUNDS for whatever a same-day envelope's lines cover", "no Telegram ask",
-                 "ASK ME for everything else", "Telegram /approve N in this run", "tyche approve-telegram",
-                 "Never write, edit or re-date the envelope", "entry AND exit authorization",
-                 "`order` block with its exit_floor", "ONE paper"):
-        assert must in clause, must
-    assert "the executor may submit paper orders" in clause
+    cycle = _clause(prompt, "THE CYCLE (2026-11-25):", "\n\nPROBLEMS:")
+    order = [cycle.index(step) for step in ("1. LIST:", "2. READ:", "3. DECIDE:", "4. SEND:", "5. TELL:")]
+    assert order == sorted(order)
+    for must in ("`tyche cycle --dir <run> --reads`", "`tyche cycle --dir <run> --record`",
+                 "Only the executor reads or writes at the broker",
+                 "copy that file whole with `cp`: nothing is retyped",
+                 "sim_trade_history_order_list, every page until has_more is false",
+                 "ONE sim_trade_input_order paper LIMIT order with exactly the item's symbol, side, quantity and limit_price",
+                 "the item's `remark` as the order remark", "before the item's `submit_before`",
+                 "One attempt per item: never a retry, never a changed field and never an order that is not on the list",
+                 "prints the same answer again and reserves nothing twice",
+                 'python scripts/telegram.py send "$(cat <run>/telegram.txt)"',
+                 "Never run tactical tick, reserve, scalp, capture, lifecycle or record-order beside it",
+                 "never copy the journal"):
+        assert must in cycle, must
+    # None of the 24 Nov hand steps is asked for anywhere in the brief.
+    for gone in ("tyche tactical", "tyche record-order", "tyche approve-telegram", "wait-for-reply",
+                 "tyche lifecycle", "tyche journal-verify", "nav-refs", "scalp-lock.json", "--prior-close-nav",
+                 "exact-order audit"):
+        assert gone not in prompt, gone
+    problems = _clause(prompt, "PROBLEMS:")
+    for must in ('a "blocked" answer names its own fix in `reason`', "Do that fix once",
+                 "Never place an order by hand", "never edit the journal, a config file or an approval file"):
+        assert must in problems, must
 
 
-def test_proposal_approval_is_explicit_numbered_and_never_automatic():
-    """The Telegram wait step adds a gate in front of the submit path; it must never read as a way
-    around the envelope, audit and reserve, and only the command's `approved` list may open it."""
+def test_the_rulings_retire_the_old_gates_and_keep_the_one_hard_rule():
+    """The agents' own instructions still carry the 24 Nov gates; the dated operator rulings are what
+    tells them those gates are retired for cycle runs, so they travel with every executor delegation."""
     prompt = _module().card_prompt(PERMANENT)
-    clause = " ".join(prompt.split("PROPOSAL APPROVAL (TELEGRAM WAIT", 1)[1].split("\n\n", 1)[0].split())
-    for must in ("08:05 and 15:05 fires", "wait-for-reply", "render-proposal",
-                 "templates/proposal-approval.example.json", "stop, target, exit-by", "`order` block",
-                 "10-minute window", "`approved`", "tyche approve-telegram", "exact-order audit, reserve",
-                 "for every entry no same-day envelope line covers",
-                 "Skip the ask only for an entry a same-day envelope line already covers",
-                 "any free-text reply is a no", "A requested change is a no", "new number",
-                 "never approve on the operator's behalf", "never submit after the window",
-                 "The 12:05 fire never runs this step"):
-        assert must in clause, must
-    assert _module().prompt_markers(prompt)["has_proposal_approval"]
-    # The midday clause is untouched by the addition.
-    assert "MIDDAY (12:05 ET, WATCH AND SHOUT ONLY)" in prompt
+    rulings = _clause(prompt, "RULINGS (2026-11-25, operator).", "\n\nOTHER LANES")
+    for must in ("quote this block in every executor delegation",
+                 "`tyche cycle --record` IS the reservation", "journals order.requested before it prints",
+                 "An item under `submit` is authorized. Nothing else is.",
+                 "data/standing-approval.json", "data/scalp-approvals.json",
+                 "needs no Telegram approval, no auditor review and no per-order envelope",
+                 "selling a lot the desk holds needs no approval line at all",
+                 "reads up to 15 minutes old are fresh", "a reserved order has 10 minutes to be sent",
+                 "The 30, 60, 90 and 120 second figures in older text are retired",
+                 "Broker status 5 is a finished order", "No other cancel and no modify",
+                 "the allowlisted US paper account only, and the command refuses anything else",
+                 "Never a live account, a market order, a short sale or an order the command did not list"):
+        assert must in rulings, must
+    assert "this brief wins (see RULINGS)" in " ".join(prompt.split())
+
+
+def test_the_rulings_state_the_clocks_the_config_really_has():
+    """A ruling that quotes a number the kernel does not use is how the old brief and the old kernel
+    came to disagree; the two figures in the brief are read back from config here."""
+    from tyche.config import load_config
+    config = load_config(ROOT)
+    assert config.tactical.max_snapshot_age_seconds == config.tactical.max_quote_age_seconds == 900
+    assert config.scalp.max_snapshot_age_seconds == config.scalp.max_quote_age_seconds == 900
+    assert config.tactical.submit_window_seconds == config.scalp.entry_submit_window_seconds == 600
+    assert config.tactical.resting_reach_pct == 0.03 and config.tactical.min_reward_risk == 1.5   # RESEARCH
+    assert config.tactical.max_confirmation_ticks == 1
+
+
+def test_research_writes_the_one_file_the_command_reads_and_aims_at_prices_that_can_fill():
+    prompt = _module().card_prompt(PERMANENT)
+    research = _clause(prompt, "RESEARCH:", "\n\nPB-003 OPTION")
+    for must in ("/data/drive/tyche-raw/watchlist.json", '{"as_of": "<New York date>", "entries": [...]}',
+                 "At most one entry per symbol", "stop < entry_low <= entry_high < target",
+                 "at least 1.5 times the risk", "sources (at least one URL)", 'axis "fundamental"',
+                 "a setup without both does not trade",
+                 "Leave out setup_id, expiry, reviewed_at and exit_at for a stock",
+                 "a price up to 3% above the zone rests a DAY limit at entry_high",
+                 "entry_high no more than about 1% below the last price",
+                 "a desk that only waits places no trade",
+                 "`tyche cycle --dir <run> --reads`", 'an alert "left out: ..." names a setup and the field to fix',
+                 "read `stocks.decisions`"):
+        assert must in research, must
 
 
 def test_feed_publish_is_the_last_step_and_never_a_trading_step():
@@ -180,7 +227,8 @@ def test_feed_publish_is_the_last_step_and_never_a_trading_step():
                  "Run it once", "never retry in a loop", "never edit the feed files by hand",
                  "never print a token", "places no order and changes no rule"):
         assert must in clause, must
-    assert prompt.index("REPORT:") < prompt.index("PUBLISH (2026-11-23):")
+    assert prompt.index("DIGEST (08:05") < prompt.index("PUBLISH (2026-11-23):")
+    assert prompt.rstrip().endswith("It places no order and changes no rule.")
     assert _module().prompt_markers(prompt)["has_feed_publish"]
     assert _module().prompt_markers(prompt)["has_performance_pack"]
     assert "regenerates the day's performance pack" in clause and "skipped, never a reason to" in clause
@@ -192,94 +240,53 @@ def test_feed_publish_is_the_last_step_and_never_a_trading_step():
         assert must in clause, must
 
 
-def test_fib_pullback_clause_is_switch_gated_and_approval_bound():
-    """PB-007 runs only while the operator's switch says so, scans at 08:05 only, and every entry still
-    goes through the same approval path as any other proposal; a dry scan is not a problem."""
+def test_the_digest_reports_only_what_the_cycle_report_shows():
     prompt = _module().card_prompt(PERMANENT)
-    clause = " ".join(prompt.split("PB-007 FIB PULLBACK (2026-11-23):", 1)[1].split("BUDGET:", 1)[0].split())
-    for must in ("tyche strategies --json", "never edit it in a run", "08:05 fire", "tyche fib-scan",
-                 "--record", "exact-order audit", "Telegram /approve", "12:05 never scans",
-                 "15:05 runs exits first", "no setup is a normal outcome", "skip this block entirely"):
+    digest = _clause(prompt, "DIGEST (08:05, 15:05 and on-demand runs):")
+    for must in ("SENTINEL FORMAT V1", "python scripts/telegram.py send-digest <file>", "<run>/cycle.json",
+                 "Say plainly when no order was placed",
+                 "Never claim a fill or an approval the report does not show",
+                 "never include an account id or a token", "UNCONFIRMED: do not send it again",
+                 "The 12:05 fire sends no digest"):
+        assert must in digest, must
+
+
+def test_operator_exit_is_direct_and_paper_only():
+    prompt = _module().card_prompt(PERMANENT)
+    clause = _clause(prompt, "OPERATOR EXIT (2026-11-24):")
+    for must in ("only when the operator asked today", "tyche exit-now", "--journal <ledger>",
+                 "ONE limit sell", "never to retry", "Paper account only, always"):
         assert must in clause, must
-    assert prompt.index("PROPOSAL APPROVAL (TELEGRAM WAIT") < prompt.index("PB-007 FIB PULLBACK (2026-11-23):")
-    assert "PB-007 swing 20% (only while its switch is on)" in prompt
-    assert _module().prompt_markers(prompt)["has_fib_pullback"]
-
-
-def test_nav_references_pin_the_verified_start_and_retire_the_unverified_mark():
-    prompt = _module().card_prompt(PERMANENT)
-    clause = prompt.split("NAV REFERENCES (2026-11-23):", 1)[1].split("\n\n", 1)[0]
-    assert "100,000.00 starting" in clause and "102,208.99" in clause and "retired" in clause
-    assert "never lower it" in clause
-    assert _module().prompt_markers(prompt)["has_nav_references"]
-
-
-def test_operator_exit_is_direct_never_at_midday_and_paper_only():
-    prompt = _module().card_prompt(PERMANENT)
-    clause = prompt.split("OPERATOR EXIT (2026-11-24):", 1)[1].split("\n\n", 1)[0]
-    assert "tyche exit-now" in clause and "ONE" in clause and "Never at the 12:05 fire" in clause
-    assert "Paper account only" in clause and "never retry" in clause
     assert _module().prompt_markers(prompt)["has_operator_exit"]
 
 
-def test_long_options_clause_is_switch_gated_buy_only_and_never_midday():
+def test_long_options_clause_is_switch_gated_optional_and_buy_only():
     prompt = _module().card_prompt(PERMANENT)
-    clause = prompt.split("PB-003 LONG OPTIONS (2026-11-24):", 1)[1].split("\n\n", 1)[0]
-    assert "tyche strategies\n--json" in clause or "tyche strategies --json" in clause
-    assert "Never sell an option to open" in clause and "never a spread" in clause
-    assert "AFTER 2026-11-27" in clause and "Never submit at 12:05" in clause
-    assert "Options stay\ndisabled" not in prompt
-    assert "PB-003 option premium cap 5%" in prompt
+    clause = _clause(prompt, "PB-003 OPTION (2026-11-24 test;")
+    for must in ("only while `tyche strategies --json` lists PB-003 enabled", "at most ONE long call",
+                 "expiry after 2026-11-27", "open interest of at least 100", "premium_limit",
+                 "Never sell an option to open, never a spread",
+                 "leave the option out: the stock setups do not depend on it"):
+        assert must in clause, must
     assert _module().prompt_markers(prompt)["has_long_options"]
 
 
-def test_a_sell_only_exit_note_never_silences_the_telegram_ask():
+def test_an_on_demand_run_is_a_whole_run_on_fresh_reads():
+    """The operator can fire the desk card outside its schedule; it researches if the day has no
+    watchlist yet and then runs the same cycle as any fire. Outside the session the cycle skips."""
     prompt = _module().card_prompt(PERMANENT)
-    assert "never means \"no buy authority today\"" in prompt
-    assert "including on a day with a sell-only exit note" in prompt
-    assert "VNQ ...597 and SMH ...500 are closed" in prompt
-    assert _module().prompt_markers(prompt)["has_rulings"]
-
-
-def test_an_on_demand_run_trades_like_the_close_fire_on_fresh_quotes():
-    """The operator can fire the desk card outside its schedule; inside the session that run is a full
-    trading run with the Telegram asks, outside it the run only reconciles."""
-    prompt = _module().card_prompt(PERMANENT)
-    clause = " ".join(prompt.split("ON-DEMAND RUN (2026-11-24, operator):", 1)[1].split("\n\n", 1)[0].split())
-    for must in ("within 10 minutes after 08:05, 12:05 or 15:05 ET", "fresh quotes",
-                 "everything the 15:05 close fire does", "PROPOSAL APPROVAL", "never scanned", "submits nothing",
-                 "ON-DEMAND RUN"):
+    clause = _clause(prompt, "ON-DEMAND RUN (2026-11-24, operator):")
+    for must in ("within 10 minutes after 08:05, 12:05 or 15:05 ET", "RESEARCH only if today's watchlist is missing",
+                 "THE CYCLE once on fresh reads", 'a DIGEST titled "ON-DEMAND RUN"',
+                 'Outside the session the cycle answers "skip"'):
         assert must in clause, must
     assert _module().prompt_markers(prompt)["has_on_demand"]
     source = (ROOT / "scripts" / "deploy_two_fire_automation.py").read_text()
     assert '"--run-now" in sys.argv' in source and "refusing to run a deployment that is not the Tyche desk card" in source
 
 
-def test_pb003_options_buy_at_the_live_price_once_approved():
+def test_lanes_the_operator_parked_place_no_order_from_the_brief():
     prompt = _module().card_prompt(PERMANENT)
-    clause = " ".join(prompt.split("LIVE PRICE (operator ruling 2026-11-24):", 1)[1].split("\n\n", 1)[0].split())
-    for must in ("does not wait for the underlying to pull back", "at most 5%", "ONE fresh proposal",
-                 "never a second re-proposal"):
-        assert must in clause, must
-    assert _module().prompt_markers(prompt)["has_option_live_price"]
-
-
-def test_resting_orders_are_kernel_decided_day_limits_with_both_reasons_and_a_bounded_cancel():
-    """Operator direction 2026-11-24: place the order instead of waiting for a run. The brief may only
-    pass through what the kernel returned, every order carries a technical and a fundamental reason, the
-    only cancel it pre-approves is the desk's own resting take-profit ahead of a stop, and protective
-    exits need no fresh operator line."""
-    module = _module()
-    prompt = module.card_prompt(PERMANENT)
-    clause = " ".join(prompt.split("RESTING ORDERS (2026-11-24, operator):", 1)[1].split("\n\nBUDGET", 1)[0].split())
-    for must in ("never improvise a resting order the kernel did not return", "time in force DAY",
-                 "Never within 60 minutes of the close", "never for options", "resting at <limit>, expires at the close",
-                 "passing technical AND a passing fundamental factor", "Fix the research, never the factor state",
-                 "resting limit SELL at the setup's target", "cancel_first", "journal `order.cancelled`",
-                 "desk's OWN resting orders for this purpose only", "stamps them `protective`",
-                 "PROTECTION WATCH every 15 minutes", "never cancelled by the desk"):
-        assert must in clause, must
-    assert module.prompt_markers(prompt)["has_resting_orders"]
-    assert "except the\ncancel_first of the desk's own resting take-profit" in prompt
-    # The old hand re-arm sentence is gone: the watch is the first line of defence.
-    assert "a tactical\nexit has no automatic re-arm" not in prompt
+    assert "PB-001 ballast and PB-007 place no order from this brief" in _clause(prompt, "OTHER LANES:")
+    for gone in ("tyche fib-scan", "tyche rebalance", "lifecycle reserve"):
+        assert gone not in prompt, gone

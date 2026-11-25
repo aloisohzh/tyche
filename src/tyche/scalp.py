@@ -21,6 +21,9 @@ from tyche.risk import RiskState, evaluate_intent
 from tyche.tactical import MarketQuote, order_hash
 
 RTH = {SessionPhase.OPENING_DRIVE, SessionPhase.MIDDAY, SessionPhase.CLOSING_DRIVE}
+# The newest 1-minute bar may trail the quote by this much before the series counts as stale: a bar
+# is stamped when its minute opens or closes, and a thin minute prints no bar at all.
+BAR_LAG_SECONDS = 180
 
 
 class Bar(BaseModel):
@@ -59,17 +62,36 @@ def bars_from_kline(payload: dict, limit: int = 60) -> list[Bar]:
     return sorted(bars, key=lambda b: b.at)[-limit:]
 
 
-def breakout(bars: list[Bar], lookback: int) -> bool:
-    if len(bars) < lookback + 1:
-        return False
-    prior, last = bars[-(lookback + 1):-1], bars[-1]
-    return last.close > max(bar.high for bar in prior) and last.close > last.open
+def breakout(bars: list[Bar], lookback: int, window: int = 1) -> bool:
+    """An up bar that closed above the highest high of the `lookback` bars before it.
+
+    `window` is how many of the latest bars may be that breakout bar. The latest close must still hold
+    above the level that was broken, so a breakout that already failed is not bought. With window 1
+    this is the original rule: only the latest bar counts. A run that looks once every 15 minutes
+    almost never lands on the exact breakout minute, which is why the live lane widens the window.
+    """
+    for back in range(max(1, window)):
+        end = len(bars) - back
+        if end - 1 - lookback < 0:
+            break
+        bar, prior = bars[end - 1], bars[end - 1 - lookback:end - 1]
+        level = max(item.high for item in prior)
+        if bar.close > level and bar.close > bar.open and bars[-1].close > level:
+            return True
+    return False
 
 
 def scalp_state(events: list[dict], today: date, timeout_minutes: int, *,
-                stop_pct: float = 0.0025, target_r: float = 2.0) -> ScalpState:
-    """Rebuild open lots, cooldown and the day's round trips from the journal."""
+                stop_pct: float = 0.0025, target_r: float = 2.0,
+                never_sent: set[str] | None = None) -> ScalpState:
+    """Rebuild open lots, cooldown and the day's round trips from the journal.
+
+    A fill's own time (`filled_at`, from the broker's order list) dates the lot when the journal row
+    carries it; the row's write time is only the fallback. `never_sent` names reservations that never
+    reached the broker: they start no cooldown, because nothing was traded.
+    """
     state = ScalpState()
+    never_sent = never_sent or set()
     fifo: dict[str, list[ScalpLot]] = {}
     request_strategy = {
         str(e.get("payload", {}).get("request_id")): str(e.get("payload", {}).get("strategy_id", ""))
@@ -91,6 +113,12 @@ def scalp_state(events: list[dict], today: date, timeout_minutes: int, *,
         qty = int(float(payload.get("quantity") or 0))
         price = float(payload.get("price") or 0)
         when = datetime.fromisoformat(ts)
+        try:
+            when = datetime.fromisoformat(str(payload["filled_at"]))
+            if when.tzinfo is None:
+                when = when.replace(tzinfo=UTC)
+        except (KeyError, ValueError):
+            pass
         if payload.get("side") == "buy":
             stop = price * (1 - stop_pct)
             target = price * (1 + target_r * stop_pct)
@@ -111,7 +139,8 @@ def scalp_state(events: list[dict], today: date, timeout_minutes: int, *,
     state.lots = {symbol: lots[0] for symbol, lots in fifo.items() if lots}
     for event in events:
         payload = event.get("payload", {})
-        if event.get("type") == "order.requested" and payload.get("strategy_id") == "PB-004":
+        if (event.get("type") == "order.requested" and payload.get("strategy_id") == "PB-004"
+                and payload.get("request_id") not in never_sent):
             when = datetime.fromisoformat(event["ts"])
             if when.astimezone(ET).date() == today:
                 state.last_request[str(payload["symbol"])] = when
@@ -131,7 +160,8 @@ def plan_scalp(
     if not cfg.enabled or phase_at(now) not in RTH:
         report["alerts"].append("scalp disabled or outside regular session")
         return report
-    if snapshot.captured_at is None or not 0 <= (now - snapshot.captured_at).total_seconds() <= 120:
+    if snapshot.captured_at is None or not (
+            0 <= (now - snapshot.captured_at).total_seconds() <= cfg.max_snapshot_age_seconds):
         report["alerts"].append("stale/missing account snapshot; no orders")
         return report
     if snapshot.env != "paper" or snapshot.account_id not in config.risk.account_allowlist:
@@ -139,34 +169,44 @@ def plan_scalp(
         return report
     close = datetime.combine(today, regular_close(today), ET)
     flatten = close - timedelta(minutes=cfg.flatten_minutes_before_close)
-    max_age = config.tactical.max_quote_age_seconds
+    max_age = cfg.max_quote_age_seconds
 
     for lot in sorted(state.lots.values(), key=lambda item: item.symbol):
         q = quotes.get(lot.symbol)
         decision = {"symbol": lot.symbol, "action": "hold", "reason": ""}
         report["decisions"].append(decision)
-        if q is None or not q.fresh(now, max_age):
+        overdue = now >= flatten or now >= lot.deadline
+        fresh = q is not None and q.fresh(now, max_age)
+        # A lot past its timeout or the flatten line is sold on the last quote the run has, however old:
+        # a stale price is a reason to price the exit wider, never a reason to keep the lot.
+        if q is None or not q.tradable or q.bid <= 0 or not (fresh or overdue):
             decision["reason"] = "exit quote stale; protection incomplete"
             report["alerts"].append(f"{lot.symbol}: scalp exit quote unavailable")
             continue
-        if now >= flatten or now >= lot.deadline:
+        price = q.price(now, max_age) if fresh else min(q.last, q.bid)
+        if overdue:
             reason = "scalp flatten/timeout"
-        elif q.last <= lot.stop:
+        elif price <= lot.stop:
             reason = "scalp stop"
-        elif q.last >= lot.target:
+        elif price >= lot.target:
             reason = "scalp target"
         else:
             decision["reason"] = "hold within stop/target/timeout"
             continue
+        # The collar puts the limit under the bid so an exit priced from a minutes-old quote still
+        # trades; a marketable limit fills at the market's price, not at the limit.
+        limit = max(0.01, round(q.bid * (1 - cfg.exit_collar_pct), 2))
         report["orders"].append({**_proposal(OrderIntent(
-            symbol=lot.symbol, side=Side.SELL, quantity=lot.quantity, limit_price=q.bid,
+            symbol=lot.symbol, side=Side.SELL, quantity=lot.quantity, limit_price=limit,
             strategy_id="PB-004", reason=reason)),
             "submit_before": min(now + timedelta(seconds=cfg.exit_submit_window_seconds),
                                  close).isoformat()})
+        decision.update(action="sell", reason=reason)
 
     risk_state = RiskState(nav=snapshot.nav, prior_close_nav=snapshot.prior_close_nav,
                            high_water_nav=snapshot.high_water_nav, orders_today=orders_today,
                            traded_notional_today=traded_notional_today, halted=halted)
+    opening = 0
     for symbol in cfg.symbols:
         decision = {"symbol": symbol, "action": "wait", "reason": ""}
         report["decisions"].append(decision)
@@ -180,7 +220,11 @@ def plan_scalp(
         if last_request and (now - last_request).total_seconds() < cfg.cooldown_seconds:
             decision["reason"] = "cooldown after last request"
             continue
-        if not breakout(bars.get(symbol, []), cfg.breakout_bars):
+        series = bars.get(symbol, [])
+        if not series or not 0 <= (now - series[-1].at).total_seconds() <= max_age + BAR_LAG_SECONDS:
+            decision["reason"] = "1-minute bars missing/stale"
+            continue
+        if not breakout(series, cfg.breakout_bars, cfg.breakout_window_bars):
             decision["reason"] = f"no {cfg.breakout_bars}-bar breakout"
             continue
         if now >= flatten:
@@ -189,7 +233,7 @@ def plan_scalp(
         if halted:
             decision["reason"] = "kill-switch engaged; buys blocked"
             continue
-        if len(state.lots) >= cfg.max_open:
+        if len(state.lots) + opening >= cfg.max_open:  # lots held plus entries already planned this pass
             decision["reason"] = "max open positions"
             continue
         if state.round_trips_today >= cfg.max_round_trips_per_day:
@@ -198,7 +242,8 @@ def plan_scalp(
         if q.spread_pct > cfg.max_spread_pct:
             decision["reason"] = "spread too wide"
             continue
-        limit = q.ask
+        # The buffer keeps the limit marketable when the saved ask is a few minutes old.
+        limit = round(q.ask * (1 + cfg.entry_buffer_pct), 2)
         stop = round(limit * (1 - cfg.stop_pct), 2)
         target = round(limit * (1 + cfg.target_r * cfg.stop_pct), 2)
         quantity = int(cfg.risk_per_trade_pct * snapshot.nav / (limit - stop)) if limit > stop else 0
@@ -214,7 +259,7 @@ def plan_scalp(
         intent = OrderIntent(symbol=symbol, side=Side.BUY, quantity=quantity, limit_price=limit,
                              stop_price=stop, strategy_id="PB-004",
                              reason=f"{cfg.breakout_bars}-bar breakout, stop {stop}, target {target}")
-        verdict = evaluate_intent(intent, snapshot, config.risk, risk_state, q.last,
+        verdict = evaluate_intent(intent, snapshot, config.risk, risk_state, q.price(now, max_age),
                                   set(cfg.symbols), {s: "equity" for s in cfg.symbols})
         if not verdict.allowed:
             decision["reason"] = "; ".join(f"{b.rule}: {b.detail}" for b in verdict.breaches)
@@ -226,6 +271,7 @@ def plan_scalp(
                                           spread_pct=q.spread_pct, cfg=cfg)
         report["orders"].append(proposal)
         decision.update(action="buy", reason=intent.reason)
+        opening += 1
         risk_state.orders_today += 1
         risk_state.traded_notional_today += intent.notional
     return report

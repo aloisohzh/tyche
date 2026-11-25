@@ -22,6 +22,7 @@ Discipline carried over from the lessons it was written against:
     python scripts/deploy_managed_agents.py export
     python scripts/deploy_managed_agents.py diff coordinator --file plans/managed-migration/desk-new.md
     python scripts/deploy_managed_agents.py apply-system coordinator --file ... --apply
+    python scripts/deploy_managed_agents.py ship-prompts --apply
     python scripts/deploy_managed_agents.py create-skill midday-watch --apply
     python scripts/deploy_managed_agents.py publish-skill exact-order-audit
     python scripts/deploy_managed_agents.py ship-skill scout-data-suite --apply
@@ -319,6 +320,86 @@ def cmd_apply_system(args) -> None:
         args.compact = False
         return cmd_diff(args)
     _write(args.role, {"system": proposed}, "system")
+
+
+# sha256 of every prompt body this repo has written to the executor and the desk before (the files under
+# templates/prompts/live at earlier commits). `ship-prompts` replaces a live prompt only when it is one of
+# these, so a prompt someone edited in the console is never overwritten blind.
+KNOWN_LIVE_PROMPTS = {
+    "executor": {"46e54b21483b79c42b97f7589429ea1ab43ee0b5fe19d2c1bda8453598d6e044",   # PR 65, cancel policy
+                 "e57cef0c4b3bd22551e32ff8ed6c79ec29f96c65897a78f3eb7c3f2aad5c072b"},  # PR B trim
+    "coordinator": {"ebe26738b8bd91e26d941a61d624986edd6a3eb1383a70ea24ea6e101ca48f41"},  # PR B trim
+}
+SHIP_PROMPT_ROLES = ("executor", "coordinator")  # the child first, so the roster can pin its new version
+
+
+def _roster_pin(head: dict, role: str):
+    """The version of one child the desk's roster pins: a number, 'latest', or None when it has no row."""
+    rows = (head.get("multiagent") or {}).get("agents") or []
+    row = next((r for r in rows if isinstance(r, dict) and r.get("id") == ROLE_AGENTS[role]), None)
+    return None if row is None else row.get("version")
+
+
+def cmd_ship_prompts(args) -> None:
+    """One paste for edited agent prompts: write each prompt that differs from its repo file, re-pin a
+    changed child in the desk roster, then move both cards to the new desk version.
+
+    Every write is the same single-field-group write the separate subcommands make. It is safe to run
+    again after a partial failure: a prompt that already matches is skipped, a pin already in place is
+    left alone, and a failed roster or card step is reported at the end instead of hiding the rest.
+    """
+    plan = []
+    for role in SHIP_PROMPT_ROLES:
+        path = LIVE_PROMPTS / f"{EXPORT_STEM[role]}.md"
+        proposed, live = _prompt_text(str(path)), _agent(role)
+        if not proposed.strip():
+            raise SystemExit(f"{path.name} is empty; refusing to write an empty prompt")
+        state = ("same" if proposed == live["system"]
+                 else "known" if _sha(live["system"]) in KNOWN_LIVE_PROMPTS[role] else "unknown")
+        plan.append((role, path, state))
+        note = {"same": "already live", "known": "will be written",
+                "unknown": "THE LIVE TEXT IS NOT ONE THIS REPO WROTE"}[state]
+        print(f"{role:12} v{live['version']} live {len(live['system'])} chars sha {_sha(live['system'])[:12]} "
+              f"-> file {len(proposed)} chars sha {_sha(proposed)[:12]}: {note}")
+    unknown = [role for role, _, state in plan if state == "unknown"]
+    if unknown and not args.force:
+        raise SystemExit(f"{unknown}: the live prompt was edited outside this repo, so nothing was written. "
+                         "Send this output to the thread, or pass --force to replace it anyway.")
+    if not args.apply:
+        print("DRY RUN - nothing sent; re-run with --apply")
+        return
+    EXPORT_DIR.mkdir(parents=True, exist_ok=True)  # each write refreshes its baseline row in this folder
+    for role, path, state in plan:
+        if state != "same":
+            print(f"-- apply-system {role}")
+            cmd_apply_system(argparse.Namespace(role=role, file=str(path), apply=True))
+    problems = []
+    head = _agent("coordinator")
+    pins = []
+    for role in SHIP_PROMPT_ROLES:
+        if role == "coordinator":
+            continue
+        pinned, live_version = _roster_pin(head, role), _agent(role)["version"]
+        if pinned is None:
+            problems.append(f"the desk roster has no row for {role}")
+        elif pinned not in (live_version, "latest"):
+            pins.append(f"{role}={live_version}")
+    if pins:
+        print(f"-- roster {pins}")
+        try:
+            cmd_roster(argparse.Namespace(pin=pins, apply=True))
+        except (SystemExit, cloud_api.CloudError) as exc:
+            problems.append(f"roster re-pin {pins} failed ({exc}); the desk still delegates to the older version")
+    target = _agent("coordinator")["version"]
+    for card in CARD_IDS:
+        print(f"-- pin-card {card}")
+        try:
+            cmd_pin_card(argparse.Namespace(card=card, version=None, apply=True))
+        except (SystemExit, cloud_api.CloudError) as exc:
+            problems.append(f"pin-card {card} failed ({exc})")
+    if problems:
+        raise SystemExit("ship-prompts NOT complete: " + "; ".join(problems))
+    print(f"shipped: both cards run desk v{target}, and the executor and desk prompts match the repo files")
 
 
 def cmd_attach(args) -> None:
@@ -698,6 +779,13 @@ def main(argv=None) -> None:
     s.add_argument("--file", required=True)
     s.add_argument("--apply", action="store_true")
     s.set_defaults(func=cmd_apply_system)
+
+    g = sub.add_parser("ship-prompts", help="write the edited executor and desk prompts and re-pin them "
+                                            "all the way to both cards")
+    g.add_argument("--apply", action="store_true")
+    g.add_argument("--force", action="store_true",
+                   help="replace a live prompt this repo did not write (inspect the printed shas first)")
+    g.set_defaults(func=cmd_ship_prompts)
 
     t = sub.add_parser("attach")
     t.add_argument("role", choices=sorted(ROLE_AGENTS))

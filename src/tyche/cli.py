@@ -31,6 +31,7 @@ from tyche.broker import (
     snapshot_from_dir,
 )
 from tyche.config import load_config
+from tyche.cycle import cycle_command
 from tyche.envelope import propose_exit_envelope
 from tyche.events_cli import app as events_app
 from tyche.execution_state import daily_usage
@@ -66,6 +67,7 @@ app.add_typer(tactical_app, name="tactical")
 app.add_typer(events_app, name="events")
 app.add_typer(monitor_app, name="monitor")
 app.add_typer(performance_app, name="performance")
+app.command("cycle")(cycle_command)
 console = Console()
 
 
@@ -1329,9 +1331,11 @@ def exit_now(
             "authorization": authorization_record(mode, today),
         })
     answer({"authorized": True, "request_id": request_id, "side": "sell", "quantity": qty, "limit": limit,
-            "mode": mode, "reason": reason, "submit_before": (now + timedelta(seconds=90)).isoformat(),
+            "mode": mode, "reason": reason,
+            "submit_before": (now + timedelta(seconds=config.tactical.submit_window_seconds)).isoformat(),
             "instructions": "Submit ONE US paper limit sell with exactly these fields and request_id as the "
-                            "remark, before submit_before; then journal order.submitted. Never re-run to retry."}, 0)
+                            "remark, before submit_before. Never re-run to retry. The next `tyche cycle` journals "
+                            "the receipt and the fill from the broker's order list."}, 0)
 
 
 @app.command("approve-telegram")

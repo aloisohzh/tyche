@@ -41,6 +41,12 @@ def case(option=False, held=False):
     config.tactical.symbols = ["US.NVDA"]
     config.tactical.etf_symbols = []
     config.tactical.monitor_interval_seconds = 120
+    # Pin the clocks too: these drills test the mechanisms at a two-minute cadence, whatever the live
+    # lane in config/tactical.yaml is set to (15-minute agent runs from 2026-11-25).
+    config.tactical.max_quote_age_seconds = 120
+    config.tactical.max_snapshot_age_seconds = 120
+    config.tactical.max_confirmation_ticks = 5
+    config.tactical.max_review_age_seconds = 1800
     snapshot = AccountSnapshot(account_id="SIM-TEST", cash=100000, captured_at=NOW,
                                source="sim_list", account_type=2, market_id=100,
                                prior_close_nav=100000, high_water_nav=100000)
@@ -175,8 +181,8 @@ def test_hourly_cadence_does_not_relax_data_gates(stale):
     advance(args, now)
     if stale != "review":
         args[0].entries[0].reviewed_at = now
-    if stale == "quote":
-        args[2][0].at -= timedelta(seconds=args[7].tactical.max_quote_age_seconds + 1)
+    if stale == "quote":  # freshness is the order book's own time (2026-11-25): an old book is stale
+        args[2][0].book_at -= timedelta(seconds=args[7].tactical.max_quote_age_seconds + 1)
     result = run(args, now)
     assert not result["orders"], result
     if stale == "heartbeat":
@@ -227,7 +233,7 @@ def test_entry_gates_fail_closed(mutation):
     advance(args, now)
     entry, snapshot, quote = args[0].entries[0], args[1], args[2][0]
     if mutation == "stale":
-        quote.at -= timedelta(seconds=args[7].tactical.max_quote_age_seconds + 1)
+        quote.book_at -= timedelta(seconds=args[7].tactical.max_quote_age_seconds + 1)
     elif mutation == "future":
         snapshot.captured_at += timedelta(seconds=1)
     elif mutation == "research":
@@ -460,7 +466,7 @@ def test_exact_reservation_is_atomic_and_one_shot(tmp_path, monkeypatch, blocker
             journal.write_text("not json")
         elif blocker == "stalequote":
             data = json.loads(paths["quotes"].read_text())
-            data[-1]["at"] = (NOW - timedelta(seconds=1)).isoformat()
+            data[-1]["book_at"] = (NOW - timedelta(seconds=1)).isoformat()
             paths["quotes"].write_text(json.dumps(data))
         denied = runner.invoke(app, cmd)
         assert denied.exit_code == 1, denied.output
@@ -728,34 +734,43 @@ def test_a_cancelled_take_profit_hands_its_quantity_and_slot_back(tmp_path):
     assert envelope_usage(journal, today) == 1
 
 
-def test_a_stop_exit_of_a_held_lot_reserves_with_no_operator_line_but_a_take_profit_still_needs_one(tmp_path, monkeypatch):
-    """A protective exit removes risk, so the entry's approval is its authority; a resting take-profit is a
-    new order choice and still runs through the envelope or Telegram gate."""
+def test_selling_a_held_lot_reserves_with_no_operator_line(tmp_path, monkeypatch):
+    """Selling a lot the desk holds only removes risk, so the entry's approval is its authority: the
+    resting take-profit and the stop exit both reserve with no envelope and no Telegram yes. Before
+    2026-11-25 the take-profit and the stop that replaces it counted twice against one sell line."""
     args = case(held=True)
     args[7].tactical.execution_enabled = True  # synthetic drill only
     paths = write_cli_case(tmp_path, args)
-    journal = tmp_path / "events.jsonl"
-    append_event(journal, "tactical.monitor", {"state": args[6].model_dump(mode="json")})
     monkeypatch.setattr("tyche.tactical_cli.now_utc", lambda: NOW)
     monkeypatch.setattr("tyche.tactical_cli.load_config", lambda _: args[7])
-    cmd = ["tactical", "reserve", "--symbol", "US.NVDA", "--journal", str(journal), "--config-root", str(tmp_path)]
-    for key, path in paths.items():
-        cmd.extend(["--" + key, str(path)])
+    today = NOW.astimezone(ET).date().isoformat()
+
+    def command(journal):
+        append_event(journal, "tactical.monitor", {"state": args[6].model_dump(mode="json")})
+        cmd = ["tactical", "reserve", "--symbol", "US.NVDA", "--journal", str(journal), "--config-root", str(tmp_path)]
+        for key, path in paths.items():
+            cmd.extend(["--" + key, str(path)])
+        return cmd
     runner = CliRunner()
-    # No exit trigger: the kernel offers the resting take-profit, and with no authority it is refused.
-    refused = runner.invoke(app, cmd)
-    assert refused.exit_code == 1 and "no Telegram approval journaled today" in refused.output
+    # No exit trigger: the kernel offers the resting take-profit, and it reserves on the entry's authority.
+    resting = runner.invoke(app, command(tmp_path / "events-tp.jsonl"))
+    assert resting.exit_code == 0, resting.output
+    payload = json.loads(resting.stdout)
+    assert payload["request"]["reason"] == "resting take-profit at target"
+    assert payload["request"]["authorization"] == {"kind": "protective", "as_of": today}
     # Stop breached: the protective sell is reserved with no envelope and no Telegram yes.
     data = json.loads(paths["quotes"].read_text())
     for row in data:
         row["last"], row["bid"], row["ask"] = 144, 143.95, 144.05
     paths["quotes"].write_text(json.dumps(data))
+    journal = tmp_path / "events.jsonl"
+    cmd = command(journal)
     first = runner.invoke(app, cmd)
     assert first.exit_code == 0, first.output
     payload = json.loads(first.stdout)
-    assert payload["request"]["authorization"] == {"kind": "protective", "as_of": NOW.astimezone(ET).date().isoformat()}
+    assert payload["request"]["authorization"] == {"kind": "protective", "as_of": today}
     assert payload["request"]["reason"] == "underlying stop breached" and payload["request"]["cancel_first"] == []
     assert payload["request"]["reasons"]["technical"] == "underlying stop breached"
-    assert "protective exit" in payload["authority"]
+    assert "exit of a held lot" in payload["authority"]
     assert runner.invoke(app, cmd).exit_code == 1  # the reservation blocks a second sell until reconciled
     assert verify_chain(journal)[0]

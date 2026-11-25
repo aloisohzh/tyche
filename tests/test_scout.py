@@ -77,6 +77,7 @@ def test_cadence_floor_allows_five_seconds():
 def test_scout_cycle_skips_stale_feed_and_leaves_no_state(tmp_path, monkeypatch):
     journal = tmp_path / "events.jsonl"
     config = load_config(ROOT)
+    config.tactical.max_snapshot_age_seconds = 120  # the daemon's own clock, not the agent runs'
     line = run_cycle(tmp_path, monkeypatch, NOW, feed_stamp=NOW - timedelta(minutes=10),
                      journal=journal, book=write_book(tmp_path), config=config)
     assert "stale" in line["skipped"]
@@ -94,6 +95,7 @@ def test_scout_cycle_confirms_across_feed_refreshes_then_freezes_order(tmp_path,
     config.tactical.symbols = ["US.NVDA"]
     config.tactical.etf_symbols = []
     config.tactical.monitor_interval_seconds = 30
+    config.tactical.max_confirmation_ticks = 5  # this drill is about the two-quote confirmation
 
     first = run_cycle(tmp_path, monkeypatch, NOW, journal=journal, book=book, config=config)
     assert not first["orders"], first

@@ -6,7 +6,7 @@ title: Tactical stocks (desk picks with a written thesis)
 classification:
   holding_period: Swing             # one to a few sessions; every setup carries an explicit exit deadline
   strategy_type: Event-driven       # each pick needs a named catalyst and cited evidence before it can trade
-  execution_style: Semi-automated   # the researcher proposes, the kernel gates, the operator approves on Telegram
+  execution_style: Semi-automated   # the researcher proposes, the kernel gates, the operator sets the approval bounds
   instruments: [Stocks]             # shares only; the option leg of the same lane is PB-003
   regime_fit: [Bull, Range]         # long shares need a tape that is not falling; the current picks are defensives
   direction: Long                   # long shares and cash only
@@ -15,12 +15,18 @@ classification:
 
 # PB-002 - Tactical stocks (desk picks with a written thesis)
 
-- **Status:** trading in config (`config/tactical.yaml: enabled: true`, `execution_enabled: true`); every
-  entry still waits for the operator's Telegram `/approve` in Ask me mode, or a same-day envelope in
-  Within my bounds.
-- **Rules hash:** `58a3ce686238` (sha256 of `config/tactical.yaml` + `config/universe.yaml`, CRLF normalized,
+- **Status:** trading in config (`config/tactical.yaml: enabled: true`, `execution_enabled: true`). From
+  25 to 27 Nov 2026 an entry inside the operator's standing paper approval
+  (`data/standing-approval.json`) is placed by `tyche cycle` with no per-order ask; outside those dates an
+  entry again needs a same-day envelope or a Telegram `/approve`. Selling a held lot never needs a line.
+- **Rules hash:** `4d305127a2cd` (sha256 of `config/tactical.yaml` + `config/universe.yaml`, CRLF normalized,
   first 12). PB-002 and PB-003 are one lane with one parameter file, so they share this hash: editing the
-  file re-registers the pair. `a1d9df1c687c` was the hash from the evening of 2026-11-23 until 2026-11-24, when
+  file re-registers the pair. `58a3ce686238` was the hash from 2026-11-24 until 2026-11-25, when the lane's
+  clocks were reset for a desk that agents run every 15 minutes instead of a 30-second feed (quotes and
+  the account read good for 15 minutes, one confirming quote, research good for the session, ten minutes
+  to send a reserved order) and stock exits were priced 0.3% under the bid (`exit_collar_pct`): with the
+  old clocks every run refused its own data and the lane placed no order. `tyche cycle` registers the new
+  hash on the ledger by itself. `a1d9df1c687c` was the hash from the evening of 2026-11-23 until 2026-11-24, when
   the resting-order settings (`resting_entries`, `resting_reach_pct`, `resting_cutoff_minutes`,
   `resting_take_profit`) were added so the desk places its entry and take-profit orders instead of waiting
   for the next run; `d5ef9567c736` was the hash from the morning of 2026-11-23, when the five
@@ -40,7 +46,7 @@ classification:
 A short list of large, liquid names is watched by the researcher. When one of them has a fresh, named
 reason to move (an earnings print, guidance, a sector rotation, a macro print that favours the group), the
 researcher writes a one-paragraph thesis with cited sources, an entry zone, a stop, a target and an exit
-deadline. The desk buys only inside that zone, only while the thesis is less than 30 minutes old, and only
+deadline. The desk buys only at that zone, only on the day the thesis was written, and only
 if the target pays at least 1.5 times the distance to the stop. The bet is that a documented, time-boxed
 reason plus strict reward-to-risk filtering beats both idle cash and undocumented discretion.
 
@@ -52,7 +58,7 @@ and dividend news give the researcher concrete catalysts to write against.
 ## Edge
 Why it should work after fees: every entry needs reward/risk ≥ 1.5 at the underlying, so a win rate of
 40% breaks even before costs, and stock fees ($0.99 per order plus TAF on sells) are small against a
-position sized to risk 1% of NAV. The 30-minute freshness rule, the entry zone and the "do not chase"
+position sized to risk 1% of NAV. The same-day research rule, the entry zone and the "do not chase"
 reject keep the desk from buying a story after the move has happened.
 
 Why it might not: a catalyst that is already in the price gives a neat-looking setup with no edge, and a
@@ -63,13 +69,15 @@ the thesis. Nothing here has been compared with a random entry in the same names
 ## Universe / liquidity filter
 Only the symbols in `config/tactical.yaml` (`symbols:`), which must not overlap the rotation ETFs, the
 scalp names or the PB-007 list (ADR 0014/0017). Verified market cap ≥ $500M, price ≥ $1.00, bid/ask spread
-≤ 0.3% of price at entry. Quotes older than 120 seconds reject the tick.
+≤ 0.3% of price at entry. Quotes older than 15 minutes (`max_quote_age_seconds`) reject the tick: the
+desk is run by agents every 15 minutes, and a run needs several minutes between reading and deciding.
 
 ## Entry trigger
 A watchlist setup in `status: watch`, not invalidated and not expired, with a setup id, a thesis, a
-catalyst and at least one cited source; reviewed by the researcher within the last 30 minutes; with an
-explicit exit deadline at least 10 minutes before the close. The last price must sit inside
-`[entry_low, entry_high]` for the configured number of distinct fresh quotes (default 2). The order is a
+catalyst and at least one cited source; reviewed by the researcher the same day
+(`max_review_age_seconds`, 12 hours); with an exit deadline at least 10 minutes before the close (left
+out, it is the session's exit time). The last price must sit inside `[entry_low, entry_high]` on one
+fresh quote (`max_confirmation_ticks: 1` since 2026-11-25; a second confirming run cost 15 minutes). The order is a
 limit at the ask, which must itself be inside the zone. One entry attempt per setup, ever: no re-entry
 after a stop, a target or a closed setup. At most 3 new orders per tick.
 
@@ -98,12 +106,14 @@ both measured against projected NAV including pending buys. The researcher may s
 **Resting take-profit (2026-11-24).** A held lot with no exit trigger gets ONE limit sell resting at the
 setup's target (DAY), re-placed each session until it fills, the stop is hit or the deadline passes. A
 stop or other protective trigger while it rests returns a sell for the whole lot with `cancel_first`
-naming the resting order: cancel it, journal `order.cancelled`, then sell at the bid. Protective exits
-(stop, target, invalidation, time) are authorized by the entry's approval (`protective` in `reserve`), so
-a stop does not wait for an operator line; the scalp card checks them every 15 minutes between fires.
+naming the resting order: cancel it, then sell. Selling a held lot (stop, target, invalidation, time,
+the resting take-profit) is authorized by the entry's approval and needs no operator line, so an exit
+never waits for one; every run of `tyche cycle` checks them: the 15-minute card and the three desk fires.
 
-Target: limit sell at the bid when the last price reaches the setup's target. Stop: limit sell at the bid
-when the last price reaches the stop (synthetic monitor, not a resting broker stop). Time: the setup's
+Target: limit sell when the last price reaches the setup's target. Stop: limit sell when the last price
+reaches the stop (synthetic monitor, not a resting broker stop). Both are priced 0.3% under the bid
+(`exit_collar_pct`), because the quote is minutes old by the time the order goes in and an exit that
+rests unfilled is a lot left unprotected. Time: the setup's
 exit deadline, and in any case 10 minutes before the regular close on the final day. Fresh invalidation
 from the researcher can only tighten protection, never move a stop away.
 
@@ -122,6 +132,7 @@ Unvalidated. First live trades are a test of the research → plan → approve �
 closed trades are needed before the Score table on the dashboard means anything.
 
 ## Evidence
-- Lane code: `src/tyche/tactical.py` (entry gate, sizing, exits), `src/tyche/tactical_cli.py` (`scout`, `reserve`).
+- Lane code: `src/tyche/tactical.py` (entry gate, sizing, exits), `src/tyche/cycle.py` (`tyche cycle`, the one
+  command both cards run), `src/tyche/tactical_cli.py` (`scout`, `reserve`).
 - Rules: `config/tactical.yaml`, `config/universe.yaml`; freeze row on the Drive ledger per the runbook.
 - Trades: the dashboard's Trade ideas table filtered to PB-002, and Finished trades once a position closes.
