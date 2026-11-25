@@ -5,12 +5,25 @@ import json
 import os
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
+from types import SimpleNamespace
 
+import pandas as pd
 import pytest
 from test_cycle import NOW, ROOT, Desk, by_symbol, ko_entry
 
 from tyche.broker.moomoo_cli import MoomooCliError
-from tyche.laptop import Broker, as_bars, as_orders, as_quotes, next_slot, send_listed, slots
+from tyche.broker.opend import OpenDClient, OpenDError
+from tyche.laptop import (
+    Broker,
+    as_bars,
+    as_orders,
+    as_quotes,
+    find_cli,
+    next_slot,
+    pick_road,
+    send_listed,
+    slots,
+)
 from tyche.market_calendar import ET
 
 
@@ -75,6 +88,9 @@ class FakeCli:
         return {"ret_code": 0, "data": {"kline_list": [
             {"time_key": t, "open_price": o, "high_price": h, "low_price": lo, "close_price": c}
             for t, o, h, lo, c in rows]}}
+
+    def kline_1m(self, symbol, num=12):
+        return self._json(["kline", symbol, "--ktype", "1", "--num", str(num), "--format", "json"])
 
     def sim_order_cancel(self, order_id, account, market="US"):
         self._record("sim_order_cancel", order_id, account)
@@ -190,3 +206,202 @@ def test_the_laptop_command_is_wired_into_the_cli():
     result = CliRunner().invoke(app, ["laptop", "--help"])
     assert result.exit_code == 0 and "--check" in result.output and "--once" in result.output
     assert Path(ROOT / "scripts" / "cloud_api.py").read_text(encoding="utf-8").count("pause-all") >= 2
+
+
+# --- the OpenD road: the moomoo Python SDK's answers (pandas frames) in, the same shapes out -------------
+
+def _et(ms: int) -> str:
+    return datetime.fromtimestamp(ms / 1000, UTC).astimezone(ET).strftime("%Y-%m-%d %H:%M:%S.000")
+
+
+SDK_STATES = {2: "SUBMITTED", 4: "FILLED_ALL", 5: "CANCELLED_ALL"}
+
+
+class FakeOpenD:
+    """The moomoo SDK's contexts over test_cycle's fake broker, answering with pandas frames."""
+
+    RET_OK = 0
+    TrdMarket = SimpleNamespace(US="US")
+    TrdEnv = SimpleNamespace(SIMULATE="SIMULATE", REAL="REAL")
+    Currency = SimpleNamespace(USD="USD")
+    KLType = SimpleNamespace(K_1M="K_1M")
+    OrderType = SimpleNamespace(NORMAL="NORMAL")
+    TrdSide = SimpleNamespace(BUY="BUY", SELL="SELL")
+    TimeInForce = SimpleNamespace(DAY="DAY")
+    ModifyOrderOp = SimpleNamespace(CANCEL="CANCEL")
+
+    def __init__(self, desk: Desk) -> None:
+        self.desk = desk
+        self.calls: list[tuple] = []
+        fake = self
+
+        class Quote:
+            def __init__(self, host, port):
+                pass
+
+            def get_market_snapshot(self, codes):
+                fake.calls.append(("snapshot", tuple(codes)))
+                at = _et(int((fake.desk.clock.current - timedelta(seconds=60)).timestamp() * 1000))
+                return 0, pd.DataFrame([{"code": c, "update_time": at, "last_price": fake.desk.quotes[c],
+                                         "volume": 100000, "suspension": False, "sec_status": "NORMAL"}
+                                        for c in codes if c in fake.desk.quotes])
+
+            def request_history_kline(self, code, start=None, end=None, ktype=None, max_count=1000):
+                fake.calls.append(("kline", code, ktype))
+                return 0, pd.DataFrame([{"time_key": _et(t), "open": o, "high": h, "low": lo, "close": c,
+                                         "volume": 1000} for t, o, h, lo, c in fake.desk.bars.get(code, [])]), None
+
+            def close(self):
+                fake.calls.append(("close quote",))
+
+        class Trade:
+            def __init__(self, filter_trdmarket, host, port):
+                pass
+
+            def get_acc_list(self):
+                fake.calls.append(("accounts",))
+                return 0, pd.DataFrame([
+                    {"acc_id": 281756455, "trd_env": "REAL", "acc_type": "MARGIN", "trdmarket_auth": ["US", "HK"]},
+                    {"acc_id": "SIM-TEST", "trd_env": "SIMULATE", "acc_type": "MARGIN", "trdmarket_auth": ["US"],
+                     "sim_acc_type": "STOCK", "competition_acc_name": "challenge"},
+                    {"acc_id": 9003, "trd_env": "SIMULATE", "acc_type": "CASH", "trdmarket_auth": ["HK"]}])
+
+            def accinfo_query(self, trd_env, acc_id, currency):
+                fake.calls.append(("funds", trd_env, acc_id))
+                gross = sum(float(p["qty"]) * float(p["cur_price"]) for p in fake.desk.positions)
+                return 0, pd.DataFrame([{"cash": fake.desk.cash, "frozen_cash": fake.desk.hold,
+                                         "total_assets": fake.desk.cash + gross, "market_val": gross}])
+
+            def position_list_query(self, trd_env, acc_id):
+                fake.calls.append(("positions", trd_env, acc_id))
+                return 0, pd.DataFrame([{"code": f"US.{p['symbol']}", "qty": float(p["qty"]),
+                                         "can_sell_qty": float(p["qty_avbl"]), "average_cost": float(p["cost_price"]),
+                                         "nominal_price": float(p["cur_price"]), "position_side": "LONG"}
+                                        for p in fake.desk.positions],
+                                       columns=["code", "qty", "can_sell_qty", "average_cost", "nominal_price",
+                                                "position_side"])
+
+            def _orders(self):
+                return pd.DataFrame([{"order_id": o["order_id"], "code": f"US.{o['symbol']}",
+                                      "trd_side": {1: "BUY", 2: "SELL"}[o["side"]], "qty": float(o["qty"]),
+                                      "dealt_qty": float(o["cum_qty"]), "price": float(o["price"]),
+                                      "dealt_avg_price": float(o["avg_fill_price"]),
+                                      "order_status": SDK_STATES[o["status"]],
+                                      "create_time": _et(int(o["create_time"]) // 1000),
+                                      "updated_time": _et(int(o["update_time"]) // 1000), "remark": o["text"]}
+                                     for o in fake.desk.orders],
+                                    columns=["order_id", "code", "trd_side", "qty", "dealt_qty", "price",
+                                             "dealt_avg_price", "order_status", "create_time", "updated_time",
+                                             "remark"])
+
+            def order_list_query(self, trd_env, acc_id):
+                fake.calls.append(("orders", trd_env, acc_id))
+                return 0, self._orders()
+
+            def history_order_list_query(self, trd_env, acc_id, start, end):
+                fake.calls.append(("history", trd_env, acc_id))
+                return 0, self._orders()
+
+            def place_order(self, **kwargs):
+                fake.calls.append(("place", kwargs))
+                return 0, pd.DataFrame([{"order_id": "8001", "code": kwargs["code"]}])
+
+            def modify_order(self, op, order_id, qty, price, trd_env, acc_id):
+                fake.calls.append(("modify", op, order_id, trd_env, acc_id))
+                return 0, pd.DataFrame([{"trd_env": trd_env, "order_id": order_id}])
+
+            def close(self):
+                fake.calls.append(("close trade",))
+
+        self.OpenQuoteContext = Quote
+        self.OpenSecTradeContext = Trade
+
+
+def test_opends_reads_are_saved_in_the_cycles_shapes_and_it_trades_on_them(desk):
+    desk.watch(ko_entry())
+    desk.quotes["US.KO"] = 96.40
+    desk.breakout("US.NVDA", NOW)
+    desk.order("tyche-tac-earlier", "US.MU", 1, 10, 99.0, status=5, filled=0)
+    fake = FakeOpenD(desk)
+    client = OpenDClient(module=fake)
+    run = desk.drive / "2026-11-25-laptop-151000"
+    notes = Broker(client, "SIM-TEST").save_reads(run, {"quotes": ["US.KO", "US.NVDA"], "bars": ["US.NVDA"],
+                                                        "books": []})
+    assert notes == []
+    accounts = json.loads((run / "accounts.json").read_text(encoding="utf-8"))["data"]["accounts"]
+    assert [a["account_id"] for a in accounts] == ["SIM-TEST"]          # the live and the HK rows never land
+    assert (accounts[0]["account_type"], accounts[0]["market_id"]) == (2, 100)
+    quotes = json.loads((run / "quotes.json").read_text(encoding="utf-8"))["data"]["quote_list"]
+    assert quotes[0]["suspension"] is False and quotes[0]["sec_status"] == "NORMAL"
+    orders = json.loads((run / "orders.json").read_text(encoding="utf-8"))["data"]["orders"]
+    assert (orders[0]["status"], orders[0]["side"], orders[0]["text"]) == (5, "buy", "tyche-tac-earlier")
+    for path in run.iterdir():
+        os.utime(path, ((NOW - timedelta(seconds=90)).timestamp(),) * 2)
+    report = desk.run(NOW, directory=run)
+    assert report["status"] == "ok", report
+    sent = by_symbol(report)
+    assert (sent["US.KO"]["side"], sent["US.KO"]["quantity"]) == ("buy", 51)
+    assert sent["US.NVDA"]["lane"] == "PB-004"
+    assert all(call[0] not in ("place", "modify") for call in fake.calls)   # reading placed nothing
+    assert {call[1] for call in fake.calls if call[0] in ("funds", "positions", "orders", "history")} == {"SIMULATE"}
+
+
+def test_opend_sends_paper_orders_only_for_the_listed_paper_account(desk):
+    fake = FakeOpenD(desk)
+    client = OpenDClient(module=fake)
+    soon = (datetime.now(UTC) + timedelta(minutes=10)).isoformat()
+    report = {"cancel": [{"order_id": "70", "symbol": "US.KO"}], "submit": [
+        {"symbol": "US.NVDA", "side": "buy", "quantity": 40, "limit_price": 100.734, "order_type": "LIMIT",
+         "remark": "tyche-scl-c", "submit_before": soon, "cancel_first": []}]}
+    results = send_listed(Broker(client, "SIM-TEST"), report)
+    assert [r["done"] for r in results] == [True, True] and results[1]["order_id"] == "8001"
+    placed = next(call[1] for call in fake.calls if call[0] == "place")
+    assert (placed["code"], placed["qty"], placed["price"], placed["trd_side"], placed["remark"]) == (
+        "US.NVDA", 40, 100.73, "BUY", "tyche-scl-c")
+    assert (placed["trd_env"], placed["acc_id"], placed["order_type"]) == ("SIMULATE", "SIM-TEST", "NORMAL")
+    assert ("modify", "CANCEL", "70", "SIMULATE", "SIM-TEST") in fake.calls
+    # The live account, or any id OpenD does not call a US paper account, is refused before any call.
+    for account in ("281756455", "9003"):
+        before = len(fake.calls)
+        with pytest.raises(OpenDError):
+            client.sim_order_buy("US.NVDA", 1, account, 100.0, remark="x")
+        assert not [c for c in fake.calls[before:] if c[0] in ("place", "modify")]
+
+
+def test_opend_order_states_and_quote_status_read_as_the_cycle_expects():
+    client = OpenDClient(module=FakeOpenD.__new__(FakeOpenD))
+    rows = client._orders(pd.DataFrame([
+        {"order_id": 1, "code": "US.KO", "trd_side": "SELL", "qty": 10.0, "dealt_qty": 4.0, "price": 96.5,
+         "order_status": "CANCELLED_PART", "create_time": "2026-11-25 09:31:05.120", "remark": "tyche-tac-x"},
+        {"order_id": 2, "code": "US.KO", "trd_side": "BUY", "qty": 10.0, "dealt_qty": 0.0, "price": 96.5,
+         "order_status": "SUBMIT_FAILED", "create_time": "2026-11-25 09:32:00", "remark": None},
+        {"order_id": 3, "code": "US.KO", "trd_side": "BUY", "qty": 10.0, "dealt_qty": 0.0, "price": 96.5,
+         "order_status": "SOMETHING_NEW", "create_time": "2026-11-25 09:33:00", "remark": ""}]))
+    assert [r["status"] for r in rows] == [5, 5, 1]       # finished for good twice; unknown stays unresolved
+    assert rows[0]["side"] == "sell" and rows[0]["cum_qty"] == 4.0 and rows[1]["text"] == ""
+    shaped = as_orders({"data": {"orders": rows}})["data"]["orders"][0]
+    assert shaped["create_time"] == int(datetime(2026, 11, 25, 9, 31, 5, 120000, tzinfo=ET).timestamp() * 1_000_000)
+    assert json.loads(json.dumps(rows))  # plain JSON values, no numpy scalars
+    fake = FakeOpenD.__new__(FakeOpenD)
+    fake.OpenQuoteContext = lambda host, port: SimpleNamespace(get_market_snapshot=lambda codes: (0, pd.DataFrame([
+        {"code": "US.KO", "update_time": "2026-11-25 10:09:00.000", "last_price": 96.4, "volume": 5,
+         "suspension": False, "sec_status": "N/A"},
+        {"code": "US.MU", "update_time": "2026-11-25 10:09:00.000", "last_price": 99.0, "volume": 5,
+         "suspension": True, "sec_status": "N/A"}])))
+    quotes = OpenDClient(module=fake).quote(["US.KO", "US.MU"])["data"]["quote_list"]
+    assert [(q["sec_status"], q["suspension"]) for q in quotes] == [("NORMAL", False), ("SUSPENDED", True)]
+
+
+def test_the_runner_takes_the_cli_when_the_laptop_has_it_and_opend_otherwise(tmp_path, monkeypatch):
+    monkeypatch.setattr("tyche.laptop.shutil.which", lambda name: None)
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    monkeypatch.delenv("TYCHE_MOOMOO_CLI", raising=False)
+    assert find_cli() is None
+    assert isinstance(pick_road("auto"), OpenDClient)
+    tool = tmp_path / "FutuCLI" / "bin" / "futu.exe"
+    tool.parent.mkdir(parents=True)
+    tool.write_text("", encoding="utf-8")
+    road = pick_road("auto")
+    assert not isinstance(road, OpenDClient) and road.binary == str(tool)
+    assert isinstance(pick_road("opend"), OpenDClient)

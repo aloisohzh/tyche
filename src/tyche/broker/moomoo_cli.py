@@ -129,6 +129,8 @@ class MoomooCli:
                 [binary, *args],
                 capture_output=True,
                 text=True,
+                encoding="utf-8",  # stock names are not all ASCII; Windows' default codepage would choke
+                errors="replace",
                 timeout=self.timeout,
                 check=False,
             )
@@ -174,6 +176,10 @@ class MoomooCli:
                 "json",
             ]
         )
+
+    def kline_1m(self, symbol: str, num: int = 12, ktype: str = "1") -> Any:
+        """The latest 1-minute bars (K-line type 1; 2 is daily, as `kline` above uses)."""
+        return self._json(["kline", symbol, "--ktype", ktype, "--num", str(num), "--format", "json"])
 
     def sim_accounts(self) -> Any:
         return self._json(["sim", "account", "list", "--format", "json"])

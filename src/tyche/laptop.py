@@ -2,8 +2,10 @@
 
 The cloud cards run `tyche cycle` through two agents, and every run spends Qoder credit. The
 decisions were never the agents': they live in the kernel. Here plain code does the agents' two
-remaining jobs. It reads the paper account through the official moomoo CLI and sends exactly the
-orders `tyche cycle --record` lists, one attempt each, so a run costs nothing and takes seconds.
+remaining jobs. It reads the paper account through the official moomoo command line tool (or, on a
+laptop without it, through moomoo OpenD and the moomoo Python SDK: tyche.broker.opend) and sends
+exactly the orders `tyche cycle --record` lists, one attempt each, so a run costs nothing and takes
+seconds.
 
 The record (ledger) is the laptop's own, under runs/laptop/ (git-ignored). The broker is the referee:
 every run starts from what moomoo shows, so a fresh record picks up orders and shares another record
@@ -11,10 +13,11 @@ placed (a resting buy is not doubled; its fill is managed by the day's setup). O
 trade the account at a time: pause both cloud cards before the first laptop run.
 
 The one hard rule is kept twice. The cycle refuses any account but the allowlisted paper one, and
-this module only calls the CLI's `sim` commands, for that same account. It never places an order
-the cycle did not list, never changes a listed field and never retries a submit.
+this module only makes paper calls (the CLI's `sim` commands, OpenD's SIMULATE calls) for that same
+account. It never places an order the cycle did not list, never changes a listed field and never
+retries a submit.
 
-    .venv\\Scripts\\python.exe -m tyche.cli laptop --check     read-only: CLI, sign-in, account, reads
+    .venv\\Scripts\\python.exe -m tyche.cli laptop --check     read-only: the road to moomoo, account, reads
     .venv\\Scripts\\python.exe -m tyche.cli laptop --once      one cycle now (sends what it lists)
     .venv\\Scripts\\python.exe -m tyche.cli laptop             every 15 minutes, 09:07 to 15:52 ET
 """
@@ -23,6 +26,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 import time as clock
@@ -33,6 +37,7 @@ from typing import Any
 import typer
 
 from tyche.broker.moomoo_cli import MoomooCli, MoomooCliError, _walk, extract_order_id
+from tyche.broker.opend import OpenDClient
 from tyche.journal import append_event, verify_chain
 from tyche.market_calendar import ET
 
@@ -40,8 +45,6 @@ MARKET = "US"
 FIRST_SLOT, LAST_SLOT, PREMARKET_SLOT = time(9, 7), time(15, 52), time(8, 5)
 SLOT_STEP = timedelta(minutes=15)
 READ_TRIES = 3
-# The moomoo CLI's K-line type for 1-minute bars (2 is daily, as `tyche fetch` uses).
-KTYPE_1M = os.environ.get("TYCHE_MOOMOO_KTYPE_1M", "1")
 
 
 def load_dotenv(repo: Path) -> None:
@@ -235,9 +238,9 @@ def as_bars(payload: Any) -> dict:
 
 
 class Broker:
-    """The paper account through the moomoo CLI: reads, and the two order commands. `sim` only."""
+    """The paper account through the moomoo CLI or OpenD: reads, and the two order calls. Paper only."""
 
-    def __init__(self, cli: MoomooCli, account: str) -> None:
+    def __init__(self, cli: Any, account: str) -> None:
         self.cli = cli
         self.account = account
 
@@ -273,8 +276,7 @@ class Broker:
             save("quotes.json", as_quotes(self._read(lambda: self.cli.quote(codes))))
         for code in reads.get("bars") or []:
             try:
-                answer = self._read(lambda code=code: self.cli._json(
-                    ["kline", code, "--ktype", KTYPE_1M, "--num", "12", "--format", "json"]))
+                answer = self._read(lambda code=code: self.cli.kline_1m(code, 12))
                 save(f"bars-{code}.json", as_bars(answer))
             except MoomooCliError as exc:
                 notes.append(f"{code}: 1-minute bars not read ({str(exc)[:80]})")
@@ -334,7 +336,7 @@ def send_listed(broker: Broker, report: dict, now_fn=lambda: datetime.now(UTC)) 
 # --- one run ------------------------------------------------------------------------------------------
 
 class Runner:
-    def __init__(self, repo: Path, cli: MoomooCli, *, drive: Path | None = None, python: str | None = None,
+    def __init__(self, repo: Path, cli: Any, *, drive: Path | None = None, python: str | None = None,
                  pull: bool = True, telegram: bool = True) -> None:
         self.repo = repo
         self.drive = drive or repo / "runs" / "laptop"
@@ -414,6 +416,14 @@ class Runner:
             self.log("Telegram send failed: " + (done.stderr or done.stdout).strip()[-160:])
 
     def run_once(self, now: datetime | None = None, *, record: bool = True) -> dict:
+        try:
+            return self._run_once(now, record=record)
+        finally:
+            close = getattr(self.cli, "close", None)   # OpenD's connections are opened per run
+            if close is not None:
+                close()
+
+    def _run_once(self, now: datetime | None = None, *, record: bool = True) -> dict:
         now = now or datetime.now(UTC)
         account = paper_account()
         broker = Broker(self.cli, account)
@@ -435,7 +445,7 @@ class Runner:
         try:
             notes = broker.save_reads(run, plan.get("reads") or {})
         except MoomooCliError as exc:
-            reason = f"moomoo CLI read failed: {mask(str(exc), account)[:200]}"
+            reason = f"moomoo read failed: {mask(str(exc), account)[:200]}"
             self.log("blocked: " + reason)
             self.tell(f"TYCHE BLOCKED (paper, laptop), no orders this run: {reason}")
             return {"status": "blocked", "reason": reason}
@@ -476,7 +486,13 @@ class Runner:
 
     def loop(self, *, premarket: bool = False) -> None:
         self.log("laptop runner started: every 15 minutes from 09:07 to 15:52 ET on trading days. "
-                 "Keep this window open and the laptop awake. Ctrl+C stops it.")
+                 "Keep this window open and the laptop plugged in. Ctrl+C stops it.")
+        if sys.platform == "win32":
+            try:  # keep Windows from sleeping while this window runs (the screen may still turn off)
+                import ctypes
+                ctypes.windll.kernel32.SetThreadExecutionState(0x80000000 | 0x00000001)
+            except (AttributeError, OSError):
+                self.log("could not stop Windows from sleeping: set Power to never sleep when plugged in")
         while True:
             now = datetime.now(UTC)
             slot = next_slot(now, premarket=premarket)
@@ -499,12 +515,53 @@ class Runner:
                 self.tell(f"TYCHE (paper, laptop): a run failed and placed nothing: {text[:200]}")
 
 
+def find_cli(name: str | None = None) -> str | None:
+    """The moomoo command line tool: the name given, TYCHE_MOOMOO_CLI, `moomoo` or `futu` on PATH, then
+    the official installers' folders (the moomoo build and the Futu build)."""
+    home = Path.home()
+    local = Path(os.environ.get("LOCALAPPDATA", home / "AppData" / "Local"))
+    for candidate in filter(None, [name, os.environ.get("TYCHE_MOOMOO_CLI"), "moomoo", "futu"]):
+        found = shutil.which(candidate)
+        if found:
+            return found
+        if Path(candidate).expanduser().is_file():
+            return str(Path(candidate).expanduser())
+    for path in (local / "MoomooCLI" / "bin" / "moomoo.exe", local / "FutuCLI" / "bin" / "futu.exe",
+                 home / ".futu" / "bin" / "futu.exe", home / ".futu" / "bin" / "futu"):
+        if path.is_file():
+            return str(path)
+    return None
+
+
+def pick_road(road: str = "auto", binary: str | None = None) -> Any:
+    """The moomoo CLI when this laptop has it (or `road` says cli), else OpenD on 127.0.0.1:11111."""
+    if road in ("auto", "cli"):
+        found = find_cli(binary)
+        if found:
+            return MoomooCli(found, timeout=60.0)
+        if road == "cli":
+            raise typer.BadParameter("the moomoo command line tool was not found (moomoo or futu)")
+    if road not in ("auto", "opend"):
+        raise typer.BadParameter("--broker is auto, cli or opend")
+    return OpenDClient()
+
+
 def check(runner: Runner) -> bool:
-    """Read-only: CLI found and signed in, the paper account listed, and every read the cycle needs."""
+    """Read-only: the road to moomoo, the paper account listed, and every read the cycle needs."""
+    try:
+        return _check(runner)
+    finally:
+        close = getattr(runner.cli, "close", None)
+        if close is not None:
+            close()
+
+
+def _check(runner: Runner) -> bool:
     account = paper_account()
-    binary = runner.cli.resolved_binary()
-    print("moomoo CLI:", binary or "NOT FOUND")
-    if binary is None:
+    road = runner.cli.resolved_binary()
+    print("road to moomoo:", road or "NOT FOUND (no moomoo command line tool, and OpenD is not running "
+                                      "on this laptop: open OpenD and sign in)")
+    if road is None:
         return False
     broker = Broker(runner.cli, account)
     run = runner.drive / f"check-{datetime.now(UTC):%Y%m%d-%H%M%S}"
@@ -535,12 +592,13 @@ def laptop_command(
     check_only: bool = typer.Option(False, "--check", help="Read-only check of the CLI and the account."),
     premarket: bool = typer.Option(False, "--premarket", help="Also run at 08:05 ET (resting entries)."),
     no_pull: bool = typer.Option(False, "--no-pull", help="Do not git pull before each run."),
-    moomoo_binary: str = typer.Option(os.environ.get("TYCHE_MOOMOO_CLI", "moomoo"), "--moomoo"),
+    road: str = typer.Option("auto", "--broker", help="auto (the moomoo CLI if found, else OpenD), cli or opend."),
+    moomoo_binary: str = typer.Option("", "--moomoo", help="Path to the moomoo CLI, if not found by itself."),
     repo: Path = typer.Option(Path.cwd(), "--repo"),
 ) -> None:
-    """THE CYCLE on this laptop, with the moomoo CLI and no AI (see tyche.laptop)."""
+    """THE CYCLE on this laptop, through the moomoo CLI or OpenD, with no AI (see tyche.laptop)."""
     load_dotenv(repo)
-    runner = Runner(repo, MoomooCli(moomoo_binary, timeout=60.0), pull=not no_pull)
+    runner = Runner(repo, pick_road(road, moomoo_binary or None), pull=not no_pull)
     if check_only:
         raise typer.Exit(0 if check(runner) else 1)
     if once or dry_run:
