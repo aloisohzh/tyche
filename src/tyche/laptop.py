@@ -71,6 +71,11 @@ def mask(text: str, account: str) -> str:
     return text.replace(account, "<account>") if account else text
 
 
+def child_env() -> dict[str, str]:
+    """Child Pythons speak UTF-8 on Windows pipes too (a non-ASCII stock name must not crash a run)."""
+    return {**os.environ, "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"}
+
+
 # --- schedule ---------------------------------------------------------------------------------------
 
 def slots(day: date, *, premarket: bool = False) -> list[datetime]:
@@ -392,7 +397,8 @@ class Runner:
 
     def tyche(self, *args: str) -> tuple[int, dict]:
         done = subprocess.run([self.python, "-m", "tyche.cli", *args], cwd=self.repo, capture_output=True,
-                              text=True, encoding="utf-8", errors="replace", timeout=300, check=False)
+                              text=True, encoding="utf-8", errors="replace", timeout=300, check=False,
+                              env=child_env())
         try:
             return done.returncode, json.loads(done.stdout)
         except ValueError:
@@ -402,7 +408,7 @@ class Runner:
         if not self.pull:
             return
         done = subprocess.run(["git", "pull", "--ff-only", "--quiet"], cwd=self.repo, capture_output=True,
-                              text=True, timeout=120, check=False)
+                              text=True, encoding="utf-8", errors="replace", timeout=120, check=False)
         if done.returncode != 0:
             self.log("git pull did not run cleanly; using the code and research already here: "
                      + (done.stderr or done.stdout).strip()[:160])
@@ -411,7 +417,8 @@ class Runner:
         if not (self.telegram and text.strip()):
             return
         done = subprocess.run([self.python, "scripts/telegram.py", "send", text], cwd=self.repo,
-                              capture_output=True, text=True, timeout=90, check=False)
+                              capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=90,
+                              check=False, env=child_env())
         if done.returncode != 0:
             self.log("Telegram send failed: " + (done.stderr or done.stdout).strip()[-160:])
 

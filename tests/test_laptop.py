@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
@@ -203,8 +204,9 @@ def test_the_laptop_command_is_wired_into_the_cli():
     from typer.testing import CliRunner
 
     from tyche.cli import app
-    result = CliRunner().invoke(app, ["laptop", "--help"])
-    assert result.exit_code == 0 and "--check" in result.output and "--once" in result.output
+    result = CliRunner().invoke(app, ["laptop", "--help"], env={"NO_COLOR": "1", "TERM": "dumb", "COLUMNS": "200"})
+    text = re.sub(r"\x1b\[[0-9;]*m", "", result.output)   # CI renders help in colour; options split by codes
+    assert result.exit_code == 0 and "--check" in text and "--once" in text and "--broker" in text
     assert Path(ROOT / "scripts" / "cloud_api.py").read_text(encoding="utf-8").count("pause-all") >= 2
 
 
