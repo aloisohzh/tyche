@@ -19,9 +19,11 @@ classification:
   25 to 27 Nov 2026 an entry inside the operator's standing paper approval
   (`data/standing-approval.json`) is placed by `tyche cycle` with no per-order ask; outside those dates an
   entry again needs a same-day envelope or a Telegram `/approve`. Selling a held lot never needs a line.
-- **Rules hash:** `4d305127a2cd` (sha256 of `config/tactical.yaml` + `config/universe.yaml`, CRLF normalized,
+- **Rules hash:** `1bbbe1901dde` (sha256 of `config/tactical.yaml` + `config/universe.yaml`, CRLF normalized,
   first 12). PB-002 and PB-003 are one lane with one parameter file, so they share this hash: editing the
-  file re-registers the pair. `58a3ce686238` was the hash from 2026-11-24 until 2026-11-25, when the lane's
+  file re-registers the pair. `4d305127a2cd` was the hash until 2026-11-25, when US.NVDA joined from PB-004
+  on the operator's swing-hold direction (a scalp lane cannot carry a position overnight, and ownership is
+  by ticker). `58a3ce686238` was the hash from 2026-11-24 until 2026-11-25, when the lane's
   clocks were reset for a desk that agents run every 15 minutes instead of a 30-second feed (quotes and
   the account read good for 15 minutes, one confirming quote, research good for the session, ten minutes
   to send a reserved order) and stock exits were priced 0.3% under the bid (`exit_collar_pct`): with the
@@ -76,7 +78,8 @@ desk is run by agents every 15 minutes, and a run needs several minutes between 
 A watchlist setup in `status: watch`, not invalidated and not expired, with a setup id, a thesis, a
 catalyst and at least one cited source; reviewed by the researcher the same day
 (`max_review_age_seconds`, 12 hours); with an exit deadline at least 10 minutes before the close (left
-out, it is the session's exit time). The last price must sit inside `[entry_low, entry_high]` on one
+out, it is the session's exit time; a `swing` setup needs none, since its hold-by date is the deadline).
+The last price must sit inside `[entry_low, entry_high]` on one
 fresh quote (`max_confirmation_ticks: 1` since 2026-11-25; a second confirming run cost 15 minutes). The order is a
 limit at the ask, which must itself be inside the zone. One entry attempt per setup, ever: no re-entry
 after a stop, a target or a closed setup. At most 3 new orders per tick.
@@ -103,6 +106,15 @@ both measured against projected NAV including pending buys. The researcher may s
 `max_quantity` on a setup.
 
 ## Exit
+**Hold (2026-11-25, v1.33).** Every setup carries a `hold`. `session` is the default, and every setup
+written before this change: a day trade, flat by the session's exit time. `swing` holds until its stop,
+its target, its contract's expiry or the setup's own `expiry` date, whichever comes first, and is never
+sold because a session ended. A swing setup must name that hold-by date: an entry with `"hold": "swing"`
+and no `expiry` is left out with a plain reason rather than silently turning into a day trade. The broker
+bridge sends DAY orders only, so a swing lot's target sell is re-armed at the first fire of each session
+and its stop is checked by each run of `tyche cycle` - an overnight gap is not capped by a resting order
+and can cost more than the planned 1% risk.
+
 **Resting take-profit (2026-11-24).** A held lot with no exit trigger gets ONE limit sell resting at the
 setup's target (DAY), re-placed each session until it fills, the stop is hit or the deadline passes. A
 stop or other protective trigger while it rests returns a sell for the whole lot with `cancel_first`
@@ -114,7 +126,8 @@ Target: limit sell when the last price reaches the setup's target. Stop: limit s
 reaches the stop (synthetic monitor, not a resting broker stop). Both are priced 0.3% under the bid
 (`exit_collar_pct`), because the quote is minutes old by the time the order goes in and an exit that
 rests unfilled is a lot left unprotected. Time: the setup's
-exit deadline, and in any case 10 minutes before the regular close on the final day. Fresh invalidation
+exit deadline - 10 minutes before the regular close on the final day for a `session` hold; a `swing` hold
+has no session clock, only its hold-by date. Fresh invalidation
 from the researcher can only tighten protection, never move a stop away.
 
 ## Regime fit

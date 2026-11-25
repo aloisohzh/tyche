@@ -6,20 +6,6 @@
   "max_orders": 200,
   "orders": [
     {
-      "symbol": "US.NVDA",
-      "side": "buy",
-      "max_qty": 60,
-      "max_total_qty": 2000,
-      "limit_max": 1500.0
-    },
-    {
-      "symbol": "US.NVDA",
-      "side": "sell",
-      "max_qty": 60,
-      "max_total_qty": 2000,
-      "limit_min": 50.0
-    },
-    {
       "symbol": "US.AMD",
       "side": "buy",
       "max_qty": 60,
@@ -76,5 +62,5 @@
       "limit_min": 235.0
     }
   ],
-  "note": "Standing PB-004 scalp envelope, 24-30 Nov only. Read only by the scalp card (tyche tactical scalp --envelope data/scalp-approvals.json). Price bounds are fat-finger guards; the scalp's own sizing (0.1% NAV risk, 5% NAV notional, 4 open) is the real limit."
+  "note": "Standing PB-004 scalp envelope, 24-30 Nov only. Read only by the scalp card (tyche tactical scalp --envelope data/scalp-approvals.json). Price bounds are fat-finger guards; the scalp's own sizing (0.1% NAV risk, 5% NAV notional, 4 open) is the real limit. US.NVDA lines were removed on 2026-11-25 when the ticker moved to the tactical lane; any NVDA lot still held exits without a line, because selling a held lot is authorized by its entry."
 }

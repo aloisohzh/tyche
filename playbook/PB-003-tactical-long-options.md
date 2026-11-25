@@ -21,9 +21,10 @@ classification:
   re-hashes the lane. From 25 to 27 Nov 2026 an entry inside the operator's standing paper approval
   (`data/standing-approval.json`: at most 5 contracts an order on a tactical symbol) is placed by
   `tyche cycle` with no per-order ask; selling a held contract never needs a line.
-- **Rules hash:** `4d305127a2cd` (sha256 of `config/tactical.yaml` + `config/universe.yaml`, CRLF normalized,
+- **Rules hash:** `1bbbe1901dde` (sha256 of `config/tactical.yaml` + `config/universe.yaml`, CRLF normalized,
   first 12). PB-002 and PB-003 are one lane with one parameter file, so they share this hash; see the
-  [PB-002 page](PB-002-tactical-stocks.md) for the history. This page adds no rules bytes, so no re-freeze.
+  [PB-002 page](PB-002-tactical-stocks.md) for the history (2026-11-25: US.NVDA joined the lane). This page
+  adds no rules bytes of its own, so no separate re-freeze.
 - **Validation:** unvalidated. No option order has been sent on this account before this test.
 - **Sleeve:** option premium, capped at 5% of NAV in total (`max_option_premium_pct`, cut from 25% on
   2026-11-24) and 0.75% of NAV premium per trade (`option_risk_per_trade_pct`).
@@ -71,6 +72,12 @@ modeled fees fits 0.75% of NAV, also capped by the 5% total option premium (held
 per-order NAV budget. Usually one contract.
 
 ## Exit
+**Hold (2026-11-25, v1.33).** A contract already held overnight by design; `hold: swing` drops the last
+same-session fallback. With no explicit `exit_at`, a `session` lot was closed 10 minutes before the
+regular close; a swing lot is closed by its hold-by date (`expiry`), its stop, the 40% premium drawdown or
+the contract's own expiry, whichever comes first. The expiry rule is never relaxed: a contract is always
+sold before it can expire or be exercised.
+
 Target: sell at the bid when the underlying reaches the setup's target. Stop: the underlying's stop or the
 40% premium loss, whichever comes first (synthetic, checked by every run of `tyche cycle` in the regular
 session; not a resting broker stop). Time: the setup's exit deadline, for this test 12:10 ET on the

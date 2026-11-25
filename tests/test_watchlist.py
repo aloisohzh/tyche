@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import date
+from datetime import UTC, date, datetime
 
 import pytest
 from pydantic import ValidationError
@@ -19,6 +19,14 @@ def entry(**overrides):
     }
     base.update(overrides)
     return base
+
+
+def test_default_hold_is_a_session_and_a_swing_cannot_outlive_its_own_date():
+    assert WatchlistEntry(**entry()).hold == "session"
+    late = datetime(2026, 12, 5, 20, 50, tzinfo=UTC)
+    assert WatchlistEntry(**entry(hold="swing", expiry=date(2026, 12, 5), exit_at=late)).hold == "swing"
+    with pytest.raises(ValidationError):
+        WatchlistEntry(**entry(hold="swing", exit_at=late))  # exit deadline past the hold-by date
 
 
 def test_valid_entry_and_book():

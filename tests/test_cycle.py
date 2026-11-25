@@ -45,8 +45,8 @@ STOCK_LINES = [
     {"symbol": "US.KO", "side": "sell", "multiplier": 100, "max_qty": 10, "max_total_qty": 20, "limit_min": 0.01},
 ]
 SCALP_LINES = [
-    {"symbol": "US.NVDA", "side": "buy", "max_qty": 60, "max_total_qty": 2000, "limit_max": 1500.0},
-    {"symbol": "US.NVDA", "side": "sell", "max_qty": 60, "max_total_qty": 2000, "limit_min": 50.0},
+    {"symbol": "US.AMD", "side": "buy", "max_qty": 60, "max_total_qty": 2000, "limit_max": 1500.0},
+    {"symbol": "US.AMD", "side": "sell", "max_qty": 60, "max_total_qty": 2000, "limit_min": 50.0},
 ]
 
 
@@ -197,12 +197,12 @@ def by_symbol(report: dict, key: str = "submit") -> dict[str, dict]:
 def test_one_command_carries_a_stock_and_a_scalp_from_entry_to_exit(desk):
     desk.watch(ko_entry())
     desk.quotes["US.KO"] = 96.40          # inside the plan's zone: bought at the ask now
-    desk.breakout("US.NVDA", NOW)          # five-bar breakout: scalp entry
+    desk.breakout("US.AMD", NOW)          # five-bar breakout: scalp entry
 
     first = desk.run(NOW)
     assert first["status"] == "ok" and first["recorded"] and first["phase"] == "opening_drive", first
     sent = by_symbol(first)
-    ko, nvda = sent["US.KO"], sent["US.NVDA"]
+    ko, nvda = sent["US.KO"], sent["US.AMD"]
     assert (ko["side"], ko["quantity"], ko["limit_price"], ko["lane"]) == ("buy", 51, 96.43, "PB-002")
     assert ko["remark"].startswith("tyche-tac-") and ko["order_type"] == "LIMIT" and ko["time_in_force"] == "DAY"
     assert (nvda["side"], nvda["lane"]) == ("buy", "PB-004") and nvda["remark"].startswith("tyche-scl-")
@@ -216,49 +216,49 @@ def test_one_command_carries_a_stock_and_a_scalp_from_entry_to_exit(desk):
     # 15 minutes later the broker shows both filled. Nobody typed a receipt: the order list is the record.
     later = NOW + timedelta(minutes=15)
     desk.order(ko["remark"], "US.KO", 1, 51, 96.43, fill_price=96.41, at=NOW + timedelta(minutes=2))
-    desk.order(nvda["remark"], "US.NVDA", 1, nvda["quantity"], 100.73, fill_price=100.64, at=NOW + timedelta(minutes=2))
+    desk.order(nvda["remark"], "US.AMD", 1, nvda["quantity"], 100.73, fill_price=100.64, at=NOW + timedelta(minutes=2))
     desk.hold_position("US.KO", 51, 96.41, 96.60)
-    desk.hold_position("US.NVDA", nvda["quantity"], 100.64, 101.30)
+    desk.hold_position("US.AMD", nvda["quantity"], 100.64, 101.30)
     desk.cash = 100000.0 - 51 * 96.41 - nvda["quantity"] * 100.64
-    desk.quotes.update({"US.KO": 96.60, "US.NVDA": 101.30})   # NVDA is through its 0.5% target
+    desk.quotes.update({"US.KO": 96.60, "US.AMD": 101.30})   # NVDA is through its 0.5% target
     desk.bars.clear()
 
     second = desk.run(later)
     assert second["status"] == "ok", second
     assert sorted(second["journaled_receipts"]) == sorted([
         "order.submitted US.KO buy 51", "order.filled US.KO buy 51",
-        f"order.submitted US.NVDA buy {nvda['quantity']}", f"order.filled US.NVDA buy {nvda['quantity']}"])
+        f"order.submitted US.AMD buy {nvda['quantity']}", f"order.filled US.AMD buy {nvda['quantity']}"])
     sent = by_symbol(second)
     assert [row["side"] for row in second["submit"]] == ["sell", "sell"]
-    assert sent["US.NVDA"]["why"] == "scalp target" and sent["US.NVDA"]["quantity"] == nvda["quantity"]
-    assert sent["US.NVDA"]["limit_price"] == round(round(101.30 * 0.9997, 2) * 0.997, 2)  # bid less the collar
+    assert sent["US.AMD"]["why"] == "scalp target" and sent["US.AMD"]["quantity"] == nvda["quantity"]
+    assert sent["US.AMD"]["limit_price"] == round(round(101.30 * 0.9997, 2) * 0.997, 2)  # bid less the collar
     assert (sent["US.KO"]["quantity"], sent["US.KO"]["limit_price"]) == (51, 98.3)  # take-profit rests at the target
     assert "take-profit" in sent["US.KO"]["why"]
     assert "FILLED buy 51 US.KO @ 96.41" in second["telegram"]
     requests = {e["payload"]["request_id"]: e["payload"] for e in desk.events("order.requested")}
     assert requests[sent["US.KO"]["remark"]]["authorization"]["kind"] == "protective"
-    assert requests[sent["US.NVDA"]["remark"]]["authorization"]["kind"] == "protective"
+    assert requests[sent["US.AMD"]["remark"]]["authorization"]["kind"] == "protective"
 
     # Another 15 minutes: the scalp exit filled, the take-profit rests, and KO has broken its stop.
     last = later + timedelta(minutes=15)
-    desk.order(sent["US.NVDA"]["remark"], "US.NVDA", 2, nvda["quantity"], sent["US.NVDA"]["limit_price"],
+    desk.order(sent["US.AMD"]["remark"], "US.AMD", 2, nvda["quantity"], sent["US.AMD"]["limit_price"],
                fill_price=101.25, at=later + timedelta(minutes=2))
     resting = desk.order(sent["US.KO"]["remark"], "US.KO", 2, 51, 98.3, status=2, at=later + timedelta(minutes=2))
     desk.positions = []
     desk.hold_position("US.KO", 51, 96.41, 95.30, available=0)   # the resting sell locks the shares
     desk.cash = 100000.0 - 51 * 96.41 + nvda["quantity"] * (101.25 - 100.64)
-    desk.quotes = {"US.KO": 95.30, "US.NVDA": 101.0}
+    desk.quotes = {"US.KO": 95.30, "US.AMD": 101.0}
 
     third = desk.run(last)
     assert third["status"] == "ok", third
-    assert f"order.filled US.NVDA sell {nvda['quantity']}" in third["journaled_receipts"]
+    assert f"order.filled US.AMD sell {nvda['quantity']}" in third["journaled_receipts"]
     stop = by_symbol(third)["US.KO"]
     assert (stop["side"], stop["quantity"], stop["why"]) == ("sell", 51, "underlying stop breached")
     assert stop["limit_price"] == round(round(95.30 * 0.9997, 2) * 0.997, 2)   # the bid less the 0.3% collar
     assert stop["cancel_first"] == [resting["order_id"]]          # the take-profit is pulled, then the stop goes
     assert third["cancel"] == []                                  # listed once, with the order it frees
-    assert "US.NVDA" not in by_symbol(third)                      # the scalp lot is closed
-    nvda = next(d for d in third["scalp"]["decisions"] if d["symbol"] == "US.NVDA")
+    assert "US.AMD" not in by_symbol(third)                      # the scalp lot is closed
+    nvda = next(d for d in third["scalp"]["decisions"] if d["symbol"] == "US.AMD")
     assert nvda["reason"] != "max open positions"
     assert verify_chain(desk.ledger)[0]
 
@@ -321,7 +321,7 @@ def test_premarket_rests_stock_entries_from_the_live_book_and_runs_no_scalp(desk
     desk.watch(ko_entry(early))
     desk.quotes["US.KO"] = 96.90
     desk.books["US.KO"] = (96.85, 96.95)
-    desk.breakout("US.NVDA", early)
+    desk.breakout("US.AMD", early)
     report = desk.run(early)
     assert report["phase"] == "pre_market" and report["status"] == "ok", report
     assert [(r["symbol"], r["side"], r["limit_price"]) for r in report["submit"]] == [("US.KO", "buy", 96.5)]
@@ -534,8 +534,8 @@ def test_the_broker_position_is_the_truth_about_scalp_lots(desk):
 
 
 def test_a_scalp_entry_still_unfilled_after_five_minutes_is_cancelled(desk):
-    desk.quotes["US.NVDA"] = 100.0
-    stale = desk.order("tyche-scl-old", "US.NVDA", 1, 40, 100.2, status=2, at=NOW - timedelta(minutes=14))
+    desk.quotes["US.AMD"] = 100.0
+    stale = desk.order("tyche-scl-old", "US.AMD", 1, 40, 100.2, status=2, at=NOW - timedelta(minutes=14))
     fresh = desk.order("tyche-scl-new", "US.AMD", 1, 10, 400.0, status=2, at=NOW - timedelta(minutes=2))
     desk.quotes["US.AMD"] = 401.0
     report = desk.run(NOW)
@@ -546,17 +546,17 @@ def test_a_scalp_entry_still_unfilled_after_five_minutes_is_cancelled(desk):
 
 def test_lots_still_open_at_the_flatten_time_raise_an_urgent_alert_and_a_sell(desk):
     late = datetime(2026, 11, 25, 20, 37, tzinfo=UTC)   # 15:37 ET, inside the last 25 minutes
-    buy = desk.order("tyche-scl-entry", "US.NVDA", 1, 40, 100.0, fill_price=100.0, at=late - timedelta(minutes=10))
+    buy = desk.order("tyche-scl-entry", "US.AMD", 1, 40, 100.0, fill_price=100.0, at=late - timedelta(minutes=10))
     desk.clock.current = late - timedelta(minutes=11)
     append_event(desk.ledger, "order.requested", {
-        "request_id": "tyche-scl-entry", "symbol": "US.NVDA", "side": "buy", "quantity": 40, "limit_price": 100.0,
+        "request_id": "tyche-scl-entry", "symbol": "US.AMD", "side": "buy", "quantity": 40, "limit_price": 100.0,
         "strategy_id": "PB-004", "authorization": {"kind": "envelope", "as_of": TODAY.isoformat()},
         "submit_before": (late - timedelta(minutes=5)).isoformat()})
-    desk.hold_position("US.NVDA", 40, 100.0, 100.1)
+    desk.hold_position("US.AMD", 40, 100.0, 100.1)
     desk.cash = 96000.0
-    desk.quotes["US.NVDA"] = 100.1
+    desk.quotes["US.AMD"] = 100.1
     report = desk.run(late)
-    assert buy["order_id"] and by_symbol(report)["US.NVDA"]["why"] == "scalp flatten/timeout"
+    assert buy["order_id"] and by_symbol(report)["US.AMD"]["why"] == "scalp flatten/timeout"
     assert report["telegram_urgent"].startswith("TYCHE URGENT (paper): scalp lot(s) still open")
 
 
@@ -714,10 +714,10 @@ def test_reads_stamped_a_little_ahead_of_this_clock_still_trade(desk):
     """Two machines, two clocks: a read 20 seconds "in the future" is a clock difference, not stale data."""
     desk.watch(ko_entry())
     desk.quotes["US.KO"] = 96.40
-    desk.breakout("US.NVDA", NOW + timedelta(minutes=1), minutes_ago=0)   # stamped with the minute it ends in
+    desk.breakout("US.AMD", NOW + timedelta(minutes=1), minutes_ago=0)   # stamped with the minute it ends in
     directory = desk.write_reads(NOW + timedelta(seconds=110))      # files and quotes 20 s ahead of "now"
     report = desk.run(NOW, directory=directory)
-    assert report["status"] == "ok" and set(by_symbol(report)) == {"US.KO", "US.NVDA"}, report
+    assert report["status"] == "ok" and set(by_symbol(report)) == {"US.KO", "US.AMD"}, report
     # Further ahead than any clock difference is still refused: no entry on data from "the future".
     far = desk.write_reads(NOW + timedelta(hours=2))
     late = desk.run(NOW + timedelta(minutes=1), directory=far)
@@ -808,7 +808,7 @@ def test_a_run_with_nothing_to_price_is_a_quiet_ok_not_an_alarm(desk):
 def test_one_unusable_quote_or_book_row_is_named_and_the_rest_still_trade(desk):
     desk.watch(ko_entry())
     desk.quotes["US.KO"] = 96.40
-    desk.breakout("US.NVDA", NOW)
+    desk.breakout("US.AMD", NOW)
     directory = desk.write_reads(NOW)
     quotes = json.loads((directory / "quotes.json").read_text(encoding="utf-8"))
     quotes["data"]["quote_list"] += [{"code": "US.AMD", "data_time": None, "last_price": 541.0},
@@ -822,7 +822,7 @@ def test_one_unusable_quote_or_book_row_is_named_and_the_rest_still_trade(desk):
     for path in directory.iterdir():
         os.utime(path, (read_at, read_at))
     report = desk.run(NOW, directory=directory)
-    assert report["status"] == "ok" and set(by_symbol(report)) == {"US.KO", "US.NVDA"}, report
+    assert report["status"] == "ok" and set(by_symbol(report)) == {"US.KO", "US.AMD"}, report
     text = " | ".join(report["alerts"])
     assert "US.AMD: quote row unusable" in text and "US.MU: quote row unusable" in text
     assert "order-book row is unusable" in text
@@ -844,3 +844,29 @@ def test_a_bare_ticker_and_a_source_given_with_its_title_are_still_a_setup(tmp_p
     assert [(e.symbol, e.sources, e.setup_id) for e in book.entries] == [
         ("US.KO", ["https://example.com/ko"], "ko-2026-11-25")]
     assert len(notes) == 1 and notes[0].startswith("watchlist setup US.PG left out:")
+
+
+def test_a_swing_setup_is_never_stamped_to_today_session_exit(desk):
+    desk.watch(ko_entry(NOW, hold="swing", expiry=TODAY + timedelta(days=10), exit_at=None))
+    out = desk.run(NOW)
+    assert out["setups"] == ["US.KO"], "a swing setup must survive the loader"
+    assert any("swing hold to" in a and "no same-session exit stamped" in a for a in out["alerts"])
+    # The same plan written for the day keeps the old behaviour: the session exit is stamped for it.
+    desk.watch(ko_entry(NOW, exit_at=None))
+    out = desk.run(NOW)
+    assert not any("swing hold" in a for a in out["alerts"])
+
+
+def test_a_swing_setup_without_a_hold_by_date_is_left_out_with_a_plain_reason(desk):
+    path = desk.drive / "watchlist.json"
+    path.write_text(json.dumps({"as_of": TODAY.isoformat(), "entries": [
+        {"symbol": "US.KO", "sleeve": "defensive", "strategy": "pullback to support",
+         "setup_id": "ko-swing", "entry_low": 96.2, "entry_high": 96.5, "stop": 95.4, "target": 98.3,
+         "hold": "swing", "thesis": "Staples bid in a risk-off tape", "catalyst": "defensive rotation",
+         "sources": ["https://example.test/ko"], "market_cap_usd": 4.1e11, "max_quantity": 51,
+         "factors": [{"name": "support", "axis": "technical", "state": "pass", "why": "held the 20-day line"},
+                     {"name": "earnings", "axis": "fundamental", "state": "pass", "why": "guidance raised"}]}]}),
+        encoding="utf-8")
+    out = desk.run(NOW)
+    assert out["setups"] == []
+    assert any("must name the date it holds to" in a for a in out["alerts"])

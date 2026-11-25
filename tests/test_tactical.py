@@ -774,3 +774,91 @@ def test_selling_a_held_lot_reserves_with_no_operator_line(tmp_path, monkeypatch
     assert "exit of a held lot" in payload["authority"]
     assert runner.invoke(app, cmd).exit_code == 1  # the reservation blocks a second sell until reconciled
     assert verify_chain(journal)[0]
+
+# --- swing holds (operator direction 2026-11-25: no forced same-session close for stocks and options) ---
+
+SWING_TO = NOW + timedelta(days=10)
+
+
+def swing(args, **updates):
+    """Retype the fixture setup as a swing plan; the levels and evidence stay identical."""
+    args[0].entries[0] = args[0].entries[0].model_copy(update={"hold": "swing", "expiry": SWING_TO.date(),
+                                                              **updates})
+    return args
+
+
+def test_a_session_lot_closes_at_the_exit_time_a_swing_lot_sits_through():
+    args = case(held=True)
+    late = NOW.replace(hour=20, minute=49)          # one minute before the 15:50 ET session exit
+    advance(args, late)
+    report = run(args, late)
+    [order] = report["orders"]
+    assert order["intent"]["reason"] == "time exit before next scheduled check"
+    assert args[6].latched_exits == {"US.NVDA": "time exit before next scheduled check"}
+
+
+def test_a_swing_lot_holds_through_the_session_exit_and_rests_its_target():
+    args = swing(case(held=True), exit_at=None)
+    late = NOW.replace(hour=20, minute=49)
+    advance(args, late)
+    report = run(args, late)
+    [order] = report["orders"]
+    assert order["intent"]["side"] == "sell" and order["intent"]["limit_price"] == 165
+    assert order["resting"]["kind"] == "take_profit" and order["protective"] is False
+    assert not args[6].latched_exits, "a swing lot must not be closed by the clock of a session"
+    assert "swing hold" in order["risk"]["exit"]
+
+
+def test_a_swing_lot_still_dies_on_its_own_hold_by_date():
+    args = case(held=True)
+    args[0].entries[0] = args[0].entries[0].model_copy(update={
+        "hold": "swing", "expiry": (NOW - timedelta(days=1)).date(),
+        "exit_at": (NOW - timedelta(days=1)).replace(hour=20, minute=45)})
+    report = run(args)
+    [order] = report["orders"]
+    assert order["intent"]["reason"] == "swing hold deadline reached"
+    assert args[6].latched_exits["US.NVDA"] == "swing hold deadline reached"
+
+
+def test_a_swing_stop_and_target_still_bite_inside_the_session():
+    args = swing(case(held=True), exit_at=None)
+    for q in args[2]:
+        q.last, q.bid, q.ask = 144, 143.95, 144.05   # under the 145 stop
+    report = run(args)
+    [order] = report["orders"]
+    assert order["intent"]["reason"] == "underlying stop breached" and order["protective"] is True
+
+
+def test_a_swing_entry_needs_no_exit_at_and_arms_late_in_the_day():
+    args = swing(case(), exit_at=None)
+    late = NOW.replace(hour=20, minute=46)           # a session plan is cut to 15:50 ET and refused here
+    args[0].entries[0] = args[0].entries[0].model_copy(update={"reviewed_at": late})
+    advance(args, late)
+    assert not run(args, late)["orders"]             # the first tick only collects confirmations
+    advance(args, late + timedelta(seconds=120))
+    result = run(args, late + timedelta(seconds=120))
+    assert len(result["orders"]) == 1, result["decisions"]
+    assert result["orders"][0]["intent"]["side"] == "buy"
+
+
+def test_a_session_entry_still_requires_an_explicit_exit_deadline():
+    args = case()
+    args[0].entries[0] = args[0].entries[0].model_copy(update={"exit_at": None})
+    assert not ready(args)["orders"]
+    assert "explicit exit deadline" in run(args, NOW + timedelta(seconds=120))["decisions"][0]["reason"]
+
+
+def test_a_swing_option_with_no_exit_at_is_not_force_closed_at_the_session_exit():
+    args = case(option=True, held=True)
+    args[0].entries[0] = args[0].entries[0].model_copy(update={"hold": "session", "exit_at": None})
+    late = NOW.replace(hour=20, minute=49)
+    advance(args, late)
+    report = run(args, late)
+    assert [o for o in report["orders"] if o["intent"]["reason"] == "time exit before next scheduled check"]
+    args = case(option=True, held=True)
+    args[0].entries[0] = args[0].entries[0].model_copy(update={"hold": "swing", "expiry": SWING_TO.date(),
+                                                               "exit_at": None})
+    advance(args, late)
+    report = run(args, late)
+    assert not [o for o in report["orders"] if o["intent"]["side"] == "sell"
+                and "time exit" in o["intent"]["reason"]], report["decisions"]

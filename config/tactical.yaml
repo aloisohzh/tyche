@@ -2,10 +2,13 @@
 # lane is enabled for the MSFT lifecycle mechanics test plus, from 2026-11-23, five low-beta
 # defensives (operator thesis: risk-off rotation into staples/healthcare, long only). Scalp
 # symbols must not overlap a lane that can also trade them.
+# 2026-11-25: US.NVDA moves here from PB-004 (operator direction - a scout-narrowed large cap may be
+# held as a swing, and a scalp lane cannot hold). Ownership is by ticker, so it left scalp.yaml in the
+# same change. Long stock and long options only; the scout's evidence gates every entry as before.
 enabled: true
 options_enabled: false
 execution_enabled: true
-symbols: [US.MSFT, US.KO, US.PG, US.JNJ, US.PEP, US.MCD]
+symbols: [US.MSFT, US.KO, US.PG, US.JNJ, US.PEP, US.MCD, US.NVDA]
 etf_symbols: []
 stock_allocation_cap: 0.25
 max_name_weight: 0.20

@@ -16,8 +16,9 @@ classification:
 - **Status:** on from 24 to 30 Nov 2026 by the operator's switch, under the standing scalp approval in
   `data/scalp-approvals.json`. Its orders are decided by `tyche cycle` on the 15-minute card. On 24 Nov the
   lane placed no order: it demanded data under two minutes old from runs that take longer than that.
-- **Rules hash:** `6dd1d4e3709a` (sha256 of `config/scalp.yaml` + `config/universe.yaml`, CRLF
-  normalized, first 12). `72077d5d4808` was the hash until 2026-11-25, when the lane was tuned to a desk
+- **Rules hash:** `81518babfb6c` (sha256 of `config/scalp.yaml` + `config/universe.yaml`, CRLF
+  normalized, first 12). `6dd1d4e3709a` was the hash until 2026-11-25, when US.NVDA left for PB-002 so the
+  desk could hold it as a swing; four names remain (AMD, AVGO, MU, SMH) and `max_open` is still 4. `72077d5d4808` was the hash until 2026-11-25, when the lane was tuned to a desk
   that looks every 15 minutes: its own 15-minute freshness clocks, ten minutes to send a reserved order,
   a breakout that may be any of the last 5 bars, limits priced through the market, a 5-minute life for an
   unfilled entry, and the flatten moved from 10 to 25 minutes before the close. `tyche cycle` registers

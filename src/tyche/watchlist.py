@@ -10,6 +10,8 @@ from tyche.models import OptionContract
 
 Sleeve = Literal["equity", "defensive", "real_asset", "credit"]
 Status = Literal["watch", "entered", "exited", "dropped"]
+# How long a lot is allowed to live. "session" is the desk's own day trade; "swing" survives the close.
+Hold = Literal["session", "swing"]
 FactorAxis = Literal["technical", "fundamental", "macro", "flow", "sentiment", "seasonality",
                      "catalyst", "liquidity"]
 
@@ -64,6 +66,11 @@ class WatchlistEntry(BaseModel):
     # Quote-confirmation samples are required by the tactical planner, not the LLM.
     confirmation_ticks: int = Field(default=2, ge=1, le=5)
     exit_at: datetime | None = None
+    # Hold (operator direction 2026-11-25). "session" keeps every existing rule: a stock lot is flat by
+    # the session's exit time. "swing" holds to its stop, its target, the contract's expiry or its own
+    # hold-by date (`expiry`), whichever comes first, and never closes because a session ended. The scalp
+    # lane (PB-004) does not read this field: its timeout and flatten clocks are its own.
+    hold: Hold = "session"
 
     @property
     def underlying(self) -> str:
@@ -89,6 +96,8 @@ class WatchlistEntry(BaseModel):
         for stamp in (self.reviewed_at, self.exit_at):
             if stamp is not None and stamp.tzinfo is None:
                 raise ValueError("watchlist timestamps must include timezone")
+        if self.hold == "swing" and self.exit_at is not None and self.exit_at.date() > self.expiry:
+            raise ValueError("a swing exit deadline must fall on or before the setup's hold-by date")
         return self
 
 

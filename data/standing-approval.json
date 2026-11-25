@@ -2,7 +2,7 @@
   "as_of": "2026-11-25",
   "valid_until": "2026-11-27",
   "approved_at": "2026-11-25T03:00:00+00:00",
-  "approved_by": "operator (Alois, project thread 25 Nov 2026: \"make this trading platform work\"; in force once he merges the pull request that adds this file)",
+  "approved_by": "operator (Alois, project thread 25 Nov 2026: \"make this trading platform work\"; the US.NVDA lines on 25 Nov in the desktop session, approved in the same thread)",
   "max_orders": 200,
   "orders": [
     {"symbol": "US.KO", "side": "buy", "max_qty": 100, "max_total_qty": 200, "limit_max": 113.0},
@@ -28,7 +28,11 @@
     {"symbol": "US.MCD", "side": "buy", "multiplier": 100, "max_qty": 5, "max_total_qty": 10, "limit_max": 40.0},
     {"symbol": "US.MCD", "side": "sell", "multiplier": 100, "max_qty": 10, "max_total_qty": 20, "limit_min": 0.01},
     {"symbol": "US.MSFT", "side": "buy", "multiplier": 100, "max_qty": 5, "max_total_qty": 10, "limit_max": 40.0},
-    {"symbol": "US.MSFT", "side": "sell", "multiplier": 100, "max_qty": 10, "max_total_qty": 20, "limit_min": 0.01}
+    {"symbol": "US.MSFT", "side": "sell", "multiplier": 100, "max_qty": 10, "max_total_qty": 20, "limit_min": 0.01},
+    {"symbol": "US.NVDA", "side": "buy", "max_qty": 66, "max_total_qty": 132, "limit_max": 179.0},
+    {"symbol": "US.NVDA", "side": "sell", "max_qty": 132, "max_total_qty": 264, "limit_min": 109.0},
+    {"symbol": "US.NVDA", "side": "buy", "multiplier": 100, "max_qty": 3, "max_total_qty": 6, "limit_max": 20.0},
+    {"symbol": "US.NVDA", "side": "sell", "multiplier": 100, "max_qty": 6, "max_total_qty": 12, "limit_min": 0.01}
   ],
-  "note": "Standing paper approval for the PB-002 stock lane and the PB-003 long-option lane, Wed 25 to Fri 27 Nov 2026 (the last sessions of the challenge). Read by `tyche cycle`. Paper account only. A line with multiplier 100 on a stock symbol covers any standard option on that stock. The numbers are fat-finger guards: about 10% of NAV per stock order, at most twice a day, prices within about 15% above and 30% below the 24 Nov levels. The real limits are the kernel's own: risk 1% of NAV to the stop, the researcher's size per setup, 20% of NAV per name, 25% for all tactical stocks, 0.75% of NAV per option and 5% for all options. The PB-004 scalp keeps data/scalp-approvals.json."
+  "note": "Standing paper approval for the PB-002 stock lane and the PB-003 long-option lane, Wed 25 to Fri 27 Nov 2026 (the last sessions of the challenge). Read by `tyche cycle`. Paper account only. A line with multiplier 100 on a stock symbol covers any standard option on that stock. The numbers are fat-finger guards: about 10% of NAV per stock order, at most twice a day, prices within about 15% above and 30% below the 24 Nov levels. The real limits are the kernel's own: risk 1% of NAV to the stop, the researcher's size per setup, 20% of NAV per name, 25% for all tactical stocks, 0.75% of NAV per option and 5% for all options. The PB-004 scalp keeps data/scalp-approvals.json. US.NVDA lines were added on 25 Nov 2026 when the ticker moved up from the scalp lane at the operator's request in the desktop session; its option ceiling is tighter than the defensives' because one NVDA contract costs more than the 0.75%-of-NAV risk budget allows for an at-the-money strike."
 }

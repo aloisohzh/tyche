@@ -170,7 +170,10 @@ def risk_preview(intent: OrderIntent, entry: WatchlistEntry, nav: float, etf: bo
         "notional_usd": round(intent.notional, 2), "modeled_entry_fees_usd": fees,
         "worst_case_capital_loss_usd": round(worst, 2),
         "planned_stop_risk_usd": round(planned, 2),
-        "exit": f"underlying stop {entry.stop}, target {entry.target}, deadline {entry.exit_at}; synthetic limit exit",
+        "exit": (f"underlying stop {entry.stop}, target {entry.target}, deadline {entry.exit_at}; "
+                 "synthetic limit exit"
+                 + ("; swing hold, no forced same-session close: out on stop, target or hold-by date"
+                    if entry.hold == "swing" else "")),
         "halt": "halts block new buys, not exits; an exit is not guaranteed to fill",
         "ladder": "one entry, full-position exit; no scaling or automatic re-entry",
         "limitations": "Options may lose the full debit. Stops can gap; fees/slippage reduce returns. Close before expiry/exercise.",
@@ -291,12 +294,21 @@ def plan_tick(
                     exit_reason = "underlying target reached"
             if entry.option and q.bid <= held.avg_cost * 0.60:
                 exit_reason = "option premium drawdown reached 40%"
-            deadline = entry.exit_at or session_end
-            if entry.option is None:
-                deadline = min(deadline, session_end)  # stock lots are same-session: out before the close
+            swing = entry.hold == "swing"
             next_check = now + timedelta(seconds=cfg.monitor_interval_seconds)
-            if next_check >= deadline or today > entry.expiry:
-                exit_reason = "time exit before next scheduled check"
+            if swing:
+                # A swing lot exits on its stop, its target, the contract deadline or its own hold-by date
+                # (operator direction 2026-11-25). Sitting through an overnight close is not an exit. The
+                # bridge sends DAY orders only, so the target sell is re-armed at each session's first fire.
+                deadline = entry.exit_at or datetime.combine(entry.expiry, regular_close(entry.expiry), ET)
+                if today > entry.expiry or next_check >= deadline:
+                    exit_reason = "swing hold deadline reached"
+            else:
+                deadline = entry.exit_at or session_end
+                if entry.option is None:
+                    deadline = min(deadline, session_end)  # stock lots are same-session: out before the close
+                if next_check >= deadline or today > entry.expiry:
+                    exit_reason = "time exit before next scheduled check"
             if entry.option and entry.option.expiry <= today and next_check >= close - timedelta(minutes=cfg.option_exit_minutes_before_close):
                 exit_reason = "close before option expiry/exercise"
             resting_sells = [o for o in pending if o.symbol == entry.symbol and o.side == Side.SELL]
@@ -321,7 +333,8 @@ def plan_tick(
                 resting_row = {"kind": "take_profit", "time_in_force": "day",
                                "limit_basis": f"target {entry.target} from the approved setup",
                                "expires": close.isoformat(),
-                               "note": "re-placed each session until filled, stopped or the deadline passes"}
+                               "note": "re-placed at the first fire of every session until filled, stopped or "
+                                       "the deadline passes: the bridge sends DAY orders only"}
             else:
                 state.latched_exits[entry.symbol] = exit_reason
                 state.latched_on.setdefault(entry.symbol, today.isoformat())
@@ -363,7 +376,7 @@ def plan_tick(
             if entry.underlying not in cfg.etf_symbols and (entry.market_cap_usd or 0) < config.universe.min_market_cap_usd:
                 reject("verified underlying market cap required")
                 continue
-            if entry.exit_at is None:
+            if entry.exit_at is None and not (entry.hold == "swing" and entry.option is None):
                 reject("explicit exit deadline required")
                 continue
             entry_deadline = entry.exit_at
@@ -373,6 +386,10 @@ def plan_tick(
                 if entry.exit_at.astimezone(ET).date() >= entry.option.expiry:
                     reject("option exit deadline must fall before the contract's expiry")
                     continue
+            elif entry.hold == "swing":
+                # A swing entry is armed against the date it holds to, not the session it happens to be
+                # opened in: buying at 15:45 is still a valid entry (operator direction 2026-11-25).
+                entry_deadline = entry.exit_at or datetime.combine(entry.expiry, regular_close(entry.expiry), ET)
             else:
                 # A stock deadline past the session's exit time is cut back to it, not refused: a plan
                 # written for a normal day (15:50 ET) still trades on a half day and leaves by 12:50.

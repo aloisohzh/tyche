@@ -2,8 +2,10 @@
 # 1-minute 5-bar breakout entry, 0.25% stop, 2R target, 20-minute timeout,
 # flat 25 minutes before the close. Sizing is 0.1% of NAV risk to the stop,
 # capped at 5% of NAV notional per trade, max 4 open names.
+# 2026-11-25: US.NVDA left this lane for PB-002 (a scalp cannot hold a position across sessions, and the
+# operator wants NVDA as a swing). Four names remain, which is exactly max_open.
 enabled: true
-symbols: ["US.NVDA", "US.AMD", "US.AVGO", "US.MU", "US.SMH"]
+symbols: ["US.AMD", "US.AVGO", "US.MU", "US.SMH"]
 breakout_bars: 5
 stop_pct: 0.0025
 target_r: 2.0

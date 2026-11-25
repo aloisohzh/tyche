@@ -196,6 +196,11 @@ def read_watchlist(path: Path) -> tuple[Watchlist, list[str]]:
                 # A source given as {"url": ..., "title": ...} is the same citation as its URL alone.
                 item["sources"] = [s["url"] if isinstance(s, dict) and isinstance(s.get("url"), str) else s
                                    for s in item["sources"]]
+            # A swing setup must name the date it holds to: defaulting its hold-by date to today would
+            # turn a multi-day plan into a day trade, silently, the next morning.
+            if str(item.get("hold") or "session") == "swing" and item.get("expiry") in (None, ""):
+                notes.append(f"watchlist setup {label} left out: a swing setup must name the date it holds to")
+                continue
             for key, default in (("expiry", as_of.isoformat()), ("reviewed_at", written_at),
                                  ("setup_id", f"{label.removeprefix('US.').lower()}-{as_of.isoformat()}")):
                 if item.get(key) in (None, ""):
@@ -489,7 +494,11 @@ def reconcile_scalp_lots(state: ScalpState, snapshot: AccountSnapshot, rows: lis
 
 
 def _order_row(payload: dict, note: str = "") -> dict:
-    """One order exactly as the executor must send it."""
+    """One order exactly as the executor must send it.
+
+    The broker bridge's order tool has no time-in-force field, so every order this command sends is a DAY
+    order. A swing lot's exit is therefore re-armed at the first fire of each session, not left standing.
+    """
     reason = str(payload.get("reason") or "")
     return {"symbol": payload["symbol"], "side": payload["side"], "quantity": payload["quantity"],
             "limit_price": payload["limit_price"], "order_type": "LIMIT", "time_in_force": "DAY",
@@ -544,7 +553,13 @@ def run_cycle(*, directory: Path, record: bool, now: datetime, config_root: Path
         # A stock lot leaves at the session's exit time unless the research names an earlier one, and
         # a review stamped ahead of the clock is a time-zone slip, not research from the future.
         if entry.option is None and entry.exit_at is None:
-            entry.exit_at = session_exit
+            if entry.hold == "swing":
+                # A swing setup is not stamped to today's clock: it holds to its own expiry date
+                # (operator direction 2026-11-25). The planner reads the hold-by date instead.
+                out["alerts"].append(f"{entry.symbol}: swing hold to {entry.expiry.isoformat()}, "
+                                     "no same-session exit stamped")
+            else:
+                entry.exit_at = session_exit
         if entry.reviewed_at is not None and timedelta(0) < entry.reviewed_at - now <= timedelta(hours=24):
             entry.reviewed_at = now
             out["alerts"].append(f"{entry.symbol}: reviewed_at was ahead of the clock (time-zone slip); taken as now")
