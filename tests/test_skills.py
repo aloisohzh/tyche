@@ -250,11 +250,19 @@ HARD_RULES: dict[str, dict[str, str]] = {
         "card_reserved": "journals order.requested before it prints",
         "card_exact": "never an order that is not on the list",
     },
-    # The agents' own prompts still carry the 24 Nov per-order envelope rule. The brief's dated RULINGS
-    # retire it for cycle runs; until the prompts are rewritten, the snapshots must say what is live.
-    "the agent prompts are snapshots of what is live": {
-        "desk": "same-ET-day exact setup/config/account-bound entry AND exit envelope",
-        "executor": "same-ET-day exact setup/config/account-bound entry AND exit envelope",
+    # 2026-11-25: the agents' own instructions say what the briefs say. A CYCLE RUNS paragraph at the top
+    # of the desk and executor prompts makes the command's list the authority in a cycle run and keeps
+    # the older per-order envelope rule only for a delegation that is not one.
+    "the agents' own instructions agree with the cycle briefs": {
+        "desk": "CYCLE RUNS (operator ruling 2026-11-25)",
+        "executor": "CYCLE RUNS (operator ruling 2026-11-25)",
+        "desk_authority": "an item under `submit` is reserved and authorized by the operator's standing paper approval",
+        "executor_authority": "Every item is already reserved in the journal and is authorized by the operator's standing paper approval",
+        "executor_exact": "never an order that is not on the list",
+        "desk_legacy": "Outside a cycle run, tactical orders need a same-ET-day exact setup/config/account-bound entry AND exit envelope",
+        "executor_legacy": "Outside a cycle run, tactical orders need a same-ET-day exact setup/config/account-bound entry AND exit envelope",
+        "desk_paper": "the allowlisted US paper account only, never a live account",
+        "executor_paper": "the allowlisted US PAPER account only, never a live account",
         "card_overrides": "These replace older wording in your own instructions, in any skill and in the executor's instructions",
     },
     "never retry a submit": {

@@ -88,6 +88,15 @@ re-pins for the three children, `pin-card` for the desk card, `verify`, and `exp
 `PROPOSED` headers back into `retrieved-at` ones. An `export --prompts` run **before** the apply overwrites
 the proposed text with the live text; commit nothing from such an export without re-applying the trim.
 
+**CYCLE RUNS alignment (2026-11-25).** The card briefs moved every order onto one command, `tyche cycle`
+(`src/tyche/cycle.py`), and carry a dated `RULINGS` block that retires the per-order envelope, the audit
+and the 30 to 120 second clocks for those runs. So that an agent never has to weigh its brief against its
+own instructions, the desk and executor prompts open with a `CYCLE RUNS` paragraph that says the same
+thing and scopes the older contract to a delegation that is not a cycle run. One paste applies it:
+`python scripts/deploy_managed_agents.py ship-prompts --apply` writes each prompt that differs from its
+file, re-pins the executor in the desk roster and moves both cards to the new desk version. It refuses to
+replace a live prompt this repo did not write (`KNOWN_LIVE_PROMPTS`), and it is safe to run twice.
+
 Mechanics that are not obvious from either API's docs:
 
 - **Content and attachment are two different surfaces.** The body only moves through
