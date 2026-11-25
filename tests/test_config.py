@@ -58,7 +58,7 @@ def test_paper_allocation_profile_preserves_risk_limits() -> None:
     assert yaml_enabled_sum + pb007 <= config.risk.max_gross_exposure
     assert config.risk.max_gross_exposure == pytest.approx(0.95)
     assert config.risk.min_cash_weight == pytest.approx(0.05)
-    assert config.risk.option_risk_per_trade_pct == pytest.approx(0.0075)
+    assert config.risk.option_risk_per_trade_pct == pytest.approx(0.015)
     assert config.risk.risk_per_trade_pct == pytest.approx(0.01)
     assert config.risk.daily_loss_limit_pct == pytest.approx(0.025)
     assert config.risk.soft_drawdown_pct == pytest.approx(0.04)

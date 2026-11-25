@@ -366,12 +366,34 @@ def test_snapshot_frozen_cash_and_unknown_contract_fail_closed():
 
 def test_full_debit_risk_and_pending_exposure():
     args = case(True)
-    intent = OrderIntent(symbol=OPT, option=CONTRACT, side="buy", quantity=2, limit_price=6, reason="test")
+    risk = args[7].risk
+    # A debit one contract bigger than the per-trade premium budget, read from the policy rather than
+    # hard-coded, so "too big" still means too big when the operator moves the cap (2026-11-25: 0.75% ->
+    # 1.5% of NAV, which is what made one NVDA Dec-18 150 call affordable at all).
+    too_big = 1 + int(risk.option_risk_per_trade_pct * 100000 // 600)
+    intent = OrderIntent(symbol=OPT, option=CONTRACT, side="buy", quantity=too_big,
+                         limit_price=6, reason="test")
     verdict = evaluate_intent(intent, args[1], args[7].risk, RiskState(nav=100000), 6, {"US.NVDA"}, {}, underlying_price=150)
     assert any(b.rule == "trade.risk_budget" for b in verdict.breaches)
     state = RiskState(nav=100000, pending_orders=[intent])
     verdict = evaluate_intent(intent, args[1], args[7].risk, state, 6, {"US.NVDA"}, {}, underlying_price=150)
     assert any(b.rule == "order.pending" for b in verdict.breaches)
+
+
+def test_the_shipped_option_budget_buys_the_contract_the_filters_allow():
+    """At 0.75% of NAV the budget was ~$740 and the desk could not size anything it was allowed to trade.
+
+    The only tactical contract clearing PB-003's own liquidity gates on 2026-11-25 was the NVDA 18 Dec
+    150 call at 9.70, i.e. $970 plus fees. `config/risk.yaml` is not a lane rules file, so no rules hash
+    notices this number move - this test is the catch, and the lane's ceiling stays inside the 2% the
+    model allows (PB-003 page).
+    """
+    risk = load_config(ROOT).risk
+    nav = 98_831.14  # paper NAV read 2026-11-25, account flat
+    debit = 970 + estimate_fees("US.NVDA261218C150000", "buy", 1, 9.70, "option").total
+    assert int(risk.option_risk_per_trade_pct * nav) >= debit
+    assert risk.option_risk_per_trade_pct <= 0.02
+    assert risk.max_option_premium_pct == pytest.approx(0.05)
 
 
 def test_cumulative_envelope_and_broker_budget():

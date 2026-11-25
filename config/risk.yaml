@@ -17,7 +17,12 @@ max_order_notional_pct: 0.30
 max_daily_turnover_pct: 3.00
 max_orders_per_day: 120
 competition_order_cap: 200
-option_risk_per_trade_pct: 0.0075
+# Option sizing (2026-11-25): 0.75% of NAV bought nothing on the one tactical option the desk could
+# actually fill - a NVDA Dec-18 150 call printed 9.70 on 24 Nov, so one contract is ~$970 against a $741
+# budget and the kernel said "one unit exceeds risk budget". 1.5% covers one such contract with room for
+# the ask to move; the model ceiling on this key is 2% (src/tyche/config.py). This file is not a lane
+# rules file, so the number changing re-hashes no playbook: playbook/PB-003 keeps the written record.
+option_risk_per_trade_pct: 0.015
 max_option_premium_pct: 0.05
 max_limit_deviation_pct: 0.03
 # An agent run reads cash and positions up to a minute apart, so the two never agree to the dollar.

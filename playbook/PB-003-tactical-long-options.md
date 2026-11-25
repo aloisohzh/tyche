@@ -19,15 +19,21 @@ classification:
   operator switch in `data/strategies.json`. `options_enabled` in `config/tactical.yaml` stays `false`: the
   switch, not the yaml, now decides (`AppConfig.options_live`), so turning options on or off never
   re-hashes the lane. From 25 to 27 Nov 2026 an entry inside the operator's standing paper approval
-  (`data/standing-approval.json`: at most 5 contracts an order on a tactical symbol) is placed by
-  `tyche cycle` with no per-order ask; selling a held contract never needs a line.
+  (`data/standing-approval.json`: at most 5 contracts an order on a defensive, 3 on US.NVDA with a $20
+  per-contract cap) is placed by `tyche cycle` with no per-order ask; selling a held contract never needs a
+  line.
 - **Rules hash:** `1bbbe1901dde` (sha256 of `config/tactical.yaml` + `config/universe.yaml`, CRLF normalized,
   first 12). PB-002 and PB-003 are one lane with one parameter file, so they share this hash; see the
   [PB-002 page](PB-002-tactical-stocks.md) for the history (2026-11-25: US.NVDA joined the lane). This page
   adds no rules bytes of its own, so no separate re-freeze.
 - **Validation:** unvalidated. No option order has been sent on this account before this test.
 - **Sleeve:** option premium, capped at 5% of NAV in total (`max_option_premium_pct`, cut from 25% on
-  2026-11-24) and 0.75% of NAV premium per trade (`option_risk_per_trade_pct`).
+  2026-11-24) and 1.5% of NAV premium per trade (`option_risk_per_trade_pct`, raised from 0.75% on
+  2026-11-25: at 0.75% the budget was about $740 and the only tactical contract that passed this lane's
+  own liquidity filters - NVDA 18 Dec 150 call, last 9.70 on 24 Nov - costs about $970, so every option
+  entry died on "one unit exceeds risk budget"). Both numbers live in `config/risk.yaml`, which is not a
+  lane rules file, so changing them re-hashes no playbook: this page is the record. The model ceiling on
+  the per-trade key is 2% (`src/tyche/config.py` `RiskPolicy`).
 - **Env:** paper (competition)
 
 ## Thesis
@@ -51,9 +57,18 @@ The contract must be a standard, 100-share, US-listed call or put from `quote_op
 - delta between 0.45 and 0.80 in absolute value, with implied volatility present,
 - ask no higher than the researcher's `premium_limit` on the setup.
 
+What the chain actually offered on 24 Nov (read 25 Nov, account closed for the 26th): one tactical
+contract cleared all five filters - NVDA 18 Dec 150 call (`US.NVDA261218C150000`), last 9.70, open interest
+22,950, day volume 100, delta 0.50, implied vol 74.6%. The nearer weeklies (4 Dec last 7.25, 11 Dec last
+8.92) printed 29 and 30 contracts of volume and fail the volume floor, and the 155 and 160 strikes carry
+delta 0.43 and 0.36, under the 0.45 directional floor. So a NVDA option plan is the 18 Dec 150 call or no
+option at all, which is why the per-trade budget had to move (see Sleeve).
+
 ## Entry trigger
 At most one call, which the researcher may add to the watchlist at the 08:05 ET fire of Wed 25 Nov 2026
-(the 15:05 fires of 24 and 25 Nov until the desk moved to `tyche cycle`). The same gate as PB-002, applied
+(the 15:05 fires of 24 and 25 Nov until the desk moved to `tyche cycle`). Since 25 Nov the desk runs one
+command, so any `tyche cycle` fire inside the session through Fri 27 Nov is an eligible entry moment, and
+US.NVDA is a lane symbol. The same gate as PB-002, applied
 to the underlying: a researcher-reviewed setup dated today, reward/risk ≥ 1.5 measured on the underlying,
 and an exit deadline. The option does not wait for the underlying to pull back (operator ruling
 2026-11-24): the first run of `tyche cycle` in the regular session that finds the contract inside the
@@ -68,8 +83,11 @@ For the test: any rejected or unfillable option order, or a position the desk ca
 
 ## Sizing
 One contract is 100 options. Quantity is the largest whole number of contracts whose full premium plus
-modeled fees fits 0.75% of NAV, also capped by the 5% total option premium (held plus pending) and by the
-per-order NAV budget. Usually one contract.
+modeled fees fits 1.5% of NAV (about $1,480 against the 98,831.14 paper NAV read on 2026-11-25), also
+capped by the 5% total option premium (held plus pending, about $4,940) and by the per-order NAV budget.
+Still usually one contract: two NVDA 18 Dec 150 calls at 9.70 are about $1,940 and do not fit, which is
+the point - the debit is the risk, and an option can lose all of it. That makes 1.5% of NAV the real
+worst case per option trade, double the 0.75% this lane launched with.
 
 ## Exit
 **Hold (2026-11-25, v1.33).** A contract already held overnight by design; `hold: swing` drops the last
