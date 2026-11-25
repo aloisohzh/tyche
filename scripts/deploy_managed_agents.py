@@ -368,6 +368,7 @@ def cmd_ship_prompts(args) -> None:
     if not args.apply:
         print("DRY RUN - nothing sent; re-run with --apply")
         return
+    EXPORT_DIR.mkdir(parents=True, exist_ok=True)  # each write refreshes its baseline row in this folder
     for role, path, state in plan:
         if state != "same":
             print(f"-- apply-system {role}")
