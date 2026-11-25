@@ -826,3 +826,21 @@ def test_one_unusable_quote_or_book_row_is_named_and_the_rest_still_trade(desk):
     text = " | ".join(report["alerts"])
     assert "US.AMD: quote row unusable" in text and "US.MU: quote row unusable" in text
     assert "order-book row is unusable" in text
+
+
+def test_a_bare_ticker_and_a_source_given_with_its_title_are_still_a_setup(tmp_path):
+    """Two shapes an agent writes without meaning anything by them: "KO" for "US.KO", and a source as
+    {"url", "title"}. Neither is a reason to leave a researched setup out of the day."""
+    from tyche.cycle import read_watchlist
+    setup = {"symbol": "KO", "sleeve": "defensive", "strategy": "pullback to support", "direction": "bullish",
+             "entry_low": 95.2, "entry_high": 96.5, "stop": 94.6, "target": 99.6, "thesis": "holds its average",
+             "catalyst": "dividend declared", "sources": [{"url": "https://example.com/ko", "title": "KO"}],
+             "market_cap_usd": 410e9, "max_quantity": 51,
+             "factors": [{"name": "support", "axis": "technical", "state": "pass", "why": "held"},
+                         {"name": "cover", "axis": "fundamental", "state": "pass", "why": "covered"}]}
+    path = tmp_path / "watchlist.json"
+    path.write_text(json.dumps({"as_of": "2026-11-25", "entries": [setup, dict(setup, symbol="US.PG", stop=200)]}))
+    book, notes = read_watchlist(path)
+    assert [(e.symbol, e.sources, e.setup_id) for e in book.entries] == [
+        ("US.KO", ["https://example.com/ko"], "ko-2026-11-25")]
+    assert len(notes) == 1 and notes[0].startswith("watchlist setup US.PG left out:")

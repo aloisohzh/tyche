@@ -189,6 +189,13 @@ def read_watchlist(path: Path) -> tuple[Watchlist, list[str]]:
             # Bookkeeping fields the research need not type: a slip in one of them must not cost the
             # day. The evidence itself (thesis, catalyst, sources, factors, levels) is never defaulted.
             item = dict(item)
+            ticker = item.get("symbol")
+            if isinstance(ticker, str) and ticker.isalpha() and ticker.isupper() and len(ticker) <= 5:
+                item["symbol"] = f"US.{ticker}"  # a bare ticker; every other lane spells it US.KO
+            if isinstance(item.get("sources"), list):
+                # A source given as {"url": ..., "title": ...} is the same citation as its URL alone.
+                item["sources"] = [s["url"] if isinstance(s, dict) and isinstance(s.get("url"), str) else s
+                                   for s in item["sources"]]
             for key, default in (("expiry", as_of.isoformat()), ("reviewed_at", written_at),
                                  ("setup_id", f"{label.removeprefix('US.').lower()}-{as_of.isoformat()}")):
                 if item.get(key) in (None, ""):
