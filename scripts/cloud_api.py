@@ -387,3 +387,32 @@ def newest_run(card_ids: list[str] | tuple[str, ...], limit: int = 3) -> dict | 
     if not best and not failed:
         return None
     return {"run": best, "failed_cards": failed}
+
+
+TYCHE_CARDS = {"dep_00w9n1b9mkb9cjkalhcv": "desk card (08:05 / 12:05 / 15:05 ET)",
+               "dep_00wf6hsffery89aucq7x": "15-minute card"}
+
+
+if __name__ == "__main__":
+    # Pause or resume the two cloud cards from the laptop (2026-11-25), e.g. when the laptop runner
+    # (`tyche laptop`) takes over: only one record may trade the account at a time. Prints the card's
+    # schedule and status only (card_view), never its prompt or secrets.
+    #   .venv\Scripts\python.exe scripts\cloud_api.py status
+    #   .venv\Scripts\python.exe scripts\cloud_api.py pause-all      (unpause-all to resume)
+    #   .venv\Scripts\python.exe scripts\cloud_api.py pause <deployment_id>
+    import sys
+
+    command = sys.argv[1] if len(sys.argv) > 1 else "status"
+    if command == "status":
+        for card in cards():
+            if card["id"] in TYCHE_CARDS:
+                print(f"{TYCHE_CARDS[card['id']]:40s} {card['status']:10s} next {(card['next_runs'] or ['-'])[0]}")
+    elif command in ("pause-all", "unpause-all"):
+        for card_id, label in TYCHE_CARDS.items():
+            view = set_paused(card_id, command == "pause-all")
+            print(f"{label:40s} {view.get('status')}")
+    elif command in ("pause", "unpause") and len(sys.argv) > 2:
+        view = set_paused(sys.argv[2], command == "pause")
+        print(json.dumps({"id": view.get("id"), "name": view.get("name"), "status": view.get("status")}, indent=2))
+    else:
+        raise SystemExit("usage: cloud_api.py status | pause-all | unpause-all | pause <id> | unpause <id>")

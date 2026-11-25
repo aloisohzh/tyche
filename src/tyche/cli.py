@@ -39,6 +39,7 @@ from tyche.freeze import lane_states, registration_events, verdict
 from tyche.halt import effective_halt, repo_halt_path, set_halt
 from tyche.journal import append_event, append_locked, journal_lock, read_events, verify_chain
 from tyche.lanes import read_state
+from tyche.laptop import laptop_command
 from tyche.lifecycle_cli import app as lifecycle_app
 from tyche.market_calendar import (
     ET,
@@ -68,6 +69,7 @@ app.add_typer(events_app, name="events")
 app.add_typer(monitor_app, name="monitor")
 app.add_typer(performance_app, name="performance")
 app.command("cycle")(cycle_command)
+app.command("laptop")(laptop_command)
 console = Console()
 
 
