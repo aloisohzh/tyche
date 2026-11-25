@@ -64,7 +64,21 @@ plainly because they decide what the operator is actually agreeing to:
 | Fact | Where | Test |
 |---|---|---|
 | A drafted exit sell sits `exit_collar_pct` = 5% below the stop the plan journaled | `risk.exit_collar_pct` (0 < x <= 0.20), applied in `src/tyche/envelope.py` | `test_the_collar_is_the_only_operator_number_and_it_widens_downward` |
+| A contract's floor is a premium, never the underlying's stop: the draft uses a journaled `premium_stop`, or the lane's own 40% premium drawdown measured on the broker's cost basis | `PREMIUM_DRAWDOWN_FLOOR` (`src/tyche/tactical.py`), `ExitLevel.premium_stop` (`src/tyche/envelope.py`) | `test_a_contract_floor_is_never_an_underlying_price` |
 | Only the operator's arm click writes `data/approvals.json`; drafting writes `data/approvals.proposed.json`, which is gitignored | `propose_exit_envelope` (drafts) vs `arm_envelope` (approves) in `dashboard/server.py` | `test_arm_from_draft_is_the_only_writer_of_the_envelope` |
+| A hand-written entry row gets the executor's own plan fingerprint stamped on it, because a row without one drafts an exit line the tactical lane refuses to arm | `record_order` calling `tactical.setup_hash` (`src/tyche/cli.py`) | `test_record_order_stamps_the_fingerprint_an_exit_note_needs` |
+| Receipts the journal never heard about are healed from the broker's order list, not retyped from memory | `tyche sync-receipts` over `receipts_to_journal(days_back=...)` | `test_sync_receipts_heals_the_journal_from_the_broker_list` |
+
+### What the broker itself will not do
+
+Learned on 25 Nov by placing exits by hand, and worth stating before any card promises protection:
+
+| Limit | What it means for a position | Evidence |
+|---|---|---|
+| The paper bridge has no stop or stop-limit order type | A stop is a rule the desk watches and acts on, so an overnight gap costs the gap price, not the planned one. Take-profit limits *can* rest; protective stops cannot. | `docs/adr/0012-options-protection.md:7` (`order_type` enum is Limit/Market) |
+| The order tool has no time-in-force parameter | Every order is a DAY order and dies at the close. Nothing resting protects a swing lot while nobody is watching, which is why a swing exit is re-armed at the first fire of each session. | PRD v1.33; `_order_row` in `src/tyche/cycle.py` |
+| One working sell leg locks the lot it sells | While a take-profit rests, the broker reports nothing sellable on those shares: the exit-note draft skips the position and `tyche exit-now` refuses a second reservation on the symbol. Rest the target or stay armable - not both, on the same day. | skip reason in `propose_exit_envelope`, guard in `src/tyche/cli.py` `exit-now` |
+
 
 The collar is deliberately the *only* number in that path the operator sets. Stops,
 quantities and symbols come from the journal and the broker book; anything the kernel

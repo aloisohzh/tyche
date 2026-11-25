@@ -115,6 +115,44 @@ def test_option_lines_follow_the_desk_switch():
     assert line["multiplier"] == 100 and line["limit_min"] == pytest.approx(5.7)
 
 
+CALL = "US.NVDA261218C150000"
+
+
+def call_contract() -> OptionContract:
+    return OptionContract(underlying="US.NVDA", expiry=date(2026, 12, 18), right="call", strike=150.0)
+
+
+def call_position(cost: float = 10.0) -> Position:
+    return Position(symbol=CALL, quantity=1, avg_cost=cost, last_price=8.09, option=call_contract())
+
+
+def call_plan(**overrides) -> dict:
+    """A long call as the research file writes it: levels stated against the shares, not the premium."""
+    return entry(symbol=CALL, option=call_contract(), entry_low=144.0, entry_high=146.0, stop=141.0,
+                 target=156.0, premium_limit=1_000.0, setup_id="TAC-20261125-NVDA-C150", **overrides)
+
+
+def test_a_contract_floor_is_never_an_underlying_price():
+    """The plan's 141 stop belongs to the shares; a contract cannot be sold at 133.95."""
+    events = [requested(symbol=CALL, protected_setup=call_plan())]
+    line = propose([call_position()], events, options_enabled=True).lines[0]
+    assert line["stop_basis"] == "premium drawdown floor"
+    assert line["stop"] == pytest.approx(10.0 * 0.60) and line["limit_min"] == pytest.approx(6.0 * 0.95)
+
+
+def test_a_journaled_premium_stop_beats_the_drawdown_floor():
+    events = [requested(symbol=CALL, protected_setup=call_plan(), premium_stop=7.50)]
+    line = propose([call_position()], events, options_enabled=True).lines[0]
+    assert line["stop_basis"] == "journaled premium stop" and line["limit_min"] == pytest.approx(7.125)
+
+
+def test_a_contract_the_broker_gives_no_cost_for_is_refused_not_invented():
+    proposal = propose([call_position(cost=0.0)], [requested(symbol=CALL, protected_setup=call_plan())],
+                       options_enabled=True)
+    assert proposal.lines == [] and "no premium to floor a contract on" in proposal.skipped[0]["why"]
+
+
+
 def test_a_bearish_expression_is_not_protected_by_a_sell_floor():
     contract = OptionContract(underlying="US.MSFT", expiry=date(2026, 12, 31), right="put", strike=460.0)
     held = [Position(symbol=PUT, quantity=5, avg_cost=8.0, last_price=9.0, option=contract)]

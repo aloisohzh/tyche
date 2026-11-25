@@ -39,7 +39,10 @@ Six lines, always, because this is what the operator is agreeing to.
   a stop is a rule the desk checks, and a gap can cost more than the plan.
 - **Exit**: stop, target, time/deadline, and hold-by date - which one fires first wins. Name which exit is a
   real order resting at the broker (today: the take-profit, a DAY order re-armed each session) and which is
-  only a rule someone has to act on. Say who is watching it.
+  only a rule someone has to act on. Say who is watching it. Say too what a resting leg costs: while a
+  take-profit works, the broker reports nothing sellable on that lot, so the drafted exit note cannot cover
+  it and `tyche exit-now` refuses a second reservation on the symbol. Rest the target or stay armable - the
+  same lot cannot do both on the same day.
 - **Ladder**: adding in, partial takes, re-entry after an exit, and whether a missed entry gets re-asked or is
   simply gone.
 
@@ -54,7 +57,11 @@ Six lines, always, because this is what the operator is agreeing to.
 
 ## After it fills
 
-- Journal rows written, and by which command.
+- Journal rows written, and by which command. An entry row typed by hand through `tyche record-order` gets
+  its `setup_hash` stamped from the plan in `protected_setup` (it needs `account_id` in the payload), because
+  a hash-less row drafts an exit line the tactical lane refuses to arm.
+- Anything the desk did not journal itself - a fill from a paused cloud card or another machine - is healed
+  from the broker's own order list with `tyche sync-receipts --orders <file> --record`, never retyped.
 - Position read back from the broker, not assumed.
 - Next check time, and what would trigger an exit before then.
 

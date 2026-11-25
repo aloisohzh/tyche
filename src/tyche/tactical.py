@@ -30,6 +30,10 @@ PROTECTIVE_EXIT_REASONS = frozenset({
     "close before option expiry/exercise",
 })
 TAKE_PROFIT_REASON = "resting take-profit at target"
+# A held contract is sold when its bid reaches this fraction of the premium paid: the lane's own
+# 40% premium drawdown. An exit note floors a contract at the same number, never at a stop quoted
+# against the underlying.
+PREMIUM_DRAWDOWN_FLOOR = 0.60
 
 
 class MarketQuote(BaseModel):
@@ -292,7 +296,7 @@ def plan_tick(
                     exit_reason = "underlying stop breached"
                 elif target_hit:
                     exit_reason = "underlying target reached"
-            if entry.option and q.bid <= held.avg_cost * 0.60:
+            if entry.option and q.bid <= held.avg_cost * PREMIUM_DRAWDOWN_FLOOR:
                 exit_reason = "option premium drawdown reached 40%"
             swing = entry.hold == "swing"
             next_check = now + timedelta(seconds=cfg.monitor_interval_seconds)

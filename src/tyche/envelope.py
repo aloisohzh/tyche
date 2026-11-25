@@ -10,7 +10,9 @@ Every field of a proposed sell line has a source that is not an opinion:
 
 * symbol and quantity - the broker snapshot the desk is already showing;
 * the floor - the stop the plan journaled when it entered, widened by one operator-set
-  collar percentage (`risk.exit_collar_pct`);
+  collar percentage (`risk.exit_collar_pct`); for a contract that stop has to be a premium
+  (`premium_stop` in the journal), because an underlying price is not a price a contract
+  can be sold at, and a floor invented by converting one would be an opinion;
 * `setup_hash` - copied verbatim from the journal, never recomputed. It folds in the
   account id and the whole loaded config (`tactical.py:72`), so recomputation on another
   machine or after a config edit yields a different string, and `tactical_cli.py:265`
@@ -31,7 +33,8 @@ from typing import Literal
 from pydantic import ValidationError
 
 from tyche.approvals import ApprovalBatch, ApprovalLine
-from tyche.models import AccountSnapshot
+from tyche.models import AccountSnapshot, looks_like_option
+from tyche.tactical import PREMIUM_DRAWDOWN_FLOOR
 from tyche.watchlist import Watchlist, WatchlistEntry
 
 StopSource = Literal["journal_contract", "journal_order", "watchlist"]
@@ -61,6 +64,9 @@ class ExitLevel:
     strategy_id: str | None = None
     direction: str = "bullish"
     entry: WatchlistEntry | None = None
+    # A contract stop recorded in premium, when somebody wrote one down. The plan's `stop` on an
+    # option is stated against the underlying, so it is not a price a contract can be sold at.
+    premium_stop: float | None = None
 
 
 @dataclass
@@ -113,6 +119,8 @@ def exit_levels(events: list[dict]) -> tuple[dict[str, ExitLevel], list[str]]:
         if not isinstance(symbol, str) or not symbol:
             problems.append(f"{event.get('type')} event without a symbol was ignored")
             continue
+        premium = payload.get("premium_stop")
+        premium_stop = float(premium) if isinstance(premium, int | float) and premium > 0 else None
         setup = payload.get("protected_setup")
         if setup:
             try:
@@ -125,15 +133,16 @@ def exit_levels(events: list[dict]) -> tuple[dict[str, ExitLevel], list[str]]:
                 symbol=symbol, stop=entry.stop, source="journal_contract",
                 setup_id=payload.get("setup_id") or entry.setup_id or None,
                 setup_hash=payload.get("setup_hash"), strategy_id=payload.get("strategy_id"),
-                direction=entry.direction, entry=entry,
+                direction=entry.direction, entry=entry, premium_stop=premium_stop,
             )
             continue
         stop = payload.get("stop_price", payload.get("stop"))
         if isinstance(stop, int | float) and stop > 0:
+            premium_stop = premium_stop or (float(stop) if looks_like_option(symbol) else None)
             levels[symbol] = ExitLevel(
                 symbol=symbol, stop=float(stop), source="journal_order",
                 setup_id=payload.get("setup_id"), setup_hash=payload.get("setup_hash"),
-                strategy_id=payload.get("strategy_id"),
+                strategy_id=payload.get("strategy_id"), premium_stop=premium_stop,
             )
     return levels, problems
 
@@ -203,9 +212,24 @@ def propose_exit_envelope(
                                      "why": "bearish expression exits by buying back; a sell floor "
                                             "would not protect it"})
             continue
-        floor = round(level.stop * (1.0 - collar_pct), 4)
+        stop, stop_basis = level.stop, "underlying"
+        if position.option:
+            # A plan's stop on a contract is a price on its underlying, and an underlying price is not a
+            # price a contract can be sold at. The premium numbers the kernel trusts are the one the
+            # journal was given (`premium_stop`) and the lane's own 40% premium drawdown measured on the
+            # cost basis the broker reports, so the floor comes from those and says which it used.
+            if level.premium_stop is not None:
+                stop, stop_basis = level.premium_stop, "journaled premium stop"
+            elif position.avg_cost > 0:
+                stop, stop_basis = position.avg_cost * PREMIUM_DRAWDOWN_FLOOR, "premium drawdown floor"
+            else:
+                proposal.skipped.append({"symbol": symbol,
+                                         "why": "no premium to floor a contract on: the broker reports no "
+                                                "cost basis and the journal holds no premium stop"})
+                continue
+        floor = round(stop * (1.0 - collar_pct), 4)
         if floor <= 0:
-            proposal.skipped.append({"symbol": symbol, "why": f"floor from stop {level.stop} is not positive"})
+            proposal.skipped.append({"symbol": symbol, "why": f"floor from stop {stop} is not positive"})
             continue
         try:
             line = ApprovalLine(symbol=symbol, side="sell", max_qty=qty, max_total_qty=qty,
@@ -217,7 +241,8 @@ def propose_exit_envelope(
         proposal.lines.append({
             "symbol": symbol, "side": "sell", "max_qty": qty, "limit_min": line.limit_min,
             "multiplier": position.multiplier, "source": level.source,
-            "source_label": SOURCE_LABEL[level.source], "stop": level.stop,
+            "source_label": SOURCE_LABEL[level.source], "stop": stop,
+            "stop_basis": stop_basis,
             "setup_id": level.setup_id, "setup_hash": level.setup_hash,
             "strategy_id": level.strategy_id,
             "bound": bool(level.setup_hash),

@@ -236,13 +236,17 @@ def unresolved_symbols(events: list[dict], rows: list[dict], now: datetime | Non
     return pending
 
 
-def receipts_to_journal(events: list[dict], rows: list[dict], today: date) -> tuple[list[tuple[str, dict]], list[str]]:
-    """What the broker shows for the desk's own orders today that the journal still lacks.
+def receipts_to_journal(events: list[dict], rows: list[dict], today: date, *,
+                        days_back: int = 1) -> tuple[list[tuple[str, dict]], list[str]]:
+    """What the broker shows for the desk's own orders that the journal still lacks.
 
     Returns the (event type, payload) rows to append, oldest order first, plus plain-word alerts. The
     order list is the truth about receipts, fills and cancels, so nobody has to type them in by hand:
     a submitted order gets its order.submitted, a finished one its order.filled (once, for what filled)
-    or order.cancelled (nothing filled). Only orders created today are touched; history stays history.
+    or order.cancelled (nothing filled). Only orders created today are touched by default; `days_back`
+    widens that window deliberately, because an order the desk placed on another machine - a paused
+    cloud card, a second laptop - is the same broker fact and the ledger has to learn it. History stays
+    history: the window reaches back, it never rewrites a row that is already in the journal.
     """
     from tyche.models import looks_like_option
     requests = {p["request_id"]: p for _, p, _ in _request_rows(events, [])}
@@ -259,7 +263,7 @@ def receipts_to_journal(events: list[dict], rows: list[dict], today: date) -> tu
         created = _broker_time(row.get("create_time"))
         if not rid.startswith((SCALP_PREFIX, TACTICAL_PREFIX, EXIT_PREFIX)) or created is None:
             continue
-        if created.astimezone(ET).date() != today:
+        if created.astimezone(ET).date() < today - timedelta(days=max(1, days_back) - 1):
             continue
         symbol = order_symbol(row)
         side = {1: "buy", 2: "sell"}.get(row.get("side"))

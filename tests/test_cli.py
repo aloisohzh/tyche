@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 
 import numpy as np
@@ -270,3 +271,87 @@ def test_record_order_protection_gap_needs_request_and_resolution(tmp_path: Path
     assert no_request.exit_code != 0
     invented = runner.invoke(app, base + [json.dumps({"request_id": "req-1", "resolution": "filled"})])
     assert invented.exit_code != 0
+
+def test_record_order_journals_a_cancel_the_broker_actually_reports(tmp_path: Path) -> None:
+    journal_path = tmp_path / "events.jsonl"
+    runner = CliRunner()
+    ok = runner.invoke(app, ["record-order", "order.cancelled", "--journal", str(journal_path),
+                             "--data", json.dumps({"request_id": "tyche-exit-1", "order_id": "3125782",
+                                                   "symbol": "US.NVDA", "side": "sell"})])
+    assert ok.exit_code == 0, ok.output
+    anonymous = runner.invoke(app, ["record-order", "order.cancelled", "--journal", str(journal_path),
+                                    "--data", json.dumps({"symbol": "US.NVDA"})])
+    assert anonymous.exit_code != 0
+
+
+def _plan(symbol: str = "US.PG") -> dict:
+    return {"symbol": symbol, "sleeve": "equity", "strategy": "PB-002 defensive momentum",
+            "entry_low": 170.0, "entry_high": 172.5, "stop": 169.3, "target": 178.0,
+            "expiry": "2026-12-04", "setup_id": "TAC-20261125-PG", "hold": "swing"}
+
+
+def test_record_order_stamps_the_fingerprint_an_exit_note_needs(tmp_path: Path) -> None:
+    from tyche.config import load_config
+    from tyche.tactical import setup_hash
+    from tyche.watchlist import WatchlistEntry
+
+    root = Path(__file__).resolve().parents[1]
+    journal_path = tmp_path / "events.jsonl"
+    runner = CliRunner()
+    payload = {"symbol": "US.PG", "side": "buy", "quantity": 31, "account_id": "***598",
+               "protected_setup": _plan()}
+    result = runner.invoke(app, ["record-order", "order.requested", "--journal", str(journal_path),
+                                 "--config-root", str(root), "--data", json.dumps(payload)])
+    assert result.exit_code == 0, result.output
+    row = json.loads(journal_path.read_text(encoding="utf-8").strip())["payload"]
+    assert row["setup_hash"] == setup_hash(WatchlistEntry.model_validate(_plan()),
+                                           load_config(root), "***598")
+    assert row["setup_id"] == "TAC-20261125-PG"
+    # A hash the kernel already wrote is copied, never recomputed, and a plan with no account
+    # cannot be hashed at all: the row would draft an envelope line the lane refuses to arm.
+    hashed = runner.invoke(app, ["record-order", "order.requested", "--journal", str(journal_path),
+                                 "--config-root", str(root),
+                                 "--data", json.dumps({**payload, "setup_hash": "already-bound"})])
+    assert hashed.exit_code == 0, hashed.output
+    assert json.loads(journal_path.read_text(encoding="utf-8").splitlines()[-1])["payload"]["setup_hash"] \
+        == "already-bound"
+    orphan = runner.invoke(app, ["record-order", "order.requested", "--journal", str(journal_path),
+                                 "--config-root", str(root),
+                                 "--data", json.dumps({"symbol": "US.PG", "protected_setup": _plan()})])
+    assert orphan.exit_code != 0 and "account_id" in orphan.output
+
+
+def _broker_row(**overrides) -> dict:
+    now_us = int(datetime.now(UTC).timestamp() * 1_000_000)
+    row = {"order_id": "3125999", "symbol": "US.KO", "side": 1, "qty": 100, "cum_qty": 100,
+           "price": 97.5, "status": 4, "create_time": now_us, "update_time": now_us,
+           "avg_fill_price": 97.6, "text": "tyche-tac-abcdef"}
+    row.update(overrides)
+    return row
+
+
+def test_sync_receipts_heals_the_journal_from_the_broker_list(tmp_path: Path) -> None:
+    journal_path, orders = tmp_path / "events.jsonl", tmp_path / "orders.json"
+    orders.write_text(json.dumps({"ret_code": 0, "data": {"orders": [_broker_row()]}}), encoding="utf-8")
+    runner = CliRunner()
+    base = ["sync-receipts", "--orders", str(orders), "--journal", str(journal_path)]
+    dry = runner.invoke(app, base)
+    assert dry.exit_code == 0 and "DRY" in dry.output and not journal_path.exists()
+    written = runner.invoke(app, base + ["--record"])
+    assert written.exit_code == 0 and "Chain OK" in written.output, written.output
+    events = [json.loads(line) for line in journal_path.read_text(encoding="utf-8").splitlines()]
+    assert [e["type"] for e in events] == ["order.submitted", "order.filled"]
+    assert events[1]["payload"]["price"] == 97.6 and events[1]["payload"]["source"] == "broker order list"
+    again = runner.invoke(app, base + ["--record"])
+    assert "Nothing to heal" in again.output
+def test_sync_receipts_heals_a_cancel_and_refuses_a_bad_page(tmp_path: Path) -> None:
+    journal_path, orders = tmp_path / "events.jsonl", tmp_path / "orders.json"
+    orders.write_text(json.dumps({"ret_code": 0, "data": {"orders": [
+        _broker_row(status=5, cum_qty=0, text="tyche-exit-deadbeef")]}}), encoding="utf-8")
+    result = CliRunner().invoke(app, ["sync-receipts", "--orders", str(orders), "--journal",
+                                      str(journal_path), "--record"])
+    assert result.exit_code == 0, result.output
+    assert json.loads(journal_path.read_text(encoding="utf-8").splitlines()[-1])["type"] == "order.cancelled"
+    orders.write_text(json.dumps({"ret_code": 1, "data": {}}), encoding="utf-8")
+    bad = CliRunner().invoke(app, ["sync-receipts", "--orders", str(orders), "--journal", str(journal_path)])
+    assert bad.exit_code != 0

@@ -31,10 +31,10 @@ from tyche.broker import (
     snapshot_from_dir,
 )
 from tyche.config import load_config
-from tyche.cycle import cycle_command
+from tyche.cycle import cycle_command, merged_orders
 from tyche.envelope import propose_exit_envelope
 from tyche.events_cli import app as events_app
-from tyche.execution_state import daily_usage
+from tyche.execution_state import daily_usage, receipts_to_journal
 from tyche.freeze import lane_states, registration_events, verdict
 from tyche.halt import effective_halt, repo_halt_path, set_halt
 from tyche.journal import append_event, append_locked, journal_lock, read_events, verify_chain
@@ -57,9 +57,10 @@ from tyche.risk import RiskState, evaluate_intent
 from tyche.strategies import build_intents, fit_turnover_budget, rotation_targets
 from tyche.strategy_ledger import StrategyPolicy
 from tyche.strategy_ledger import score as score_strategy
+from tyche.tactical import setup_hash as tactical_setup_hash
 from tyche.tactical_cli import app as tactical_app
 from tyche.trade_risk import compute_expectancy
-from tyche.watchlist import Watchlist
+from tyche.watchlist import Watchlist, WatchlistEntry
 
 app = typer.Typer(add_completion=False, help="Regime-aware ETF rotation agent.")
 app.add_typer(lifecycle_app, name="lifecycle")
@@ -909,16 +910,27 @@ def halt_status(
 def record_order(
     event: str = typer.Argument(
         ...,
-        help="order.requested, order.submitted, order.filled, order.rejected, halt.skip, gate.wait or protection.gap.",
+        help="order.requested, order.submitted, order.filled, order.cancelled, order.rejected, "
+        "halt.skip, gate.wait or protection.gap.",
     ),
     data: str = typer.Option(..., "--data", help="JSON object with the event payload."),
     journal_path: Path = typer.Option(Path("journal/events.jsonl"), "--journal"),
+    config_root: Path = typer.Option(Path.cwd(), "--config-root",
+                                     help="Config tree the plan fingerprint folds in."),
 ) -> None:
-    """Journal an order event from the MCP submission path (executor is the single writer)."""
+    """Journal an order event from the MCP submission path (executor is the single writer).
+
+    The hand-written path is the only writer an operator can use while the cloud cards are paused, so
+    it has to produce the same row the kernel would. A request that carries its plan but not its
+    fingerprint gets the fingerprint stamped here with the executor's own function; an envelope line
+    built from a hash-less row is refused by the tactical lane, which is the difference between an
+    exit note that can be armed and one that cannot.
+    """
     allowed = {
         "order.requested",
         "order.submitted",
         "order.filled",
+        "order.cancelled",
         "order.rejected",
         "halt.skip",
         "gate.wait",
@@ -938,6 +950,9 @@ def record_order(
             raise typer.BadParameter("protection.gap requires request_id")
         if payload.get("resolution") not in ("gate.wait", "expired"):
             raise typer.BadParameter("protection.gap resolution must be gate.wait or expired")
+    if event == "order.cancelled" and not payload.get("request_id"):
+        # The cancel is only evidence about the order it names.
+        raise typer.BadParameter("order.cancelled requires request_id")
     if event == "order.filled":
         missing = [
             key
@@ -949,8 +964,86 @@ def record_order(
                 "order.filled requires symbol, side (buy|sell), quantity, price "
                 f"(missing/invalid: {missing or ['side']})"
             )
+    if event == "order.requested" and payload.get("protected_setup") and not payload.get("setup_hash"):
+        entry = _stamped_setup(payload, config_root)
+        if not payload.get("setup_id") and entry.setup_id:
+            payload["setup_id"] = entry.setup_id
     append_event(journal_path, event, payload)
-    console.print(f"Journaled {event}.")
+    console.print(f"Journaled {event}."
+                  + (" Plan fingerprint stamped, so an exit line built from it can be armed."
+                     if event == "order.requested" and payload.get("setup_hash") else ""))
+
+
+def _stamped_setup(payload: dict, config_root: Path) -> WatchlistEntry:
+    """Attach the executor's own plan fingerprint to a hand-journaled request; the plan must parse."""
+    if not payload.get("account_id"):
+        raise typer.BadParameter(
+            "order.requested with a protected_setup needs account_id (and no setup_hash yet) so the "
+            "plan fingerprint can be stamped - the hash folds in the account, so a row without it "
+            "produces an exit note the tactical lane refuses to arm")
+    try:
+        entry = WatchlistEntry.model_validate(payload["protected_setup"])
+    except ValidationError as exc:
+        raise typer.BadParameter(f"protected_setup does not parse: {exc.errors()[:1]}") from exc
+    payload["setup_hash"] = tactical_setup_hash(entry, load_config(config_root),
+                                                str(payload["account_id"]))
+    return entry
+
+
+@app.command("sync-receipts")
+def sync_receipts(
+    orders: Path = typer.Option(
+        ..., "--orders", help="Raw broker order-list JSON: one page or a list of pages."
+    ),
+    journal_path: Path = typer.Option(Path("journal/events.jsonl"), "--journal"),
+    days_back: int = typer.Option(
+        1, "--days-back", min=1, max=30,
+        help="Also heal orders the broker shows from this many ET days ago (1 = today only).",
+    ),
+    record: bool = typer.Option(
+        False, "--record", help="Append the missing events; without it the rows are only reported."
+    ),
+) -> None:
+    """Append the receipts the broker already holds and the journal never learned about.
+
+    An order placed from a paused cloud card, another machine or the MCP console is a broker fact first
+    and a journal row second. The broker's own order list is the record of what happened to it, so the
+    ledger can be healed from that instead of from somebody retyping a fill price from memory. Rows the
+    journal already holds are never touched, and a request id is only ever written once per event type.
+    """
+    try:
+        merged, note = merged_orders(json.loads(orders.read_text(encoding="utf-8")))
+    except (OSError, json.JSONDecodeError, ValueError, TypeError) as exc:
+        raise typer.BadParameter(f"{orders}: {exc}") from exc
+    rows = merged["data"]["orders"]
+    missing, alerts = receipts_to_journal(read_events(journal_path), rows,
+                                         datetime.now(ET).date(), days_back=days_back)
+    if note:
+        console.print(note)
+    if merged.get("pagination", {}).get("has_more"):
+        console.print("[yellow]the order file is one page of a longer list: only these rows were checked[/yellow]")
+    for alert in alerts:
+        console.print(f"[yellow]{alert}[/yellow]")
+    if not missing:
+        console.print(f"Nothing to heal: the journal already holds every receipt in {len(rows)} order row(s).")
+        return
+    for kind, payload in missing:
+        console.print(
+            f"{'WRITE' if record else 'DRY '} {kind} {payload.get('side', '?')} "
+            f"{payload.get('symbol')} qty {payload.get('quantity', payload.get('order_id', '?'))} "
+            f"@ {payload.get('price', payload.get('limit_price', '?'))} ({payload['request_id']})"
+        )
+    if not record:
+        console.print("Nothing written. Re-run with --record to append these rows.")
+        return
+    with journal_lock(journal_path):
+        for kind, payload in missing:
+            append_locked(journal_path, kind, payload)
+    ok, count, error = verify_chain(journal_path)
+    console.print(f"Journaled {len(missing)} broker receipt(s). Chain "
+                  f"{'OK' if ok else f'BROKEN: {error}'} ({count} events).")
+
+
 
 
 @app.command()
