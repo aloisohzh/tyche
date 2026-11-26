@@ -1,0 +1,252 @@
+{
+  "date": "2026-11-25",
+  "session_timezone": "America/New_York",
+  "account": "***598",
+  "env": "paper",
+  "observed_at": "2026-11-26T02:52:32.556278Z",
+  "status": "unresolved",
+  "reconcile_ok": false,
+  "baseline": {
+    "cash_before": 98831.144,
+    "frozen_before": 0.0,
+    "cash_incl_frozen_before": 98831.144,
+    "source": "docs/performance/2026-11-24-ondemand-1638/mcp/cash.json",
+    "note": "Previous verified close, after the 24 Nov exits and before the 25 Nov entries."
+  },
+  "observed": {
+    "cash_balance": 73241.838,
+    "frozen": 0.0,
+    "cash_incl_frozen": 73241.838,
+    "nav_total_asset": 99284.768,
+    "mv": 26042.93,
+    "positions_count": 4,
+    "gross_exposure_pct": 26.23053921020393,
+    "cash_weight_pct": 73.76946078979609,
+    "day_pnl": 453.624,
+    "day_return_pct": 0.45898891952520504,
+    "drawdown_from_100000_pct": -0.715231999999999
+  },
+  "fills": [
+    {
+      "broker_order_id": "3125694",
+      "symbol": "US.NVDA",
+      "asset_class": "stock",
+      "side": "buy",
+      "quantity": 66,
+      "multiplier": 1,
+      "price": 145.2,
+      "notional": 9583.2,
+      "filled_at": "2026-11-25T14:00:31Z"
+    },
+    {
+      "broker_order_id": "3125698",
+      "symbol": "US.NVDA261218C150000",
+      "asset_class": "option",
+      "side": "buy",
+      "quantity": 1,
+      "multiplier": 100,
+      "price": 9.12,
+      "notional": 912.0,
+      "filled_at": "2026-11-25T14:01:43Z"
+    },
+    {
+      "broker_order_id": "3125716",
+      "symbol": "US.KO",
+      "asset_class": "stock",
+      "side": "buy",
+      "quantity": 100,
+      "multiplier": 1,
+      "price": 98.195,
+      "notional": 9819.5,
+      "filled_at": "2026-11-25T14:19:03Z"
+    },
+    {
+      "broker_order_id": "3125960",
+      "symbol": "US.PG",
+      "asset_class": "stock",
+      "side": "buy",
+      "quantity": 31,
+      "multiplier": 1,
+      "price": 169.911,
+      "notional": 5267.241,
+      "filled_at": "2026-11-25T20:25:03Z"
+    }
+  ],
+  "buy_notional": 25581.941,
+  "fees_modeled": [
+    {
+      "order_id": "3125694",
+      "symbol": "US.NVDA",
+      "side": "buy",
+      "quantity": 66,
+      "price": 145.2,
+      "asset_class": "stock",
+      "components": {
+        "platform": 0.99
+      },
+      "total": 0.99,
+      "source": "model"
+    },
+    {
+      "order_id": "3125698",
+      "symbol": "US.NVDA261218C150000",
+      "side": "buy",
+      "quantity": 1,
+      "price": 9.12,
+      "asset_class": "option",
+      "components": {
+        "commission": 1.99,
+        "platform": 0.3
+      },
+      "total": 2.29,
+      "source": "model"
+    },
+    {
+      "order_id": "3125716",
+      "symbol": "US.KO",
+      "side": "buy",
+      "quantity": 100,
+      "price": 98.195,
+      "asset_class": "stock",
+      "components": {
+        "platform": 0.99
+      },
+      "total": 0.99,
+      "source": "model"
+    },
+    {
+      "order_id": "3125960",
+      "symbol": "US.PG",
+      "side": "buy",
+      "quantity": 31,
+      "price": 169.911,
+      "asset_class": "stock",
+      "components": {
+        "platform": 0.99
+      },
+      "total": 0.99,
+      "source": "model"
+    }
+  ],
+  "fee_model_basis": "One fee record per broker order because the broker exposes one average fill per order and the fill-detail endpoint is unauthorized.",
+  "fees_modeled_total": 5.26,
+  "fees_implied": 7.365,
+  "reconciliation": {
+    "expected_cash_delta": -25587.201,
+    "actual_cash_delta": -25589.306,
+    "fee_total": 5.26,
+    "residual": -2.105,
+    "tolerance": 1.0,
+    "ok": false
+  },
+  "reconciliation_per_execution": {
+    "expected_cash_delta": -25588.191,
+    "actual_cash_delta": -25589.306,
+    "fee_total": 6.25,
+    "residual": -1.115,
+    "tolerance": 1.0,
+    "ok": false,
+    "note": "Sensitivity check only. It charges two platform fees for the two journaled KO executions, 80 and 20 shares."
+  },
+  "step_checks": [
+    {
+      "step": "NVDA stock and option",
+      "cash_before": 98831.144,
+      "cash_after": 88332.639,
+      "notional": 10495.2,
+      "fees_implied": 3.305,
+      "fees_modeled": 3.28,
+      "residual": -0.025
+    },
+    {
+      "step": "KO",
+      "cash_before": 88332.639,
+      "cash_after": 78510.069,
+      "notional": 9819.5,
+      "fees_implied": 3.07,
+      "fees_modeled": 0.99,
+      "residual": -2.08
+    },
+    {
+      "step": "PG",
+      "cash_before": 78510.069,
+      "cash_after": 73241.838,
+      "notional": 5267.241,
+      "fees_implied": 0.99,
+      "fees_modeled": 0.99,
+      "residual": 0.0
+    }
+  ],
+  "positions": [
+    {
+      "symbol": "US.KO",
+      "quantity": 100,
+      "avg_cost": 98.195,
+      "last_price": 97.59,
+      "market_value": 9759.0
+    },
+    {
+      "symbol": "US.NVDA261218C150000",
+      "quantity": 1,
+      "avg_cost": 9.12,
+      "last_price": 10.6,
+      "market_value": 1060.0,
+      "multiplier": 100
+    },
+    {
+      "symbol": "US.NVDA",
+      "quantity": 66,
+      "avg_cost": 145.2,
+      "last_price": 149.3,
+      "market_value": 9853.8
+    },
+    {
+      "symbol": "US.PG",
+      "quantity": 31,
+      "avg_cost": 169.911,
+      "last_price": 173.23,
+      "market_value": 5370.13
+    }
+  ],
+  "broker_history": {
+    "orders": 20,
+    "filled_orders": 16,
+    "zero_fill_terminal_orders": 4,
+    "pagination_complete": true,
+    "current_session_filled_orders": 4,
+    "note": "The 24 Nov SPY, EFA and MSFT exits are broker facts from 24 Nov ET. They are not counted again as 25 Nov fills."
+  },
+  "residual_analysis": {
+    "isolated_to": "US.KO",
+    "session_residual": -2.105,
+    "ko_residual": -2.08,
+    "other_residual": -0.025,
+    "confirmed_broker_fee": false,
+    "reason": "The KO cash debit was 9822.570. Its fill notional was 9819.500. The extra 3.070 is 2.080 more than the modeled 0.99 platform fee. Broker fee and cash-log endpoints returned MCP authorization is required, so the extra charge cannot be confirmed.",
+    "possible_causes": [
+      "an extra simulator charge",
+      "per-fill fee behavior",
+      "fill-price precision",
+      "another cash movement"
+    ],
+    "conclusion": "Unresolved. Do not label the gap as a broker fee and do not mark the day reconciled."
+  },
+  "evidence_limits": {
+    "broker_fee_fields": "unavailable: MCP authorization is required",
+    "broker_cash_logs": "unavailable: MCP authorization is required",
+    "broker_fill_detail": "unavailable: MCP authorization is required",
+    "local_drive_mount": "unavailable: /data/drive/tyche-raw is not mounted in this session"
+  },
+  "journal": {
+    "events_before": 131,
+    "events_after": 132,
+    "head_before": "d1fbbaa372a15103382b15ff2cd332b61d72436b9f50278d27ab79b0a5c48e52",
+    "event_type": "eod.reconcile",
+    "event_hash": "4c5172be516d13a0420e21ca8b5395ad7b747ba40d03be9833bb30a69afba493",
+    "chain_ok": true,
+    "historical_rows_edited": false,
+    "legacy_gap": "Broker history has 16 filled orders; the local journal has 15 order.filled rows. The missing two are the 18 Nov SPY and EFA opening buys. Their cash is included in the verified prior-close baseline."
+  },
+  "no_trading_actions": true,
+  "next_action": "Keep the fee model provisional. Under ADR 0010, do not start a new plan until the residual is explained. Re-read authorized broker fee and cash-log records when access is available."
+}

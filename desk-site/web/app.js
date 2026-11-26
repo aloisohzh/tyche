@@ -9,8 +9,16 @@ const ucfirst = (s) => { const t = hy(s).trim(); return t ? t.charAt(0).toUpperC
 // A term with a one-line explanation on hover - the desk is read by people who do not trade for a living.
 const tip = (label, text) => `<span class="tip" data-tip="${esc(text)}">${esc(label)}</span>`;
 
-const VERSION = "0.16.7";
+const VERSION = "0.16.8";
 const CHANGELOG = [
+  {
+    version: "0.16.8", date: "2026-11-27", title: "The 25 Nov cash check stays unresolved",
+    items: [
+      "The desk now carries the 25 Nov close: 99,284.77 in total assets, with 73,241.84 in cash.",
+      "The fee model expects 5.26, but the cash movement implies 7.37. The 2.11 gap is isolated to KO and stays unresolved until broker fee and cash records are available.",
+      "No order was placed, changed, cancelled or retried during this reconciliation.",
+    ],
+  },
   {
     version: "0.16.7", date: "2026-11-24", title: "Publish no longer stops on a thin order row",
     items: [

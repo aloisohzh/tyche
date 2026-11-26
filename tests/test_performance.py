@@ -20,6 +20,7 @@ from tyche.performance import (
     account_key,
     benchmark_closes,
     build_pack,
+    fees_from_journal,
     mark_basis_from_journal,
     max_drawdown,
     orders_per_day,
@@ -28,7 +29,7 @@ from tyche.performance import (
     to_json,
 )
 
-D17, D18, D19, D20 = date(2026, 11, 17), date(2026, 11, 18), date(2026, 11, 19), date(2026, 11, 20)
+D17, D18, D19, D20, D25 = (date(2026, 11, d) for d in (17, 18, 19, 20, 25))
 
 
 def events() -> list[dict]:
@@ -43,7 +44,8 @@ def events() -> list[dict]:
         {"ts": "2026-11-18T17:07:00+00:00", "type": "order.rejected",
          "payload": {"symbol": "US.DBC", "decision_by": "operator", "reason": "withdrawn"}},
         {"ts": "2026-11-18T21:11:00+00:00", "type": "eod.reconcile",
-         "payload": {"date": "2026-11-18", "nav": 99000.0, "fees_modeled": 1.98, "fees_implied": 2.0}},
+         "payload": {"date": "2026-11-18", "nav": 99000.0, "fees_modeled": 1.98, "fees_implied": 2.0,
+                     "reconcile_ok": True}},
         {"ts": "2026-11-19T13:00:00+00:00", "type": "plan.created",
          "payload": {"plan": {"as_of": "2026-11-19", "nav": 99500.0, "orders": []}}},
         {"ts": "2026-11-20T14:00:00+00:00", "type": "order.submitted", "payload": {"symbol": "US.QQQ"}},
@@ -104,6 +106,22 @@ def test_pack_statistics_match_hand_arithmetic(tmp_path: Path):
     assert round(r20.drawdown, 4) == -0.02 and round(r19.drawdown, 4) == -0.005
     assert pack.n_returns == 3 and pack.realized_vol is not None and pack.sharpe is not None
     assert pack.sharpe < 0  # three down-leaning marks
+
+
+def test_failed_reconcile_is_not_reported_as_reconciled():
+    rows = events() + [{
+        "ts": "2026-11-25T21:00:00+00:00", "type": "eod.reconcile",
+        "payload": {"date": "2026-11-25", "nav": 99284.768, "fees_modeled": 5.26,
+                    "fees_implied": 7.365, "reconcile_ok": False},
+    }]
+    fees = fees_from_journal(rows)
+    assert fees == {"modeled": 7.24, "implied": 9.365, "unreconciled": 2.125,
+                    "recorded_days": 2, "reconciled_days": 1, "unresolved_days": 1}
+    pack = build_pack(account="***598", start_day=D17, start_nav=100000.0,
+                      account_days={D18: 99000.0, D25: 99284.768}, benchmark={}, events=rows)
+    text = render_markdown(pack)
+    assert "Modelled fees over 2 recorded reconcile day(s)" in text
+    assert "1 reconciled; 1 unresolved" in text
 
 
 def test_max_drawdown_is_from_the_running_peak():

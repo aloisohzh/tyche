@@ -1,0 +1,255 @@
+{
+  "account": "***598",
+  "benchmark": {
+    "base_close": 732.44,
+    "base_day": "2026-11-17",
+    "missing_days": [
+      "2026-11-24",
+      "2026-11-25"
+    ],
+    "symbol": "US.SPY"
+  },
+  "blocked_rules": {
+    "account.paper_only": 4,
+    "broker": 1,
+    "gate.wait": 6,
+    "halt.skip": 3,
+    "portfolio.gross": 1,
+    "portfolio.min_cash": 1,
+    "turnover.daily": 3
+  },
+  "fee_net_series": [
+    {
+      "cumulative_net": 66.3926,
+      "date": "2026-11-19",
+      "fees": 5.9484,
+      "gross": 72.341,
+      "net": 66.3926,
+      "trades": 3
+    },
+    {
+      "cumulative_net": -459.2469,
+      "date": "2026-11-25",
+      "fees": 1.9865,
+      "gross": -523.653,
+      "net": -525.6395,
+      "trades": 1
+    }
+  ],
+  "fees": {
+    "implied": 7.365,
+    "modeled": 5.26,
+    "reconciled_days": 0,
+    "recorded_days": 1,
+    "unreconciled": 2.105,
+    "unresolved_days": 1
+  },
+  "max_drawdown": -0.011688559999999959,
+  "n_returns": 4,
+  "orders_per_day": {
+    "2026-11-18": 3,
+    "2026-11-19": 7,
+    "2026-11-25": 9
+  },
+  "realized_vol": 0.10428704761479646,
+  "rejections": [
+    {
+      "date": "2026-11-16",
+      "detail": "turnover 34,501 exceeds 25% of NAV",
+      "kind": "kernel.blocked",
+      "rule": "turnover.daily",
+      "symbol": "US.QQQ"
+    },
+    {
+      "date": "2026-11-16",
+      "detail": "turnover 33,103 exceeds 25% of NAV",
+      "kind": "kernel.blocked",
+      "rule": "turnover.daily",
+      "symbol": "US.EFA"
+    },
+    {
+      "date": "2026-11-16",
+      "detail": "turnover 33,057 exceeds 25% of NAV",
+      "kind": "kernel.blocked",
+      "rule": "turnover.daily",
+      "symbol": "US.HYG"
+    },
+    {
+      "date": "2026-11-17",
+      "detail": "post-trade gross 98.6% exceeds 95%",
+      "kind": "kernel.blocked",
+      "rule": "portfolio.gross",
+      "symbol": "US.HYG"
+    },
+    {
+      "date": "2026-11-17",
+      "detail": "post-trade cash 1.4% below 5%",
+      "kind": "kernel.blocked",
+      "rule": "portfolio.min_cash",
+      "symbol": "US.HYG"
+    },
+    {
+      "date": "2026-11-18",
+      "detail": "halt active - kill-switch drill",
+      "kind": "halt.skip",
+      "rule": "halt.skip",
+      "symbol": "US.QQQ"
+    },
+    {
+      "date": "2026-11-18",
+      "detail": "halt active - kill-switch drill",
+      "kind": "halt.skip",
+      "rule": "halt.skip",
+      "symbol": "US.EFA"
+    },
+    {
+      "date": "2026-11-18",
+      "detail": "halt active - kill-switch drill",
+      "kind": "halt.skip",
+      "rule": "halt.skip",
+      "symbol": "US.VNQ"
+    },
+    {
+      "date": "2026-11-19",
+      "detail": "account must be explicitly allowlisted paper",
+      "kind": "kernel.blocked",
+      "rule": "account.paper_only",
+      "symbol": "US.SPY"
+    },
+    {
+      "date": "2026-11-19",
+      "detail": "account must be explicitly allowlisted paper",
+      "kind": "kernel.blocked",
+      "rule": "account.paper_only",
+      "symbol": "US.EFA"
+    },
+    {
+      "date": "2026-11-19",
+      "detail": "account must be explicitly allowlisted paper",
+      "kind": "kernel.blocked",
+      "rule": "account.paper_only",
+      "symbol": "US.DBC"
+    },
+    {
+      "date": "2026-11-19",
+      "detail": "account must be explicitly allowlisted paper",
+      "kind": "kernel.blocked",
+      "rule": "account.paper_only",
+      "symbol": "US.VNQ"
+    },
+    {
+      "date": "2026-11-19",
+      "detail": "submit window closed after client-policy block; not sent",
+      "kind": "gate.wait",
+      "rule": "gate.wait",
+      "symbol": "US.AMD"
+    },
+    {
+      "date": "2026-11-19",
+      "detail": "submit window closed after client-policy block; not sent",
+      "kind": "gate.wait",
+      "rule": "gate.wait",
+      "symbol": "US.MU"
+    },
+    {
+      "date": "2026-11-19",
+      "detail": "client-policy block; broker shows no AMD sell; submit window expired",
+      "kind": "gate.wait",
+      "rule": "gate.wait",
+      "symbol": "US.AMD"
+    },
+    {
+      "date": "2026-11-19",
+      "detail": "submit window expired after AMD block; not sent",
+      "kind": "gate.wait",
+      "rule": "gate.wait",
+      "symbol": "US.MU"
+    },
+    {
+      "date": "2026-11-19",
+      "detail": "client-policy block: planner --record refused by safety classifier; no request armed",
+      "kind": "gate.wait",
+      "rule": "gate.wait",
+      "symbol": "US.AMD"
+    },
+    {
+      "date": "2026-11-19",
+      "detail": "client-policy block: planner --record refused by safety classifier; no request armed",
+      "kind": "gate.wait",
+      "rule": "gate.wait",
+      "symbol": "US.MU"
+    },
+    {
+      "date": "2026-11-25",
+      "detail": "",
+      "kind": "order.rejected",
+      "rule": "broker",
+      "symbol": "US.NVDA261218C150000"
+    }
+  ],
+  "rows": [
+    {
+      "active_return": 0.0,
+      "basis": "start",
+      "benchmark_close": 732.44,
+      "benchmark_return": 0.0,
+      "cumulative_return": 0.0,
+      "daily_return": null,
+      "day": "2026-11-17",
+      "drawdown": 0.0,
+      "nav": 100000.0
+    },
+    {
+      "active_return": 0.0022075709846539615,
+      "basis": "feed",
+      "benchmark_close": 730.2,
+      "benchmark_return": -0.0030582709846540546,
+      "cumulative_return": -0.000850700000000093,
+      "daily_return": -0.000850700000000093,
+      "day": "2026-11-18",
+      "drawdown": -0.000850700000000093,
+      "nav": 99914.93
+    },
+    {
+      "active_return": 0.02189431348915971,
+      "basis": "plan",
+      "benchmark_close": 715.87,
+      "benchmark_return": -0.022623013489159627,
+      "cumulative_return": -0.0007286999999999155,
+      "daily_return": 0.00012210387376554444,
+      "day": "2026-11-19",
+      "drawdown": -0.0007286999999999155,
+      "nav": 99927.13
+    },
+    {
+      "active_return": null,
+      "basis": "feed",
+      "benchmark_close": null,
+      "benchmark_return": null,
+      "cumulative_return": -0.011688559999999959,
+      "daily_return": -0.010967852273952028,
+      "day": "2026-11-24",
+      "drawdown": -0.011688559999999959,
+      "nav": 98831.144
+    },
+    {
+      "active_return": null,
+      "basis": "close",
+      "benchmark_close": null,
+      "benchmark_return": null,
+      "cumulative_return": -0.00715231999999999,
+      "daily_return": 0.00458988919525205,
+      "day": "2026-11-25",
+      "drawdown": -0.00715231999999999,
+      "nav": 99284.768
+    }
+  ],
+  "sharpe": -4.293085672197635,
+  "sources": [
+    "journal `journal/events.jsonl` (132 events)",
+    "feed `docs/performance/2026-11-25-eod/feed-for-performance.json`",
+    "prices `docs/performance/spy-closes.csv`"
+  ],
+  "start_day": "2026-11-17",
+  "start_nav": 100000.0
+}

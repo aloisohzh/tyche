@@ -54,7 +54,7 @@ class Pack:
     orders_per_day: dict[date, int]
     rejections: list[dict[str, Any]]
     blocked_rules: dict[str, int]
-    fees: dict[str, float]
+    fees: dict[str, float | int]
     fee_net_series: list[dict[str, Any]]
     sources: list[str] = field(default_factory=list)
 
@@ -226,19 +226,22 @@ def rejections(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return out
 
 
-def fees_from_journal(events: list[dict[str, Any]]) -> dict[str, float]:
-    """Modelled fees and the fees implied by the broker's cash, summed over every EOD reconcile."""
+def fees_from_journal(events: list[dict[str, Any]]) -> dict[str, float | int]:
+    """Modelled fees, cash-implied fees and the status of every EOD reconcile."""
     modeled = implied = 0.0
-    days = 0
+    recorded_days = reconciled_days = 0
     for ev in events:
         if ev.get("type") != "eod.reconcile":
             continue
         payload = ev.get("payload") or {}
         modeled += float(payload.get("fees_modeled") or 0.0)
         implied += float(payload.get("fees_implied") or 0.0)
-        days += 1
+        recorded_days += 1
+        if payload.get("reconcile_ok") is True:
+            reconciled_days += 1
     return {"modeled": round(modeled, 4), "implied": round(implied, 4), "unreconciled": round(implied - modeled, 4),
-            "reconciled_days": days}
+            "recorded_days": recorded_days, "reconciled_days": reconciled_days,
+            "unresolved_days": recorded_days - reconciled_days}
 
 
 # ---------------------------------------------------------------------------
@@ -466,10 +469,11 @@ def render_markdown(pack: Pack, *, order_cap: int = 200, internal_budget: int | 
     lines.append("## Fees and friction")
     lines.append("")
     fees = pack.fees
-    lines.append(f"- Modelled fees over {fees.get('reconciled_days', 0)} reconciled day(s): {_money(fees.get('modeled'))}; "
-                 f"implied by broker cash: {_money(fees.get('implied'))}; unreconciled difference "
-                 f"{_money(fees.get('unreconciled'))}. The simulator exposes no fee fields, so the model is the "
-                 "record and the cash delta is the check.")
+    lines.append(f"- Modelled fees over {fees.get('recorded_days', 0)} recorded reconcile day(s): "
+                 f"{_money(fees.get('modeled'))}; implied by broker cash: {_money(fees.get('implied'))}; "
+                 f"unreconciled difference {_money(fees.get('unreconciled'))}. "
+                 f"{fees.get('reconciled_days', 0)} reconciled; {fees.get('unresolved_days', 0)} unresolved. "
+                 "The simulator exposes no fee fields, so the model is the record and the cash delta is the check.")
     if pack.fee_net_series:
         lines.append("")
         lines.append("| Trade day | Closed trades | Gross | Fees | Net | Cumulative net |")
@@ -488,7 +492,8 @@ def render_markdown(pack: Pack, *, order_cap: int = 200, internal_budget: int | 
                  "(sanitized bundles) is kept.")
     lines.append("- The SPY baseline is the same starting cash put into SPY at the base day's close with no fees, "
                  "which flatters SPY slightly; it is the bar, not a strategy.")
-    lines.append("- Returns are fee-net because the account value already carries the modelled fees reconciled to cash.")
+    lines.append("- Returns use the broker's total asset value, so fees and other cash effects are already reflected. "
+                 "Any gap between the fee model and cash stays visible in the fee section above.")
     lines.append(f"- Vol and Sharpe annualize with sqrt({TRADING_DAYS_PER_YEAR}) over n daily marks; drawdown is from the "
                  "running peak of the marks shown.")
     if pack.sources:

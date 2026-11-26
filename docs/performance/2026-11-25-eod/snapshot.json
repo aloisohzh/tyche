@@ -1,0 +1,59 @@
+{
+  "account_id": "[REDACTED]",
+  "cash": 73241.838,
+  "frozen_cash": 0.0,
+  "broker_nav": 99284.768,
+  "prior_close_nav": null,
+  "high_water_nav": null,
+  "captured_at": "2026-11-26T02:52:32.556278Z",
+  "positions": [
+    {
+      "symbol": "US.PG",
+      "option": null,
+      "quantity": 31,
+      "available_quantity": 31,
+      "avg_cost": 169.911,
+      "last_price": 173.23,
+      "market_value": 5370.13
+    },
+    {
+      "symbol": "US.KO",
+      "option": null,
+      "quantity": 100,
+      "available_quantity": 100,
+      "avg_cost": 98.195,
+      "last_price": 97.59,
+      "market_value": 9759.0
+    },
+    {
+      "symbol": "US.NVDA261218C150000",
+      "option": {
+        "underlying": "US.NVDA",
+        "expiry": "2026-12-18",
+        "right": "call",
+        "strike": 150.0,
+        "multiplier": 100
+      },
+      "quantity": 1,
+      "available_quantity": 1,
+      "avg_cost": 9.12,
+      "last_price": 10.6,
+      "market_value": 1060.0
+    },
+    {
+      "symbol": "US.NVDA",
+      "option": null,
+      "quantity": 66,
+      "available_quantity": 66,
+      "avg_cost": 145.2,
+      "last_price": 149.3,
+      "market_value": 9853.800000000001
+    }
+  ],
+  "env": "paper",
+  "account_type": 2,
+  "market_id": 100,
+  "source": "sim_list",
+  "gross_exposure": 26042.93,
+  "nav": 99284.76800000001
+}
