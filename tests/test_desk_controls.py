@@ -46,6 +46,27 @@ def desk(srv, tmp_path, monkeypatch):
     return tmp_path
 
 
+def test_order_rows_keep_manual_notes_and_merge_only_identical_requests(srv):
+    row = {"request_id": "same", "symbol": "US.PG", "side": "buy", "quantity": 31,
+           "limit_price": 172.5, "multiplier": 1, "authorization": "standing approval, PG line"}
+    events = [
+        {"ts": "2026-11-25T15:24:41+00:00", "type": "order.requested", "hash": "a" * 64, "payload": row},
+        {"ts": "2026-11-25T15:24:42+00:00", "type": "order.requested", "hash": "b" * 64, "payload": dict(row)},
+    ]
+    orders = srv.build_orders(events, {"fills": {}, "cancelled": {}})
+    assert len(orders) == 1
+    assert orders[0]["requested_ts"] == events[0]["ts"]
+    assert [event["hash"] for event in orders[0]["events"]] == ["a" * 64, "b" * 64]
+    assert orders[0]["authorization"] == "manual"
+    assert orders[0]["authorization_note"] == "standing approval, PG line"
+    conflict = srv.build_orders(events + [
+        {"ts": "2026-11-25T15:24:43+00:00", "type": "order.requested", "hash": "c" * 64,
+         "payload": {**row, "multiplier": 100}},
+    ], {"fills": {}, "cancelled": {}})
+    assert len(conflict) == 2
+    assert all(order["conflict"] and order["status"] == "conflict" for order in conflict)
+
+
 def test_arm_fresh_envelope(srv, desk):
     out = srv.arm_envelope({"max_orders": 2, "note": "test batch", "orders": LINES})
     assert out["ok"] and out["armed"]

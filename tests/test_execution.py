@@ -5,6 +5,7 @@ from datetime import date
 from pathlib import Path
 from typing import ClassVar
 
+import pytest
 from typer.testing import CliRunner
 
 from tyche.broker.moomoo_cli import (
@@ -135,6 +136,24 @@ def test_text_authorization_stays_manual_and_uses_the_event_date() -> None:
     assert authorization_fields(events[0]["payload"]) == {"kind": "manual", "note": "operator approval"}
     assert day_requests(events, date(2026, 11, 25)) == [events[0]["payload"]]
     assert day_requests(events, date(2026, 11, 26)) == []
+
+
+def test_identical_request_ids_count_once_but_changed_option_facts_conflict() -> None:
+    row = {"request_id": "same", "symbol": "US.NVDA261218C150000", "side": "buy",
+           "quantity": 1, "limit_price": 10.6, "multiplier": 100,
+           "option": {"underlying": "US.NVDA", "expiry": "2026-12-18", "right": "call", "strike": 150.0},
+           "setup_hash": "a" * 64, "order_type": "limit", "submit_before": "2026-11-26T15:00:00+00:00"}
+    event = {"ts": "2026-11-26T15:00:00+00:00", "type": "order.requested", "payload": row}
+    assert day_requests([event, {**event, "hash": "b" * 64}], date(2026, 11, 26)) == [row]
+    without_hash = {key: value for key, value in row.items() if key != "setup_hash"}
+    assert day_requests([
+        {**event, "payload": without_hash}, {**event, "hash": "b" * 64},
+    ], date(2026, 11, 26)) == [without_hash]
+    for field, value in (("multiplier", 1), ("setup_hash", "b" * 64),
+                         ("order_type", "market"), ("submit_before", "2026-11-26T15:01:00+00:00"),
+                         ("option", {**row["option"], "strike": 151.0})):
+        with pytest.raises(ValueError, match="conflicting duplicate"):
+            day_requests([event, {**event, "payload": {**row, field: value}}], date(2026, 11, 26))
 
 
 def test_extract_last_price_and_order_id() -> None:

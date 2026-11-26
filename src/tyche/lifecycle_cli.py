@@ -18,7 +18,12 @@ from tyche.broker.mcp_json import (
     extract_nav,
 )
 from tyche.config import load_config
-from tyche.execution_state import authorization_fields, combined_usage, unresolved_symbols
+from tyche.execution_state import (
+    authorization_fields,
+    combined_usage,
+    same_request,
+    unresolved_symbols,
+)
 from tyche.journal import append_locked, journal_lock, read_events, verify_chain
 from tyche.lifecycle import (
     Approval,
@@ -346,9 +351,7 @@ def check_execution_journal(events: list[dict], ledger: LifecycleState) -> None:
     journal_requests: dict[str, dict] = {}
     for row in requests:
         prior = journal_requests.get(row["request_id"])
-        if prior is not None and any(prior.get(field) != row.get(field) for field in (
-            "plan_hash", "account_hash", "symbol", "side", "quantity", "limit_price"
-        )):
+        if prior is not None and not same_request(prior, row):
             raise PaperApiError("conflicting duplicate journal request; operator review required")
         journal_requests[row["request_id"]] = row
     reservations = {r.request_id: r for r in ledger.reservations}

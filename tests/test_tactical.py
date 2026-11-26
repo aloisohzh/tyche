@@ -544,6 +544,32 @@ def test_held_setup_records_its_current_config_hash():
     assert state.protected_hashes["US.NVDA"] == setup_hash(args[0].entries[0], config, "SIM-TEST")
 
 
+def test_routine_ticks_do_not_rebind_a_changed_config():
+    args = case(held=True)
+    state, config = args[6], args[7]
+    old_hash = setup_hash(args[0].entries[0], config, args[1].account_id)
+    state.protected_hashes["US.NVDA"] = old_hash
+    config.tactical.min_option_volume += 1
+    assert setup_hash(args[0].entries[0], config, args[1].account_id) != old_hash
+    run(args)
+    assert state.protected_hashes["US.NVDA"] == old_hash
+
+
+def test_only_a_deliberate_monitor_event_can_replace_a_trusted_setup_hash():
+    from tyche.tactical_cli import monitor_state
+    args = case(held=True)
+    entry, config = args[0].entries[0], args[7]
+    old_hash = setup_hash(entry, config, args[1].account_id)
+    monitored = MonitorState(protected={entry.symbol: entry}, protected_hashes={entry.symbol: "b" * 64})
+    requested = {"type": "order.requested", "payload": {"protected_setup": entry.model_dump(mode="json"),
+                                                          "setup_hash": old_hash}}
+    routine = {"type": "tactical.monitor", "payload": {"state": monitored.model_dump(mode="json")}}
+    rebound = {"type": "tactical.monitor", "payload": {"state": monitored.model_dump(mode="json"),
+                                                        "rebind": {"reason": "operator rule change"}}}
+    assert monitor_state([requested, routine]).protected_hashes[entry.symbol] == old_hash
+    assert monitor_state([requested, rebound]).protected_hashes[entry.symbol] == "b" * 64
+
+
 def test_rebind_updates_a_held_setup_without_requesting_an_order(tmp_path, monkeypatch):
     args = case(True, held=True)
     entry, snapshot, config = args[0].entries[0], args[1], args[7]
@@ -577,6 +603,12 @@ def test_rebind_updates_a_held_setup_without_requesting_an_order(tmp_path, monke
     account.write_text(snapshot.model_dump_json(indent=2), encoding="utf-8")
     stale = CliRunner().invoke(app, command)
     assert stale.exit_code != 0
+    assert len(read_events(journal)) == count
+    snapshot.captured_at = NOW
+    snapshot.broker_nav = None
+    account.write_text(snapshot.model_dump_json(indent=2), encoding="utf-8")
+    missing_nav = CliRunner().invoke(app, command)
+    assert missing_nav.exit_code != 0 and "no broker NAV" in missing_nav.output
     assert len(read_events(journal)) == count
 
 

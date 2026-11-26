@@ -89,8 +89,11 @@ def test_newest_request_protects_the_position():
 def test_newer_monitor_rebinds_only_the_same_protected_setup():
     original = requested(symbol="US.MSFT", protected_setup=entry(), setup_hash=HASH)
     state = MonitorState(protected={"US.MSFT": entry()}, protected_hashes={"US.MSFT": "b" * 64})
-    rebound = {"type": "tactical.monitor", "payload": {"state": state.model_dump(mode="json")}}
+    rebound = {"type": "tactical.monitor", "payload": {"state": state.model_dump(mode="json"),
+                                                        "rebind": {"reason": "operator rule change"}}}
     assert exit_levels([original, rebound])[0]["US.MSFT"].setup_hash == "b" * 64
+    routine = {"type": "tactical.monitor", "payload": {"state": state.model_dump(mode="json")}}
+    assert exit_levels([original, routine])[0]["US.MSFT"].setup_hash == HASH
     mismatch = MonitorState(protected={"US.MSFT": entry(stop=460.0)},
                             protected_hashes={"US.MSFT": "c" * 64})
     changed = {"type": "tactical.monitor", "payload": {"state": mismatch.model_dump(mode="json")}}

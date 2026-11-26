@@ -123,13 +123,17 @@ def test_identical_duplicate_request_ids_are_allowed_but_changed_orders_are_not(
     events = [{"type": "order.requested", "payload": row},
               {"type": "order.requested", "payload": dict(row)}]
     check_execution_journal(events, LifecycleState())
-    changed = events + [{"type": "order.requested", "payload": {**row, "limit_price": 151.0}}]
-    try:
-        check_execution_journal(changed, LifecycleState())
-    except Exception as exc:  # noqa: BLE001 - PaperApiError
-        assert "conflicting duplicate" in str(exc)
-    else:
-        raise AssertionError("a changed order with the same request id must block")
+    for field, value in (("limit_price", 151.0), ("multiplier", 100),
+                         ("option", {"underlying": "US.NVDA", "expiry": "2026-12-18", "right": "call", "strike": 150.0}),
+                         ("setup_hash", "b" * 64), ("order_type", "market"),
+                         ("submit_before", "2026-11-26T15:00:00+00:00")):
+        changed = events + [{"type": "order.requested", "payload": {**row, field: value}}]
+        try:
+            check_execution_journal(changed, LifecycleState())
+        except Exception as exc:  # noqa: BLE001 - PaperApiError
+            assert "conflicting duplicate" in str(exc)
+        else:
+            raise AssertionError(f"a changed {field} with the same request id must block")
 
 
 def test_legacy_rows_without_request_ids_no_longer_block_the_reserve_check():

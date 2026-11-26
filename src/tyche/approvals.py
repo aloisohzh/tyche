@@ -26,7 +26,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from tyche.execution_state import authorization_fields, request_notional
+from tyche.execution_state import authorization_fields, deduplicate_requests, request_notional
 from tyche.journal import read_events
 from tyche.models import looks_like_option
 
@@ -265,9 +265,9 @@ def resolve_batch(envelope_path: Path | None, events: list[dict], today: date) -
 
 def envelope_usage(journal_path: Path, today: date) -> int:
     """Count today's operator-authorized order.requested events in the journal (both modes)."""
-    count = 0
     events = read_events(journal_path)
     cancelled = cancelled_request_ids(events)
+    rows = []
     for record in events:
         if record.get("type") != "order.requested":
             continue
@@ -275,8 +275,8 @@ def envelope_usage(journal_path: Path, today: date) -> int:
         auth = authorization_fields(payload)
         if (auth.get("kind") in OPERATOR_AUTHORIZATION_KINDS and auth.get("as_of") == today.isoformat()
                 and str(payload.get("request_id")) not in cancelled):
-            count += 1
-    return count
+            rows.append(payload)
+    return len(deduplicate_requests(rows))
 
 
 def envelope_totals(events: list[dict], today: date, symbol: str, side: str, *,
@@ -304,6 +304,7 @@ def envelope_totals(events: list[dict], today: date, symbol: str, side: str, *,
         if class_of is not None:
             return (row.get("option") or {}).get("underlying") == class_of
         return row.get("symbol") == symbol
+    rows = deduplicate_requests(rows)
     qty = sum(int(r.get("quantity", r.get("qty", 0))) for r in rows if counts(r))
     return qty, sum(request_notional(r) for r in rows)
 

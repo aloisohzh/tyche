@@ -54,7 +54,13 @@ def monitor_state(events: list[dict]) -> MonitorState:
     for event in events:
         payload = event.get("payload", {})
         if event.get("type") == "tactical.monitor":
-            state = MonitorState.model_validate(payload["state"])
+            monitored = MonitorState.model_validate(payload["state"])
+            if not isinstance(payload.get("rebind"), dict):
+                monitored.protected_hashes = {
+                    symbol: value for symbol, value in state.protected_hashes.items()
+                    if symbol in monitored.protected
+                }
+            state = monitored
         elif event.get("type") == "order.requested" and payload.get("protected_setup"):
             from tyche.watchlist import WatchlistEntry
             entry = WatchlistEntry.model_validate(payload["protected_setup"])
@@ -97,7 +103,9 @@ def rebind(
             age = (now - captured).total_seconds() if captured is not None else None
             if age is None or not 0 <= age <= config.tactical.max_snapshot_age_seconds:
                 raise ValueError("account snapshot is stale, missing a timestamp or future-dated; recapture it")
-            if snapshot.broker_nav is not None and abs(snapshot.broker_nav - snapshot.nav) > max(
+            if snapshot.broker_nav is None:
+                raise ValueError("account snapshot has no broker NAV; recapture cash and positions")
+            if abs(snapshot.broker_nav - snapshot.nav) > max(
                 1.0, snapshot.broker_nav * config.risk.nav_reconcile_tolerance_pct
             ):
                 raise ValueError("account snapshot does not reconcile; recapture cash and positions")

@@ -260,7 +260,7 @@ def plan_tick(
             state.observation_hashes[key] = fingerprint
         held = snapshot.position(entry.symbol)
         if held:
-            state.protected_hashes[entry.symbol] = fingerprint
+            state.protected_hashes.setdefault(entry.symbol, fingerprint)
         else:
             state.protected_hashes.pop(entry.symbol, None)
         q = quote_map.get(entry.symbol)

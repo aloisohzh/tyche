@@ -230,6 +230,21 @@ def test_usage_counts_both_kinds_of_operator_yes(tmp_path):
     assert envelope_totals(read_events(journal), TODAY, "US.SPY", "buy")[0] == 2
 
 
+def test_identical_duplicate_requests_use_one_envelope_slot(tmp_path):
+    from tyche.approvals import envelope_totals
+    from tyche.journal import read_events
+    journal = tmp_path / "events.jsonl"
+    row = {"request_id": "same", "symbol": "US.SPY", "side": "buy", "quantity": 2,
+           "limit_price": 10.0, "authorization": {"kind": "envelope", "as_of": TODAY.isoformat()}}
+    append_event(journal, "order.requested", row)
+    append_event(journal, "order.requested", dict(row))
+    assert envelope_usage(journal, TODAY) == 1
+    assert envelope_totals(read_events(journal), TODAY, "US.SPY", "buy") == (2, 20.0)
+    append_event(journal, "order.requested", {**row, "multiplier": 100})
+    with pytest.raises(ValueError, match="conflicting duplicate"):
+        envelope_usage(journal, TODAY)
+
+
 def test_cli_authorize_passes_on_journaled_telegram_approval_without_envelope(tmp_path):
     journal = tmp_path / "events.jsonl"
     args = ["authorize", "--symbol", "US.SPY", "--side", "buy", "--qty", "10", "--limit", "672.4",

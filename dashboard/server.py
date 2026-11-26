@@ -35,7 +35,7 @@ import yaml  # noqa: E402
 from tyche.approvals import ApprovalBatch, envelope_usage, telegram_approvals  # noqa: E402
 from tyche.config import load_config  # noqa: E402
 from tyche.envelope import propose_exit_envelope  # noqa: E402
-from tyche.execution_state import authorization_fields  # noqa: E402
+from tyche.execution_state import authorization_fields, same_request  # noqa: E402
 from tyche.halt import effective_halt, set_halt  # noqa: E402
 from tyche.journal import append_event, read_events, verify_chain  # noqa: E402
 from tyche.lanes import read_state, set_enabled  # noqa: E402
@@ -806,7 +806,7 @@ def _payload_qty(payload: dict):
 
 def build_orders(events: list[dict], validation: dict) -> list[dict]:
     orders: list[dict] = []
-    by_request: dict[str, dict] = {}
+    by_request: dict[str, list[tuple[dict, dict]]] = {}
     for ev in events:
         if ev["type"] != "order.requested":
             continue
@@ -836,24 +836,36 @@ def build_orders(events: list[dict], validation: dict) -> list[dict]:
             "intent": order_intent(dict(p)),
             "reason": p.get("reason") or p.get("remark") or "",
             "authorization": authorization.get("kind") or "manual",
+            "authorization_note": authorization.get("note"),
             "request_id": p.get("request_id"),
             "stop_price": stop_price,
             "target": p.get("target"),
             "max_loss": _max_loss(p.get("side"), p.get("quantity"), p.get("limit_price"), stop_price),
             "setup_id": p.get("setup_id"),
+            "conflict": False,
         }
         request_id = row["request_id"]
-        prior = by_request.get(request_id) if isinstance(request_id, str) and request_id else None
+        groups = by_request.get(request_id) if isinstance(request_id, str) and request_id else None
+        prior = None
+        if groups:
+            prior = next((candidate for candidate, payload in groups if same_request(payload, p)), None)
         if prior is not None:
             prior["events"].extend(row["events"])
             for key in ("remark", "purpose", "note", "strategy_id", "strategy", "intent", "reason",
-                        "authorization", "stop_price", "target", "setup_id"):
+                        "authorization", "authorization_note", "stop_price", "target", "setup_id"):
                 if row[key] not in (None, ""):
                     prior[key] = row[key]
             continue
+        if groups:
+            row["conflict"] = True
+            row["status"] = "conflict"
+            for candidate, _ in groups:
+                candidate["conflict"] = True
+                if candidate["status"] == "requested":
+                    candidate["status"] = "conflict"
         orders.append(row)
         if isinstance(request_id, str) and request_id:
-            by_request[request_id] = row
+            by_request.setdefault(request_id, []).append((row, p))
     for ev in events:
         if ev["type"] != "order.submitted":
             continue
@@ -872,7 +884,8 @@ def build_orders(events: list[dict], validation: dict) -> list[dict]:
             continue
         rec["submitted_ts"] = ev["ts"]
         rec["order_id"] = str(p.get("order_id")) if p.get("order_id") else None
-        rec["status"] = "submitted"
+        if not rec.get("conflict"):
+            rec["status"] = "submitted"
         acct = plan_account(p)
         if acct:
             rec["account"] = acct
@@ -889,18 +902,19 @@ def build_orders(events: list[dict], validation: dict) -> list[dict]:
         )
         if rec is None:
             continue
-        rec["status"] = "filled"
+        if not rec.get("conflict"):
+            rec["status"] = "filled"
         rec["fill_price"] = p.get("price")
         rec["fill_qty"] = p.get("quantity")
         rec["fee"] = p.get("fees")
         rec["events"].append({"ts": ev["ts"], "type": ev["type"], "hash": ev["hash"]})
     for rec in orders:
         oid = rec["order_id"]
-        if oid and oid in validation["fills"] and rec["status"] != "filled":
+        if not rec.get("conflict") and oid and oid in validation["fills"] and rec["status"] != "filled":
             rec["status"] = "filled"
             rec["fill_price"] = validation["fills"][oid]["price"]
             rec["fill_qty"] = validation["fills"][oid]["qty"]
-        elif oid and oid in validation["cancelled"]:
+        elif not rec.get("conflict") and oid and oid in validation["cancelled"]:
             rec["status"] = "cancelled"
         elif rec["status"] == "requested" and rec["order_type"] == "market":
             rec["status"] = "broker-rejected"

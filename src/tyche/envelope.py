@@ -121,7 +121,8 @@ def exit_levels(events: list[dict]) -> tuple[dict[str, ExitLevel], list[str]]:
             for symbol, entry in state.protected.items():
                 level = levels.get(symbol)
                 rebound = state.protected_hashes.get(symbol)
-                if level is not None and level.entry == entry and rebound:
+                if (isinstance(payload.get("rebind"), dict)
+                        and level is not None and level.entry == entry and rebound):
                     levels[symbol] = replace(level, setup_hash=rebound)
             continue
         if event.get("type") != "order.requested":

@@ -18,12 +18,69 @@ def authorization_fields(payload: dict) -> dict:
     return {}
 
 
+REQUEST_IDENTITY_FIELDS = (
+    "plan_hash", "account_hash", "symbol", "side", "quantity", "limit_price",
+    "multiplier", "option", "setup_hash", "order_type", "submit_before",
+)
+
+
+def _request_value(row: dict, field: str):
+    if field == "quantity":
+        return row.get("quantity", row.get("qty"))
+    if field == "limit_price":
+        return row.get("limit_price", row.get("price"))
+    if field == "multiplier":
+        option = row.get("option") or {}
+        return row.get("multiplier", option.get("multiplier", 1) if isinstance(option, dict) else 1)
+    if field == "order_type":
+        return row.get("order_type", "limit")
+    return row.get(field)
+
+
+def same_request(left: dict, right: dict) -> bool:
+    for field in REQUEST_IDENTITY_FIELDS:
+        left_value = _request_value(left, field)
+        right_value = _request_value(right, field)
+        if field == "setup_hash" and not (left_value and right_value):
+            continue
+        if left_value != right_value:
+            return False
+    return True
+
+
+def deduplicate_requests(rows: list[dict]) -> list[dict]:
+    """One request id is one order. Changed facts under the same id require operator review."""
+    unique: list[dict] = []
+    seen: dict[str, dict] = {}
+    for row in rows:
+        request_id = row.get("request_id")
+        if not isinstance(request_id, str) or not request_id:
+            unique.append(row)
+            continue
+        prior = seen.get(request_id)
+        if prior is None:
+            seen[request_id] = row
+            unique.append(row)
+        elif not same_request(prior, row):
+            raise ValueError("conflicting duplicate journal request; operator review required")
+    return unique
+
+
 def day_requests(events: list[dict], today) -> list[dict]:
     rows = []
+    seen: dict[str, dict] = {}
     for event in events:
         if event.get("type") != "order.requested":
             continue
         payload = event.get("payload", {})
+        request_id = payload.get("request_id")
+        if isinstance(request_id, str) and request_id:
+            prior = seen.get(request_id)
+            if prior is not None:
+                if not same_request(prior, payload):
+                    raise ValueError("conflicting duplicate journal request; operator review required")
+                continue
+            seen[request_id] = payload
         as_of = authorization_fields(payload).get("as_of")
         if not as_of:
             stamp = datetime.fromisoformat(event["ts"])
