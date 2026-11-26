@@ -34,7 +34,7 @@ from tyche.config import load_config
 from tyche.cycle import cycle_command, merged_orders
 from tyche.envelope import propose_exit_envelope
 from tyche.events_cli import app as events_app
-from tyche.execution_state import daily_usage, receipts_to_journal
+from tyche.execution_state import authorization_fields, daily_usage, receipts_to_journal
 from tyche.freeze import lane_states, registration_events, verdict
 from tyche.halt import effective_halt, repo_halt_path, set_halt
 from tyche.journal import append_event, append_locked, journal_lock, read_events, verify_chain
@@ -968,6 +968,11 @@ def record_order(
         entry = _stamped_setup(payload, config_root)
         if not payload.get("setup_id") and entry.setup_id:
             payload["setup_id"] = entry.setup_id
+    authorization = payload.get("authorization")
+    if isinstance(authorization, str):
+        payload["authorization"] = authorization_fields(payload)
+    elif authorization is not None and not isinstance(authorization, dict):
+        raise typer.BadParameter("authorization must be a JSON object or plain text")
     append_event(journal_path, event, payload)
     console.print(f"Journaled {event}."
                   + (" Plan fingerprint stamped, so an exit line built from it can be armed."

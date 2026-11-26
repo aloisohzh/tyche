@@ -26,7 +26,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from tyche.execution_state import request_notional
+from tyche.execution_state import authorization_fields, request_notional
 from tyche.journal import read_events
 from tyche.models import looks_like_option
 
@@ -272,7 +272,7 @@ def envelope_usage(journal_path: Path, today: date) -> int:
         if record.get("type") != "order.requested":
             continue
         payload = record.get("payload", {})
-        auth = payload.get("authorization") or {}
+        auth = authorization_fields(payload)
         if (auth.get("kind") in OPERATOR_AUTHORIZATION_KINDS and auth.get("as_of") == today.isoformat()
                 and str(payload.get("request_id")) not in cancelled):
             count += 1
@@ -287,10 +287,16 @@ def envelope_totals(events: list[dict], today: date, symbol: str, side: str, *,
     that underlying counts against it, whichever contract it named.
     """
     cancelled = cancelled_request_ids(events)
-    rows = [e.get("payload", {}) for e in events if e.get("type") == "order.requested"
-            and e.get("payload", {}).get("authorization", {}).get("kind") in OPERATOR_AUTHORIZATION_KINDS
-            and e.get("payload", {}).get("authorization", {}).get("as_of") == today.isoformat()
-            and str(e.get("payload", {}).get("request_id")) not in cancelled]
+    rows = []
+    for event in events:
+        if event.get("type") != "order.requested":
+            continue
+        payload = event.get("payload", {})
+        auth = authorization_fields(payload)
+        if (auth.get("kind") in OPERATOR_AUTHORIZATION_KINDS
+                and auth.get("as_of") == today.isoformat()
+                and str(payload.get("request_id")) not in cancelled):
+            rows.append(payload)
 
     def counts(row: dict) -> bool:
         if row.get("side") != side:

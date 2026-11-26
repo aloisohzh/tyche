@@ -18,7 +18,7 @@ from tyche.broker.mcp_json import (
     extract_nav,
 )
 from tyche.config import load_config
-from tyche.execution_state import combined_usage, unresolved_symbols
+from tyche.execution_state import authorization_fields, combined_usage, unresolved_symbols
 from tyche.journal import append_locked, journal_lock, read_events, verify_chain
 from tyche.lifecycle import (
     Approval,
@@ -338,15 +338,22 @@ def check_execution_journal(events: list[dict], ledger: LifecycleState) -> None:
     # broker remark. They never held a lifecycle reservation, so they are history, not a gate:
     # the operator ruled on 2026-11-24 that they must not block every later reserve.
     legacy = [r for r in requests if not r.get("request_id")
-              and r.get("authorization", {}).get("mode") not in {"lifecycle", "lifecycle_exit"}]
+              and authorization_fields(r).get("mode") not in {"lifecycle", "lifecycle_exit"}]
     requests = [r for r in requests if r not in legacy]
     ids = [r.get("request_id") for r in requests]
-    if any(not key for key in ids) or len(ids) != len(set(ids)):
-        raise PaperApiError("unclassified or duplicate journal request; operator review required")
-    reservations = {r.request_id: r for r in ledger.reservations}
-    journal_requests = {r["request_id"]: r for r in requests}
+    if any(not key for key in ids):
+        raise PaperApiError("unclassified journal request; operator review required")
+    journal_requests: dict[str, dict] = {}
     for row in requests:
-        if (row.get("authorization", {}).get("mode") in {"lifecycle", "lifecycle_exit"}
+        prior = journal_requests.get(row["request_id"])
+        if prior is not None and any(prior.get(field) != row.get(field) for field in (
+            "plan_hash", "account_hash", "symbol", "side", "quantity", "limit_price"
+        )):
+            raise PaperApiError("conflicting duplicate journal request; operator review required")
+        journal_requests[row["request_id"]] = row
+    reservations = {r.request_id: r for r in ledger.reservations}
+    for row in journal_requests.values():
+        if (authorization_fields(row).get("mode") in {"lifecycle", "lifecycle_exit"}
                 and row["request_id"] not in reservations):
             raise PaperApiError("journal reservation missing from lifecycle state; restore and reconcile")
     for request in ledger.reservations:

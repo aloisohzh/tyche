@@ -19,6 +19,7 @@ from tyche.cli import app
 from tyche.envelope import Proposal, exit_levels, propose_exit_envelope
 from tyche.journal import append_event
 from tyche.models import AccountSnapshot, OptionContract, Position
+from tyche.tactical import MonitorState
 from tyche.watchlist import Watchlist, WatchlistEntry
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -83,6 +84,19 @@ def test_newest_request_protects_the_position():
     assert problems == []
     assert levels["US.MSFT"].stop == 470.0 and levels["US.MSFT"].source == "journal_contract"
     assert propose([stock()], events).lines[0]["limit_min"] == pytest.approx(446.5)
+
+
+def test_newer_monitor_rebinds_only_the_same_protected_setup():
+    original = requested(symbol="US.MSFT", protected_setup=entry(), setup_hash=HASH)
+    state = MonitorState(protected={"US.MSFT": entry()}, protected_hashes={"US.MSFT": "b" * 64})
+    rebound = {"type": "tactical.monitor", "payload": {"state": state.model_dump(mode="json")}}
+    assert exit_levels([original, rebound])[0]["US.MSFT"].setup_hash == "b" * 64
+    mismatch = MonitorState(protected={"US.MSFT": entry(stop=460.0)},
+                            protected_hashes={"US.MSFT": "c" * 64})
+    changed = {"type": "tactical.monitor", "payload": {"state": mismatch.model_dump(mode="json")}}
+    assert exit_levels([original, changed])[0]["US.MSFT"].setup_hash == HASH
+    later = requested(symbol="US.MSFT", protected_setup=entry(), setup_hash="d" * 64)
+    assert exit_levels([original, rebound, later])[0]["US.MSFT"].setup_hash == "d" * 64
 
 
 def test_a_position_without_a_level_is_refused_not_invented():

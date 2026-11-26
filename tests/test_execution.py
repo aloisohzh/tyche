@@ -13,6 +13,7 @@ from tyche.broker.moomoo_cli import (
     extract_order_id,
 )
 from tyche.cli import app
+from tyche.execution_state import authorization_fields, day_requests
 from tyche.models import (
     OrderIntent,
     PlannedOrder,
@@ -125,6 +126,15 @@ def test_extract_daily_bars_from_nested_payload() -> None:
     assert bars[0] == (date(2026, 11, 12), 99.5)
     assert bars[1] == (date(2026, 11, 13), 100.0)
     assert bars[2] == (date(2026, 11, 16), 101.0)
+
+
+def test_text_authorization_stays_manual_and_uses_the_event_date() -> None:
+    events = [{"ts": "2026-11-26T01:00:00+00:00", "type": "order.requested", "payload": {
+        "symbol": "US.PG", "side": "buy", "quantity": 57, "authorization": "operator approval",
+    }}]
+    assert authorization_fields(events[0]["payload"]) == {"kind": "manual", "note": "operator approval"}
+    assert day_requests(events, date(2026, 11, 25)) == [events[0]["payload"]]
+    assert day_requests(events, date(2026, 11, 26)) == []
 
 
 def test_extract_last_price_and_order_id() -> None:

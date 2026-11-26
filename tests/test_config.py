@@ -47,6 +47,9 @@ def test_paper_allocation_profile_preserves_risk_limits() -> None:
     ballast = sum(strategy.allocation_cap for strategy in config.enabled_strategies())
     assert ballast == pytest.approx(0.25)
     assert config.tactical.stock_allocation_cap == pytest.approx(0.25)
+    assert config.tactical.option_spread_pct == pytest.approx(0.10)
+    assert config.tactical.min_option_volume == 20
+    assert config.tactical.min_option_open_interest == 100
     assert config.risk.max_option_premium_pct == pytest.approx(0.05)
     # 2026-11-23: the tactical cap came down from 0.45 so PB-007's 0.20 fits when its switch is on.
     # 2026-11-24: the PB-003 option premium slice came down from 0.25 to 0.05 for the long-options test,

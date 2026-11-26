@@ -85,6 +85,7 @@ class MonitorState(BaseModel):
     observations: dict[str, list[dict]] = Field(default_factory=dict)
     observation_hashes: dict[str, str] = Field(default_factory=dict)
     protected: dict[str, WatchlistEntry] = Field(default_factory=dict)
+    protected_hashes: dict[str, str] = Field(default_factory=dict)
     latched_exits: dict[str, str] = Field(default_factory=dict)
     # ET date each latch was set. A latch stops re-entry for the rest of that session only: kept forever
     # it barred the symbol on every later day once the monitor state was recorded (2026-11-25 review).
@@ -258,6 +259,10 @@ def plan_tick(
             state.observations.pop(key, None)
             state.observation_hashes[key] = fingerprint
         held = snapshot.position(entry.symbol)
+        if held:
+            state.protected_hashes[entry.symbol] = fingerprint
+        else:
+            state.protected_hashes.pop(entry.symbol, None)
         q = quote_map.get(entry.symbol)
         uq = quote_map.get(entry.underlying)
         decision = {"setup_id": key, "symbol": entry.symbol, "action": "wait", "reason": ""}
@@ -444,7 +449,8 @@ def plan_tick(
                 reject("per-tick entry budget exhausted")
                 continue
             spread_cap = cfg.option_spread_pct if entry.option else cfg.stock_spread_pct
-            if q.spread_pct > spread_cap and not resting_entry:
+            spread_tolerance = 1e-9 if entry.option else 0.0
+            if q.spread_pct > spread_cap + spread_tolerance and not resting_entry:
                 reject("bid/ask spread too wide")
                 continue
             if entry.option:

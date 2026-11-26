@@ -19,9 +19,12 @@ classification:
   25 to 27 Nov 2026 an entry inside the operator's standing paper approval
   (`data/standing-approval.json`) is placed by `tyche cycle` with no per-order ask; outside those dates an
   entry again needs a same-day envelope or a Telegram `/approve`. Selling a held lot never needs a line.
-- **Rules hash:** `1bbbe1901dde` (sha256 of `config/tactical.yaml` + `config/universe.yaml`, CRLF normalized,
+- **Rules hash:** `5927c156880d` (sha256 of `config/tactical.yaml` + `config/universe.yaml`, CRLF normalized,
   first 12). PB-002 and PB-003 are one lane with one parameter file, so they share this hash: editing the
-  file re-registers the pair. `4d305127a2cd` was the hash until 2026-11-25, when US.NVDA joined from PB-004
+  file re-registers the pair. `1bbbe1901dde` was the hash until 2026-11-26, when the operator relaxed only
+  the option spread cap from 5% to 10% and the option volume floor from 50 to 20 for the researched KO
+  call; stock rules and every loss, premium, allocation, open-interest, delta and expiry limit stayed
+  unchanged. `4d305127a2cd` was the hash until 2026-11-25, when US.NVDA joined from PB-004
   on the operator's swing-hold direction (a scalp lane cannot carry a position overnight, and ownership is
   by ticker). `58a3ce686238` was the hash from 2026-11-24 until 2026-11-25, when the lane's
   clocks were reset for a desk that agents run every 15 minutes instead of a 30-second feed (quotes and
@@ -52,7 +55,9 @@ deadline. The desk buys only at that zone, only on the day the thesis was writte
 if the target pays at least 1.5 times the distance to the stop. The bet is that a documented, time-boxed
 reason plus strict reward-to-risk filtering beats both idle cash and undocumented discretion.
 
-The current list (2026-11-23) is MSFT plus five low-beta defensives: KO, PG, JNJ, PEP and MCD. The
+The current list (2026-11-26) is MSFT, KO, PG, JNJ, PEP, MCD and US.NVDA. NVDA may be held as a
+swing; it cannot remain in the scalp lane. The original defensive list was MSFT plus five low-beta
+names: KO, PG, JNJ, PEP and MCD. The
 operator's standing thesis behind the defensives is a risk-off rotation into staples and healthcare,
 long only: if the broad tape weakens, these names should fall less and recover first, and their earnings
 and dividend news give the researcher concrete catalysts to write against.

@@ -231,6 +231,29 @@ def test_record_order_journals_mcp_events(tmp_path: Path) -> None:
     assert bad_json.exit_code != 0
 
 
+def test_record_order_normalizes_plain_text_authorization(tmp_path: Path) -> None:
+    journal_path = tmp_path / "events.jsonl"
+    result = CliRunner().invoke(app, [
+        "record-order", "order.requested", "--journal", str(journal_path), "--data",
+        json.dumps({"symbol": "US.PG", "side": "buy", "quantity": 57, "limit_price": 199.0,
+                    "authorization": "operator approved PG line"}),
+    ])
+    assert result.exit_code == 0, result.output
+    row = json.loads(journal_path.read_text(encoding="utf-8").strip())["payload"]
+    assert row["authorization"] == {"kind": "manual", "note": "operator approved PG line"}
+
+
+def test_record_order_rejects_an_unreadable_authorization_shape(tmp_path: Path) -> None:
+    journal_path = tmp_path / "events.jsonl"
+    result = CliRunner().invoke(app, [
+        "record-order", "order.requested", "--journal", str(journal_path), "--data",
+        json.dumps({"symbol": "US.PG", "side": "buy", "quantity": 57,
+                    "authorization": ["not", "an", "approval"]}),
+    ])
+    assert result.exit_code != 0
+    assert not journal_path.exists()
+
+
 def test_record_order_filled_requires_canonical_payload(tmp_path: Path) -> None:
     runner = CliRunner()
     journal_path = tmp_path / "events.jsonl"

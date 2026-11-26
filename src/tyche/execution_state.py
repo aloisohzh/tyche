@@ -8,13 +8,23 @@ from tyche.market_calendar import ET
 from tyche.models import OptionContract, OrderIntent, Side
 
 
+def authorization_fields(payload: dict) -> dict:
+    """Read both structured approvals and the older free-text manual approval rows."""
+    value = payload.get("authorization")
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, str):
+        return {"kind": "manual", "note": value}
+    return {}
+
+
 def day_requests(events: list[dict], today) -> list[dict]:
     rows = []
     for event in events:
         if event.get("type") != "order.requested":
             continue
         payload = event.get("payload", {})
-        as_of = payload.get("authorization", {}).get("as_of")
+        as_of = authorization_fields(payload).get("as_of")
         if not as_of:
             stamp = datetime.fromisoformat(event["ts"])
             as_of = stamp.astimezone(ET).date().isoformat()

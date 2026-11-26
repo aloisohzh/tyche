@@ -35,6 +35,7 @@ import yaml  # noqa: E402
 from tyche.approvals import ApprovalBatch, envelope_usage, telegram_approvals  # noqa: E402
 from tyche.config import load_config  # noqa: E402
 from tyche.envelope import propose_exit_envelope  # noqa: E402
+from tyche.execution_state import authorization_fields  # noqa: E402
 from tyche.halt import effective_halt, set_halt  # noqa: E402
 from tyche.journal import append_event, read_events, verify_chain  # noqa: E402
 from tyche.lanes import read_state, set_enabled  # noqa: E402
@@ -805,43 +806,54 @@ def _payload_qty(payload: dict):
 
 def build_orders(events: list[dict], validation: dict) -> list[dict]:
     orders: list[dict] = []
+    by_request: dict[str, dict] = {}
     for ev in events:
         if ev["type"] != "order.requested":
             continue
         p = ev["payload"]
-        authorization = p.get("authorization") or {}
+        authorization = authorization_fields(p)
         stop_price = p.get("stop_price", p.get("stop"))
-        orders.append(
-            {
-                "remark": p.get("remark"),
-                "symbol": p.get("symbol") or "",
-                "side": p.get("side") or "",
-                "quantity": _payload_qty(p),
-                "account": p.get("account") or "",
-                "purpose": p.get("purpose"),
-                "requested_ts": ev["ts"],
-                "submitted_ts": None,
-                "order_id": None,
-                "limit_price": p.get("limit_price"),
-                "order_type": p.get("order_type", "limit"),
-                "supersedes": p.get("supersedes_order_id"),
-                "note": p.get("note"),
-                "status": "requested",
-                "fill_price": None,
-                "fill_qty": None,
-                "events": [{"ts": ev["ts"], "type": ev["type"], "hash": ev["hash"]}],
-                "strategy_id": p.get("strategy_id"),
-                "strategy": strategy_label(p.get("strategy_id"), p.get("reason") or ""),
-                "intent": order_intent(dict(p)),
-                "reason": p.get("reason") or p.get("remark") or "",
-                "authorization": authorization.get("kind") or "manual",
-                "request_id": p.get("request_id"),
-                "stop_price": stop_price,
-                "target": p.get("target"),
-                "max_loss": _max_loss(p.get("side"), p.get("quantity"), p.get("limit_price"), stop_price),
-                "setup_id": p.get("setup_id"),
-            }
-        )
+        row = {
+            "remark": p.get("remark"),
+            "symbol": p.get("symbol") or "",
+            "side": p.get("side") or "",
+            "quantity": _payload_qty(p),
+            "account": p.get("account") or "",
+            "purpose": p.get("purpose"),
+            "requested_ts": ev["ts"],
+            "submitted_ts": None,
+            "order_id": None,
+            "limit_price": p.get("limit_price"),
+            "order_type": p.get("order_type", "limit"),
+            "supersedes": p.get("supersedes_order_id"),
+            "note": p.get("note"),
+            "status": "requested",
+            "fill_price": None,
+            "fill_qty": None,
+            "events": [{"ts": ev["ts"], "type": ev["type"], "hash": ev["hash"]}],
+            "strategy_id": p.get("strategy_id"),
+            "strategy": strategy_label(p.get("strategy_id"), p.get("reason") or ""),
+            "intent": order_intent(dict(p)),
+            "reason": p.get("reason") or p.get("remark") or "",
+            "authorization": authorization.get("kind") or "manual",
+            "request_id": p.get("request_id"),
+            "stop_price": stop_price,
+            "target": p.get("target"),
+            "max_loss": _max_loss(p.get("side"), p.get("quantity"), p.get("limit_price"), stop_price),
+            "setup_id": p.get("setup_id"),
+        }
+        request_id = row["request_id"]
+        prior = by_request.get(request_id) if isinstance(request_id, str) and request_id else None
+        if prior is not None:
+            prior["events"].extend(row["events"])
+            for key in ("remark", "purpose", "note", "strategy_id", "strategy", "intent", "reason",
+                        "authorization", "stop_price", "target", "setup_id"):
+                if row[key] not in (None, ""):
+                    prior[key] = row[key]
+            continue
+        orders.append(row)
+        if isinstance(request_id, str) and request_id:
+            by_request[request_id] = row
     for ev in events:
         if ev["type"] != "order.submitted":
             continue

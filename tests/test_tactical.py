@@ -284,6 +284,26 @@ def test_option_entry_gates(mutation, monkeypatch):
     assert not run(args, NOW + timedelta(seconds=120))["orders"]
 
 
+@pytest.mark.parametrize("volume,bid,ask,allowed", [
+    (20, 5.70, 6.30, True),
+    (19, 5.95, 6.05, False),
+    (20, 5.60, 6.40, False),
+])
+def test_relaxed_option_spread_and_volume_boundaries(volume, bid, ask, allowed):
+    args = case(True)
+    args[0].entries[0].premium_limit = 7.1
+    quote = args[2][-1]
+    quote.volume, quote.bid, quote.ask, quote.last = volume, bid, ask, ask
+    assert not run(args)["orders"]
+    now = NOW + timedelta(seconds=120)
+    advance(args, now)
+    result = run(args, now)
+    assert bool(result["orders"]) is allowed, result
+    if not allowed:
+        reason = next(d["reason"] for d in result["decisions"] if d["symbol"] == OPT)
+        assert "spread" in reason or "liquidity" in reason
+
+
 def test_option_entry_needs_the_pb003_switch_not_the_yaml(monkeypatch):
     args = case(True)
     args[7].tactical.options_enabled = False  # the yaml flag no longer gates entries
@@ -515,6 +535,49 @@ def test_setup_hash_changes_with_risk_or_exit_but_not_review_time():
     assert old == setup_hash(entry, config, "SIM-TEST")
     entry.stop += 1
     assert old != setup_hash(entry, config, "SIM-TEST")
+
+
+def test_held_setup_records_its_current_config_hash():
+    args = case(held=True)
+    state, config = args[6], args[7]
+    run(args)
+    assert state.protected_hashes["US.NVDA"] == setup_hash(args[0].entries[0], config, "SIM-TEST")
+
+
+def test_rebind_updates_a_held_setup_without_requesting_an_order(tmp_path, monkeypatch):
+    args = case(True, held=True)
+    entry, snapshot, config = args[0].entries[0], args[1], args[7]
+    old_config = config.model_copy(deep=True)
+    old_config.tactical.min_option_volume = 50
+    old_hash = setup_hash(entry, old_config, snapshot.account_id)
+    new_hash = setup_hash(entry, config, snapshot.account_id)
+    assert old_hash != new_hash
+    snapshot.broker_nav = snapshot.nav
+    account = tmp_path / "tactical-account.json"
+    account.write_text(snapshot.model_dump_json(indent=2), encoding="utf-8")
+    journal = tmp_path / "journal" / "events.jsonl"
+    journal.parent.mkdir()
+    append_event(journal, "order.requested", {
+        "symbol": entry.symbol, "side": "buy", "quantity": 1, "limit_price": 6,
+        "protected_setup": entry.model_dump(mode="json"), "setup_hash": old_hash,
+    })
+    monkeypatch.setattr("tyche.tactical_cli.now_utc", lambda: NOW)
+    monkeypatch.setattr("tyche.tactical_cli.load_config", lambda root: config)
+    command = ["tactical", "rebind", "--account", str(account), "--journal", str(journal),
+               "--config-root", str(ROOT), "--reason", "test option gate change"]
+    result = CliRunner().invoke(app, command)
+    assert result.exit_code == 0, result.output
+    events = read_events(journal)
+    assert [e["type"] for e in events] == ["order.requested", "tactical.monitor"]
+    assert events[-1]["payload"]["state"]["protected_hashes"][entry.symbol] == new_hash
+    assert events[-1]["payload"]["rebind"]["updated"] == [entry.symbol]
+    assert verify_chain(journal)[0]
+    count = len(events)
+    snapshot.captured_at = NOW - timedelta(seconds=config.tactical.max_snapshot_age_seconds + 1)
+    account.write_text(snapshot.model_dump_json(indent=2), encoding="utf-8")
+    stale = CliRunner().invoke(app, command)
+    assert stale.exit_code != 0
+    assert len(read_events(journal)) == count
 
 
 def test_call_entry_and_stock_strategy_ownership():

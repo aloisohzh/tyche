@@ -31,7 +31,7 @@ membership and sim-account-list presence before any submit.
 | Limit within 3% of last | `price.limit_deviation` | `max_limit_deviation_pct` | `test_limit_price_deviation_is_blocked` |
 | Notional ≤ 30% NAV | `order.max_notional` | `max_order_notional_pct` | `test_order_notional_cap`, `test_order_notional_at_cap_is_allowed` |
 | Initial risk ≤ 1% NAV per buy (qty × (limit − stop)) | `trade.risk_budget` | `risk_per_trade_pct` | `test_kernel_blocks_initial_risk_above_budget` |
-| Notional ≥ $500 (unless closing) | `order.min_notional` | `min_order_notional` | `test_below_min_notional_is_blocked` |
+| Notional ≥ $500 (unless closing or buying an option) | `order.min_notional` | `min_order_notional` | `test_below_min_notional_is_blocked`, `test_confirmed_setup_produces_bounded_risk_preview` |
 | No short sells | `position.no_short` | `allow_short=false` | `test_sell_beyond_holding_is_blocked` |
 
 ## Portfolio and exposure guards (buys; de-risking sells exempt)
@@ -55,6 +55,22 @@ membership and sim-account-list presence before any submit.
 | Orders/day ≤ internal budget | `orders.daily_count` | `max_orders_per_day` | `test_daily_order_count` |
 | Daily turnover ≤ cap (buys) | `turnover.daily` | `max_daily_turnover_pct` | `test_turnover_cap`, `test_turnover_exemption_for_de_risking_sells` |
 
+## Tactical option gates
+
+The 2026-11-26 operator re-freeze relaxed only the two liquidity values that blocked the researched
+KO call. Every other gate still has to pass on a fresh quote.
+
+| Gate | Current rule | Source | Test |
+|---|---|---|---|
+| Bid/ask spread | ≤ 10% | `config/tactical.yaml` `option_spread_pct` | `test_relaxed_option_spread_and_volume_boundaries` |
+| Day volume | ≥ 20 contracts | `config/tactical.yaml` `min_option_volume` | `test_relaxed_option_spread_and_volume_boundaries` |
+| Open interest | ≥ 100 | `min_option_open_interest` | `test_option_entry_gates` |
+| Expiry | 2 to 30 days; never 0DTE | `min_option_dte`, `max_option_dte` | `test_option_entry_gates` |
+| Direction and Greeks | absolute delta 0.45 to 0.80; implied volatility present | `tactical.py` option gate | `test_option_entry_gates` |
+| Researcher debit limit | ask at or below the setup's premium limit | `WatchlistEntry.premium_limit` | `test_option_entry_gates` |
+| Premium risk per trade | ≤ 1.5% of NAV, full debit plus fees | `risk.yaml` `option_risk_per_trade_pct` | `test_full_debit_risk_and_pending_exposure` |
+| Aggregate option premium | ≤ 5% of NAV, held plus pending | `risk.yaml` `max_option_premium_pct` | `test_option_allocation_cap_includes_held_and_pending_premiums` |
+
 ## Operator authorization: the envelope and the one exit number the operator owns
 
 Autonomy inside this platform is bounded by a dated, signed `ApprovalBatch`
@@ -67,6 +83,9 @@ plainly because they decide what the operator is actually agreeing to:
 | A contract's floor is a premium, never the underlying's stop: the draft uses a journaled `premium_stop`, or the lane's own 40% premium drawdown measured on the broker's cost basis | `PREMIUM_DRAWDOWN_FLOOR` (`src/tyche/tactical.py`), `ExitLevel.premium_stop` (`src/tyche/envelope.py`) | `test_a_contract_floor_is_never_an_underlying_price` |
 | Only the operator's arm click writes `data/approvals.json`; drafting writes `data/approvals.proposed.json`, which is gitignored | `propose_exit_envelope` (drafts) vs `arm_envelope` (approves) in `dashboard/server.py` | `test_arm_from_draft_is_the_only_writer_of_the_envelope` |
 | A hand-written entry row gets the executor's own plan fingerprint stamped on it, because a row without one drafts an exit line the tactical lane refuses to arm | `record_order` calling `tactical.setup_hash` (`src/tyche/cli.py`) | `test_record_order_stamps_the_fingerprint_an_exit_note_needs` |
+| Old text approvals stay readable as manual notes. They never become structured envelope or Telegram authority, and daily request accounting falls back to the event's New York date | `authorization_fields` (`src/tyche/execution_state.py`) | `test_text_authorization_stays_manual_and_uses_the_event_date`, `test_record_order_normalizes_plain_text_authorization` |
+| An intentional rule change rebinds a held setup with `tyche tactical rebind`. It requires a fresh verified paper snapshot and a reason, writes `tactical.monitor`, and never creates an order request | `rebind` (`src/tyche/tactical_cli.py`), `MonitorState.protected_hashes` | `test_rebind_updates_a_held_setup_without_requesting_an_order` |
+| Repeated identical request ids describe one request. Changed order facts under the same id still block for operator review | `check_execution_journal` (`src/tyche/lifecycle_cli.py`), dashboard `build_orders` | `test_identical_duplicate_request_ids_are_allowed_but_changed_orders_are_not`, `test_a_hand_written_order_row_cannot_stop_the_feed` |
 | Receipts the journal never heard about are healed from the broker's order list, not retyped from memory | `tyche sync-receipts` over `receipts_to_journal(days_back=...)` | `test_sync_receipts_heals_the_journal_from_the_broker_list` |
 
 ### What the broker itself will not do

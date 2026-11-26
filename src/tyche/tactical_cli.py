@@ -39,7 +39,7 @@ from tyche.lifecycle_cli import emit, fail, load, save
 from tyche.market_calendar import ET, phase_at
 from tyche.models import AccountSnapshot, OrderIntent
 from tyche.scalp import bars_from_kline, plan_scalp, scalp_state
-from tyche.tactical import RTH, MarketQuote, MonitorState, plan_tick, setup_hash
+from tyche.tactical import RTH, MarketQuote, MonitorState, config_hash, plan_tick, setup_hash
 from tyche.watchlist import Watchlist
 
 app = typer.Typer(help="Catalyst stocks and standard long calls/puts; paper only, no broker writes.")
@@ -59,6 +59,8 @@ def monitor_state(events: list[dict]) -> MonitorState:
             from tyche.watchlist import WatchlistEntry
             entry = WatchlistEntry.model_validate(payload["protected_setup"])
             state.protected[entry.symbol] = entry
+            if isinstance(payload.get("setup_hash"), str) and payload["setup_hash"]:
+                state.protected_hashes[entry.symbol] = payload["setup_hash"]
     return state
 
 
@@ -67,6 +69,58 @@ def verified_paper(snapshot: AccountSnapshot) -> AccountSnapshot:
     if snapshot.source != "sim_list" or snapshot.account_type not in (1, 2) or snapshot.market_id != 100:
         raise ValueError("verified US paper account snapshot required")
     return snapshot
+
+
+@app.command("rebind")
+def rebind(
+    account: Path = typer.Option(..., "--account", help="Fresh tactical-account.json from a broker read."),
+    journal: Path = typer.Option(Path("journal/events.jsonl"), "--journal"),
+    config_root: Path = typer.Option(Path.cwd(), "--config-root"),
+    reason: str = typer.Option(..., "--reason"),
+) -> None:
+    """Rebind held protected setups after an intentional rule change; never request an order."""
+    try:
+        if not reason.strip():
+            raise ValueError("a non-empty rebind reason is required")
+        now = now_utc()
+        with journal_lock(journal):
+            ok, _, error = verify_chain(journal)
+            if not ok:
+                raise ValueError(f"journal integrity: {error}")
+            events = read_events(journal)
+            state = monitor_state(events)
+            snapshot = verified_paper(load(AccountSnapshot, account))
+            config = load_config(config_root)
+            if snapshot.env != "paper" or snapshot.account_id not in config.risk.account_allowlist:
+                raise ValueError("paper account is not allowed by the loaded config")
+            captured = snapshot.captured_at
+            age = (now - captured).total_seconds() if captured is not None else None
+            if age is None or not 0 <= age <= config.tactical.max_snapshot_age_seconds:
+                raise ValueError("account snapshot is stale, missing a timestamp or future-dated; recapture it")
+            if snapshot.broker_nav is not None and abs(snapshot.broker_nav - snapshot.nav) > max(
+                1.0, snapshot.broker_nav * config.risk.nav_reconcile_tolerance_pct
+            ):
+                raise ValueError("account snapshot does not reconcile; recapture cash and positions")
+            updated: list[str] = []
+            removed: list[str] = []
+            for symbol, entry in sorted(state.protected.items()):
+                if snapshot.position(symbol):
+                    fingerprint = setup_hash(entry, config, snapshot.account_id)
+                    if state.protected_hashes.get(symbol) != fingerprint:
+                        updated.append(symbol)
+                    state.protected_hashes[symbol] = fingerprint
+                elif symbol in state.protected_hashes:
+                    state.protected_hashes.pop(symbol)
+                    removed.append(symbol)
+            append_locked(journal, "tactical.monitor", {
+                "state": state.model_dump(mode="json"),
+                "rebind": {"reason": reason.strip(), "config_hash": config_hash(config),
+                           "updated": updated, "removed": removed},
+            })
+        emit({"ok": True, "updated": updated, "removed": removed,
+              "orders_requested": 0, "submitted": False})
+    except (OSError, ValueError, KeyError, TypeError, RuntimeError) as exc:
+        fail(exc)
 
 
 def inputs(book: Path, account: Path, quotes: Path, orders: Path, journal: Path, config_root: Path, now: datetime):

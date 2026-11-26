@@ -117,6 +117,21 @@ def test_zero_fill_orders_from_a_past_session_are_finished():
     assert order_finished(vnq, today) and pending_intents([vnq], {}) == []
 
 
+def test_identical_duplicate_request_ids_are_allowed_but_changed_orders_are_not():
+    row = {"request_id": "same", "symbol": "US.NVDA", "side": "buy", "quantity": 10,
+           "limit_price": 150.0, "setup_hash": "a" * 64}
+    events = [{"type": "order.requested", "payload": row},
+              {"type": "order.requested", "payload": dict(row)}]
+    check_execution_journal(events, LifecycleState())
+    changed = events + [{"type": "order.requested", "payload": {**row, "limit_price": 151.0}}]
+    try:
+        check_execution_journal(changed, LifecycleState())
+    except Exception as exc:  # noqa: BLE001 - PaperApiError
+        assert "conflicting duplicate" in str(exc)
+    else:
+        raise AssertionError("a changed order with the same request id must block")
+
+
 def test_legacy_rows_without_request_ids_no_longer_block_the_reserve_check():
     events = [{"type": "order.requested", "payload": {"symbol": "US.VNQ", "side": "buy", "remark": "x"}},
               {"type": "order.requested", "payload": {"request_id": "a", "symbol": "US.SPY"}}]

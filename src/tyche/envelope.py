@@ -13,11 +13,10 @@ Every field of a proposed sell line has a source that is not an opinion:
   collar percentage (`risk.exit_collar_pct`); for a contract that stop has to be a premium
   (`premium_stop` in the journal), because an underlying price is not a price a contract
   can be sold at, and a floor invented by converting one would be an opinion;
-* `setup_hash` - copied verbatim from the journal, never recomputed. It folds in the
-  account id and the whole loaded config (`tactical.py:72`), so recomputation on another
-  machine or after a config edit yields a different string, and `tactical_cli.py:265`
-  refuses an envelope whose hash does not match. A draft that could not be bound is
-  reported as such rather than silently unbound.
+* `setup_hash` - copied from the journal, never recomputed. It folds in the account id
+  and the whole loaded config, so `tactical_cli.py` refuses an envelope whose hash does
+  not match. A deliberate `tactical rebind` writes a newer `tactical.monitor` hash for
+  the same held setup after an intentional rule change; it cannot create an order.
 
 An exit-only envelope deliberately carries no `max_notional`. Quantity and the per-name
 floor already bound an exit, and an exit that fills *above* its floor would consume budget
@@ -26,7 +25,7 @@ limits what can be spent.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime
 from typing import Literal
 
@@ -34,7 +33,7 @@ from pydantic import ValidationError
 
 from tyche.approvals import ApprovalBatch, ApprovalLine
 from tyche.models import AccountSnapshot, looks_like_option
-from tyche.tactical import PREMIUM_DRAWDOWN_FLOOR
+from tyche.tactical import PREMIUM_DRAWDOWN_FLOOR, MonitorState
 from tyche.watchlist import Watchlist, WatchlistEntry
 
 StopSource = Literal["journal_contract", "journal_order", "watchlist"]
@@ -107,14 +106,26 @@ def exit_levels(events: list[dict]) -> tuple[dict[str, ExitLevel], list[str]]:
 
     A later request wins over an earlier one: positions get re-planned, and the newest
     contract is the one the executor would honour (`tactical_cli.monitor_state` keeps the
-    same last-write-wins rule).
+    same last-write-wins rule). A newer monitor hash rebinds only an identical held setup.
     """
     levels: dict[str, ExitLevel] = {}
     problems: list[str] = []
     for event in events:
+        payload = event.get("payload") or {}
+        if event.get("type") == "tactical.monitor":
+            try:
+                state = MonitorState.model_validate(payload["state"])
+            except (KeyError, TypeError, ValidationError):
+                problems.append("tactical.monitor state unreadable; setup rebind ignored")
+                continue
+            for symbol, entry in state.protected.items():
+                level = levels.get(symbol)
+                rebound = state.protected_hashes.get(symbol)
+                if level is not None and level.entry == entry and rebound:
+                    levels[symbol] = replace(level, setup_hash=rebound)
+            continue
         if event.get("type") != "order.requested":
             continue
-        payload = event.get("payload") or {}
         symbol = payload.get("symbol")
         if not isinstance(symbol, str) or not symbol:
             problems.append(f"{event.get('type')} event without a symbol was ignored")

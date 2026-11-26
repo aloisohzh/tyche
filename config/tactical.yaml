@@ -26,9 +26,11 @@ max_review_age_seconds: 43200
 # The executor has ten minutes to send a reserved order before the reservation lapses unsent.
 submit_window_seconds: 600
 stock_spread_pct: 0.003
-option_spread_pct: 0.05
+# Operator re-freeze 2026-11-26: allow the researched KO call's 10% spread and 20-contract volume.
+# Loss, premium, allocation, open-interest, delta and expiry gates are unchanged.
+option_spread_pct: 0.10
 min_option_open_interest: 100
-min_option_volume: 50
+min_option_volume: 20
 min_option_dte: 2
 max_option_dte: 30
 option_exit_minutes_before_close: 45
