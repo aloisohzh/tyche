@@ -67,6 +67,24 @@ def test_order_rows_keep_manual_notes_and_merge_only_identical_requests(srv):
     assert all(order["conflict"] and order["status"] == "conflict" for order in conflict)
 
 
+def test_order_row_uses_the_journal_cancellation_without_broker_validation(srv):
+    events = [
+        {"ts": "2026-11-26T02:50:00+00:00", "type": "order.requested", "hash": "a" * 64,
+         "payload": {"request_id": "ko-exit", "symbol": "US.KO", "side": "sell",
+                     "quantity": 100, "limit_price": 105.0}},
+        {"ts": "2026-11-26T02:51:00+00:00", "type": "order.submitted", "hash": "b" * 64,
+         "payload": {"request_id": "ko-exit", "symbol": "US.KO",
+                     "side": "sell", "quantity": 100, "limit_price": 105.0}},
+        {"ts": "2026-11-26T02:52:00+00:00", "type": "order.cancelled", "hash": "c" * 64,
+         "payload": {"request_id": "ko-exit", "order_id": "42", "symbol": "US.KO",
+                     "side": "sell", "quantity": 100}},
+    ]
+    orders = srv.build_orders(events, {"fills": {}, "cancelled": {}})
+    assert len(orders) == 1
+    assert orders[0]["status"] == "cancelled"
+    assert [event["hash"] for event in orders[0]["events"]] == ["a" * 64, "b" * 64, "c" * 64]
+
+
 def test_arm_fresh_envelope(srv, desk):
     out = srv.arm_envelope({"max_orders": 2, "note": "test batch", "orders": LINES})
     assert out["ok"] and out["armed"]

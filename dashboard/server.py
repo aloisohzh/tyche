@@ -891,6 +891,20 @@ def build_orders(events: list[dict], validation: dict) -> list[dict]:
             rec["account"] = acct
         rec["events"].append({"ts": ev["ts"], "type": ev["type"], "hash": ev["hash"]})
     for ev in events:
+        if ev["type"] != "order.cancelled":
+            continue
+        p = ev["payload"]
+        oid = str(p.get("order_id")) if p.get("order_id") else None
+        rec = next((o for o in orders if oid and o["order_id"] == oid), None)
+        if rec is None and p.get("request_id"):
+            rec = next((o for o in orders if o["request_id"] == p["request_id"]
+                        and (not oid or not o["order_id"])), None)
+        if rec is None:
+            continue
+        if not rec.get("conflict"):
+            rec["status"] = "cancelled"
+        rec["events"].append({"ts": ev["ts"], "type": ev["type"], "hash": ev["hash"]})
+    for ev in events:
         if ev["type"] != "order.filled":
             continue
         p = ev["payload"]

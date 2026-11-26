@@ -93,7 +93,8 @@ class MonitorState(BaseModel):
 
 
 def config_hash(config: AppConfig) -> str:
-    data = config.model_dump(mode="json", exclude={"root"})
+    # Private account injection is an identity boundary, not a trading-rule change.
+    data = config.model_dump(mode="json", exclude={"root": True, "risk": {"account_allowlist"}})
     return hashlib.sha256(json.dumps(data, sort_keys=True).encode()).hexdigest()
 
 

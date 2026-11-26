@@ -20,7 +20,7 @@ from tyche.journal import append_event, journal_lock, read_events, verify_chain
 from tyche.market_calendar import ET
 from tyche.models import AccountSnapshot, OptionContract, OrderIntent, Position, Side, apply_fill
 from tyche.risk import RiskState, evaluate_intent
-from tyche.tactical import MarketQuote, MonitorState, plan_tick, setup_hash
+from tyche.tactical import MarketQuote, MonitorState, config_hash, plan_tick, setup_hash
 from tyche.trade_risk import compute_expectancy
 from tyche.watchlist import Factor, Outlook, Watchlist, WatchlistEntry
 
@@ -535,6 +535,15 @@ def test_setup_hash_changes_with_risk_or_exit_but_not_review_time():
     assert old == setup_hash(entry, config, "SIM-TEST")
     entry.stop += 1
     assert old != setup_hash(entry, config, "SIM-TEST")
+
+
+def test_private_account_injection_does_not_change_the_rules_fingerprint(monkeypatch):
+    monkeypatch.delenv("TYCHE_ALLOWED_ACCOUNT_IDS", raising=False)
+    before = load_config(ROOT)
+    monkeypatch.setenv("TYCHE_ALLOWED_ACCOUNT_IDS", "PRIVATE-PAPER-ID")
+    after = load_config(ROOT)
+    assert "PRIVATE-PAPER-ID" in after.risk.account_allowlist
+    assert config_hash(after) == config_hash(before)
 
 
 def test_held_setup_records_its_current_config_hash():
